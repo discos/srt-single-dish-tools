@@ -19,7 +19,7 @@ This README would normally document whatever steps are necessary to get your app
 
 ### Contribution guidelines ###
 
-See the Wiki
+See the [Wiki](https://bitbucket.org/srttools/srt-single-dish-tools/wiki/Home)
 
 ### Who do I talk to? ###
 
