@@ -28,6 +28,7 @@ def read_config(fname):
 
     config_output['projection'] = analysis_params['projection']
     config_output['interpolation'] = analysis_params['interpolation']
+    config_output['prefix'] = analysis_params['prefix']
 
     return config_output
 
