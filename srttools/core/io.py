@@ -5,10 +5,10 @@ import numpy as np
 
 def detect_data_kind(fname):
     '''Placeholder for function that recognizes data format.'''
-    return 'Filezilla'
+    return 'fitszilla'
 
 
-def print_obs_info_filezilla(fname):
+def print_obs_info_fitszilla(fname):
     '''Placeholder for function that prints out oberving information.'''
     lchdulist = fits.open(fname)
     section_table_data = lchdulist['SECTION TABLE'].data
@@ -24,11 +24,10 @@ def print_obs_info_filezilla(fname):
     print('Bandwidth      :', set(rf_input_data['bandWidth']))
 
     lchdulist.close()
-    pass
 
 
-def read_data_filezilla(fname):
-    '''Open a Filezilla FITS file and read all relevant information.'''
+def read_data_fitszilla(fname):
+    '''Open a fitszilla FITS file and read all relevant information.'''
     lchdulist = fits.open(fname)
 
     section_table_data = lchdulist['SECTION TABLE'].data
@@ -55,8 +54,8 @@ def read_data_filezilla(fname):
 def read_data(fname):
     '''Read the data, whatever the format, and return them'''
     kind = detect_data_kind(fname)
-    if kind == 'Filezilla':
-        return read_data_filezilla(fname)
+    if kind == 'fitszilla':
+        return read_data_fitszilla(fname)
 
 
 class Scan():
@@ -65,7 +64,7 @@ class Scan():
         self.table = read_data(fname)
 
 
-def test_open_data_filezilla():
+def test_open_data_fitszilla():
     '''Test that data are read.'''
     import os
     curdir = os.path.abspath(os.path.dirname(__file__))
@@ -73,7 +72,7 @@ def test_open_data_filezilla():
 
     fname = os.path.join(datadir, '20140603-103246-scicom-3C157',
                          '20140603-103246-scicom-3C157_003_003.fits')
-    print_obs_info_filezilla(fname)
+    print_obs_info_fitszilla(fname)
     table = read_data(fname)
     print(table)
 
