@@ -38,6 +38,11 @@ def read_data_fitszilla(fname):
     IFs = rf_input_data['ifChain']
     polarizations = rf_input_data['polarization']
 
+    feed_input_data = lchdulist['FEED TABLE'].data
+    xoffsets = feed_input_data['xOffset']
+    yoffsets = feed_input_data['yOffset']
+    relpowers = feed_input_data['relativePower']
+
     data_table_data = lchdulist['DATA TABLE'].data
 
     info_to_retrieve = ['time', 'raj2000', 'decj2000', 'az', 'el',
@@ -51,7 +56,11 @@ def read_data_fitszilla(fname):
         new_table['Ch{}'.format(i)] = data_table_data['Ch{}'.format(i)]
         new_table['Ch{}'.format(i)].meta = {'polarization': polarizations[i],
                                             'feed': feeds[i],
-                                            'IF': IFs[i]}
+                                            'IF': IFs[i],
+                                            'xoffset': xoffsets[feeds[i]],
+                                            'yoffset': yoffsets[feeds[i]],
+                                            'relpower': relpowers[feeds[i]],
+                                            }
 
     lchdulist.close()
     return new_table
@@ -76,6 +85,7 @@ def test_open_data_fitszilla():
     print_obs_info_fitszilla(fname)
     table = read_data(fname)
     print(table)
+    print(table['Ch0'].meta)
     for i in range(2):
         plt.plot(table.field('time'), table.field('Ch{}'.format(i))[:])
     plt.show()
