@@ -19,11 +19,12 @@ This README would normally document whatever steps are necessary to get your app
 
 ### Contribution guidelines ###
 
-* Writing tests
-* Code review
-* Other guidelines
+See the [Wiki](https://bitbucket.org/srttools/srt-single-dish-tools/wiki/Home)
 
 ### Who do I talk to? ###
 
-* Repo owner or admin
-* Other community or team contact
+* Alberto Pellizzoni
+* Matteo Bachetti
+* Elise Egron
+* Noemi Iacolina
+* (...)
