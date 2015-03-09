@@ -39,6 +39,8 @@ def read_data_fitszilla(fname):
     feeds = rf_input_data['feed']
     IFs = rf_input_data['ifChain']
     polarizations = rf_input_data['polarization']
+    frequencies = rf_input_data['frequency']
+    bandwidths = rf_input_data['bandWidth']
 
     feed_input_data = lchdulist['FEED TABLE'].data
     xoffsets = feed_input_data['xOffset']
@@ -59,6 +61,8 @@ def read_data_fitszilla(fname):
         new_table['Ch{}'.format(i)].meta = {'polarization': polarizations[i],
                                             'feed': feeds[i],
                                             'IF': IFs[i],
+                                            'frequency': frequencies[i],
+                                            'bandwidth': bandwidths[i],
                                             'xoffset': xoffsets[feeds[i]],
                                             'yoffset': yoffsets[feeds[i]],
                                             'relpower': relpowers[feeds[i]],
@@ -91,4 +95,3 @@ def test_open_data_fitszilla():
     for i in range(2):
         plt.plot(table.field('time'), table.field('Ch{}'.format(i))[:])
     plt.show()
-
