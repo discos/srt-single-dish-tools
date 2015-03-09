@@ -23,9 +23,19 @@ def rough_baseline_sub(time, lc):
     # only consider start and end quarters of image
     nbin = len(time)
     bins = np.arange(nbin, dtype=int)
-    good = np.logical_or(bins <= nbin / 4, bins >= nbin / 4 * 3)
-#    print(good, bins, bins[good], time[good], lc[good])
-    par, pcov = curve_fit(linear_fun, time[good], lc[good], [m0, q0])
+    sorted_els = np.argsort(lc)
+
+    # Select the lowest half elements
+    good = sorted_els[: nbin/2]
+#    good = np.logical_or(bins <= nbin / 4, bins >= nbin / 4 * 3)
+
+    time_filt = time[good]
+    lc_filt = lc[good]
+    back_in_order = np.argsort(time_filt)
+    lc_filt = lc_filt[back_in_order]
+    time_filt = time_filt[back_in_order]
+    par, pcov = curve_fit(linear_fun, time_filt, lc_filt, [m0, q0],
+                          maxfev=6000)
 
     return lc - linear_fun(time, *par)
 
@@ -219,17 +229,17 @@ def test_01_scan():
     print('Drawn')
 
 
-def test_02_scanset():
-    '''Test that sets of data are read.'''
-    import os
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
-                          'test_config.ini')
-
-    scanset = ScanSet(config)
-
-    scanset.save('test.hdf5')
+#def test_02_scanset():
+#    '''Test that sets of data are read.'''
+#    import os
+#    curdir = os.path.abspath(os.path.dirname(__file__))
+#    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+#                          'test_config.ini')
 #
+#    scanset = ScanSet(config)
+#
+#    scanset.save('test.hdf5')
+##
 
 def test_03_convert_coords():
     '''Test coordinate conversion.'''
