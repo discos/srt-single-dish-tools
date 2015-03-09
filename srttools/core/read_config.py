@@ -30,6 +30,9 @@ def read_config(fname=None):
         os.path.join(os.path.abspath(os.path.dirname(__file__)),
                      '..', '..', 'TEST_DATASET'))
     config_output['list_of_directories'] = '*'
+    config_output['reference_ra'] = None
+    config_output['reference_dec'] = None
+    config_output['npix'] = '32 32'
 
     # --------------------------------------------------------------------
 
@@ -56,6 +59,8 @@ def read_config(fname=None):
             [os.path.split(f)[1]  # return name without path
              for f in glob.glob(os.path.join(config_output['datadir'], '*'))
              if os.path.isdir(f)]  # only if it's a directory
+
+    config_output['npix'] = [int(n) for n in config_output['npix'].split()]
 
     return config_output
 
