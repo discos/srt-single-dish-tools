@@ -14,14 +14,14 @@ def print_obs_info_fitszilla(fname):
     section_table_data = lchdulist['SECTION TABLE'].data
     sample_rates = section_table_data['sampleRate']
 
-    print('Sample rate:', set(sample_rates))
+    print('Sample rates:', sample_rates)
 
     rf_input_data = lchdulist['RF INPUTS'].data
-    print('Feeds          :', set(rf_input_data['feed']))
-    print('IF             :', set(rf_input_data['ifChain']))
-    print('Polarizations  :', set(rf_input_data['polarization']))
-    print('Frequency      :', set(rf_input_data['frequency']))
-    print('Bandwidth      :', set(rf_input_data['bandWidth']))
+    print('Feeds          :', rf_input_data['feed'])
+    print('IFs            :', rf_input_data['ifChain'])
+    print('Polarizations  :', rf_input_data['polarization'])
+    print('Frequencies    :', rf_input_data['frequency'])
+    print('Bandwidths     :', rf_input_data['bandWidth'])
 
     lchdulist.close()
 
@@ -33,6 +33,11 @@ def read_data_fitszilla(fname):
     section_table_data = lchdulist['SECTION TABLE'].data
     chan_ids = section_table_data['id']
 
+    rf_input_data = lchdulist['RF INPUTS'].data
+    feeds = rf_input_data['feed']
+    IFs = rf_input_data['ifChain']
+    polarizations = rf_input_data['polarization']
+
     data_table_data = lchdulist['DATA TABLE'].data
 
     info_to_retrieve = ['time', 'raj2000', 'decj2000', 'az', 'el',
@@ -42,11 +47,11 @@ def read_data_fitszilla(fname):
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]
 
-    chans = np.zeros((len(new_table['time']), len(chan_ids)))
     for i in chan_ids:
-        chans[:, i] = data_table_data['Ch{}'.format(i)]
-
-    new_table['data'] = chans
+        new_table['Ch{}'.format(i)] = data_table_data['Ch{}'.format(i)]
+        new_table['Ch{}'.format(i)].meta = {'polarization': polarizations[i],
+                                            'feed': feeds[i],
+                                            'IF': IFs[i]}
 
     lchdulist.close()
     return new_table
@@ -72,6 +77,6 @@ def test_open_data_fitszilla():
     table = read_data(fname)
     print(table)
     for i in range(2):
-        plt.plot(table.field('time'), table.field('data')[:, i])
+        plt.plot(table.field('time'), table.field('Ch{}'.format(i))[:])
     plt.show()
 
