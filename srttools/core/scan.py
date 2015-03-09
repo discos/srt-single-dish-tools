@@ -104,6 +104,8 @@ class ScanSet():
             self.table = Table.read(tablefile, path='table')
             print(self.table)
 
+        self.chan_columns = [i for i in self.table.columns
+                             if i.startswith('Ch')]
         allras = self.table['raj2000']
         alldecs = self.table['decj2000']
         self.coordinates = np.array(list(zip(self.table['raj2000'],
@@ -148,6 +150,17 @@ class ScanSet():
         for s in self.scans:
             s.baseline_subtract()
         self.update_table(overwrite=True)
+
+    def calculate_images(self):
+        '''Obtain image from all scans'''
+        expomap, xedges, yedges = np.histogram2d(self.x, self.y,
+                                                 bins=self.config['npix'])
+        self.images = {}
+        for ch in self.chan_columns:
+            img, xedges, yedges = np.histogram2d(self.x, self.y,
+                                                 bins=self.config['npix'],
+                                                 weights=self.table[ch])
+            self.images[ch] = img / expomap
 
 
 def test_01_scan():
@@ -212,13 +225,10 @@ def test_04_rough_image():
 
     import matplotlib.pyplot as plt
 
-    expomap, xedges, yedges = np.histogram2d(scanset.x, scanset.y,
-                                             bins=config['npix'])
-    img, xedges, yedges = np.histogram2d(scanset.x, scanset.y,
-                                         bins=config['npix'],
-                                         weights=scanset.table['Ch0'])
+    scanset.calculate_images()
 
-    print(img, expomap, img/expomap)
-    plt.imshow(img / expomap)
+    img = scanset.images['Ch0']
+
+    plt.imshow(img)
     plt.ioff()
     plt.show()
