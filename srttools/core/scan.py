@@ -4,44 +4,153 @@ from .io import read_data
 import glob
 from .read_config import read_config
 import os
+import numpy as np
+from astropy import wcs
+from astropy.table import Table, vstack
+import logging
 
 
 class Scan():
     '''Class containing a single scan'''
-    def __init__(self, fname):
+    def __init__(self, fname, config_file=None, config=None):
         self.filename = fname
+        assert config_file is not None or config is not None, \
+            'Please specify either a config file or a config dictionary'
+        self.config_file = config_file
+        self.config = config
+        if config is None:
+            self.config = read_config(config_file)
         self.table = read_data(fname)
+        self.chan_columns = [i for i in self.table.columns
+                             if i.startswith('Ch')]
+
+        self.nrows = len(self.table)
+
+        self._update()
+
+    def _update(self):
+        '''Internally copy selected columns to attributes of the class.'''
         for col in self.table.columns:
             setattr(self, col, self.table.field(col))
 
+    def update(self, name, value):
+        '''Update the table and the attributes.'''
+
+        if len(value) == self.nrows:
+            self.table[name] = value
+            self._update()
+        else:
+            self.__dict__[name] = value
+
     def baseline_subtract(self):
+        '''Subtract the baseline.'''
         pass
 
     def __repr__(self):
+        '''Give the print() function something to print.'''
         reprstring = '\n\n----Scan from file {} ----\n'.format(self.filename)
         reprstring += repr(self.table)
         return reprstring
 
+    def correct_coordinates(self):
+        '''Correct coordinates for feed position.
+
+        Uses the metadata in the channel columns xoffset and yoffset'''
+        pass
+
 
 class ScanSet():
-    def __init__(self, config_file=None):
+    '''Class containing a set of scans'''
+    def __init__(self, config_file=None, tablefile=None):
         self.config = read_config(config_file)
-        self.scans = []
-        datadir = self.config['datadir']
-        dirlist = self.config['list_of_directories']
-        for d in dirlist:
-            for f in glob.glob(os.path.join(datadir, d, '*')):
-                self.scans.append(Scan(f))
+        self.config_file = config_file
+
+        if tablefile is None:
+            self.scans = self.load_scans()
+            self.table = Table()
+            self.update_table()
+        else:
+            self.table = Table()
+            self.update_table(tablefile=tablefile)
 
     def __repr__(self):
+        '''Give the print() function something to print.'''
         reprstring = ''
         for s in self.scans:
             reprstring += repr(s)
 
         return reprstring
 
+    def load_scans(self):
+        scans = []
 
-def test_scan():
+        datadir = self.config['datadir']
+        dirlist = self.config['list_of_directories']
+        for d in dirlist:
+            for f in glob.glob(os.path.join(datadir, d, '*')):
+                scans.append(Scan(f, self.config_file, self.config))
+        return scans
+
+    def update_table(self, overwrite=False, tablefile=None):
+        '''Update the table with all the subscans.'''
+
+        if overwrite:
+            self.table = Table()
+
+        if tablefile is None:
+            for s in self.scans:
+                self.table = vstack((self.table, s.table))
+        else:
+            self.table = Table.read(tablefile, path='table')
+            print(self.table)
+
+        allras = self.table['raj2000']
+        alldecs = self.table['decj2000']
+        self.coordinates = np.array(list(zip(self.table['raj2000'],
+                                             self.table['decj2000'])))
+        self.mean_ra = np.mean(allras)
+        self.mean_dec = np.mean(alldecs)
+        self.min_ra = np.min(allras)
+        self.min_dec = np.min(alldecs)
+        self.max_ra = np.max(allras)
+        self.max_dec = np.max(alldecs)
+
+    def convert_coordinates(self):
+        '''Convert the coordinates from sky to pixel.'''
+
+        npix = np.array([int(n) for n in self.config['npix']])
+        w = wcs.WCS(naxis=2)
+        w.wcs.crpix = npix / 2
+        delta_ra = self.max_ra - self.min_ra
+        delta_dec = self.max_dec - self.min_dec
+        w.wcs.cdelt = np.array([delta_ra / npix[0],
+                                delta_dec / npix[1]])
+        if self.config['reference_ra'] is None:
+            ref_ra = self.mean_ra
+        if self.config['reference_dec'] is None:
+            ref_dec = self.mean_dec
+        w.wcs.crval = np.array([ref_ra, ref_dec])
+        w.wcs.ctype = ["RA---{}".format(self.config['projection']),
+                       "DEC--{}".format(self.config['projection'])]
+
+        pixcrd = w.wcs_world2pix(self.coordinates, 1)
+
+        self.x = pixcrd[:, 0]
+        self.y = pixcrd[:, 1]
+
+    def save(self, filename=None):
+        if filename is None:
+            filename = 'bu.hd5'
+        self.table.write(filename, path='table', overwrite=True)
+
+    def baseline_subtract(self):
+        '''Subtract the baseline from all scans.'''
+        for s in self.scans:
+            s.baseline_subtract()
+        self.update_table(overwrite=True)
+
+
+def test_01_scan():
     '''Test that data are read.'''
     import os
     import matplotlib.pyplot as plt
@@ -51,20 +160,65 @@ def test_scan():
     fname = os.path.join(datadir, '20140603-103246-scicom-3C157',
                          '20140603-103246-scicom-3C157_003_003.fits')
 
-    scan = Scan(fname)
+    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+                          'test_config.ini')
 
-    for i in range(2):
-        plt.plot(scan.time, scan.data[:, i])
-    plt.show()
+    scan = Scan(fname, config)
+
+    plt.ion()
+    for col in scan.chan_columns:
+        plt.plot(scan.time, getattr(scan, col))
+    plt.draw()
+    print('Drawn')
 
 
-def test_scanset():
-    '''Test that sets of data are read.'''
-    import os
+#def test_02_scanset():
+#    '''Test that sets of data are read.'''
+#    import os
+#    curdir = os.path.abspath(os.path.dirname(__file__))
+#    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+#                          'test_config.ini')
+#
+#    scanset = ScanSet(config)
+#
+#    scanset.save('test.hdf5')
+#
+
+def test_03_convert_coords():
+    '''Test coordinate conversion.'''
+
     curdir = os.path.abspath(os.path.dirname(__file__))
     config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
                           'test_config.ini')
 
-    scanset = ScanSet(config)
+    scanset = ScanSet(config, tablefile='test.hdf5')
 
-    print(scanset)
+    scanset.convert_coordinates()
+    print(np.array(list(zip(scanset.x, scanset.y))))
+    scanset.save('test_coord.hdf5')
+
+
+def test_04_rough_image():
+    '''Test coordinate conversion.'''
+
+    curdir = os.path.abspath(os.path.dirname(__file__))
+    config_file = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+                               'test_config.ini')
+
+    config = read_config(config_file)
+    scanset = ScanSet(config_file, tablefile='test_coord.hdf5')
+
+    scanset.convert_coordinates()
+
+    import matplotlib.pyplot as plt
+
+    expomap, xedges, yedges = np.histogram2d(scanset.x, scanset.y,
+                                             bins=config['npix'])
+    img, xedges, yedges = np.histogram2d(scanset.x, scanset.y,
+                                         bins=config['npix'],
+                                         weights=scanset.table['Ch0'])
+
+    print(img, expomap, img/expomap)
+    plt.imshow(img / expomap)
+    plt.ioff()
+    plt.show()
