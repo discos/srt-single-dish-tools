@@ -7,12 +7,15 @@ except ImportError:
     import ConfigParser as configparser
 
 
-def read_config(fname):
+def read_config(fname=None):
     '''Read a config file and return a dictionary of all entries'''
 
     config_output = {}
 
     Config = configparser.ConfigParser()
+
+    if fname is None:
+        fname = 'config.ini'
 
     Config.read(fname)
 
@@ -51,6 +54,7 @@ def read_config(fname):
             [os.path.split(f)[1]  # return name without path
              for f in glob.glob(os.path.join(config_output['datadir'], '*'))
              if os.path.isdir(f)]  # only if it's a directory
+
     return config_output
 
 
