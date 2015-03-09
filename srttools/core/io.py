@@ -1,3 +1,5 @@
+from __future__ import (absolute_import, unicode_literals, division,
+                        print_function)
 import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
