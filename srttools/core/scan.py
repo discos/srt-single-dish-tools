@@ -8,6 +8,26 @@ import numpy as np
 from astropy import wcs
 from astropy.table import Table, vstack
 import logging
+from scipy.optimize import curve_fit
+
+
+def linear_fun(x, m, q):
+    return m * x + q
+
+
+def rough_baseline_sub(time, lc):
+    '''Rough function to subtract the baseline'''
+    m0 = 0
+    q0 = min(lc)
+
+    # only consider start and end quarters of image
+    nbin = len(time)
+    bins = np.arange(nbin, dtype=int)
+    good = np.logical_or(bins <= nbin / 4, bins >= nbin / 4 * 3)
+#    print(good, bins, bins[good], time[good], lc[good])
+    par, pcov = curve_fit(linear_fun, time[good], lc[good], [m0, q0])
+
+    return lc - linear_fun(time, *par)
 
 
 class Scan():
@@ -26,6 +46,7 @@ class Scan():
 
         self.nrows = len(self.table)
 
+        self.baseline_subtract()
         self._update()
 
     def _update(self):
@@ -42,8 +63,15 @@ class Scan():
         else:
             self.__dict__[name] = value
 
-    def baseline_subtract(self):
+    def baseline_subtract(self, kind='rough'):
         '''Subtract the baseline.'''
+        if kind == 'rough':
+            for col in self.chan_columns:
+                self.table[col] = rough_baseline_sub(self.table['time'],
+                                                     self.table[col])
+
+    def zap_birdies(self):
+        '''Zap bad intervals.'''
         pass
 
     def __repr__(self):
@@ -145,10 +173,16 @@ class ScanSet():
             filename = 'bu.hd5'
         self.table.write(filename, path='table', overwrite=True)
 
-    def baseline_subtract(self):
+    def baseline_subtract(self, kind='rough'):
         '''Subtract the baseline from all scans.'''
         for s in self.scans:
-            s.baseline_subtract()
+            s.baseline_subtract(kind)
+        self.update_table(overwrite=True)
+
+    def zap_birdies(self):
+        '''Zap bad intervals.'''
+        for s in self.scans:
+            s.zap_birdies()
         self.update_table(overwrite=True)
 
     def calculate_images(self):
@@ -185,16 +219,16 @@ def test_01_scan():
     print('Drawn')
 
 
-#def test_02_scanset():
-#    '''Test that sets of data are read.'''
-#    import os
-#    curdir = os.path.abspath(os.path.dirname(__file__))
-#    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
-#                          'test_config.ini')
-#
-#    scanset = ScanSet(config)
-#
-#    scanset.save('test.hdf5')
+def test_02_scanset():
+    '''Test that sets of data are read.'''
+    import os
+    curdir = os.path.abspath(os.path.dirname(__file__))
+    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+                          'test_config.ini')
+
+    scanset = ScanSet(config)
+
+    scanset.save('test.hdf5')
 #
 
 def test_03_convert_coords():
