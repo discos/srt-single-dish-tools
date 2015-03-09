@@ -35,7 +35,8 @@ def read_data_fitszilla(fname):
 
     data_table_data = lchdulist['DATA TABLE'].data
 
-    info_to_retrieve = ['time', 'raj2000', 'decj2000', 'az', 'el', 'derot_angle']
+    info_to_retrieve = ['time', 'raj2000', 'decj2000', 'az', 'el',
+                        'derot_angle']
 
     new_table = Table()
     for info in info_to_retrieve:
@@ -58,15 +59,10 @@ def read_data(fname):
         return read_data_fitszilla(fname)
 
 
-class Scan():
-    '''Class containing a single scan'''
-    def __init__(self, fname):
-        self.table = read_data(fname)
-
-
 def test_open_data_fitszilla():
     '''Test that data are read.'''
     import os
+    import matplotlib.pyplot as plt
     curdir = os.path.abspath(os.path.dirname(__file__))
     datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
 
@@ -75,4 +71,7 @@ def test_open_data_fitszilla():
     print_obs_info_fitszilla(fname)
     table = read_data(fname)
     print(table)
+    for i in range(2):
+        plt.plot(table.field('time'), table.field('data')[:, i])
+    plt.show()
 
