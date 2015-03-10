@@ -9,6 +9,7 @@ from astropy import wcs
 from astropy.table import Table, vstack
 import logging
 from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
 
 
 def linear_fun(x, m, q):
@@ -22,27 +23,31 @@ def rough_baseline_sub(time, lc):
 
     # only consider start and end quarters of image
     nbin = len(time)
-    bins = np.arange(nbin, dtype=int)
-    sorted_els = np.argsort(lc)
+#    bins = np.arange(nbin, dtype=int)
 
-    # Select the lowest half elements
-    good = sorted_els[: nbin/2]
-#    good = np.logical_or(bins <= nbin / 4, bins >= nbin / 4 * 3)
+    for percentage in [0.8, 0.15]:
+        sorted_els = np.argsort(lc)
+        # Select the lowest half elements
+        good = sorted_els[: int(nbin * percentage)]
+    #    good = np.logical_or(bins <= nbin / 4, bins >= nbin / 4 * 3)
 
-    time_filt = time[good]
-    lc_filt = lc[good]
-    back_in_order = np.argsort(time_filt)
-    lc_filt = lc_filt[back_in_order]
-    time_filt = time_filt[back_in_order]
-    par, pcov = curve_fit(linear_fun, time_filt, lc_filt, [m0, q0],
-                          maxfev=6000)
+        time_filt = time[good]
+        lc_filt = lc[good]
+        back_in_order = np.argsort(time_filt)
+        lc_filt = lc_filt[back_in_order]
+        time_filt = time_filt[back_in_order]
+        par, pcov = curve_fit(linear_fun, time_filt, lc_filt, [m0, q0],
+                              maxfev=6000)
 
-    return lc - linear_fun(time, *par)
+        lc -= linear_fun(time, *par)
+
+    return lc
 
 
 class Scan():
     '''Class containing a single scan'''
     def __init__(self, fname, config_file=None, config=None):
+        print('Loading file {}'.format(fname))
         self.filename = fname
         assert config_file is not None or config is not None, \
             'Please specify either a config file or a config dictionary'
@@ -210,7 +215,6 @@ class ScanSet():
 def test_01_scan():
     '''Test that data are read.'''
     import os
-    import matplotlib.pyplot as plt
     curdir = os.path.abspath(os.path.dirname(__file__))
     datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
 
@@ -239,7 +243,7 @@ def test_01_scan():
 #    scanset = ScanSet(config)
 #
 #    scanset.save('test.hdf5')
-##
+#
 
 def test_03_convert_coords():
     '''Test coordinate conversion.'''
@@ -249,6 +253,10 @@ def test_03_convert_coords():
                           'test_config.ini')
 
     scanset = ScanSet(config, tablefile='test.hdf5')
+
+    plt.figure('whole')
+    for col in scanset.chan_columns:
+        plt.plot(scanset.table['time'], scanset.table[col])
 
     scanset.convert_coordinates()
     print(np.array(list(zip(scanset.x, scanset.y))))
@@ -262,7 +270,7 @@ def test_04_rough_image():
     config_file = os.path.join(curdir, '..', '..', 'TEST_DATASET',
                                'test_config.ini')
 
-    config = read_config(config_file)
+#    config = read_config(config_file)
     scanset = ScanSet(config_file, tablefile='test_coord.hdf5')
 
     scanset.convert_coordinates()
@@ -273,6 +281,8 @@ def test_04_rough_image():
 
     img = scanset.images['Ch0']
 
+    plt.figure('img')
     plt.imshow(img)
+    plt.colorbar()
     plt.ioff()
     plt.show()
