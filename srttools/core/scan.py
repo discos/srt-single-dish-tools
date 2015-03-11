@@ -68,6 +68,7 @@ class Scan(Table):
 
             self.meta.update(read_config(self.meta['config_file']))
 
+        self.check_order()
         self.baseline_subtract()
 
     def chan_columns(self):
@@ -101,6 +102,11 @@ class Scan(Table):
     def write(self, fname, **kwargs):
         t = Table(self)
         t.write(fname, path='scan', **kwargs)
+
+    def check_order(self):
+        '''Check that times in a scan are monotonically increasing'''
+        assert np.all(self['time'] == np.sort(self['time'])), \
+            'The order of times in the table is wrong'
 
 
 class ScanSet(Table):
