@@ -98,6 +98,10 @@ class Scan(Table):
         Uses the metadata in the channel columns xoffset and yoffset'''
         pass
 
+    def write(self, fname, **kwargs):
+        t = Table(self)
+        t.write(fname, path='scan', **kwargs)
+
 
 class ScanSet(Table):
     '''Class containing a set of scans'''
@@ -195,6 +199,10 @@ class ScanSet(Table):
 
         return images
 
+    def write(self, fname, **kwargs):
+        t = Table(self)
+        t.write(fname, path='scanset', **kwargs)
+
 
 def test_01_scan():
     '''Test that data are read.'''
@@ -215,17 +223,18 @@ def test_01_scan():
 
     scan = Scan(fname)
 
+    scan.write('scan.hdf5', overwrite=True)
+    print('Drawn')
+
+
+def test_01b_read_scan():
+    scan = Scan('scan.hdf5')
     plt.ion()
     for col in scan.chan_columns():
         plt.plot(scan['time'], scan[col])
     plt.draw()
 
-    scan.write('scan.hdf5', path='scan', overwrite=True)
-    print('Drawn')
-
-
-def test_01b_read_scan():
-    scan = Scan(Table.read('scan.hdf5', path='scan'))
+    return scan
 
 
 def test_02_scanset():
@@ -237,7 +246,7 @@ def test_02_scanset():
 
     scanset = ScanSet(config)
 
-    scanset.write('test.hdf5', path='scanset', overwrite=True)
+    scanset.write('test.hdf5', overwrite=True)
 
 
 def test_03_rough_image():
