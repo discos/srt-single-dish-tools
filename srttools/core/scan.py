@@ -100,6 +100,7 @@ class Scan(Table):
         pass
 
     def write(self, fname, **kwargs):
+        '''Set default path and call Table.write'''
         t = Table(self)
         t.write(fname, path='scan', **kwargs)
 
@@ -206,6 +207,7 @@ class ScanSet(Table):
         return images
 
     def write(self, fname, **kwargs):
+        '''Set default path and call Table.write'''
         t = Table(self)
         t.write(fname, path='scanset', **kwargs)
 
