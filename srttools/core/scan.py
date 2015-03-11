@@ -7,6 +7,7 @@ import os
 import numpy as np
 from astropy import wcs
 from astropy.table import Table, vstack
+import astropy.io.fits as fits
 import logging
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
@@ -167,26 +168,33 @@ class ScanSet(Table):
         return np.array(list(zip(self['raj2000'],
                                  self['decj2000'])))
 
-    def convert_coordinates(self):
-        '''Convert the coordinates from sky to pixel.'''
-
-        npix = np.array([int(n) for n in self.meta['npix']])
-        w = wcs.WCS(naxis=2)
-        w.wcs.crpix = npix / 2
+    def create_wcs(self):
+        npix = self.meta['npix']
+        self.meta['wcs_crpix'] = npix / 2
         delta_ra = self.meta['max_ra'] - self.meta['min_ra']
         delta_dec = self.meta['max_dec'] - self.meta['min_dec']
-        w.wcs.cdelt = np.array([delta_ra / npix[0],
-                                delta_dec / npix[1]])
+
         if not hasattr(self.meta, 'reference_ra'):
             self.meta['reference_ra'] = self.meta['mean_ra']
         if not hasattr(self.meta, 'reference_dec'):
             self.meta['reference_dec'] = self.meta['mean_dec']
+        self.meta['wcs_crval'] = np.array([self.meta['reference_ra'],
+                                           self.meta['reference_dec']])
+        self.meta['wcs_cdelt'] = np.array([delta_ra / npix[0],
+                                           delta_dec / npix[1]])
+        self.meta['wcs_ctype'] = ["RA---{}".format(self.meta['projection']),
+                                  "DEC--{}".format(self.meta['projection'])]
 
-        w.wcs.crval = np.array([self.meta['reference_ra'],
-                                self.meta['reference_dec']])
+    def convert_coordinates(self):
+        '''Convert the coordinates from sky to pixel.'''
 
-        w.wcs.ctype = ["RA---{}".format(self.meta['projection']),
-                       "DEC--{}".format(self.meta['projection'])]
+        self.create_wcs()
+
+        w = wcs.WCS(naxis=2)
+        w.wcs.crpix = self.meta['wcs_crpix']
+        w.wcs.cdelt = self.meta['wcs_cdelt']
+        w.wcs.crval = self.meta['wcs_crval']
+        w.wcs.ctype = self.meta['wcs_ctype']
 
         pixcrd = w.wcs_world2pix(self.get_coordinates(), 1)
 
@@ -210,6 +218,26 @@ class ScanSet(Table):
         '''Set default path and call Table.write'''
         t = Table(self)
         t.write(fname, path='scanset', **kwargs)
+
+    def save_ds9_images(self):
+        images = self.calculate_images()
+        self.create_wcs()
+        w = wcs.WCS(naxis=2)
+        w.wcs.crpix = self.meta['wcs_crpix']
+        w.wcs.cdelt = self.meta['wcs_cdelt']
+        w.wcs.crval = self.meta['wcs_crval']
+        w.wcs.ctype = self.meta['wcs_ctype']
+
+        hdulist = fits.HDUList()
+        header = w.to_header()
+        hdu = fits.PrimaryHDU(header=header)
+        hdulist.append(hdu)
+        for ic, ch in enumerate(self.meta['chan_columns']):
+            header = w.to_header()
+
+            hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
+            hdulist.append(hdu)
+        hdulist.writeto('img.fits', clobber=True)
 
 
 def test_01_scan():
@@ -273,3 +301,10 @@ def test_03_rough_image():
     plt.colorbar()
     plt.ioff()
     plt.show()
+
+def test_04_ds9_image():
+    '''Test image production.'''
+
+    scanset = ScanSet.read('test.hdf5')
+
+    scanset.save_ds9_images()
