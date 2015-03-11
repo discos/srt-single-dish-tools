@@ -9,8 +9,28 @@ except ImportError:
     import ConfigParser as configparser
 
 
+SRT_tools_config_file = None
+SRT_tools_config = None
+
+
+def get_config_file():
+    return SRT_tools_config_file
+
+
 def read_config(fname=None):
     '''Read a config file and return a dictionary of all entries'''
+    global SRT_tools_config_file, SRT_tools_config
+
+    # --- If already read, use existing config ---
+
+    print(fname)
+    if fname == SRT_tools_config_file and SRT_tools_config is not None:
+        return SRT_tools_config
+
+    if fname is None and SRT_tools_config is not None:
+        return SRT_tools_config
+
+    # ---------------------------------------------
 
     config_output = {}
 
@@ -19,6 +39,7 @@ def read_config(fname=None):
     if fname is None:
         fname = 'config.ini'
 
+    SRT_tools_config_file = fname
     Config.read(fname)
 
     # ---------- Set default values --------------------------------------
@@ -30,8 +51,6 @@ def read_config(fname=None):
         os.path.join(os.path.abspath(os.path.dirname(__file__)),
                      '..', '..', 'TEST_DATASET'))
     config_output['list_of_directories'] = '*'
-    config_output['reference_ra'] = None
-    config_output['reference_dec'] = None
     config_output['npix'] = '32 32'
 
     # --------------------------------------------------------------------
@@ -62,6 +81,7 @@ def read_config(fname=None):
 
     config_output['npix'] = [int(n) for n in config_output['npix'].split()]
 
+    SRT_tools_config = config_output
     return config_output
 
 
