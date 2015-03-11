@@ -7,7 +7,10 @@ import numpy as np
 
 def detect_data_kind(fname):
     '''Placeholder for function that recognizes data format.'''
-    return 'fitszilla'
+    if fname.endswith('.hdf5'):
+        return 'hdf5'
+    else:
+        return 'fitszilla'
 
 
 def print_obs_info_fitszilla(fname):
@@ -77,6 +80,8 @@ def read_data(fname):
     kind = detect_data_kind(fname)
     if kind == 'fitszilla':
         return read_data_fitszilla(fname)
+    elif kind == 'hdf5':
+        return Table.read(fname)
 
 
 def test_open_data_fitszilla():
