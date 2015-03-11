@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 
 
 def linear_fun(x, m, q):
+    '''A linear function'''
     return m * x + q
 
 
@@ -70,6 +71,7 @@ class Scan(Table):
         self.baseline_subtract()
 
     def chan_columns(self):
+        '''List columns containing samples'''
         return [i for i in self.columns
                 if i.startswith('Ch')]
 
@@ -136,6 +138,7 @@ class ScanSet(Table):
             self.convert_coordinates()
 
     def list_scans(self, datadir, dirlist):
+        '''List all scans contained in the directory listed in config'''
         scan_list = []
 
         for d in dirlist:
@@ -144,15 +147,12 @@ class ScanSet(Table):
         return scan_list
 
     def load_scans(self):
-#        scans = []
-
+        '''Load the scans in the list one by ones'''
         for f in self.meta['scan_list']:
-#            print(f)
-#            scans.append(Scan(f))
             yield Scan(f)
-#        return scans
 
     def get_coordinates(self):
+        '''Give the coordinates as pairs of RA, DEC'''
         return np.array(list(zip(self['raj2000'],
                                  self['decj2000'])))
 
