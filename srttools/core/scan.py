@@ -117,6 +117,7 @@ class ScanSet(Table):
 
         if isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
+
             self.create_wcs()
         else:  # data is a config file
             config_file = data
@@ -174,7 +175,7 @@ class ScanSet(Table):
         npix = np.array(self.meta['npix'])
         self.wcs = wcs.WCS(naxis=2)
 
-        self.wcs.crpix = npix / 2
+        self.wcs.wcs.crpix = npix / 2
         delta_ra = self.meta['max_ra'] - self.meta['min_ra']
         delta_dec = self.meta['max_dec'] - self.meta['min_dec']
 
@@ -182,12 +183,12 @@ class ScanSet(Table):
             self.meta['reference_ra'] = self.meta['mean_ra']
         if not hasattr(self.meta, 'reference_dec'):
             self.meta['reference_dec'] = self.meta['mean_dec']
-        self.wcs.crval = np.array([self.meta['reference_ra'],
-                                   self.meta['reference_dec']])
-        self.wcs.cdelt = np.array([delta_ra / npix[0],
-                                   delta_dec / npix[1]])
-        self.wcs.ctype = ["RA---{}".format(self.meta['projection']),
-                          "DEC--{}".format(self.meta['projection'])]
+        self.wcs.wcs.crval = np.array([self.meta['reference_ra'],
+                                       self.meta['reference_dec']])
+        self.wcs.wcs.cdelt = np.array([-delta_ra / npix[0],
+                                       delta_dec / npix[1]])
+        self.wcs.wcs.ctype = ["RA---{}".format(self.meta['projection']),
+                              "DEC--{}".format(self.meta['projection'])]
 
     def convert_coordinates(self):
         '''Convert the coordinates from sky to pixel.'''
@@ -226,12 +227,11 @@ class ScanSet(Table):
         self.create_wcs()
 
         hdulist = fits.HDUList()
+
         header = self.wcs.to_header()
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
         for ic, ch in enumerate(self.chan_columns):
-            header = self.wcs.to_header()
-
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
         hdulist.writeto('img.fits', clobber=True)
@@ -296,7 +296,6 @@ def test_03_rough_image():
     plt.figure('img')
     plt.imshow(img)
     plt.colorbar()
-#    plt.ioff()
     plt.show()
 
 
