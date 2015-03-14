@@ -207,7 +207,12 @@ class ScanSet(Table):
             img, xedges, yedges = np.histogram2d(self['x'], self['y'],
                                                  bins=self.meta['npix'],
                                                  weights=self[ch])
-            images[ch] = img / expomap
+            img_sq, _, _ = np.histogram2d(self['x'], self['y'],
+                                          bins=self.meta['npix'],
+                                          weights=self[ch] ** 2)
+            mean = img / expomap
+            images[ch] = mean
+            images['{}-Sdev'.format(ch)] = img_sq / expomap - mean ** 2
 
         return images
 
@@ -290,6 +295,24 @@ def test_03_rough_image():
 
     plt.figure('img')
     plt.imshow(img)
+    plt.colorbar()
+#    plt.ioff()
+    plt.show()
+
+
+def test_03_image_stdev():
+    '''Test image production.'''
+
+    scanset = ScanSet(Table.read('test.hdf5', path='scanset'))
+
+    import matplotlib.pyplot as plt
+
+    images = scanset.calculate_images()
+
+    img = images['Ch0-Sdev']
+
+    plt.figure('log(img-Sdev)')
+    plt.imshow(np.log10(img))
     plt.colorbar()
     plt.ioff()
     plt.show()
