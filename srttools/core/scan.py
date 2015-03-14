@@ -69,8 +69,8 @@ class Scan(Table):
 
             self.meta.update(read_config(self.meta['config_file']))
 
-#        self.check_order()
-        self.baseline_subtract()
+            self.check_order()
+            self.baseline_subtract()
 
     def chan_columns(self):
         '''List columns containing samples'''
