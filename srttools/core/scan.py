@@ -234,6 +234,9 @@ class ScanSet(Table):
         for ic, ch in enumerate(self.chan_columns):
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
+            hdu = fits.ImageHDU(images['ch{}-Sdev'.format(ch)], header=header,
+                                name='IMG{}-Sdev'.format(ch))
+            hdulist.append(hdu)
         hdulist.writeto('img.fits', clobber=True)
 
 
