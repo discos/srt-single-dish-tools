@@ -201,13 +201,13 @@ class ScanSet(Table):
 
     def calculate_images(self):
         '''Obtain image from all scans'''
-        expomap, xedges, yedges = np.histogram2d(self['x'], self['y'],
-                                                 bins=self.meta['npix'])
+        expomap, _, _ = np.histogram2d(self['x'], self['y'],
+                                       bins=self.meta['npix'])
         images = {}
         for ch in self.chan_columns:
-            img, xedges, yedges = np.histogram2d(self['x'], self['y'],
-                                                 bins=self.meta['npix'],
-                                                 weights=self[ch])
+            img, _, _ = np.histogram2d(self['x'], self['y'],
+                                       bins=self.meta['npix'],
+                                       weights=self[ch])
             img_sq, _, _ = np.histogram2d(self['x'], self['y'],
                                           bins=self.meta['npix'],
                                           weights=self[ch] ** 2)
