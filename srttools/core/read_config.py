@@ -23,7 +23,6 @@ def read_config(fname=None):
 
     # --- If already read, use existing config ---
 
-    print(fname)
     if fname == SRT_tools_config_file and SRT_tools_config is not None:
         return SRT_tools_config
 
