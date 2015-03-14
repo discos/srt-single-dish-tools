@@ -69,13 +69,13 @@ class Scan(Table):
 
             self.meta.update(read_config(self.meta['config_file']))
 
-        self.check_order()
+#        self.check_order()
         self.baseline_subtract()
 
     def chan_columns(self):
         '''List columns containing samples'''
-        return [i for i in self.columns
-                if i.startswith('Ch')]
+        return np.array([i for i in self.columns
+                         if i.startswith('Ch')])
 
     def baseline_subtract(self, kind='rough'):
         '''Subtract the baseline.'''
@@ -117,6 +117,7 @@ class ScanSet(Table):
 
         if isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
+            self.create_wcs()
         else:  # data is a config file
             config_file = data
             config = read_config(config_file)
@@ -135,8 +136,6 @@ class ScanSet(Table):
             self.meta.update(config)
             self.meta['config_file'] = get_config_file()
 
-            self.meta['chan_columns'] = [i for i in self.columns
-                                         if i.startswith('Ch')]
             allras = self['raj2000']
             alldecs = self['decj2000']
 
@@ -148,6 +147,9 @@ class ScanSet(Table):
             self.meta['max_dec'] = np.max(alldecs)
 
             self.convert_coordinates()
+
+        self.chan_columns = [i for i in self.columns
+                             if i.startswith('Ch')]
 
     def list_scans(self, datadir, dirlist):
         '''List all scans contained in the directory listed in config'''
@@ -169,8 +171,10 @@ class ScanSet(Table):
                                  self['decj2000'])))
 
     def create_wcs(self):
-        npix = self.meta['npix']
-        self.meta['wcs_crpix'] = npix / 2
+        npix = np.array(self.meta['npix'])
+        self.wcs = wcs.WCS(naxis=2)
+
+        self.wcs.crpix = npix / 2
         delta_ra = self.meta['max_ra'] - self.meta['min_ra']
         delta_dec = self.meta['max_dec'] - self.meta['min_dec']
 
@@ -178,25 +182,18 @@ class ScanSet(Table):
             self.meta['reference_ra'] = self.meta['mean_ra']
         if not hasattr(self.meta, 'reference_dec'):
             self.meta['reference_dec'] = self.meta['mean_dec']
-        self.meta['wcs_crval'] = np.array([self.meta['reference_ra'],
-                                           self.meta['reference_dec']])
-        self.meta['wcs_cdelt'] = np.array([delta_ra / npix[0],
-                                           delta_dec / npix[1]])
-        self.meta['wcs_ctype'] = ["RA---{}".format(self.meta['projection']),
-                                  "DEC--{}".format(self.meta['projection'])]
+        self.wcs.crval = np.array([self.meta['reference_ra'],
+                                   self.meta['reference_dec']])
+        self.wcs.cdelt = np.array([delta_ra / npix[0],
+                                   delta_dec / npix[1]])
+        self.wcs.ctype = ["RA---{}".format(self.meta['projection']),
+                          "DEC--{}".format(self.meta['projection'])]
 
     def convert_coordinates(self):
         '''Convert the coordinates from sky to pixel.'''
-
         self.create_wcs()
 
-        w = wcs.WCS(naxis=2)
-        w.wcs.crpix = self.meta['wcs_crpix']
-        w.wcs.cdelt = self.meta['wcs_cdelt']
-        w.wcs.crval = self.meta['wcs_crval']
-        w.wcs.ctype = self.meta['wcs_ctype']
-
-        pixcrd = w.wcs_world2pix(self.get_coordinates(), 1)
+        pixcrd = self.wcs.wcs_world2pix(self.get_coordinates(), 1)
 
         self['x'] = pixcrd[:, 0]
         self['y'] = pixcrd[:, 1]
@@ -206,7 +203,7 @@ class ScanSet(Table):
         expomap, xedges, yedges = np.histogram2d(self['x'], self['y'],
                                                  bins=self.meta['npix'])
         images = {}
-        for ch in self.meta['chan_columns']:
+        for ch in self.chan_columns:
             img, xedges, yedges = np.histogram2d(self['x'], self['y'],
                                                  bins=self.meta['npix'],
                                                  weights=self[ch])
@@ -222,18 +219,13 @@ class ScanSet(Table):
     def save_ds9_images(self):
         images = self.calculate_images()
         self.create_wcs()
-        w = wcs.WCS(naxis=2)
-        w.wcs.crpix = self.meta['wcs_crpix']
-        w.wcs.cdelt = self.meta['wcs_cdelt']
-        w.wcs.crval = self.meta['wcs_crval']
-        w.wcs.ctype = self.meta['wcs_ctype']
 
         hdulist = fits.HDUList()
-        header = w.to_header()
+        header = self.wcs.to_header()
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
-        for ic, ch in enumerate(self.meta['chan_columns']):
-            header = w.to_header()
+        for ic, ch in enumerate(self.chan_columns):
+            header = self.wcs.to_header()
 
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
