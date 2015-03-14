@@ -63,7 +63,7 @@ class Scan(Table):
         else:  # if data is a filename
             print('Loading file {}'.format(data))
             table = read_data(data)
-            Table.__init__(self, table, **kwargs)
+            Table.__init__(self, table, masked=True, **kwargs)
             self.meta['filename'] = data
             self.meta['config_file'] = config_file
 
@@ -75,7 +75,7 @@ class Scan(Table):
     def chan_columns(self):
         '''List columns containing samples'''
         return np.array([i for i in self.columns
-                         if i.startswith('Ch')])
+                         if i.startswith('Ch') and not i.endswith('filt')])
 
     def baseline_subtract(self, kind='rough'):
         '''Subtract the baseline.'''
@@ -109,6 +109,22 @@ class Scan(Table):
         '''Check that times in a scan are monotonically increasing'''
         assert np.all(self['time'] == np.sort(self['time'])), \
             'The order of times in the table is wrong'
+
+    def interactive_filter(self, write=True):
+        '''Run the interactive filter'''
+        from .interactive_filter import select_data
+        for ch in self.chan_columns():
+            xs, ys = select_data(self['time'], self[ch])
+            good = np.ones(len(self['time']), dtype=bool)
+            if len(xs) >= 2:
+                intervals = list(zip(xs[:-1:2], xs[1::2]))
+                for i in intervals:
+                    good[np.logical_and(self['time'] >= i[0],
+                                        self['time'] <= i[1])] = False
+            self['{}-filt'.format(ch)] = good
+        if write:
+            self.write(self.meta['filename'].replace('.fits', '') +
+                       '_ifilt.hdf5')
 
 
 class ScanSet(Table):
@@ -263,10 +279,29 @@ def test_01_scan():
     scan = Scan(fname)
 
     scan.write('scan.hdf5', overwrite=True)
-    print('Drawn')
 
 
-def test_01b_read_scan():
+def test_01b_interactive_filter():
+    '''Test that data are read.'''
+    import os
+    import matplotlib.cm as cm
+    scan = Scan('scan.hdf5')
+
+    scan.interactive_filter(write=False)
+
+    scan.write('scan_ifilt.hdf5', overwrite=True)
+
+    colors = iter(cm.rainbow(np.linspace(0, 1, len(scan.chan_columns()))))
+    for col in scan.chan_columns():
+        color = next(colors)
+        plt.plot(scan['time'], scan[col], ls='-', color=color)
+        good = scan[col + '-filt']
+        plt.plot(scan['time'][good], scan[col][good],
+                 ls='-', color=color, lw=3)
+    plt.show()
+
+
+def test_01c_read_scan():
     scan = Scan('scan.hdf5')
     plt.ion()
     for col in scan.chan_columns():
