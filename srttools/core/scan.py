@@ -187,8 +187,10 @@ class ScanSet(Table):
                                        self.meta['reference_dec']])
         self.wcs.wcs.cdelt = np.array([-delta_ra / npix[0],
                                        delta_dec / npix[1]])
-        self.wcs.wcs.ctype = ["RA---{}".format(self.meta['projection']),
-                              "DEC--{}".format(self.meta['projection'])]
+
+        self.wcs.wcs.ctype = \
+            ["RA---{}".format(self.meta['projection']),
+             "DEC--{}".format(self.meta['projection'])]
 
     def convert_coordinates(self):
         '''Convert the coordinates from sky to pixel.'''
@@ -229,13 +231,14 @@ class ScanSet(Table):
         hdulist = fits.HDUList()
 
         header = self.wcs.to_header()
+
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
         for ic, ch in enumerate(self.chan_columns):
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
-            hdu = fits.ImageHDU(images['ch{}-Sdev'.format(ch)], header=header,
-                                name='IMG{}-Sdev'.format(ch))
+            hdu = fits.ImageHDU(images['{}-Sdev'.format(ch)], header=header,
+                                name='{}-Sdev'.format(ch))
             hdulist.append(hdu)
         hdulist.writeto('img.fits', clobber=True)
 
