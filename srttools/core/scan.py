@@ -302,6 +302,7 @@ def test_03_rough_image():
     plt.ioff()
     plt.show()
 
+
 def test_04_ds9_image():
     '''Test image production.'''
 
