@@ -2,6 +2,7 @@ from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
 from matplotlib import pyplot as plt
+from matplotlib import gridspec
 import numpy as np
 
 
@@ -21,15 +22,19 @@ class intervals():
 
 
 class DataSelector:
-    def __init__(self, fig):
+    def __init__(self, xs, ys, ax1, ax2):
+        self.xs = xs
+        self.ys = ys
+        self.ax1 = ax1
+        self.ax2 = ax2
         self.info = {}
         self.info['zap'] = intervals()
-
-        self.cid = fig.canvas.mpl_connect('button_press_event', self.on_click)
-        self.cid = fig.canvas.mpl_connect('key_press_event', self.on_key)
-        self.counter = 0
         self.lines = []
-        self.fig = fig
+        self.plot_all()
+
+        ax1.figure.canvas.mpl_connect('button_press_event', self.on_click)
+        ax1.figure.canvas.mpl_connect('key_press_event', self.on_key)
+        self.counter = 0
 
     def on_click(self, event):
         pass
@@ -43,7 +48,7 @@ class DataSelector:
             ls = '-'
         else:
             ls = '--'
-        line = plt.gca().axvline(event.xdata, color=color, ls=ls)
+        line = self.ax1.axvline(event.xdata, color=color, ls=ls)
         self.lines.append(line)
         plt.draw()
 
@@ -52,25 +57,63 @@ class DataSelector:
 
         if event.key == 'z':
             self.zap(event)
+        if event.key == 'u':
+            self.plot_all()
         elif event.key == 'r':
             for l in self.lines:
                 l.remove()
             self.lines = []
             self.info['zap'].clear()
-            plt.draw()
+            self.plot_all()
         elif event.key == 'q':
-            plt.close(self.fig)
+            plt.close(self.ax1.figure)
         else:
             pass
 
+    def plot_all(self):
+        for l in self.lines:
+            l.remove()
+        self.lines = []
+        self.ax1.cla()
+        self.ax1.plot(self.xs, self.ys)
+
+        zap_xs = self.info['zap'].xs
+
+        plt.draw()
+        good = np.ones(len(self.xs), dtype=bool)
+        if len(zap_xs) >= 2:
+            intervals = list(zip(zap_xs[:-1:2], zap_xs[1::2]))
+            for i in intervals:
+                good[np.logical_and(self.xs >= i[0],
+                                    self.xs <= i[1])] = False
+        self.ax2.cla()
+        self.ax2.plot(self.xs, self.ys, 'c-')
+        self.ax2.plot(self.xs[good], self.ys[good], 'b-', lw=3)
+        plt.draw()
+
 
 def select_data(xs, ys):
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(xs, ys)
-    ax.set_title('Point and z to create zap intervals; r to reset; q to quit')
+    instructions = '''Interactive plotter.
 
-    datasel = DataSelector(fig)
+
+    Point and z: create zap intervals
+
+    r:           reset;
+
+    q:           quit
+
+    u:           update plots with new selections
+    '''
+
+    print(instructions)
+
+    gs = gridspec.GridSpec(2, 1, height_ratios=[3, 2], hspace=0)
+
+    ax1 = plt.subplot(gs[0])
+    ax2 = plt.subplot(gs[1], sharex=ax1)
+    plt.setp(ax1.get_xticklabels(), visible=False)
+
+    datasel = DataSelector(xs, ys, ax1, ax2)
 
     plt.show()
 
@@ -81,15 +124,3 @@ def test_select_data():
     times = np.arange(0, 100, 0.1)
     lc = np.random.poisson(10, len(times))
     info = select_data(times, lc)
-
-    x = info['zap'].xs
-
-    good = np.ones(len(times), dtype=bool)
-    if len(x) >= 2:
-        intervals = list(zip(x[:-1:2], x[1::2]))
-        for i in intervals:
-            good[np.logical_and(times >= i[0],
-                                times <= i[1])] = False
-    plt.plot(times, lc, 'c-')
-    plt.plot(times[good], lc[good], 'b-', lw=3)
-    plt.show()
