@@ -79,6 +79,7 @@ class DataSelector:
 
         zap_xs = self.info['zap'].xs
 
+        plt.setp(self.ax1.get_xticklabels(), visible=False)
         plt.draw()
         good = np.ones(len(self.xs), dtype=bool)
         if len(zap_xs) >= 2:
@@ -111,7 +112,6 @@ def select_data(xs, ys):
 
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[1], sharex=ax1)
-    plt.setp(ax1.get_xticklabels(), visible=False)
 
     datasel = DataSelector(xs, ys, ax1, ax2)
 
