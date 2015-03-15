@@ -100,3 +100,7 @@ def test_open_data_fitszilla():
     for i in range(2):
         plt.plot(table.field('time'), table.field('Ch{}'.format(i))[:])
     plt.show()
+
+
+def root_name(fname):
+    return fname.replace('.fits', '').replace('.hdf5', '')
