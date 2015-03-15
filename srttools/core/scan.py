@@ -122,8 +122,9 @@ class Scan(Table):
         '''Run the interactive filter'''
         from .interactive_filter import select_data
         for ch in self.chan_columns():
-            xs, ys = select_data(self['time'], self[ch])
-
+            info = select_data(self['time'], self[ch])
+            # Treat zapped intervals
+            xs = info['zap'].xs
             good = np.ones(len(self['time']), dtype=bool)
             if len(xs) >= 2:
                 intervals = list(zip(xs[:-1:2], xs[1::2]))
