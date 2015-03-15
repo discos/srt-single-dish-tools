@@ -5,10 +5,26 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 
-class DataSelector:
-    def __init__(self, fig):
+class intervals():
+    '''A list of xs and ys of the points taken during interactive selection'''
+    def __init__(self):
         self.xs = []
         self.ys = []
+
+    def clear(self):
+        self.xs = []
+        self.ys = []
+
+    def add(self, point):
+        self.xs.append(point[0])
+        self.ys.append(point[1])
+
+
+class DataSelector:
+    def __init__(self, fig):
+        self.info = {}
+        self.info['zap'] = intervals()
+
         self.cid = fig.canvas.mpl_connect('button_press_event', self.on_click)
         self.cid = fig.canvas.mpl_connect('key_press_event', self.on_key)
         self.counter = 0
@@ -16,8 +32,11 @@ class DataSelector:
         self.fig = fig
 
     def on_click(self, event):
-        self.xs.append(event.xdata)
-        self.ys.append(event.ydata)
+        pass
+
+    def zap(self, event):
+        '''Create a zap interval'''
+        self.info['zap'].add([event.xdata, event.ydata])
         self.counter += 1
         color = 'r'
         if self.counter % 2 == 1:
@@ -29,35 +48,41 @@ class DataSelector:
         plt.draw()
 
     def on_key(self, event):
-        if event.key == 'r':
+        '''What to do when the keyboard is used'''
+
+        if event.key == 'z':
+            self.zap(event)
+        elif event.key == 'r':
             for l in self.lines:
                 l.remove()
             self.lines = []
-            self.xs = []
-            self.ys = []
-
+            self.info['zap'].clear()
             plt.draw()
-        if event.key == 'q':
+        elif event.key == 'q':
             plt.close(self.fig)
+        else:
+            pass
 
 
 def select_data(xs, ys):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(xs, ys)
-    ax.set_title('right click to get x intervals; r to reset; q to quit')
+    ax.set_title('Point and z to create zap intervals; r to reset; q to quit')
 
     datasel = DataSelector(fig)
 
     plt.show()
 
-    return datasel.xs, datasel.ys
+    return datasel.info
 
 
 def test_select_data():
     times = np.arange(0, 100, 0.1)
     lc = np.random.poisson(10, len(times))
-    x, y = select_data(times, lc)
+    info = select_data(times, lc)
+
+    x = info['zap'].xs
 
     good = np.ones(len(times), dtype=bool)
     if len(x) >= 2:
