@@ -9,41 +9,8 @@ from astropy import wcs
 from astropy.table import Table, vstack
 import astropy.io.fits as fits
 import logging
-from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
-
-
-def linear_fun(x, m, q):
-    '''A linear function'''
-    return m * x + q
-
-
-def rough_baseline_sub(time, lc):
-    '''Rough function to subtract the baseline'''
-    m0 = 0
-    q0 = min(lc)
-
-    # only consider start and end quarters of image
-    nbin = len(time)
-#    bins = np.arange(nbin, dtype=int)
-
-    for percentage in [0.8, 0.15]:
-        sorted_els = np.argsort(lc)
-        # Select the lowest half elements
-        good = sorted_els[: int(nbin * percentage)]
-    #    good = np.logical_or(bins <= nbin / 4, bins >= nbin / 4 * 3)
-
-        time_filt = time[good]
-        lc_filt = lc[good]
-        back_in_order = np.argsort(time_filt)
-        lc_filt = lc_filt[back_in_order]
-        time_filt = time_filt[back_in_order]
-        par, pcov = curve_fit(linear_fun, time_filt, lc_filt, [m0, q0],
-                              maxfev=6000)
-
-        lc -= linear_fun(time, *par)
-
-    return lc
+from .fit import rough_baseline_sub
 
 
 class Scan(Table):
@@ -299,26 +266,7 @@ def test_01_scan():
     scan.write('scan.hdf5', overwrite=True)
 
 
-def test_01b_interactive_filter():
-    '''Test interactive filter.'''
-    import matplotlib.cm as cm
-    scan = Scan('scan.hdf5')
-
-    scan.interactive_filter(save=False)
-
-    scan.write('scan_ifilt.hdf5', overwrite=True)
-
-    colors = iter(cm.rainbow(np.linspace(0, 1, len(scan.chan_columns()))))
-    for col in scan.chan_columns():
-        color = next(colors)
-        plt.plot(scan['time'], scan[col], ls='-', color=color)
-        good = scan[col + '-filt']
-        plt.plot(scan['time'][good], scan[col][good],
-                 ls='-', color=color, lw=3)
-    plt.show()
-
-
-def test_01c_read_scan():
+def test_01b_read_scan():
     scan = Scan('scan.hdf5')
     plt.ion()
     for col in scan.chan_columns():
@@ -331,6 +279,7 @@ def test_01c_read_scan():
 def test_02_scanset():
     '''Test that sets of data are read.'''
     import os
+    plt.ioff()
     curdir = os.path.abspath(os.path.dirname(__file__))
     config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
                           'test_config.ini')
@@ -343,6 +292,7 @@ def test_02_scanset():
 def test_03_rough_image():
     '''Test image production.'''
 
+    plt.ion()
     scanset = ScanSet(Table.read('test.hdf5', path='scanset'))
 
     import matplotlib.pyplot as plt
