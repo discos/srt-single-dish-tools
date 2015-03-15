@@ -1,6 +1,6 @@
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
-from .io import read_data
+from .io import read_data, root_name
 import glob
 from .read_config import read_config, get_config_file
 import os
@@ -61,16 +61,23 @@ class Scan(Table):
             self.meta['config_file'] = config_file
             self.meta.update(read_config(self.meta['config_file']))
         else:  # if data is a filename
+            if os.path.exists(root_name(data) + '.hdf5'):
+                data = root_name(data) + '.hdf5'
             print('Loading file {}'.format(data))
             table = read_data(data)
             Table.__init__(self, table, masked=True, **kwargs)
-            self.meta['filename'] = data
+            self.meta['filename'] = os.path.abspath(data)
             self.meta['config_file'] = config_file
 
             self.meta.update(read_config(self.meta['config_file']))
 
             self.check_order()
-            self.baseline_subtract()
+            if 'ifilt' not in self.meta.keys() or not self.meta['ifilt']:
+                self.interactive_filter()
+            if 'backsub' not in self.meta.keys() or not self.meta['backsub']:
+                print('Subtracting the baseline')
+                self.baseline_subtract()
+            self.save()
 
     def chan_columns(self):
         '''List columns containing samples'''
@@ -83,6 +90,7 @@ class Scan(Table):
             for col in self.chan_columns():
                 self[col] = rough_baseline_sub(self['time'],
                                                self[col])
+        self.meta['backsub'] = True
 
     def zap_birdies(self):
         '''Zap bad intervals.'''
@@ -110,11 +118,12 @@ class Scan(Table):
         assert np.all(self['time'] == np.sort(self['time'])), \
             'The order of times in the table is wrong'
 
-    def interactive_filter(self, write=True):
+    def interactive_filter(self, save=True):
         '''Run the interactive filter'''
         from .interactive_filter import select_data
         for ch in self.chan_columns():
             xs, ys = select_data(self['time'], self[ch])
+
             good = np.ones(len(self['time']), dtype=bool)
             if len(xs) >= 2:
                 intervals = list(zip(xs[:-1:2], xs[1::2]))
@@ -122,9 +131,15 @@ class Scan(Table):
                     good[np.logical_and(self['time'] >= i[0],
                                         self['time'] <= i[1])] = False
             self['{}-filt'.format(ch)] = good
-        if write:
-            self.write(self.meta['filename'].replace('.fits', '') +
-                       '_ifilt.hdf5')
+        if save:
+            self.save()
+        self.meta['ifilt'] = True
+
+    def save(self, fname=None):
+        '''Call self.write with a default filename, or specify it.'''
+        if fname is None:
+            fname = root_name(self.meta['filename']) + '.hdf5'
+        self.write(fname, overwrite=True)
 
 
 class ScanSet(Table):
@@ -173,7 +188,7 @@ class ScanSet(Table):
         scan_list = []
 
         for d in dirlist:
-            for f in glob.glob(os.path.join(datadir, d, '*')):
+            for f in glob.glob(os.path.join(datadir, d, '*.fits')):
                 scan_list.append(f)
         return scan_list
 
@@ -188,6 +203,7 @@ class ScanSet(Table):
                                  self['decj2000'])))
 
     def create_wcs(self):
+        '''Create a wcs object from the pointing information'''
         npix = np.array(self.meta['npix'])
         self.wcs = wcs.WCS(naxis=2)
 
@@ -241,6 +257,7 @@ class ScanSet(Table):
         t.write(fname, path='scanset', **kwargs)
 
     def save_ds9_images(self):
+        '''Save a ds9-compatible file with one image per extension.'''
         images = self.calculate_images()
         self.create_wcs()
 
@@ -281,34 +298,33 @@ def test_01_scan():
     scan.write('scan.hdf5', overwrite=True)
 
 
-def test_01b_interactive_filter():
-    '''Test that data are read.'''
-    import os
-    import matplotlib.cm as cm
-    scan = Scan('scan.hdf5')
+#def test_01b_interactive_filter():
+#    '''Test interactive filter.'''
+#    import matplotlib.cm as cm
+#    scan = Scan('scan.hdf5')
+#
+#    scan.interactive_filter(write=False)
+#
+#    scan.write('scan_ifilt.hdf5', overwrite=True)
+#
+#    colors = iter(cm.rainbow(np.linspace(0, 1, len(scan.chan_columns()))))
+#    for col in scan.chan_columns():
+#        color = next(colors)
+#        plt.plot(scan['time'], scan[col], ls='-', color=color)
+#        good = scan[col + '-filt']
+#        plt.plot(scan['time'][good], scan[col][good],
+#                 ls='-', color=color, lw=3)
+#    plt.show()
 
-    scan.interactive_filter(write=False)
 
-    scan.write('scan_ifilt.hdf5', overwrite=True)
-
-    colors = iter(cm.rainbow(np.linspace(0, 1, len(scan.chan_columns()))))
-    for col in scan.chan_columns():
-        color = next(colors)
-        plt.plot(scan['time'], scan[col], ls='-', color=color)
-        good = scan[col + '-filt']
-        plt.plot(scan['time'][good], scan[col][good],
-                 ls='-', color=color, lw=3)
-    plt.show()
-
-
-def test_01c_read_scan():
-    scan = Scan('scan.hdf5')
-    plt.ion()
-    for col in scan.chan_columns():
-        plt.plot(scan['time'], scan[col])
-    plt.draw()
-
-    return scan
+#def test_01c_read_scan():
+#    scan = Scan('scan.hdf5')
+#    plt.ion()
+#    for col in scan.chan_columns():
+#        plt.plot(scan['time'], scan[col])
+#    plt.draw()
+#
+#    return scan
 
 
 def test_02_scanset():
