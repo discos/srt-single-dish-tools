@@ -299,33 +299,33 @@ def test_01_scan():
     scan.write('scan.hdf5', overwrite=True)
 
 
-#def test_01b_interactive_filter():
-#    '''Test interactive filter.'''
-#    import matplotlib.cm as cm
-#    scan = Scan('scan.hdf5')
-#
-#    scan.interactive_filter(write=False)
-#
-#    scan.write('scan_ifilt.hdf5', overwrite=True)
-#
-#    colors = iter(cm.rainbow(np.linspace(0, 1, len(scan.chan_columns()))))
-#    for col in scan.chan_columns():
-#        color = next(colors)
-#        plt.plot(scan['time'], scan[col], ls='-', color=color)
-#        good = scan[col + '-filt']
-#        plt.plot(scan['time'][good], scan[col][good],
-#                 ls='-', color=color, lw=3)
-#    plt.show()
+def test_01b_interactive_filter():
+    '''Test interactive filter.'''
+    import matplotlib.cm as cm
+    scan = Scan('scan.hdf5')
+
+    scan.interactive_filter(save=False)
+
+    scan.write('scan_ifilt.hdf5', overwrite=True)
+
+    colors = iter(cm.rainbow(np.linspace(0, 1, len(scan.chan_columns()))))
+    for col in scan.chan_columns():
+        color = next(colors)
+        plt.plot(scan['time'], scan[col], ls='-', color=color)
+        good = scan[col + '-filt']
+        plt.plot(scan['time'][good], scan[col][good],
+                 ls='-', color=color, lw=3)
+    plt.show()
 
 
-#def test_01c_read_scan():
-#    scan = Scan('scan.hdf5')
-#    plt.ion()
-#    for col in scan.chan_columns():
-#        plt.plot(scan['time'], scan[col])
-#    plt.draw()
-#
-#    return scan
+def test_01c_read_scan():
+    scan = Scan('scan.hdf5')
+    plt.ion()
+    for col in scan.chan_columns():
+        plt.plot(scan['time'], scan[col])
+    plt.draw()
+
+    return scan
 
 
 def test_02_scanset():
