@@ -29,6 +29,7 @@ class DataSelector:
         self.ax1 = ax1
         self.ax2 = ax2
         self.info = {}
+        self.info['FLAG'] = False
         self.info['zap'] = intervals()
         self.info['base'] = intervals()
         self.info['fitpars'] = []
@@ -53,6 +54,7 @@ class DataSelector:
         else:
             ls = '--'
         line = self.ax1.axvline(event.xdata, color=color, ls=ls)
+        line = self.ax2.axvline(event.xdata, color=color, ls=ls)
         self.lines.append(line)
         plt.draw()
 
@@ -60,12 +62,13 @@ class DataSelector:
         '''Adds an interval to the ones that will be used by baseline sub.'''
         self.info['base'].add([event.xdata, event.ydata])
         self.bcounter += 1
-        color = 'k'
+        color = 'b'
         if self.bcounter % 2 == 1:
             ls = '-'
         else:
             ls = '--'
         line = self.ax1.axvline(event.xdata, color=color, ls=ls)
+        line = self.ax2.axvline(event.xdata, color=color, ls=ls)
         self.lines.append(line)
         plt.draw()
 
@@ -80,12 +83,20 @@ class DataSelector:
             self.subtract_baseline()
         if event.key == 'u':
             self.plot_all()
+        if event.key == 'x':
+            self.info['FLAG'] = True
+            print('Marked as flagged')
+        if event.key == 'v':
+            if self.info['FLAG']:
+                self.info['FLAG'] = False
+                print('Removed flag ()')
         elif event.key == 'r':
             for l in self.lines:
                 l.remove()
             self.lines = []
             self.info['zap'].clear()
             self.info['base'].clear()
+            self.info['fitpars'] = []
             self.plot_all()
         elif event.key == 'q':
             plt.close(self.ax1.figure)
@@ -94,7 +105,7 @@ class DataSelector:
 
     def subtract_baseline(self):
         '''Subtract the baseline based on the selected intervals'''
-        if len(self.info['base'].xs) < 4:
+        if len(self.info['base'].xs) < 2:
             self.info['fitpars'] = [np.min(self.ys)]
         else:
             base_xs = self.info['base'].xs
@@ -113,7 +124,7 @@ class DataSelector:
             l.remove()
         self.lines = []
         self.ax1.cla()
-        self.ax1.plot(self.xs, self.ys)
+        self.ax1.plot(self.xs, self.ys, color='k')
 
         plt.setp(self.ax1.get_xticklabels(), visible=False)
 
@@ -128,26 +139,16 @@ class DataSelector:
                 good[np.logical_and(self.xs >= i[0],
                                     self.xs <= i[1])] = False
         fitpars = self.info['fitpars']
-        if len(self.info['fitpars']) > 0:
+        if len(self.info['fitpars']) >= 2:
             model = linear_fun(self.xs, *fitpars)
-            self.ax1.plot(self.xs, model)
+            self.ax1.plot(self.xs, model, color='b')
         else:
-            model = np.zeros(len(self.xs))
+            model = np.zeros(len(self.xs)) + np.min(self.ys)
 
         self.ax2.cla()
-        self.ax2.plot(self.xs, self.ys - model, 'c-')
-        self.ax2.plot(self.xs[good], self.ys[good] - model[good], 'b-', lw=2)
-
-        # Show intervals used for the baseline
-
-        base_xs = self.info['base'].xs
-        good = np.zeros(len(self.xs), dtype=bool)
-        if len(base_xs) >= 2:
-            intervals = list(zip(base_xs[:-1:2], base_xs[1::2]))
-            for i in intervals:
-                good[np.logical_and(self.xs >= i[0],
-                                    self.xs <= i[1])] = True
-        self.ax2.plot(self.xs[good], self.ys[good] - model[good], 'k-', lw=3)
+        self.ax2.axhline(0, ls='--', color='k')
+        self.ax2.plot(self.xs, self.ys - model, color='grey', ls='-')
+        self.ax2.plot(self.xs[good], self.ys[good] - model[good], 'k-', lw=2)
 
         plt.draw()
 
@@ -160,17 +161,19 @@ Interactive plotter.
 
 -------------------------------------------------------------
 
-    Point and z: create zap intervals
+Interval selection: Point mouse + <key>
+    z     create zap intervals
+    b     suggest intervals to use for baseline fit
 
-    Point and b: suggest intervals to use for baseline fit
+Flagging actions:
+    x     flag as bad;
+    v     Remove flag;
 
-    B:           subtract the baseline;
-
-    r:           reset;
-
-    q:           quit
-
-    u:           update plots with new selections
+Actions:
+    u     update plots with new selections
+    B     subtract the baseline;
+    r     reset baseline and zapping intervals, and fit parameters;
+    q     quit
 
 -------------------------------------------------------------
     '''
@@ -191,5 +194,8 @@ Interactive plotter.
 
 def test_select_data():
     times = np.arange(0, 100, 0.1)
-    lc = np.random.poisson(10, len(times)) + times * 1.5 - 0.01 * times ** 2
-    info = select_data(times, lc)
+    lc = np.random.normal(0, 0.3, len(times)) + times * 0.5 +\
+        10 * np.exp(-(times - 30) ** 2 / 20 ** 2) + \
+        3 * np.exp(-(times - 55) ** 2 / 6 ** 2) + \
+        10 * np.exp(-(times - 80) ** 2 / 0.1 ** 2)
+    select_data(times, lc)
