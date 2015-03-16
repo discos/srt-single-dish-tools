@@ -126,11 +126,14 @@ class Scan(Table):
 
 class ScanSet(Table):
     '''Class containing a set of scans'''
-    def __init__(self, data=None, norefilt=True, **kwargs):
+    def __init__(self, data=None, norefilt=True, config_file=None,**kwargs):
 
         self.norefilt = norefilt
         if isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
+            if config_file is not None:
+                config = read_config(config_file)
+                self.meta.update(config)
 
             self.create_wcs()
         else:  # data is a config file
@@ -317,7 +320,11 @@ def test_03_rough_image():
     '''Test image production.'''
 
     plt.ion()
-    scanset = ScanSet(Table.read('test.hdf5', path='scanset'))
+    curdir = os.path.abspath(os.path.dirname(__file__))
+    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+                          'test_config.ini')
+    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                      config_file=config)
 
     images = scanset.calculate_images()
 
@@ -332,7 +339,11 @@ def test_03_rough_image():
 def test_03_image_stdev():
     '''Test image production.'''
 
-    scanset = ScanSet(Table.read('test.hdf5', path='scanset'))
+    curdir = os.path.abspath(os.path.dirname(__file__))
+    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+                          'test_config.ini')
+    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                      config_file=config)
 
     images = scanset.calculate_images()
 
