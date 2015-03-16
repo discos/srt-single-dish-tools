@@ -10,12 +10,12 @@ from astropy.table import Table, vstack
 import astropy.io.fits as fits
 import logging
 import matplotlib.pyplot as plt
-from .fit import rough_baseline_sub
+from .fit import rough_baseline_sub, linear_fun
 
 
 class Scan(Table):
     '''Class containing a single scan'''
-    def __init__(self, data=None, config_file=None,
+    def __init__(self, data=None, config_file=None, norefilt=True,
                  **kwargs):
 
         if config_file is None:
@@ -39,9 +39,14 @@ class Scan(Table):
             self.meta.update(read_config(self.meta['config_file']))
 
             self.check_order()
-            if 'ifilt' not in self.meta.keys() or not self.meta['ifilt']:
+
+            if 'ifilt' not in self.meta.keys() \
+                    or not self.meta['ifilt'] \
+                    or not norefilt:
                 self.interactive_filter()
-            if 'backsub' not in self.meta.keys() or not self.meta['backsub']:
+            if 'backsub' not in self.meta.keys() \
+                    or not self.meta['backsub'] \
+                    or not norefilt:
                 print('Subtracting the baseline')
                 self.baseline_subtract()
             self.save()
@@ -99,6 +104,15 @@ class Scan(Table):
                     good[np.logical_and(self['time'] >= i[0],
                                         self['time'] <= i[1])] = False
             self['{}-filt'.format(ch)] = good
+
+            if len(info['fitpars']) > 1:
+                self[ch] -= linear_fun(self['time'], *info['fitpars'])
+            # TODO: make it channel-independent
+                self.meta['backsub'] = True
+
+            # TODO: make it channel-independent
+            if info['FLAG']:
+                self.meta['FLAG'] = True
         if save:
             self.save()
         self.meta['ifilt'] = True
@@ -112,8 +126,9 @@ class Scan(Table):
 
 class ScanSet(Table):
     '''Class containing a set of scans'''
-    def __init__(self, data=None, **kwargs):
+    def __init__(self, data=None, norefilt=True, **kwargs):
 
+        self.norefilt = norefilt
         if isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
 
@@ -126,6 +141,8 @@ class ScanSet(Table):
                                 config['list_of_directories'])
 
             for i_s, s in enumerate(self.load_scans()):
+                if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
+                    continue
                 if i_s == 0:
                     scan_table = Table(s)
                 else:
@@ -163,7 +180,7 @@ class ScanSet(Table):
     def load_scans(self):
         '''Load the scans in the list one by ones'''
         for f in self.meta['scan_list']:
-            yield Scan(f)
+            yield Scan(f, norefilt=self.norefilt)
 
     def get_coordinates(self):
         '''Give the coordinates as pairs of RA, DEC'''
@@ -203,16 +220,22 @@ class ScanSet(Table):
 
     def calculate_images(self):
         '''Obtain image from all scans'''
-        expomap, _, _ = np.histogram2d(self['x'], self['y'],
-                                       bins=self.meta['npix'])
         images = {}
         for ch in self.chan_columns:
-            img, _, _ = np.histogram2d(self['x'], self['y'],
+            if '{}-filt'.format(ch) in self.keys():
+                good = self['{}-filt'.format(ch)]
+            else:
+                good = np.ones(len(self[ch]), dtype=bool)
+
+            expomap, _, _ = np.histogram2d(self['x'][good], self['y'][good],
+                                           bins=self.meta['npix'])
+
+            img, _, _ = np.histogram2d(self['x'][good], self['y'][good],
                                        bins=self.meta['npix'],
-                                       weights=self[ch])
-            img_sq, _, _ = np.histogram2d(self['x'], self['y'],
+                                       weights=self[ch][good])
+            img_sq, _, _ = np.histogram2d(self['x'][good], self['y'][good],
                                           bins=self.meta['npix'],
-                                          weights=self[ch] ** 2)
+                                          weights=self[ch][good] ** 2)
             mean = img / expomap
             images[ch] = mean
             images['{}-Sdev'.format(ch)] = img_sq / expomap - mean ** 2
@@ -271,7 +294,7 @@ def test_01b_read_scan():
     plt.ion()
     for col in scan.chan_columns():
         plt.plot(scan['time'], scan[col])
-    plt.draw()
+    plt.show()
 
     return scan
 
@@ -284,6 +307,7 @@ def test_02_scanset():
     config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
                           'test_config.ini')
 
+#    scanset = ScanSet(config, norefilt=False)
     scanset = ScanSet(config)
 
     scanset.write('test.hdf5', overwrite=True)
@@ -294,8 +318,6 @@ def test_03_rough_image():
 
     plt.ion()
     scanset = ScanSet(Table.read('test.hdf5', path='scanset'))
-
-    import matplotlib.pyplot as plt
 
     images = scanset.calculate_images()
 
@@ -311,8 +333,6 @@ def test_03_image_stdev():
     '''Test image production.'''
 
     scanset = ScanSet(Table.read('test.hdf5', path='scanset'))
-
-    import matplotlib.pyplot as plt
 
     images = scanset.calculate_images()
 
