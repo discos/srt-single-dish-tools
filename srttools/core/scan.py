@@ -13,6 +13,16 @@ import matplotlib.pyplot as plt
 from .fit import rough_baseline_sub, linear_fun
 
 
+def list_scans(datadir, dirlist):
+    '''List all scans contained in the directory listed in config'''
+    scan_list = []
+
+    for d in dirlist:
+        for f in glob.glob(os.path.join(datadir, d, '*.fits')):
+            scan_list.append(f)
+    return scan_list
+
+
 class Scan(Table):
     '''Class containing a single scan'''
     def __init__(self, data=None, config_file=None, norefilt=True,
@@ -173,12 +183,7 @@ class ScanSet(Table):
 
     def list_scans(self, datadir, dirlist):
         '''List all scans contained in the directory listed in config'''
-        scan_list = []
-
-        for d in dirlist:
-            for f in glob.glob(os.path.join(datadir, d, '*.fits')):
-                scan_list.append(f)
-        return scan_list
+        return list_scans(datadir, dirlist)
 
     def load_scans(self):
         '''Load the scans in the list one by ones'''
