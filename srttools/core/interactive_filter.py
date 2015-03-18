@@ -192,6 +192,22 @@ Actions:
     return datasel.info
 
 
+class ImageSelector():
+    def __init__(self, data, ax):
+        self.img = data
+        self.ax = ax
+        self.plot_img()
+        ax.figure.canvas.mpl_connect('key_press_event', self.on_key)
+
+    def on_key(self, event):
+        x, y = event.xdata, event.ydata
+        print(x,y)
+
+    def plot_img(self):
+        self.ax.imshow(self.img)
+
+
+
 def test_select_data():
     times = np.arange(0, 100, 0.1)
     lc = np.random.normal(0, 0.3, len(times)) + times * 0.5 +\
@@ -199,3 +215,15 @@ def test_select_data():
         3 * np.exp(-(times - 55) ** 2 / 6 ** 2) + \
         10 * np.exp(-(times - 80) ** 2 / 0.1 ** 2)
     select_data(times, lc)
+
+
+def test_imageselector():
+    img = np.random.normal(100, 100, (100, 100))
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    imagesel = ImageSelector(img, ax)
+
+    plt.show()
+
+
