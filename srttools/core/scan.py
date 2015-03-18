@@ -136,7 +136,7 @@ class Scan(Table):
 
 class ScanSet(Table):
     '''Class containing a set of scans'''
-    def __init__(self, data=None, norefilt=True, config_file=None,**kwargs):
+    def __init__(self, data=None, norefilt=True, config_file=None, **kwargs):
 
         self.norefilt = norefilt
         if isinstance(data, Table):
@@ -149,13 +149,14 @@ class ScanSet(Table):
         else:  # data is a config file
             config_file = data
             config = read_config(config_file)
-            self.meta['scan_list'] = \
+            scan_list = \
                 self.list_scans(config['datadir'],
                                 config['list_of_directories'])
 
-            for i_s, s in enumerate(self.load_scans()):
+            for i_s, s in enumerate(self.load_scans(scan_list)):
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
+                s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
                 if i_s == 0:
                     scan_table = Table(s)
                 else:
@@ -163,9 +164,11 @@ class ScanSet(Table):
                                         metadata_conflicts='silent')
 
             Table.__init__(self, scan_table)
+            self.meta['scan_list'] = scan_list
             self.meta.update(config)
             self.meta['config_file'] = get_config_file()
 
+            self.meta['scan_list'] = np.array(self.meta['scan_list'], dtype='S')
             allras = self['raj2000']
             alldecs = self['decj2000']
 
@@ -185,9 +188,9 @@ class ScanSet(Table):
         '''List all scans contained in the directory listed in config'''
         return list_scans(datadir, dirlist)
 
-    def load_scans(self):
+    def load_scans(self, scan_list):
         '''Load the scans in the list one by ones'''
-        for f in self.meta['scan_list']:
+        for f in scan_list:
             yield Scan(f, norefilt=self.norefilt)
 
     def get_coordinates(self):
@@ -248,7 +251,12 @@ class ScanSet(Table):
             images[ch] = mean
             images['{}-Sdev'.format(ch)] = img_sq / expomap - mean ** 2
 
+        self.images = images
         return images
+
+    def interactive_display(self):
+        '''Modify original scans from the image display'''
+        pass
 
     def write(self, fname, **kwargs):
         '''Set default path and call Table.write'''
@@ -275,36 +283,36 @@ class ScanSet(Table):
         hdulist.writeto('img.fits', clobber=True)
 
 
-def test_01_scan():
-    '''Test that data are read.'''
-    import os
-    curdir = os.path.dirname(__file__)
-    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
-
-    fname = \
-        os.path.abspath(
-            os.path.join(datadir, '20140603-103246-scicom-3C157',
-                         '20140603-103246-scicom-3C157_003_003.fits'))
-
-    config_file = \
-        os.path.abspath(os.path.join(curdir, '..', '..', 'TEST_DATASET',
-                                     'test_config.ini'))
-
-    read_config(config_file)
-
-    scan = Scan(fname)
-
-    scan.write('scan.hdf5', overwrite=True)
-
-
-def test_01b_read_scan():
-    scan = Scan('scan.hdf5')
-    plt.ion()
-    for col in scan.chan_columns():
-        plt.plot(scan['time'], scan[col])
-    plt.show()
-
-    return scan
+#def test_01_scan():
+#    '''Test that data are read.'''
+#    import os
+#    curdir = os.path.dirname(__file__)
+#    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
+#
+#    fname = \
+#        os.path.abspath(
+#            os.path.join(datadir, '20140603-103246-scicom-3C157',
+#                         '20140603-103246-scicom-3C157_003_003.fits'))
+#
+#    config_file = \
+#        os.path.abspath(os.path.join(curdir, '..', '..', 'TEST_DATASET',
+#                                     'test_config.ini'))
+#
+#    read_config(config_file)
+#
+#    scan = Scan(fname)
+#
+#    scan.write('scan.hdf5', overwrite=True)
+#
+#
+#def test_01b_read_scan():
+#    scan = Scan('scan.hdf5')
+#    plt.ion()
+#    for col in scan.chan_columns():
+#        plt.plot(scan['time'], scan[col])
+#    plt.show()
+#
+#    return scan
 
 
 def test_02_scanset():
