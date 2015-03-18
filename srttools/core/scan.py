@@ -182,7 +182,7 @@ class ScanSet(Table):
             self.convert_coordinates()
 
         self.chan_columns = [i for i in self.columns
-                             if i.startswith('Ch')]
+                             if i.startswith('Ch') and not i.endswith('filt')]
 
     def list_scans(self, datadir, dirlist):
         '''List all scans contained in the directory listed in config'''
@@ -256,7 +256,33 @@ class ScanSet(Table):
 
     def interactive_display(self):
         '''Modify original scans from the image display'''
-        pass
+        from .interactive_filter import ImageSelector
+
+        if not hasattr(self, 'images'):
+            self.calculate_images()
+
+        for ch in self.chan_columns:
+            fig = plt.figure('Interactive Display')
+            ax = fig.add_subplot(111)
+            img = self.images[ch]
+            imagesel = ImageSelector(img, ax, fun=self.rerun_scan_analysis)
+            plt.show()
+
+    def rerun_scan_analysis(self, x, y, key):
+        print(x, y, key)
+        if key == 'a':
+            good_entries = np.logical_and(self['x'].astype(int) == int(x),
+                                          self['y'].astype(int) == int(y))
+            scans = list(set(self['Scan_id'][good_entries]))
+            for s in scans:
+                sname = self.meta['scan_list'][s].decode()
+                rescan = Scan(sname, norefilt=False)
+                rescan.save()
+
+        elif key == 'h':
+            pass
+        elif key == 'v':
+            pass
 
     def write(self, fname, **kwargs):
         '''Set default path and call Table.write'''
@@ -283,36 +309,36 @@ class ScanSet(Table):
         hdulist.writeto('img.fits', clobber=True)
 
 
-#def test_01_scan():
-#    '''Test that data are read.'''
-#    import os
-#    curdir = os.path.dirname(__file__)
-#    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
-#
-#    fname = \
-#        os.path.abspath(
-#            os.path.join(datadir, '20140603-103246-scicom-3C157',
-#                         '20140603-103246-scicom-3C157_003_003.fits'))
-#
-#    config_file = \
-#        os.path.abspath(os.path.join(curdir, '..', '..', 'TEST_DATASET',
-#                                     'test_config.ini'))
-#
-#    read_config(config_file)
-#
-#    scan = Scan(fname)
-#
-#    scan.write('scan.hdf5', overwrite=True)
-#
-#
-#def test_01b_read_scan():
-#    scan = Scan('scan.hdf5')
-#    plt.ion()
-#    for col in scan.chan_columns():
-#        plt.plot(scan['time'], scan[col])
-#    plt.show()
-#
-#    return scan
+def test_01_scan():
+    '''Test that data are read.'''
+    import os
+    curdir = os.path.dirname(__file__)
+    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
+
+    fname = \
+        os.path.abspath(
+            os.path.join(datadir, '20140603-103246-scicom-3C157',
+                         '20140603-103246-scicom-3C157_003_003.fits'))
+
+    config_file = \
+        os.path.abspath(os.path.join(curdir, '..', '..', 'TEST_DATASET',
+                                     'test_config.ini'))
+
+    read_config(config_file)
+
+    scan = Scan(fname)
+
+    scan.write('scan.hdf5', overwrite=True)
+
+
+def test_01b_read_scan():
+    scan = Scan('scan.hdf5')
+    plt.ion()
+    for col in scan.chan_columns():
+        plt.plot(scan['time'], scan[col])
+    plt.show()
+
+    return scan
 
 
 def test_02_scanset():
@@ -367,6 +393,18 @@ def test_03_image_stdev():
     plt.colorbar()
     plt.ioff()
     plt.show()
+
+
+def test_04_interactive_image():
+    '''Test image production.'''
+
+    curdir = os.path.abspath(os.path.dirname(__file__))
+    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+                          'test_config.ini')
+    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                      config_file=config)
+
+    scanset.interactive_display()
 
 
 def test_04_ds9_image():

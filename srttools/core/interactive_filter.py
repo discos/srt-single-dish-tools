@@ -34,6 +34,7 @@ class DataSelector:
         self.info['base'] = intervals()
         self.info['fitpars'] = []
         self.lines = []
+        self.print_instructions()
         self.plot_all()
 
         ax1.figure.canvas.mpl_connect('button_press_event', self.on_click)
@@ -77,6 +78,8 @@ class DataSelector:
 
         if event.key == 'z':
             self.zap(event)
+        if event.key == 'h':
+            self.print_instructions()
         if event.key == 'b':
             self.base(event)
         if event.key == 'B':
@@ -152,9 +155,8 @@ class DataSelector:
 
         plt.draw()
 
-
-def select_data(xs, ys):
-    instructions = '''
+    def print_instructions(self):
+            instructions = '''
 -------------------------------------------------------------
 
 Interactive plotter.
@@ -178,7 +180,11 @@ Actions:
 -------------------------------------------------------------
     '''
 
-    print(instructions)
+            print(instructions)
+
+
+
+def select_data(xs, ys):
 
     gs = gridspec.GridSpec(2, 1, height_ratios=[3, 2], hspace=0)
 
@@ -193,19 +199,34 @@ Actions:
 
 
 class ImageSelector():
-    def __init__(self, data, ax):
+    '''Return xs and ys of the image, and the key that was pressed.
+    Inputs:
+        data:       the image
+        ax:         a pyplot.axis instance where the image will be plotted
+        fun:        (optional) the function to call when a key is pressed.
+                    it must accept three arguments: `x`, `y` and `key`
+    '''
+    def __init__(self, data, ax, fun=None):
         self.img = data
         self.ax = ax
+        self.fun = fun
         self.plot_img()
         ax.figure.canvas.mpl_connect('key_press_event', self.on_key)
 
     def on_key(self, event):
         x, y = event.xdata, event.ydata
-        print(x,y)
+        key = event.key
+        if x is None or y is None or x != x or y != y:
+            print("Invalid choice. Is the window under focus?")
+            return
+        if self.fun is not None:
+            self.fun(x, y, key)
+        else:
+            print(x, y, key)
+        return x, y, key
 
     def plot_img(self):
         self.ax.imshow(self.img)
-
 
 
 def test_select_data():
