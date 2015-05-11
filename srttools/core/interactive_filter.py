@@ -23,11 +23,13 @@ class intervals():
 
 
 class DataSelector:
-    def __init__(self, xs, ys, ax1, ax2):
+    def __init__(self, xs, ys, ax1, ax2, xlabel=None, title=None):
         self.xs = xs
         self.ys = ys
         self.ax1 = ax1
         self.ax2 = ax2
+        self.xlabel = xlabel
+        self.title = title
         self.info = {}
         self.info['FLAG'] = False
         self.info['zap'] = intervals()
@@ -153,6 +155,8 @@ class DataSelector:
         self.ax2.plot(self.xs, self.ys - model, color='grey', ls='-')
         self.ax2.plot(self.xs[good], self.ys[good] - model[good], 'k-', lw=2)
 
+        if self.xlabel is not None:
+            self.ax2.set_xlabel(self.xlabel)
         plt.draw()
 
     def print_instructions(self):
@@ -183,15 +187,17 @@ Actions:
             print(instructions)
 
 
-
-def select_data(xs, ys):
+def select_data(xs, ys, title=None, xlabel=None):
 
     gs = gridspec.GridSpec(2, 1, height_ratios=[3, 2], hspace=0)
+
+    if title is not None:
+        plt.title(title)
 
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[1], sharex=ax1)
 
-    datasel = DataSelector(xs, ys, ax1, ax2)
+    datasel = DataSelector(xs, ys, ax1, ax2, title=title, xlabel=xlabel)
 
     plt.show()
 
@@ -216,6 +222,7 @@ class ImageSelector():
     def on_key(self, event):
         x, y = event.xdata, event.ydata
         key = event.key
+
         if x is None or y is None or x != x or y != y:
             print("Invalid choice. Is the window under focus?")
             return

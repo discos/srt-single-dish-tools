@@ -92,6 +92,7 @@ class Scan(Table):
 
     def write(self, fname, **kwargs):
         '''Set default path and call Table.write'''
+        print('Saving to {}'.format(fname))
         t = Table(self)
         t.write(fname, path='scan', **kwargs)
 
@@ -104,19 +105,27 @@ class Scan(Table):
         '''Run the interactive filter'''
         from .interactive_filter import select_data
         for ch in self.chan_columns():
-            info = select_data(self['time'], self[ch])
+            ravar = np.abs(self['raj2000'][-1] - self['raj2000'][0])
+            decvar = np.abs(self['decj2000'][-1] - self['decj2000'][0])
+            # Choose if plotting by R.A. or Dec.
+            if ravar > decvar:
+                dim = 'raj2000'
+            else:
+                dim = 'decj2000'
+            info = select_data(self[dim], self[ch],
+                               xlabel=dim)
             # Treat zapped intervals
             xs = info['zap'].xs
-            good = np.ones(len(self['time']), dtype=bool)
+            good = np.ones(len(self[dim]), dtype=bool)
             if len(xs) >= 2:
                 intervals = list(zip(xs[:-1:2], xs[1::2]))
                 for i in intervals:
-                    good[np.logical_and(self['time'] >= i[0],
-                                        self['time'] <= i[1])] = False
+                    good[np.logical_and(self[dim] >= i[0],
+                                        self[dim] <= i[1])] = False
             self['{}-filt'.format(ch)] = good
 
             if len(info['fitpars']) > 1:
-                self[ch] -= linear_fun(self['time'], *info['fitpars'])
+                self[ch] -= linear_fun(self[dim], *info['fitpars'])
             # TODO: make it channel-independent
                 self.meta['backsub'] = True
 
@@ -168,7 +177,8 @@ class ScanSet(Table):
             self.meta.update(config)
             self.meta['config_file'] = get_config_file()
 
-            self.meta['scan_list'] = np.array(self.meta['scan_list'], dtype='S')
+            self.meta['scan_list'] = np.array(self.meta['scan_list'],
+                                              dtype='S')
             allras = self['raj2000']
             alldecs = self['decj2000']
 
@@ -262,7 +272,7 @@ class ScanSet(Table):
             self.calculate_images()
 
         for ch in self.chan_columns:
-            fig = plt.figure('Interactive Display')
+            fig = plt.figure('Imageactive Display')
             ax = fig.add_subplot(111)
             img = self.images[ch]
             imagesel = ImageSelector(img, ax, fun=self.rerun_scan_analysis)
