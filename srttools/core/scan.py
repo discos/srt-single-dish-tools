@@ -106,12 +106,10 @@ class Scan(Table):
         from .interactive_filter import select_data
         for ch in self.chan_columns():
             # Temporary, waiting for AstroPy's metadata handling improvements
-            print(ch, self[ch + '_feed'])
             feed = self[ch + '_feed'][0]
-            print(feed)
 
             selection = self['raj2000'][:, feed]
-            print(selection)
+
             ravar = np.abs(selection[-1] -
                            selection[0])
 
@@ -330,8 +328,12 @@ class ScanSet(Table):
                                           bins=[xbins, ybins],
                                           weights=self[ch][good] ** 2)
             mean = img / expomap
+            mean[mean != mean] = 0
             images[ch] = mean
-            images['{}-Sdev'.format(ch)] = img_sq / expomap - mean ** 2
+            img_sdev = img_sq / expomap - mean ** 2
+            img_sdev[img_sdev != img_sdev] = 0
+
+            images['{}-Sdev'.format(ch)] = img_sdev
 
         self.images = images
         if scrunch:
@@ -385,8 +387,10 @@ class ScanSet(Table):
         t = Table(self)
         t.write(fname, path='scanset', **kwargs)
 
-    def save_ds9_images(self):
+    def save_ds9_images(self, fname=None, save_sdev=False):
         '''Save a ds9-compatible file with one image per extension.'''
+        if fname is None:
+            fname = 'img.fits'
         images = self.calculate_images()
         self.create_wcs()
 
@@ -399,10 +403,12 @@ class ScanSet(Table):
         for ic, ch in enumerate(self.chan_columns):
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
-            hdu = fits.ImageHDU(images['{}-Sdev'.format(ch)], header=header,
-                                name='{}-Sdev'.format(ch))
-            hdulist.append(hdu)
-        hdulist.writeto('img.fits', clobber=True)
+            if save_sdev:
+                hdu = fits.ImageHDU(images['{}-Sdev'.format(ch)],
+                                    header=header,
+                                    name='{}-Sdev'.format(ch))
+                hdulist.append(hdu)
+        hdulist.writeto(fname, clobber=True)
 
 
 def test_01_scan():
@@ -490,8 +496,8 @@ def test_03_image_stdev():
     plt.colorbar()
     plt.ioff()
     plt.show()
-#
-#
+
+
 def test_03b_image_scrunch():
     '''Test image production.'''
 
@@ -516,8 +522,8 @@ def test_03b_image_scrunch():
     plt.colorbar()
     plt.ioff()
     plt.show()
-#
-#
+
+
 def test_04_interactive_image():
     '''Test image production.'''
 
@@ -537,6 +543,7 @@ def test_04_ds9_image():
 
     scanset.save_ds9_images()
 
+
 def test_05_all_multifeed():
     '''Test that sets of data are read also with multifeed.'''
     import os
@@ -550,12 +557,12 @@ def test_05_all_multifeed():
 
     scanset.write('test_multifeed.hdf5', overwrite=True)
 
-
     scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
                       config_file=config)
 
     images = scanset.calculate_images()
 
+    scanset.save_ds9_images('multifeed.fits')
     img = images['Ch0']
 
     plt.figure('img 0')

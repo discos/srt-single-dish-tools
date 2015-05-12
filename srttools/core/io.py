@@ -76,9 +76,11 @@ def read_data_fitszilla(fname):
 
     # Duplicate raj and decj columns (in order to be corrected later)
     new_table['raj2000'] = \
-        np.tile(data_table_data['raj2000'], (np.max(feeds) + 1, 1)).transpose()
+        np.tile(data_table_data['raj2000'],
+                (np.max(feeds) + 1, 1)).transpose()
     new_table['decj2000'] = \
-        np.tile(data_table_data['decj2000'], (np.max(feeds) + 1, 1)).transpose()
+        np.tile(data_table_data['decj2000'],
+                (np.max(feeds) + 1, 1)).transpose()
 
     for f in list(set(feeds)):
         ra = new_table['raj2000'][:, f]
@@ -93,10 +95,9 @@ def read_data_fitszilla(fname):
     for info in ['raj2000', 'decj2000', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
 
-    print (chan_ids)
     for ic, ch in enumerate(chan_ids):
         new_table['Ch{}'.format(ch)] = data_table_data['Ch{}'.format(ch)]
-        print(polarizations, polarizations[ic], ic)
+
         new_table['Ch{}'.format(ch)].meta = {'polarization': polarizations[ic],
                                              'feed': feeds[ic],
                                              'IF': IFs[ic],
@@ -106,7 +107,7 @@ def read_data_fitszilla(fname):
                                              'yoffset': yoffsets[feeds[ic]],
                                              'relpower': relpowers[feeds[ic]],
                                              }
-        new_table['Ch{}_feed'.format(ic)] = \
+        new_table['Ch{}_feed'.format(ch)] = \
             np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
 
     lchdulist.close()
@@ -133,8 +134,6 @@ def test_open_data_fitszilla():
                          '20140603-103246-scicom-3C157_003_003.fits')
     print_obs_info_fitszilla(fname)
     table = read_data(fname)
-    print(table)
-    print(table['Ch0'].meta)
     for i in range(2):
         plt.plot(table.field('time'), table.field('Ch{}'.format(i))[:])
     plt.show()
