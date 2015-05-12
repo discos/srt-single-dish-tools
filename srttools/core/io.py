@@ -93,19 +93,21 @@ def read_data_fitszilla(fname):
     for info in ['raj2000', 'decj2000', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
 
-    for i in chan_ids:
-        new_table['Ch{}'.format(i)] = data_table_data['Ch{}'.format(i)]
-        new_table['Ch{}'.format(i)].meta = {'polarization': polarizations[i],
-                                            'feed': feeds[i],
-                                            'IF': IFs[i],
-                                            'frequency': frequencies[i],
-                                            'bandwidth': bandwidths[i],
-                                            'xoffset': xoffsets[feeds[i]],
-                                            'yoffset': yoffsets[feeds[i]],
-                                            'relpower': relpowers[feeds[i]],
-                                            }
-        new_table['Ch{}_feed'.format(i)] = \
-            np.zeros(len(data_table_data), dtype=np.uint8) + feeds[i]
+    print (chan_ids)
+    for ic, ch in enumerate(chan_ids):
+        new_table['Ch{}'.format(ch)] = data_table_data['Ch{}'.format(ch)]
+        print(polarizations, polarizations[ic], ic)
+        new_table['Ch{}'.format(ch)].meta = {'polarization': polarizations[ic],
+                                             'feed': feeds[ic],
+                                             'IF': IFs[ic],
+                                             'frequency': frequencies[ic],
+                                             'bandwidth': bandwidths[ic],
+                                             'xoffset': xoffsets[feeds[ic]],
+                                             'yoffset': yoffsets[feeds[ic]],
+                                             'relpower': relpowers[feeds[ic]],
+                                             }
+        new_table['Ch{}_feed'.format(ic)] = \
+            np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
 
     lchdulist.close()
     return new_table
