@@ -201,8 +201,8 @@ class ScanSet(Table):
 
             self.convert_coordinates()
 
-        self.chan_columns = [i for i in self.columns
-                             if chan_re.match(i)]
+        self.chan_columns = np.array([i for i in self.columns
+                                      if chan_re.match(i)])
 
     def list_scans(self, datadir, dirlist):
         '''List all scans contained in the directory listed in config'''
@@ -247,6 +247,36 @@ class ScanSet(Table):
             ["RA---{}".format(self.meta['projection']),
              "DEC--{}".format(self.meta['projection'])]
 
+#    def scrunch_channels(self, feeds=None, polarizations=None,
+#                         chan_names=None):
+#        '''Scrunch channels and reduce their number.
+#
+#        POLARIZATIONS NOT IMPLEMENTED YET!
+#        2-D lists of channels NOT IMPLEMENTED YET!
+#
+#        feed and polarization filters can be given as:
+#
+#        None:          all channels are to be summed in one
+#        list of chans: channels in this list are summed, the others are deleted
+#                       only one channel remains
+#        2-d array:     the channels arr[0, :] will go to chan 0, arr[1, :] to
+#                       chan 1, and so on.
+#
+#        At the end of the process, all channels have been eliminated but the
+#        ones selected.
+#        The axis-1 length of feeds and polarizations MUST be the same, unless
+#        one of them is None.
+#        '''
+#        # TODO: Implement polarizations
+#        # TODO: Implement 2-d arrays
+#
+#        allfeeds = np.array([self[ch + '_feed'][0]
+#                             for ch in self.chan_columns])
+#        if feeds is None:
+#            feeds = list(set(allfeeds))
+#
+#        feed_mask = np.in1d(allfeeds, feeds)
+
     def convert_coordinates(self):
         '''Convert the coordinates from sky to pixel.'''
         self.create_wcs()
@@ -260,35 +290,57 @@ class ScanSet(Table):
             self['x'][:, f] = pixcrd[:, 0]
             self['y'][:, f] = pixcrd[:, 1]
 
-    def calculate_images(self):
+    def calculate_images(self, scrunch=False):
         '''Obtain image from all scans'''
         images = {}
+        xbins = np.linspace(np.min(self['x']),
+                            np.max(self['x']),
+                            self.meta['npix'][0])
+        ybins = np.linspace(np.min(self['y']),
+                            np.max(self['y']),
+                            self.meta['npix'][1])
+
         for ch in self.chan_columns:
             feeds = self[ch+'_feed']
+            allfeeds = list(set(feeds))
+            assert len(allfeeds) == 1, 'Feeds are mixed up in channels'
+            feed = feeds[0]
             if '{}-filt'.format(ch) in self.keys():
                 good = self['{}-filt'.format(ch)]
             else:
                 good = np.ones(len(self[ch]), dtype=bool)
 
-            allidx = np.arange(len(self['x']), dtype=np.long)
-#            print(self['x'], feeds, good, self['x'][allidx, feeds][good])
-            expomap, _, _ = np.histogram2d(self['x'][allidx, feeds][good],
-                                           self['y'][allidx, feeds][good],
-                                           bins=self.meta['npix'])
+            expomap, _, _ = np.histogram2d(self['x'][:, feed][good],
+                                           self['y'][:, feed][good],
+                                           bins=[xbins, ybins])
 
-            img, _, _ = np.histogram2d(self['x'][allidx, feeds][good],
-                                       self['y'][allidx, feeds][good],
-                                       bins=self.meta['npix'],
+            img, _, _ = np.histogram2d(self['x'][:, feed][good],
+                                       self['y'][:, feed][good],
+                                       bins=[xbins, ybins],
                                        weights=self[ch][good])
-            img_sq, _, _ = np.histogram2d(self['x'][allidx, feeds][good],
-                                          self['y'][allidx, feeds][good],
-                                          bins=self.meta['npix'],
+            img_sq, _, _ = np.histogram2d(self['x'][:, feed][good],
+                                          self['y'][:, feed][good],
+                                          bins=[xbins, ybins],
                                           weights=self[ch][good] ** 2)
             mean = img / expomap
             images[ch] = mean
             images['{}-Sdev'.format(ch)] = img_sq / expomap - mean ** 2
 
         self.images = images
+        if scrunch:
+            image = images[self.chan_columns[0]]
+            image_sdev = images['{}-Sdev'.format(self.chan_columns[0])] ** 2
+            try:
+                for ch in self.chan_columns[1:]:
+                    image += images[ch]
+                    image_sdev += \
+                        images['{}-Sdev'.format(ch)] ** 2
+            except:
+                pass
+            images = {self.chan_columns[0]: image,
+                      '{}-Sdev'.format(self.chan_columns[0]):
+                          np.sqrt(image_sdev)}
+
         return images
 
     def interactive_display(self):
@@ -428,6 +480,32 @@ def test_03_image_stdev():
 
     plt.figure('log(img-Sdev)')
     plt.imshow(np.log10(img))
+    plt.colorbar()
+    plt.ioff()
+    plt.show()
+#
+#
+def test_03b_image_scrunch():
+    '''Test image production.'''
+
+    plt.ion()
+    curdir = os.path.abspath(os.path.dirname(__file__))
+    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+                          'test_config.ini')
+    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                      config_file=config)
+
+    images = scanset.calculate_images(scrunch=True)
+
+    img = images['Ch0']
+
+    plt.figure('img - scrunched')
+    plt.imshow(img)
+    plt.colorbar()
+    img = images['Ch0-Sdev']
+
+    plt.figure('img - scrunched - sdev')
+    plt.imshow(img)
     plt.colorbar()
     plt.ioff()
     plt.show()
