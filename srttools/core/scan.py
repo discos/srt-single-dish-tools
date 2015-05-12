@@ -55,10 +55,10 @@ class Scan(Table):
 
             self.check_order()
 
-            if 'ifilt' not in self.meta.keys() \
-                    or not self.meta['ifilt'] \
-                    or not norefilt:
-                self.interactive_filter()
+#            if 'ifilt' not in self.meta.keys() \
+#                    or not self.meta['ifilt'] \
+#                    or not norefilt:
+#                self.interactive_filter()
             if 'backsub' not in self.meta.keys() \
                     or not self.meta['backsub'] \
                     or not norefilt:
@@ -106,9 +106,12 @@ class Scan(Table):
         from .interactive_filter import select_data
         for ch in self.chan_columns():
             # Temporary, waiting for AstroPy's metadata handling improvements
+            print(ch, self[ch + '_feed'])
             feed = self[ch + '_feed'][0]
+            print(feed)
 
             selection = self['raj2000'][:, feed]
+            print(selection)
             ravar = np.abs(selection[-1] -
                            selection[0])
 
@@ -121,20 +124,24 @@ class Scan(Table):
                 dim = 'raj2000'
             else:
                 dim = 'decj2000'
-            info = select_data(self[dim], self[ch],
+
+            # ------- CALL INTERACTIVE FITTER ---------
+            info = select_data(self[dim][:, feed], self[ch],
                                xlabel=dim)
+            # -----------------------------------------
+
             # Treat zapped intervals
             xs = info['zap'].xs
             good = np.ones(len(self[dim]), dtype=bool)
             if len(xs) >= 2:
                 intervals = list(zip(xs[:-1:2], xs[1::2]))
                 for i in intervals:
-                    good[np.logical_and(self[dim] >= i[0],
-                                        self[dim] <= i[1])] = False
+                    good[np.logical_and(self[dim][:, feed] >= i[0],
+                                        self[dim][:, feed] <= i[1])] = False
             self['{}-filt'.format(ch)] = good
 
             if len(info['fitpars']) > 1:
-                self[ch] -= linear_fun(self[dim], *info['fitpars'])
+                self[ch] -= linear_fun(self[dim][:, feed], *info['fitpars'])
             # TODO: make it channel-independent
                 self.meta['backsub'] = True
 
@@ -529,3 +536,62 @@ def test_04_ds9_image():
     scanset = ScanSet.read('test.hdf5')
 
     scanset.save_ds9_images()
+
+def test_05_all_multifeed():
+    '''Test that sets of data are read also with multifeed.'''
+    import os
+    plt.ioff()
+    curdir = os.path.abspath(os.path.dirname(__file__))
+    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
+                          'test_config_w44.ini')
+
+    scanset = ScanSet(config, norefilt=True)
+#    scanset = ScanSet(config)
+
+    scanset.write('test_multifeed.hdf5', overwrite=True)
+
+
+    scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
+                      config_file=config)
+
+    images = scanset.calculate_images()
+
+    img = images['Ch0']
+
+    plt.figure('img 0')
+    plt.imshow(img)
+    plt.colorbar()
+
+    img = images['Ch0-Sdev']
+
+    plt.figure('log(img 0 -Sdev)')
+    plt.imshow(np.log10(img))
+    plt.colorbar()
+
+    img = images['Ch4']
+
+    plt.figure('img 4')
+    plt.imshow(img)
+    plt.colorbar()
+
+    img = images['Ch4-Sdev']
+
+    plt.figure('log(img 4 -Sdev)')
+    plt.imshow(np.log10(img))
+    plt.colorbar()
+
+    images = scanset.calculate_images(scrunch=True)
+
+    img = images['Ch0']
+
+    plt.figure('img - scrunched')
+    plt.imshow(img)
+    plt.colorbar()
+    img = images['Ch0-Sdev']
+
+    plt.figure('log(img - scrunched - sdev)')
+    plt.imshow(np.log10(img))
+    plt.colorbar()
+    plt.ioff()
+    plt.show()
+#
