@@ -3,6 +3,7 @@ from __future__ import (absolute_import, unicode_literals, division,
 import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
+import astropy.units as u
 
 
 def detect_data_kind(fname):
@@ -11,6 +12,21 @@ def detect_data_kind(fname):
         return 'hdf5'
     else:
         return 'fitszilla'
+
+
+def correct_coordinates(ra, dec, derot_angle, xoffset, yoffset):
+    '''Correct coordinates for feed position.
+
+    Uses the metadata in the channel columns xoffset and yoffset'''
+
+    # Clockwise rotation of angle derot_angle
+
+    new_ra = ra + \
+        xoffset * np.cos(derot_angle) - yoffset * np.sin(derot_angle)
+    new_dec = dec + \
+        xoffset * np.sin(derot_angle) + yoffset * np.cos(derot_angle)
+
+    return new_ra, new_dec
 
 
 def print_obs_info_fitszilla(fname):
@@ -52,12 +68,30 @@ def read_data_fitszilla(fname):
 
     data_table_data = lchdulist['DATA TABLE'].data
 
-    info_to_retrieve = ['time', 'raj2000', 'decj2000', 'az', 'el',
-                        'derot_angle']
+    info_to_retrieve = ['time', 'az', 'el', 'derot_angle']
 
     new_table = Table()
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]
+
+    # Duplicate raj and decj columns (in order to be corrected later)
+    new_table['raj2000'] = \
+        np.tile(data_table_data['raj2000'], (np.max(feeds) + 1, 1)).transpose()
+    new_table['decj2000'] = \
+        np.tile(data_table_data['decj2000'], (np.max(feeds) + 1, 1)).transpose()
+
+    for f in list(set(feeds)):
+        ra = new_table['raj2000'][:, f]
+        dec = new_table['decj2000'][:, f]
+        new_ra, new_dec = \
+            correct_coordinates(ra, dec, new_table['derot_angle'],
+                                xoffsets[f], yoffsets[f])
+
+        new_table['raj2000'][:, f] = new_ra
+        new_table['decj2000'][:, f] = new_dec
+
+    for info in ['raj2000', 'decj2000', 'az', 'el', 'derot_angle']:
+        new_table[info].unit = u.radian
 
     for i in chan_ids:
         new_table['Ch{}'.format(i)] = data_table_data['Ch{}'.format(i)]
@@ -70,6 +104,8 @@ def read_data_fitszilla(fname):
                                             'yoffset': yoffsets[feeds[i]],
                                             'relpower': relpowers[feeds[i]],
                                             }
+        new_table['Ch{}_feed'.format(i)] = \
+            np.zeros(len(data_table_data), dtype=np.uint8) + feeds[i]
 
     lchdulist.close()
     return new_table
