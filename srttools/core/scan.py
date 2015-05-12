@@ -11,6 +11,11 @@ import astropy.io.fits as fits
 import logging
 import matplotlib.pyplot as plt
 from .fit import rough_baseline_sub, linear_fun
+import astropy.units as u
+import re
+
+
+chan_re = re.compile(r'^Ch[0-9]+$')
 
 
 def list_scans(datadir, dirlist):
@@ -59,12 +64,13 @@ class Scan(Table):
                     or not norefilt:
                 print('Subtracting the baseline')
                 self.baseline_subtract()
+
             self.save()
 
     def chan_columns(self):
         '''List columns containing samples'''
         return np.array([i for i in self.columns
-                         if i.startswith('Ch') and not i.endswith('filt')])
+                         if chan_re.match(i)])
 
     def baseline_subtract(self, kind='rough'):
         '''Subtract the baseline.'''
@@ -84,12 +90,6 @@ class Scan(Table):
         reprstring += repr(self)
         return reprstring
 
-    def correct_coordinates(self):
-        '''Correct coordinates for feed position.
-
-        Uses the metadata in the channel columns xoffset and yoffset'''
-        pass
-
     def write(self, fname, **kwargs):
         '''Set default path and call Table.write'''
         print('Saving to {}'.format(fname))
@@ -105,8 +105,17 @@ class Scan(Table):
         '''Run the interactive filter'''
         from .interactive_filter import select_data
         for ch in self.chan_columns():
-            ravar = np.abs(self['raj2000'][-1] - self['raj2000'][0])
-            decvar = np.abs(self['decj2000'][-1] - self['decj2000'][0])
+            # Temporary, waiting for AstroPy's metadata handling improvements
+            feed = self[ch + '_feed'][0]
+
+            selection = self['raj2000'][:, feed]
+            ravar = np.abs(selection[-1] -
+                           selection[0])
+
+            selection = self['decj2000'][:, feed]
+            decvar = np.abs(selection[-1] -
+                            selection[0])
+
             # Choose if plotting by R.A. or Dec.
             if ravar > decvar:
                 dim = 'raj2000'
@@ -179,6 +188,7 @@ class ScanSet(Table):
 
             self.meta['scan_list'] = np.array(self.meta['scan_list'],
                                               dtype='S')
+
             allras = self['raj2000']
             alldecs = self['decj2000']
 
@@ -192,7 +202,7 @@ class ScanSet(Table):
             self.convert_coordinates()
 
         self.chan_columns = [i for i in self.columns
-                             if i.startswith('Ch') and not i.endswith('filt')]
+                             if chan_re.match(i)]
 
     def list_scans(self, datadir, dirlist):
         '''List all scans contained in the directory listed in config'''
@@ -205,8 +215,9 @@ class ScanSet(Table):
 
     def get_coordinates(self):
         '''Give the coordinates as pairs of RA, DEC'''
-        return np.array(list(zip(self['raj2000'],
-                                 self['decj2000'])))
+
+        return np.array(np.dstack([self['raj2000'],
+                                   self['decj2000']]))
 
     def create_wcs(self):
         '''Create a wcs object from the pointing information'''
@@ -221,10 +232,16 @@ class ScanSet(Table):
             self.meta['reference_ra'] = self.meta['mean_ra']
         if not hasattr(self.meta, 'reference_dec'):
             self.meta['reference_dec'] = self.meta['mean_dec']
-        self.wcs.wcs.crval = np.array([self.meta['reference_ra'],
-                                       self.meta['reference_dec']])
-        self.wcs.wcs.cdelt = np.array([-delta_ra / npix[0],
-                                       delta_dec / npix[1]])
+
+        # TODO: check consistency of units
+        # Here I'm assuming all angles are radians
+        crval = np.array([self.meta['reference_ra'],
+                          self.meta['reference_dec']])
+        self.wcs.wcs.crval = np.degrees(crval)
+
+        cdelt = np.array([-delta_ra / npix[0],
+                          delta_dec / npix[1]])
+        self.wcs.wcs.cdelt = np.degrees(cdelt)
 
         self.wcs.wcs.ctype = \
             ["RA---{}".format(self.meta['projection']),
@@ -234,27 +251,37 @@ class ScanSet(Table):
         '''Convert the coordinates from sky to pixel.'''
         self.create_wcs()
 
-        pixcrd = self.wcs.wcs_world2pix(self.get_coordinates(), 1)
+        self['x'] = np.zeros_like(self['raj2000'])
+        self['y'] = np.zeros_like(self['decj2000'])
+        coords = np.degrees(self.get_coordinates())
+        for f in range(len(self['raj2000'][0, :])):
+            pixcrd = self.wcs.wcs_world2pix(coords[:, f], 1)
 
-        self['x'] = pixcrd[:, 0]
-        self['y'] = pixcrd[:, 1]
+            self['x'][:, f] = pixcrd[:, 0]
+            self['y'][:, f] = pixcrd[:, 1]
 
     def calculate_images(self):
         '''Obtain image from all scans'''
         images = {}
         for ch in self.chan_columns:
+            feeds = self[ch+'_feed']
             if '{}-filt'.format(ch) in self.keys():
                 good = self['{}-filt'.format(ch)]
             else:
                 good = np.ones(len(self[ch]), dtype=bool)
 
-            expomap, _, _ = np.histogram2d(self['x'][good], self['y'][good],
+            allidx = np.arange(len(self['x']), dtype=np.long)
+#            print(self['x'], feeds, good, self['x'][allidx, feeds][good])
+            expomap, _, _ = np.histogram2d(self['x'][allidx, feeds][good],
+                                           self['y'][allidx, feeds][good],
                                            bins=self.meta['npix'])
 
-            img, _, _ = np.histogram2d(self['x'][good], self['y'][good],
+            img, _, _ = np.histogram2d(self['x'][allidx, feeds][good],
+                                       self['y'][allidx, feeds][good],
                                        bins=self.meta['npix'],
                                        weights=self[ch][good])
-            img_sq, _, _ = np.histogram2d(self['x'][good], self['y'][good],
+            img_sq, _, _ = np.histogram2d(self['x'][allidx, feeds][good],
+                                          self['y'][allidx, feeds][good],
                                           bins=self.meta['npix'],
                                           weights=self[ch][good] ** 2)
             mean = img / expomap
@@ -359,8 +386,8 @@ def test_02_scanset():
     config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
                           'test_config.ini')
 
-#    scanset = ScanSet(config, norefilt=False)
-    scanset = ScanSet(config)
+    scanset = ScanSet(config, norefilt=True)
+#    scanset = ScanSet(config)
 
     scanset.write('test.hdf5', overwrite=True)
 
@@ -382,6 +409,7 @@ def test_03_rough_image():
     plt.figure('img')
     plt.imshow(img)
     plt.colorbar()
+#    plt.ioff()
     plt.show()
 
 
@@ -403,8 +431,8 @@ def test_03_image_stdev():
     plt.colorbar()
     plt.ioff()
     plt.show()
-
-
+#
+#
 def test_04_interactive_image():
     '''Test image production.'''
 
