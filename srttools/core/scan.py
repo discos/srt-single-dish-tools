@@ -179,16 +179,16 @@ class ScanSet(Table):
             scan_list.sort()
             nscans = len(scan_list)
 
+            tables = []
+
             for i_s, s in enumerate(self.load_scans(scan_list)):
                 print('{}/{}'.format(i_s, nscans))
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
-                if i_s == 0:
-                    scan_table = Table(s)
-                else:
-                    scan_table = vstack([scan_table, s],
-                                        metadata_conflicts='silent')
+
+                tables.append(s)
+            scan_table = Table(vstack(tables))
 
             Table.__init__(self, scan_table)
             self.meta['scan_list'] = scan_list
@@ -294,10 +294,11 @@ class ScanSet(Table):
         self['y'] = np.zeros_like(self['decj2000'])
         coords = np.degrees(self.get_coordinates())
         for f in range(len(self['raj2000'][0, :])):
-            pixcrd = self.wcs.wcs_world2pix(coords[:, f], 1)
+            pixcrd = self.wcs.wcs_world2pix(coords[:, f], 0)
 
             self['x'][:, f] = pixcrd[:, 0]
             self['y'][:, f] = pixcrd[:, 1]
+
 
     def calculate_images(self, scrunch=False):
         '''Obtain image from all scans'''
@@ -334,6 +335,7 @@ class ScanSet(Table):
                                           self['y'][:, feed][good],
                                           bins=[xbins, ybins],
                                           weights=self[ch][good] ** 2)
+
             good = expomap > 0
             mean = img.copy()
             total_img += mean
@@ -411,13 +413,13 @@ class ScanSet(Table):
 
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
-        
+
         for ic, ch in enumerate(images.keys()):
             is_sdev = ch.endswith('Sdev')
-            
+
             if is_sdev and not save_sdev:
                 continue
-            
+
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
 

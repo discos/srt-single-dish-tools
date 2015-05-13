@@ -20,7 +20,6 @@ def correct_coordinates(ra, dec, derot_angle, xoffset, yoffset):
     Uses the metadata in the channel columns xoffset and yoffset'''
 
     # Clockwise rotation of angle derot_angle
-
     new_ra = ra + \
         xoffset * np.cos(derot_angle) - yoffset * np.sin(derot_angle)
     new_dec = dec + \
