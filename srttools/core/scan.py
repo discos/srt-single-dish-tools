@@ -176,6 +176,7 @@ class ScanSet(Table):
                 self.list_scans(config['datadir'],
                                 config['list_of_directories'])
 
+            scan_list.sort()
             for i_s, s in enumerate(self.load_scans(scan_list)):
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
@@ -563,6 +564,7 @@ def test_05_all_multifeed():
     images = scanset.calculate_images()
 
     scanset.save_ds9_images('multifeed.fits')
+
     img = images['Ch0']
 
     plt.figure('img 0')
