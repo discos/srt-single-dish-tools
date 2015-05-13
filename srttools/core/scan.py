@@ -177,7 +177,10 @@ class ScanSet(Table):
                                 config['list_of_directories'])
 
             scan_list.sort()
+            nscans = len(scan_list)
+
             for i_s, s in enumerate(self.load_scans(scan_list)):
+                print('{}/{}'.format(i_s, nscans))
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
@@ -306,6 +309,9 @@ class ScanSet(Table):
                             np.max(self['y']),
                             self.meta['npix'][1])
 
+        total_expo = 0
+        total_img = 0
+        total_sdev = 0
         for ch in self.chan_columns:
             feeds = self[ch+'_feed']
             allfeeds = list(set(feeds))
@@ -328,28 +334,32 @@ class ScanSet(Table):
                                           self['y'][:, feed][good],
                                           bins=[xbins, ybins],
                                           weights=self[ch][good] ** 2)
-            mean = img / expomap
-            mean[mean != mean] = 0
+            good = expomap > 0
+            mean = img.copy()
+            total_img += mean
+            mean[good] /= expomap[good]
             images[ch] = mean
-            img_sdev = img_sq / expomap - mean ** 2
-            img_sdev[img_sdev != img_sdev] = 0
+            img_sdev = img_sq
+            total_sdev += img_sdev
+            img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
 
             images['{}-Sdev'.format(ch)] = img_sdev
+            total_expo += expomap
 
         self.images = images
         if scrunch:
-            image = images[self.chan_columns[0]]
-            image_sdev = images['{}-Sdev'.format(self.chan_columns[0])] ** 2
-            try:
-                for ch in self.chan_columns[1:]:
-                    image += images[ch]
-                    image_sdev += \
-                        images['{}-Sdev'.format(ch)] ** 2
-            except:
-                pass
-            images = {self.chan_columns[0]: image,
-                      '{}-Sdev'.format(self.chan_columns[0]):
-                          np.sqrt(image_sdev)}
+            # Filter the part of the image whose value of exposure is higher
+            # than the 10% percentile (avoid underexposed parts)
+            good = total_expo > np.percentile(total_expo, 10)
+            bad = np.logical_not(good)
+            total_img[bad] = 0
+            total_sdev[bad] = 0
+            total_img[good] /= total_expo[good]
+            total_sdev[good] = total_sdev[good] / total_expo[good] - total_img[good] ** 2
+
+            images = {self.chan_columns[0]: total_img,
+                      '{}-Sdev'.format(self.chan_columns[0]): total_sdev,
+                      '{}-EXPO'.format(self.chan_columns[0]): total_expo}
 
         return images
 
@@ -388,11 +398,11 @@ class ScanSet(Table):
         t = Table(self)
         t.write(fname, path='scanset', **kwargs)
 
-    def save_ds9_images(self, fname=None, save_sdev=False):
+    def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False):
         '''Save a ds9-compatible file with one image per extension.'''
         if fname is None:
             fname = 'img.fits'
-        images = self.calculate_images()
+        images = self.calculate_images(scrunch=scrunch)
         self.create_wcs()
 
         hdulist = fits.HDUList()
@@ -401,14 +411,16 @@ class ScanSet(Table):
 
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
-        for ic, ch in enumerate(self.chan_columns):
+        
+        for ic, ch in enumerate(images.keys()):
+            is_sdev = ch.endswith('Sdev')
+            
+            if is_sdev and not save_sdev:
+                continue
+            
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
-            if save_sdev:
-                hdu = fits.ImageHDU(images['{}-Sdev'.format(ch)],
-                                    header=header,
-                                    name='{}-Sdev'.format(ch))
-                hdulist.append(hdu)
+
         hdulist.writeto(fname, clobber=True)
 
 
@@ -590,6 +602,7 @@ def test_05_all_multifeed():
     plt.colorbar()
 
     images = scanset.calculate_images(scrunch=True)
+    scanset.save_ds9_images('scrunch.fits', scrunch=True)
 
     img = images['Ch0']
 
