@@ -106,7 +106,7 @@ def read_data_fitszilla(fname):
 
     # Duplicate raj and decj columns (in order to be corrected later)
     new_table['raj2000'] = \
-        np.tile(np.zeros_like,
+        np.tile(data_table_data['raj2000'],
                 (np.max(feeds) + 1, 1)).transpose()
     new_table['decj2000'] = \
         np.tile(data_table_data['decj2000'],
@@ -222,24 +222,6 @@ class TestCoords(unittest.TestCase):
         print(delta_alt.to(u.arcsecond), delta_az.to(u.arcsecond))
         plt.hist2d(delta_alt.to(u.arcsecond).value,
                    delta_az.to(u.arcsecond).value, bins=20)
-        plt.colorbar()
-        plt.show()
-
-    def test_coordinate_conversion2(self):
-        '''Placeholder'''
-
-        new_table = self.table
-        probe_location = SkyCoord(ra = new_table['raj2000'][:, 0],
-                                  dec = new_table['decj2000'][:, 0],
-                                  unit= u.radian)
-        probe_location_old = SkyCoord(ra = new_table['oldraj2000'][:, 0],
-                                      dec = new_table['olddecj2000'][:, 0],
-                                      unit= u.radian)
-        delta_ra = probe_location.ra - probe_location_old.ra
-        delta_dec = probe_location.dec - probe_location_old.dec
-
-        plt.hist2d(delta_ra.to(u.arcsecond).value,
-                   delta_dec.to(u.arcsecond).value, bins=20)
         plt.colorbar()
         plt.show()
 
