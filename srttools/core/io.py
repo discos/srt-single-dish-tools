@@ -133,6 +133,7 @@ def read_data_fitszilla(fname):
                                        yoffsets[i])
 
         new_table['el'][:, i] += yoffs
+        # TODO: Not sure about this cosine factor
         new_table['az'][:, i] += xoffs / np.cos(new_table['el'][:, i])
 
         obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')

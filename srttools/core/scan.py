@@ -300,9 +300,11 @@ class ScanSet(Table):
             self['x'][:, f] = pixcrd[:, 0]
             self['y'][:, f] = pixcrd[:, 1]
 
+    def calculate_images(self, scrunch=False, no_offsets=False):
+        '''Obtain image from all scans.
 
-    def calculate_images(self, scrunch=False):
-        '''Obtain image from all scans'''
+        scrunch:         sum all channels
+        no_offsets:      use positions from feed 0 for all feeds'''
         images = {}
         xbins = np.linspace(np.min(self['x']),
                             np.max(self['x']),
@@ -318,7 +320,11 @@ class ScanSet(Table):
             feeds = self[ch+'_feed']
             allfeeds = list(set(feeds))
             assert len(allfeeds) == 1, 'Feeds are mixed up in channels'
-            feed = feeds[0]
+            if no_offsets:
+                feed = 0
+            else:
+                feed = feeds[0]
+            print(feed)
             if '{}-filt'.format(ch) in self.keys():
                 good = self['{}-filt'.format(ch)]
             else:
@@ -359,7 +365,8 @@ class ScanSet(Table):
             total_img[bad] = 0
             total_sdev[bad] = 0
             total_img[good] /= total_expo[good]
-            total_sdev[good] = total_sdev[good] / total_expo[good] - total_img[good] ** 2
+            total_sdev[good] = total_sdev[good] / total_expo[good] - \
+                total_img[good] ** 2
 
             images = {self.chan_columns[0]: total_img,
                       '{}-Sdev'.format(self.chan_columns[0]): total_sdev,
@@ -402,11 +409,12 @@ class ScanSet(Table):
         t = Table(self)
         t.write(fname, path='scanset', **kwargs)
 
-    def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False):
+    def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
+                        no_offsets=False):
         '''Save a ds9-compatible file with one image per extension.'''
         if fname is None:
             fname = 'img.fits'
-        images = self.calculate_images(scrunch=scrunch)
+        images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets)
         self.create_wcs()
 
         hdulist = fits.HDUList()
@@ -450,10 +458,6 @@ class Test1_Scan(unittest.TestCase):
 
         read_config(klass.config_file)
 
-    def test_all(self):
-        self.step_1_scan()
-        self.step_2_read_scan()
-
     def step_1_scan(self):
         '''Test that data are read.'''
 
@@ -469,6 +473,10 @@ class Test1_Scan(unittest.TestCase):
         plt.show()
 
         return scan
+
+    def test_all(self):
+        self.step_1_scan()
+        self.step_2_read_scan()
 
 
 class Test2_ScanSet(unittest.TestCase):
@@ -493,7 +501,7 @@ class Test2_ScanSet(unittest.TestCase):
 
         read_config(klass.config)
 
-    def test_1_scanset(self):
+    def step_1_scanset(self):
         '''Test that sets of data are read.'''
         plt.ioff()
 
@@ -502,7 +510,7 @@ class Test2_ScanSet(unittest.TestCase):
 
         scanset.write('test.hdf5', overwrite=True)
 
-    def test_2_rough_image(self):
+    def step_2_rough_image(self):
         '''Test image production.'''
 
         plt.ion()
@@ -520,7 +528,7 @@ class Test2_ScanSet(unittest.TestCase):
     #    plt.ioff()
         plt.show()
 
-    def test_3_image_stdev(self):
+    def step_3_image_stdev(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -536,7 +544,7 @@ class Test2_ScanSet(unittest.TestCase):
         plt.ioff()
         plt.show()
 
-    def test_4_image_scrunch(self):
+    def step_4_image_scrunch(self):
         '''Test image production.'''
 
         plt.ion()
@@ -558,7 +566,7 @@ class Test2_ScanSet(unittest.TestCase):
         plt.ioff()
         plt.show()
 
-    def test_5_interactive_image(self):
+    def step_5_interactive_image(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -566,12 +574,20 @@ class Test2_ScanSet(unittest.TestCase):
 
         scanset.interactive_display()
 
-    def test_6_ds9_image(self):
+    def step_6_ds9_image(self):
         '''Test image production.'''
 
         scanset = ScanSet.read('test.hdf5')
 
         scanset.save_ds9_images()
+
+    def test_all(self):
+        self.step_1_scanset()
+        self.step_2_rough_image()
+        self.step_3_image_stdev()
+        self.step_4_image_scrunch()
+        self.step_5_interactive_image()
+        self.step_6_ds9_image()
 
 
 class Test3_MultiFeed(unittest.TestCase):
@@ -592,13 +608,14 @@ class Test3_MultiFeed(unittest.TestCase):
 
         read_config(klass.config)
 
-    def test_all_multifeed(self):
+    def step1_scanset(self):
         '''Test that sets of data are read also with multifeed.'''
         plt.ioff()
         scanset = ScanSet(self.config, norefilt=True)
 
         scanset.write('test_multifeed.hdf5', overwrite=True)
 
+    def step2_img(self):
         scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
                           config_file=self.config)
 
@@ -618,18 +635,9 @@ class Test3_MultiFeed(unittest.TestCase):
         plt.imshow(np.log10(img), origin='lower')
         plt.colorbar()
 
-        img = images['Ch4']
-
-        plt.figure('img 4')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-
-        img = images['Ch4-Sdev']
-
-        plt.figure('log(img 4 -Sdev)')
-        plt.imshow(np.log10(img), origin='lower')
-        plt.colorbar()
-
+    def step3_scrunch(self):
+        scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
+                          config_file=self.config)
         images = scanset.calculate_images(scrunch=True)
         scanset.save_ds9_images('scrunch.fits', scrunch=True)
 
@@ -645,3 +653,15 @@ class Test3_MultiFeed(unittest.TestCase):
         plt.colorbar()
         plt.ioff()
         plt.show()
+
+    def step4_nocorrect(self):
+        scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
+                          config_file=self.config)
+        scanset.save_ds9_images('multifeed_nooffsets.fits', no_offsets=True)
+
+    def test_all_multifeed(self):
+        '''Test that sets of data are read also with multifeed.'''
+        self.step1_scanset()
+        self.step2_img()
+        self.step3_scrunch()
+        self.step4_nocorrect()
