@@ -306,10 +306,10 @@ class ScanSet(Table):
         images = {}
         xbins = np.linspace(np.min(self['x']),
                             np.max(self['x']),
-                            self.meta['npix'][0])
+                            self.meta['npix'][0] + 1)
         ybins = np.linspace(np.min(self['y']),
                             np.max(self['y']),
-                            self.meta['npix'][1])
+                            self.meta['npix'][1] + 1)
 
         total_expo = 0
         total_img = 0
@@ -339,15 +339,16 @@ class ScanSet(Table):
 
             good = expomap > 0
             mean = img.copy()
-            total_img += mean
+            total_img += mean.T
             mean[good] /= expomap[good]
-            images[ch] = mean
+            # For Numpy vs FITS image conventions...
+            images[ch] = mean.T
             img_sdev = img_sq
-            total_sdev += img_sdev
+            total_sdev += img_sdev.T
             img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
 
-            images['{}-Sdev'.format(ch)] = img_sdev
-            total_expo += expomap
+            images['{}-Sdev'.format(ch)] = img_sdev.T
+            total_expo += expomap.T
 
         self.images = images
         if scrunch:
