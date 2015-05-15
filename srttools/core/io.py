@@ -143,7 +143,7 @@ def read_data_fitszilla(fname):
                        obstime=obstimes)
 
         # According to line_profiler, coords.icrs is *by far* the longest
-        # operation in this functio, taking between 80 and 90% of the
+        # operation in this function, taking between 80 and 90% of the
         # execution time. Need to study a way to avoid this.
         coords_deg = coords.icrs
         new_table['raj2000'][:, i] = np.radians(coords_deg.ra)
