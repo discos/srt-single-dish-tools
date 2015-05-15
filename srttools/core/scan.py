@@ -515,7 +515,7 @@ class Test2_ScanSet(unittest.TestCase):
         img = images['Ch0']
 
         plt.figure('img')
-        plt.imshow(img)
+        plt.imshow(img, origin='lower')
         plt.colorbar()
     #    plt.ioff()
         plt.show()
@@ -531,7 +531,7 @@ class Test2_ScanSet(unittest.TestCase):
         img = images['Ch0-Sdev']
 
         plt.figure('log(img-Sdev)')
-        plt.imshow(np.log10(img))
+        plt.imshow(np.log10(img), origin='lower')
         plt.colorbar()
         plt.ioff()
         plt.show()
@@ -548,12 +548,12 @@ class Test2_ScanSet(unittest.TestCase):
         img = images['Ch0']
 
         plt.figure('img - scrunched')
-        plt.imshow(img)
+        plt.imshow(img, origin='lower')
         plt.colorbar()
         img = images['Ch0-Sdev']
 
         plt.figure('img - scrunched - sdev')
-        plt.imshow(img)
+        plt.imshow(img, origin='lower')
         plt.colorbar()
         plt.ioff()
         plt.show()
@@ -609,25 +609,25 @@ class Test3_MultiFeed(unittest.TestCase):
         img = images['Ch0']
 
         plt.figure('img 0')
-        plt.imshow(img)
+        plt.imshow(img, origin='lower')
         plt.colorbar()
 
         img = images['Ch0-Sdev']
 
         plt.figure('log(img 0 -Sdev)')
-        plt.imshow(np.log10(img))
+        plt.imshow(np.log10(img), origin='lower')
         plt.colorbar()
 
         img = images['Ch4']
 
         plt.figure('img 4')
-        plt.imshow(img)
+        plt.imshow(img, origin='lower')
         plt.colorbar()
 
         img = images['Ch4-Sdev']
 
         plt.figure('log(img 4 -Sdev)')
-        plt.imshow(np.log10(img))
+        plt.imshow(np.log10(img), origin='lower')
         plt.colorbar()
 
         images = scanset.calculate_images(scrunch=True)
@@ -636,12 +636,12 @@ class Test3_MultiFeed(unittest.TestCase):
         img = images['Ch0']
 
         plt.figure('img - scrunched')
-        plt.imshow(img)
+        plt.imshow(img, origin='lower')
         plt.colorbar()
         img = images['Ch0-Sdev']
 
         plt.figure('log(img - scrunched - sdev)')
-        plt.imshow(np.log10(img))
+        plt.imshow(np.log10(img), origin='lower')
         plt.colorbar()
         plt.ioff()
         plt.show()

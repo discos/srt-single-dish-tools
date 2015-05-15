@@ -233,7 +233,7 @@ class ImageSelector():
         return x, y, key
 
     def plot_img(self):
-        self.ax.imshow(self.img)
+        self.ax.imshow(self.img, origin='lower')
 
 
 def test_select_data():
