@@ -460,7 +460,6 @@ class Test1_Scan(unittest.TestCase):
 
         scan.write('scan.hdf5', overwrite=True)
 
-
     def step_2_read_scan(self):
         scan = Scan('scan.hdf5')
         plt.ion()
@@ -470,7 +469,7 @@ class Test1_Scan(unittest.TestCase):
 
         return scan
 
-#
+
 class Test2_ScanSet(unittest.TestCase):
     @classmethod
     def setup_class(klass):
@@ -502,7 +501,6 @@ class Test2_ScanSet(unittest.TestCase):
 
         scanset.write('test.hdf5', overwrite=True)
 
-
     def test_2_rough_image(self):
         '''Test image production.'''
 
@@ -521,7 +519,6 @@ class Test2_ScanSet(unittest.TestCase):
     #    plt.ioff()
         plt.show()
 
-
     def test_3_image_stdev(self):
         '''Test image production.'''
 
@@ -537,7 +534,6 @@ class Test2_ScanSet(unittest.TestCase):
         plt.colorbar()
         plt.ioff()
         plt.show()
-
 
     def test_4_image_scrunch(self):
         '''Test image production.'''
@@ -561,7 +557,6 @@ class Test2_ScanSet(unittest.TestCase):
         plt.ioff()
         plt.show()
 
-
     def test_5_interactive_image(self):
         '''Test image production.'''
 
@@ -570,14 +565,13 @@ class Test2_ScanSet(unittest.TestCase):
 
         scanset.interactive_display()
 
-
     def test_6_ds9_image(self):
         '''Test image production.'''
 
         scanset = ScanSet.read('test.hdf5')
 
         scanset.save_ds9_images()
-#
+
 
 class Test3_MultiFeed(unittest.TestCase):
     @classmethod
@@ -650,4 +644,3 @@ class Test3_MultiFeed(unittest.TestCase):
         plt.colorbar()
         plt.ioff()
         plt.show()
-
