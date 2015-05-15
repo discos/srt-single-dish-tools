@@ -1,6 +1,6 @@
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
-from .io import read_data, root_name
+from .io import read_data, root_name, DEBUG_MODE
 import glob
 from .read_config import read_config, get_config_file
 import os
@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from .fit import rough_baseline_sub, linear_fun
 import astropy.units as u
 import re
+import unittest
 
 
 chan_re = re.compile(r'^Ch[0-9]+$')
@@ -426,196 +427,227 @@ class ScanSet(Table):
         hdulist.writeto(fname, clobber=True)
 
 
-def test_01_scan():
-    '''Test that data are read.'''
-    import os
-    curdir = os.path.dirname(__file__)
-    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
+class Test1_Scan(unittest.TestCase):
+    @classmethod
+    def setup_class(klass):
+        import os
+        global DEBUG_MODE
+        DEBUG_MODE = True
 
-    fname = \
-        os.path.abspath(
-            os.path.join(datadir, '20140603-103246-scicom-3C157',
-                         '20140603-103246-scicom-3C157_003_003.fits'))
+        klass.curdir = os.path.dirname(__file__)
+        klass.datadir = os.path.join(klass.curdir, '..', '..', 'TEST_DATASET')
 
-    config_file = \
-        os.path.abspath(os.path.join(curdir, '..', '..', 'TEST_DATASET',
-                                     'test_config.ini'))
+        klass.fname = \
+            os.path.abspath(
+                os.path.join(klass.datadir, '20140603-103246-scicom-3C157',
+                             '20140603-103246-scicom-3C157_003_003.fits'))
 
-    read_config(config_file)
+        klass.config_file = \
+            os.path.abspath(os.path.join(klass.curdir, '..', '..',
+                                         'TEST_DATASET',
+                                         'test_config.ini'))
 
-    scan = Scan(fname)
+        read_config(klass.config_file)
 
-    scan.write('scan.hdf5', overwrite=True)
+    def test_all(self):
+        self.step_1_scan()
+        self.step_2_read_scan()
 
+    def step_1_scan(self):
+        '''Test that data are read.'''
 
-def test_01b_read_scan():
-    scan = Scan('scan.hdf5')
-    plt.ion()
-    for col in scan.chan_columns():
-        plt.plot(scan['time'], scan[col])
-    plt.show()
+        scan = Scan(self.fname)
 
-    return scan
-
-
-def test_02_scanset():
-    '''Test that sets of data are read.'''
-    import os
-    plt.ioff()
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
-                          'test_config.ini')
-
-    scanset = ScanSet(config, norefilt=True)
-#    scanset = ScanSet(config)
-
-    scanset.write('test.hdf5', overwrite=True)
+        scan.write('scan.hdf5', overwrite=True)
 
 
-def test_03_rough_image():
-    '''Test image production.'''
+    def step_2_read_scan(self):
+        scan = Scan('scan.hdf5')
+        plt.ion()
+        for col in scan.chan_columns():
+            plt.plot(scan['time'], scan[col])
+        plt.show()
 
-    plt.ion()
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
-                          'test_config.ini')
-    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                      config_file=config)
+        return scan
 
-    images = scanset.calculate_images()
-
-    img = images['Ch0']
-
-    plt.figure('img')
-    plt.imshow(img)
-    plt.colorbar()
-#    plt.ioff()
-    plt.show()
-
-
-def test_03_image_stdev():
-    '''Test image production.'''
-
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
-                          'test_config.ini')
-    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                      config_file=config)
-
-    images = scanset.calculate_images()
-
-    img = images['Ch0-Sdev']
-
-    plt.figure('log(img-Sdev)')
-    plt.imshow(np.log10(img))
-    plt.colorbar()
-    plt.ioff()
-    plt.show()
-
-
-def test_03b_image_scrunch():
-    '''Test image production.'''
-
-    plt.ion()
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
-                          'test_config.ini')
-    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                      config_file=config)
-
-    images = scanset.calculate_images(scrunch=True)
-
-    img = images['Ch0']
-
-    plt.figure('img - scrunched')
-    plt.imshow(img)
-    plt.colorbar()
-    img = images['Ch0-Sdev']
-
-    plt.figure('img - scrunched - sdev')
-    plt.imshow(img)
-    plt.colorbar()
-    plt.ioff()
-    plt.show()
-
-
-def test_04_interactive_image():
-    '''Test image production.'''
-
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
-                          'test_config.ini')
-    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                      config_file=config)
-
-    scanset.interactive_display()
-
-
-def test_04_ds9_image():
-    '''Test image production.'''
-
-    scanset = ScanSet.read('test.hdf5')
-
-    scanset.save_ds9_images()
-
-
-def test_05_all_multifeed():
-    '''Test that sets of data are read also with multifeed.'''
-    import os
-    plt.ioff()
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    config = os.path.join(curdir, '..', '..', 'TEST_DATASET',
-                          'test_config_w44.ini')
-
-    scanset = ScanSet(config, norefilt=True)
-#    scanset = ScanSet(config)
-
-    scanset.write('test_multifeed.hdf5', overwrite=True)
-
-    scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
-                      config_file=config)
-
-    images = scanset.calculate_images()
-
-    scanset.save_ds9_images('multifeed.fits')
-
-    img = images['Ch0']
-
-    plt.figure('img 0')
-    plt.imshow(img)
-    plt.colorbar()
-
-    img = images['Ch0-Sdev']
-
-    plt.figure('log(img 0 -Sdev)')
-    plt.imshow(np.log10(img))
-    plt.colorbar()
-
-    img = images['Ch4']
-
-    plt.figure('img 4')
-    plt.imshow(img)
-    plt.colorbar()
-
-    img = images['Ch4-Sdev']
-
-    plt.figure('log(img 4 -Sdev)')
-    plt.imshow(np.log10(img))
-    plt.colorbar()
-
-    images = scanset.calculate_images(scrunch=True)
-    scanset.save_ds9_images('scrunch.fits', scrunch=True)
-
-    img = images['Ch0']
-
-    plt.figure('img - scrunched')
-    plt.imshow(img)
-    plt.colorbar()
-    img = images['Ch0-Sdev']
-
-    plt.figure('log(img - scrunched - sdev)')
-    plt.imshow(np.log10(img))
-    plt.colorbar()
-    plt.ioff()
-    plt.show()
 #
+class Test2_ScanSet(unittest.TestCase):
+    @classmethod
+    def setup_class(klass):
+        import os
+        global DEBUG_MODE
+        DEBUG_MODE = True
+
+        klass.curdir = os.path.dirname(__file__)
+        klass.datadir = os.path.join(klass.curdir, '..', '..', 'TEST_DATASET')
+
+        klass.fname = \
+            os.path.abspath(
+                os.path.join(klass.datadir, '20140603-103246-scicom-3C157',
+                             '20140603-103246-scicom-3C157_003_003.fits'))
+
+        klass.config = \
+            os.path.abspath(os.path.join(klass.curdir, '..', '..',
+                                         'TEST_DATASET',
+                                         'test_config.ini'))
+
+        read_config(klass.config)
+
+    def test_1_scanset(self):
+        '''Test that sets of data are read.'''
+        plt.ioff()
+
+        scanset = ScanSet(self.config, norefilt=True)
+    #    scanset = ScanSet(config)
+
+        scanset.write('test.hdf5', overwrite=True)
+
+
+    def test_2_rough_image(self):
+        '''Test image production.'''
+
+        plt.ion()
+
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config)
+
+        images = scanset.calculate_images()
+
+        img = images['Ch0']
+
+        plt.figure('img')
+        plt.imshow(img)
+        plt.colorbar()
+    #    plt.ioff()
+        plt.show()
+
+
+    def test_3_image_stdev(self):
+        '''Test image production.'''
+
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config)
+
+        images = scanset.calculate_images()
+
+        img = images['Ch0-Sdev']
+
+        plt.figure('log(img-Sdev)')
+        plt.imshow(np.log10(img))
+        plt.colorbar()
+        plt.ioff()
+        plt.show()
+
+
+    def test_4_image_scrunch(self):
+        '''Test image production.'''
+
+        plt.ion()
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config)
+
+        images = scanset.calculate_images(scrunch=True)
+
+        img = images['Ch0']
+
+        plt.figure('img - scrunched')
+        plt.imshow(img)
+        plt.colorbar()
+        img = images['Ch0-Sdev']
+
+        plt.figure('img - scrunched - sdev')
+        plt.imshow(img)
+        plt.colorbar()
+        plt.ioff()
+        plt.show()
+
+
+    def test_5_interactive_image(self):
+        '''Test image production.'''
+
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config)
+
+        scanset.interactive_display()
+
+
+    def test_6_ds9_image(self):
+        '''Test image production.'''
+
+        scanset = ScanSet.read('test.hdf5')
+
+        scanset.save_ds9_images()
+#
+
+class Test3_MultiFeed(unittest.TestCase):
+    @classmethod
+    def setup_class(klass):
+        import os
+        global DEBUG_MODE
+        print('Setting up class')
+        DEBUG_MODE = True
+
+        klass.curdir = os.path.dirname(__file__)
+        klass.datadir = os.path.join(klass.curdir, '..', '..', 'TEST_DATASET')
+
+        klass.config = \
+            os.path.abspath(os.path.join(klass.curdir, '..', '..',
+                                         'TEST_DATASET',
+                                         'test_config_w44.ini'))
+
+        read_config(klass.config)
+
+    def test_all_multifeed(self):
+        '''Test that sets of data are read also with multifeed.'''
+        plt.ioff()
+        scanset = ScanSet(self.config, norefilt=True)
+
+        scanset.write('test_multifeed.hdf5', overwrite=True)
+
+        scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
+                          config_file=self.config)
+
+        images = scanset.calculate_images()
+
+        scanset.save_ds9_images('multifeed.fits')
+
+        img = images['Ch0']
+
+        plt.figure('img 0')
+        plt.imshow(img)
+        plt.colorbar()
+
+        img = images['Ch0-Sdev']
+
+        plt.figure('log(img 0 -Sdev)')
+        plt.imshow(np.log10(img))
+        plt.colorbar()
+
+        img = images['Ch4']
+
+        plt.figure('img 4')
+        plt.imshow(img)
+        plt.colorbar()
+
+        img = images['Ch4-Sdev']
+
+        plt.figure('log(img 4 -Sdev)')
+        plt.imshow(np.log10(img))
+        plt.colorbar()
+
+        images = scanset.calculate_images(scrunch=True)
+        scanset.save_ds9_images('scrunch.fits', scrunch=True)
+
+        img = images['Ch0']
+
+        plt.figure('img - scrunched')
+        plt.imshow(img)
+        plt.colorbar()
+        img = images['Ch0-Sdev']
+
+        plt.figure('log(img - scrunched - sdev)')
+        plt.imshow(np.log10(img))
+        plt.colorbar()
+        plt.ioff()
+        plt.show()
+
