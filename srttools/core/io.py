@@ -12,7 +12,6 @@ import unittest
 
 DEBUG_MODE = False
 
-
 locations={'SRT': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                 unit=u.m),
            'Greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
@@ -68,6 +67,7 @@ def print_obs_info_fitszilla(fname):
     lchdulist.close()
 
 
+#@profile
 def read_data_fitszilla(fname):
     '''Open a fitszilla FITS file and read all relevant information.'''
     global DEBUG_MODE
@@ -141,8 +141,12 @@ def read_data_fitszilla(fname):
                        location=locations['SRT'],
                        obstime=obstimes)
 
-        new_table['raj2000'][:, i] = np.radians(coords.icrs.ra)
-        new_table['decj2000'][:, i] = np.radians(coords.icrs.dec)
+        # According to line_profiler, coords.icrs is *by far* the longest
+        # operation in this functio, taking between 80 and 90% of the
+        # execution time. Need to study a way to avoid this.
+        coords_deg = coords.icrs
+        new_table['raj2000'][:, i] = np.radians(coords_deg.ra)
+        new_table['decj2000'][:, i] = np.radians(coords_deg.dec)
 
     for ic, ch in enumerate(chan_ids):
         new_table['Ch{}'.format(ch)] = \
@@ -163,7 +167,7 @@ def read_data_fitszilla(fname):
     lchdulist.close()
     return new_table
 
-
+#@profile
 def read_data(fname):
     '''Read the data, whatever the format, and return them'''
     kind = detect_data_kind(fname)
@@ -197,11 +201,11 @@ class TestCoords(unittest.TestCase):
         curdir = os.path.abspath(os.path.dirname(__file__))
         datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
 
-        fname = os.path.join(datadir, '20140603-103246-scicom-3C157',
-                         '20140603-103246-scicom-3C157_003_003.fits')
+        fname = os.path.join(datadir, '20150410-001307-scicom-W44',
+                             '20150410-001307-scicom-W44_002_003.fits')
         klass.table = read_data(fname)
 
-    def test_coordinate_conversion(self):
+    def step_coordinate_conversion(self):
         new_table = self.table
 
         probe_location = SkyCoord(ra = new_table['raj2000'][:, 0],
@@ -225,6 +229,25 @@ class TestCoords(unittest.TestCase):
         plt.colorbar()
         plt.show()
 
+    def test_coordinates(self):
+
+        self.step_coordinate_conversion()
+
 
 def root_name(fname):
     return fname.replace('.fits', '').replace('.hdf5', '')
+
+
+#@profile
+def profile_coords():
+        '''Same test above, with profiling'''
+        global DEBUG_MODE
+        DEBUG_MODE = True
+        curdir = os.path.abspath(os.path.dirname(__file__))
+        datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
+
+        fname = os.path.join(datadir, '20150410-001307-scicom-W44',
+                             '20150410-001307-scicom-W44_002_003.fits')
+        new_table = read_data(fname)
+
+#profile_coords()
