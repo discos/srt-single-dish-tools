@@ -24,7 +24,7 @@ def standard_offsets():
     radii = np.array([0] + [radius]*6)
     # Feeds 1--6 are at angles -60, -120, etc. Here I use angle 0 for
     # convenience for feed 0, but it has no effect since radii[0] is 0
-    feed_angles = -np.arange(0, 7, 1) * np.pi * 2/3
+    feed_angles = -np.arange(0, 7, 1) * np.pi * 2/6
 
     xoffsets = radii * np.cos(feed_angles)
     yoffsets = radii * np.sin(feed_angles)
