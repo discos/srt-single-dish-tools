@@ -470,6 +470,7 @@ class Test1_Scan(unittest.TestCase):
         plt.ion()
         for col in scan.chan_columns():
             plt.plot(scan['time'], scan[col])
+        plt.ioff()
         plt.show()
 
         return scan
