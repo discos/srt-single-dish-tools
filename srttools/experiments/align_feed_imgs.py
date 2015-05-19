@@ -106,11 +106,11 @@ class FeedAligner():
 #        self.fig = plt.figure('Increase')
 #        gs = GridSpec(4, len(keys) // 2)
 
-        half = len(keys) // 2
+#        half = len(keys) // 2
 
         for ik, k in enumerate(keys):
-            col = ik % half
-            row = ik // half
+#            col = ik % half
+#            row = ik // half
             img = self.imgs[k]
             xextent = self.xextent
             yextent = self.yextent
@@ -199,7 +199,7 @@ def test_with_point_source():
 
 if __name__ == '__main__':
     import astropy.io.fits as pf
-    hdulist = pf.open('try.fits')
+    hdulist = pf.open('try_2.fits')
 
     imgs = {}
     feeds = {}
