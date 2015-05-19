@@ -4,31 +4,51 @@ from __future__ import (absolute_import, unicode_literals, division,
 import numpy.random as ra
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import matplotlib as mpl
+from matplotlib.gridspec import GridSpec
+from scipy.ndimage.interpolation import shift
+import re
+channel_re = re.compile(r'.*CH([0-9]+)$')
 
 
 class FeedAligner():
     '''Align images from different feeds, interactively
     Inputs:
-        data:       a dictionary containing images to align and extents,
-                    like this: {'img0': [img0, xextent0, yextent0],
-                                'img1': [img1, xextent1, yextent1], ...}
+        imgs:       a dictionary containing images to align,
+                    like this: {'Ch0': img0, 'Ch1': img1, ...}
         ax:         a pyplot.axis instance where the image will be plotted
     '''
-    def __init__(self, data, ax):
-        self.data = data
+    def __init__(self, imgs, ax, xextent=None, yextent=None, feeds=None,
+                 radius=None, angle=None):
+
+        self.imgs = imgs
         self.ax = ax
-        self.xoffsets = dict(zip(data[0].keys(),
-                                 np.zeros(len(data[0].keys()))))
-        self.yoffsets = dict(zip(data[0].keys(),
-                                 np.zeros(len(data[0].keys()))))
-        self.radius = 0
+        if xextent is None:
+            xextent = [-1, 1]
+        if yextent is None:
+            yextent = [-1, 1]
+        self.xextent = xextent
+        self.yextent = yextent
+        keys = imgs.keys()
+        if feeds is None:
+            idxs = [int(channel_re.match(k).group(1)) for k in keys]
+            feeds = dict(zip(keys, idxs))
+        self.feeds = feeds
+        self.xoffsets = dict(zip(keys, np.zeros(len(keys))))
+        self.yoffsets = dict(zip(keys, np.zeros(len(keys))))
+        if radius is None:
+            radius = 0
+        self.radius = radius
+        if angle is None:
+            angle = 0
         self.angle = 0
         self.mode = 'ROUGH'
         self.variable_to_change = 'A'
-        self.step = 1.
+        self.radius_step = (xextent[1] - xextent[0]) / 50
+        self.angle_step = 5.
+        self.step_factor = 1.
         self.ax.figure.canvas.mpl_connect('key_press_event', self.on_key)
+        self.plotted = None
         self.plot_imgs()
 
     def on_key(self, event):
@@ -51,23 +71,20 @@ class FeedAligner():
 
     def makestep(self, sign):
         if self.variable_to_change == 'R':
-            self.radius += sign * self.step
+            self.radius += sign * self.step_factor * self.radius_step
         if self.variable_to_change == 'A':
-            self.angle += sign * self.step
+            self.angle += sign * self.step_factor * self.angle_step
         self.recalculate_offsets()
 
     def print_variables(self):
         print('Radius: {}; Angle: {}'.format(self.radius, self.angle))
 
     def recalculate_offsets(self):
-        import re
-        channel_re = re.compile(r'^Ch([0-9]+)$')
-        img, xextent, yextent = self.data
         xoffsets, yoffsets = \
-            standard_offsets(self.radius, self.angle,
-                             len(img.keys()))
-        for k in img.keys():
-            feed = int(channel_re.match(k).group(1))
+            standard_offsets(self.radius, -self.angle,
+                             len(self.imgs.keys()))
+        for k in self.imgs.keys():
+            feed = self.feeds[k]
 
             self.xoffsets[k] = xoffsets[feed]
             self.yoffsets[k] = yoffsets[feed]
@@ -77,21 +94,44 @@ class FeedAligner():
     def switch_mode(self):
         if self.mode == 'ROUGH':
             self.mode = 'FINE'
-            self.step = 0.01
+            self.step_factor = 0.05
         else:
             self.mode = 'ROUGH'
-            self.step = 1.
+            self.step_factor = 1
 
     def plot_imgs(self):
         self.ax.cla()
-        img, xextent, yextent = self.data
-        for ik, k in enumerate(img.keys()):
-            xoff = self.xoffsets[k]
-            yoff = self.yoffsets[k]
-            self.ax.imshow(img[k], origin='lower',
-                           extent=[xextent[0] + xoff, xextent[1] + xoff,
-                                   yextent[0] + yoff, yextent[1] + yoff],
-                           alpha=1/7)
+        total_image = 0
+        keys = list(self.imgs.keys())
+#        self.fig = plt.figure('Increase')
+#        gs = GridSpec(4, len(keys) // 2)
+
+        half = len(keys) // 2
+
+        for ik, k in enumerate(keys):
+            col = ik % half
+            row = ik // half
+            img = self.imgs[k]
+            xextent = self.xextent
+            yextent = self.yextent
+            xoff = \
+                self.xoffsets[k] / (xextent[1] - xextent[0]) * len(img[0, :])
+            yoff = \
+                self.yoffsets[k] / (yextent[1] - yextent[0]) * len(img[:, 0])
+
+            shifted = shift(img, [-xoff, -yoff])
+            total_image += shifted
+#            inc_ax = plt.subplot(gs[row * 2, col])
+#            inc_ax.imshow(total_image,
+#                          extent=xextent + yextent,
+#                          vmin=np.percentile(total_image, 40))
+#            inc_ax = plt.subplot(gs[row * 2 + 1, col])
+#            inc_ax.imshow(shifted,
+#                          extent=xextent + yextent,
+#                          vmin=np.percentile(self.imgs[keys[0]], 40))
+        self.ax.imshow(total_image,
+                       extent=xextent + yextent,
+                       vmin=np.percentile(self.imgs[keys[0]], 40)*len(keys))
         plt.draw()
 
 
@@ -106,71 +146,84 @@ def standard_offsets(radius=3., angle=0, nfeeds=7):
     feed_angles = \
         -np.arange(0, nfeeds, 1) * np.pi * 2/(nfeeds - 1) + np.radians(angle)
 
-#    print(np.degrees(feed_angles))
     xoffsets = radii * np.cos(feed_angles)
     yoffsets = radii * np.sin(feed_angles)
     return xoffsets, yoffsets
 
 
-# make the colormaps
-colors = 'white,red,green,blue,magenta,cyan,yellow'.split(',')
-cmaps = []
-for i in range(7):
-    cmap = mpl.colors.LinearSegmentedColormap.from_list('cmap{}'.format(i),
-                                                        ['black', colors[i]],
-                                                        256)
-    cmaps.append(cmap)
+def test_with_point_source():
+        # make the colormaps
+    colors = 'white,red,green,blue,magenta,cyan,yellow'.split(',')
+    cmaps = []
+    for i in range(7):
+        cmap = mpl.colors.LinearSegmentedColormap.from_list('cmap{}'.format(i),
+                                                            ['black', colors[i]],
+                                                            256)
+        cmaps.append(cmap)
 
-real_xoffsets, real_yoffsets = standard_offsets(2.4, 45)
+    real_xoffsets, real_yoffsets = standard_offsets(2.4, 45)
 
-imgs = {}
-xbins = np.linspace(-30, 30, 101)
-ybins = np.linspace(-30, 30, 101)
-for i in range(7):
-    xoff = real_xoffsets[i]
-    yoff = real_yoffsets[i]
+    imgs = {}
+    xbins = np.linspace(-30, 30, 101)
+    ybins = np.linspace(-30, 30, 101)
+    for i in range(7):
+        xoff = real_xoffsets[i]
+        yoff = real_yoffsets[i]
 
-    mean = [-xoff, -yoff]
-    cov = [[1, 0], [0, 1]]  # diagonal covariance, points lie on x or y-axis
+        mean = [-xoff - 3, -yoff - 1]
+        mean2 = [-xoff + 4, -yoff + 5]
+        cov = [[1, 0], [0, 1]]  # diagonal covariance, points lie on x or y-axis
 
-    x, y = ra.multivariate_normal(mean, cov, 5000).T
+        x, y = ra.multivariate_normal(mean, cov, 50000).T
+        x2, y2 = ra.multivariate_normal(mean2, cov, 50000).T
 
-    hist, _, _ = np.histogram2d(x, y, bins=[xbins, ybins])
+        x3 = ra.uniform(-30, 30, 50000)
+        y3 = ra.uniform(-30, 30, 50000)
 
-    img = hist.T
-    channel = 'Ch{}'.format(i)
-    imgs[channel] = img
-    plt.imshow(img, origin='lower', extent=[-30, 30, -30, 30], alpha=1/7,
-               cmap=cmaps[i])
-    plt.scatter([-xoff], [-yoff])
+        hist, _, _ = np.histogram2d(x, y, bins=[xbins, ybins])
+        hist2, _, _ = np.histogram2d(x2, y2, bins=[xbins, ybins])
+        hist3, _, _ = np.histogram2d(x3, y3, bins=[xbins, ybins])
+
+        img = hist.T + hist2.T + hist3.T
+        channel = 'CH{}'.format(i)
+        imgs[channel] = img[::-1]
+        plt.imshow(img[::-1], extent=[-30, 30, -30, 30], alpha=1/7,
+                   cmap=cmaps[i])
+        plt.scatter([-xoff], [-yoff])
+
+    fig = plt.figure('Interactive')
+    ax = fig.add_subplot(111)
+    FeedAligner(imgs, ax, [-30, 30], [-30, 30])
+    plt.show()
 
 
-#fig = plt.figure('Gridspec', figsize=(9,9))
-#gs = GridSpec(5, 5)
-#
-#radii = np.linspace(1, 5, 5)
-#angles = np.linspace(-20, 20, 5)
-#
-#for ir, r in enumerate(radii):
-#    for ia, a in enumerate(angles):
-#        ax = plt.subplot(gs[ir, ia])
-#        ax.set_title('Radius: {}, angle: {}'.format(r, a))
-#        xoffsets, yoffsets = standard_offsets(r, a)
-#        for i in range(7):
-#            xoff = xoffsets[i]
-#            yoff = yoffsets[i]
-#            channel = 'Ch{}'.format(i)
-#            img = imgs[channel]
-#            ax.imshow(img, origin='lower',
-#                      extent=[-15 + xoff, 15 + xoff, -15 + yoff, 15 + yoff],
-#                      alpha=1/7,
-#                      cmap=cmaps[i])
-#            ax.scatter([-real_xoffsets[i] + xoff],
-#                       [-real_yoffsets[i] + yoff], color=colors[i])
-#
-#plt.show()
+if __name__ == '__main__':
+    import astropy.io.fits as pf
+    hdulist = pf.open('try.fits')
 
-fig = plt.figure('Interactive')
-ax = fig.add_subplot(111)
-FeedAligner([imgs, [-30, 30], [-30, 30]], ax)
-plt.show()
+    imgs = {}
+    feeds = {}
+    for h in hdulist[1:]:
+        name = h.name
+        img = h.data
+        imgs[name] = img[::-1]
+        chnum = int(channel_re.match(name).group(1))
+        feeds[name] = chnum // 2
+
+    nx = hdulist['IMGCH0'].header['NAXIS1']
+    ny = hdulist['IMGCH0'].header['NAXIS2']
+
+    dx = np.abs(hdulist['IMGCH0'].header['CDELT1'])
+    dy = np.abs(hdulist['IMGCH0'].header['CDELT2'])
+
+    cx = hdulist['IMGCH0'].header['CRPIX1']
+    cy = hdulist['IMGCH0'].header['CRPIX2']
+
+    xextent = [-cx * dx, (nx - cx) * dx]
+    yextent = [-cy * dy, (ny - cy) * dy]
+
+    print(xextent, yextent)
+    fig = plt.figure('Interactive')
+    ax = fig.add_subplot(111)
+    FeedAligner(imgs, ax, xextent, yextent, feeds)
+    plt.show()

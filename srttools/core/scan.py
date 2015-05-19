@@ -109,20 +109,20 @@ class Scan(Table):
             # Temporary, waiting for AstroPy's metadata handling improvements
             feed = self[ch + '_feed'][0]
 
-            selection = self['raj2000'][:, feed]
+            selection = self['ra'][:, feed]
 
             ravar = np.abs(selection[-1] -
                            selection[0])
 
-            selection = self['decj2000'][:, feed]
+            selection = self['dec'][:, feed]
             decvar = np.abs(selection[-1] -
                             selection[0])
 
             # Choose if plotting by R.A. or Dec.
             if ravar > decvar:
-                dim = 'raj2000'
+                dim = 'ra'
             else:
-                dim = 'decj2000'
+                dim = 'dec'
 
             # ------- CALL INTERACTIVE FITTER ---------
             info = select_data(self[dim][:, feed], self[ch],
@@ -198,21 +198,29 @@ class ScanSet(Table):
 
             self.meta['scan_list'] = np.array(self.meta['scan_list'],
                                               dtype='S')
-
-            allras = self['raj2000']
-            alldecs = self['decj2000']
-
-            self.meta['mean_ra'] = np.mean(allras)
-            self.meta['mean_dec'] = np.mean(alldecs)
-            self.meta['min_ra'] = np.min(allras)
-            self.meta['min_dec'] = np.min(alldecs)
-            self.meta['max_ra'] = np.max(allras)
-            self.meta['max_dec'] = np.max(alldecs)
+            self.analyze_coordinates(altaz=False)
+            self.analyze_coordinates(altaz=True)
 
             self.convert_coordinates()
 
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
+
+    def analyze_coordinates(self, altaz=False):
+        if altaz:
+            hor, ver = 'az', 'el'
+        else:
+            hor, ver = 'ra', 'dec'
+
+        allhor = self[hor]
+        allver = self[ver]
+
+        self.meta['mean_' + hor] = np.mean(allhor)
+        self.meta['mean_' + ver] = np.mean(allver)
+        self.meta['min_' + hor] = np.min(allhor)
+        self.meta['min_' + ver] = np.min(allver)
+        self.meta['max_' + hor] = np.max(allhor)
+        self.meta['max_' + ver] = np.max(allver)
 
     def list_scans(self, datadir, dirlist):
         '''List all scans contained in the directory listed in config'''
@@ -223,34 +231,42 @@ class ScanSet(Table):
         for f in scan_list:
             yield Scan(f, norefilt=self.norefilt)
 
-    def get_coordinates(self):
+    def get_coordinates(self, altaz=False):
         '''Give the coordinates as pairs of RA, DEC'''
 
-        return np.array(np.dstack([self['raj2000'],
-                                   self['decj2000']]))
+        if altaz:
+            return np.array(np.dstack([self['az'],
+                                       self['el']]))
+        else:
+            return np.array(np.dstack([self['ra'],
+                                       self['dec']]))
 
-    def create_wcs(self):
+    def create_wcs(self, altaz=False):
         '''Create a wcs object from the pointing information'''
+        if altaz:
+            hor, ver = 'az', 'el'
+        else:
+            hor, ver = 'ra', 'dec'
         npix = np.array(self.meta['npix'])
         self.wcs = wcs.WCS(naxis=2)
 
         self.wcs.wcs.crpix = npix / 2
-        delta_ra = self.meta['max_ra'] - self.meta['min_ra']
-        delta_dec = self.meta['max_dec'] - self.meta['min_dec']
+        delta_hor = self.meta['max_' + hor] - self.meta['min_' + hor]
+        delta_ver = self.meta['max_' + ver] - self.meta['min_' + ver]
 
-        if not hasattr(self.meta, 'reference_ra'):
-            self.meta['reference_ra'] = self.meta['mean_ra']
-        if not hasattr(self.meta, 'reference_dec'):
-            self.meta['reference_dec'] = self.meta['mean_dec']
+        if not hasattr(self.meta, 'reference_' + hor):
+            self.meta['reference_' + hor] = self.meta['mean_' + hor]
+        if not hasattr(self.meta, 'reference_' + ver):
+            self.meta['reference_' + ver] = self.meta['mean_' + ver]
 
         # TODO: check consistency of units
         # Here I'm assuming all angles are radians
-        crval = np.array([self.meta['reference_ra'],
-                          self.meta['reference_dec']])
+        crval = np.array([self.meta['reference_' + hor],
+                          self.meta['reference_' + ver]])
         self.wcs.wcs.crval = np.degrees(crval)
 
-        cdelt = np.array([-delta_ra / npix[0],
-                          delta_dec / npix[1]])
+        cdelt = np.array([-delta_hor / npix[0],
+                          delta_ver / npix[1]])
         self.wcs.wcs.cdelt = np.degrees(cdelt)
 
         self.wcs.wcs.ctype = \
@@ -287,20 +303,24 @@ class ScanSet(Table):
 #
 #        feed_mask = np.in1d(allfeeds, feeds)
 
-    def convert_coordinates(self):
+    def convert_coordinates(self, altaz=False):
         '''Convert the coordinates from sky to pixel.'''
-        self.create_wcs()
+        if altaz:
+            hor, ver = 'az', 'el'
+        else:
+            hor, ver = 'ra', 'dec'
+        self.create_wcs(altaz)
 
-        self['x'] = np.zeros_like(self['raj2000'])
-        self['y'] = np.zeros_like(self['decj2000'])
+        self['x'] = np.zeros_like(self[hor])
+        self['y'] = np.zeros_like(self[ver])
         coords = np.degrees(self.get_coordinates())
-        for f in range(len(self['raj2000'][0, :])):
+        for f in range(len(self[hor][0, :])):
             pixcrd = self.wcs.wcs_world2pix(coords[:, f], 0)
 
             self['x'][:, f] = pixcrd[:, 0]
             self['y'][:, f] = pixcrd[:, 1]
 
-    def calculate_images(self, scrunch=False, no_offsets=False):
+    def calculate_images(self, scrunch=False, no_offsets=False, altaz=False):
         '''Obtain image from all scans.
 
         scrunch:         sum all channels
@@ -410,12 +430,13 @@ class ScanSet(Table):
         t.write(fname, path='scanset', **kwargs)
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
-                        no_offsets=False):
+                        no_offsets=False, altaz=False):
         '''Save a ds9-compatible file with one image per extension.'''
         if fname is None:
             fname = 'img.fits'
-        images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets)
-        self.create_wcs()
+        images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
+                                       altaz=altaz)
+        self.create_wcs(altaz)
 
         hdulist = fits.HDUList()
 
@@ -529,7 +550,25 @@ class Test2_ScanSet(unittest.TestCase):
     #    plt.ioff()
         plt.show()
 
-    def step_3_image_stdev(self):
+    def step_3_rough_image_altaz(self):
+        '''Test image production.'''
+
+        plt.ion()
+
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config)
+
+        images = scanset.calculate_images(altaz=True)
+
+        img = images['Ch0']
+
+        plt.figure('img_altaz')
+        plt.imshow(img, origin='lower')
+        plt.colorbar()
+    #    plt.ioff()
+        plt.show()
+
+    def step_4_image_stdev(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -545,7 +584,7 @@ class Test2_ScanSet(unittest.TestCase):
         plt.ioff()
         plt.show()
 
-    def step_4_image_scrunch(self):
+    def step_5_image_scrunch(self):
         '''Test image production.'''
 
         plt.ion()
@@ -567,7 +606,7 @@ class Test2_ScanSet(unittest.TestCase):
         plt.ioff()
         plt.show()
 
-    def step_5_interactive_image(self):
+    def step_6_interactive_image(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -575,20 +614,22 @@ class Test2_ScanSet(unittest.TestCase):
 
         scanset.interactive_display()
 
-    def step_6_ds9_image(self):
+    def step_7_ds9_image(self):
         '''Test image production.'''
 
         scanset = ScanSet.read('test.hdf5')
 
         scanset.save_ds9_images()
+        scanset.save_ds9_images('dummy_altaz.fits', altaz=True)
 
     def test_all(self):
         self.step_1_scanset()
         self.step_2_rough_image()
-        self.step_3_image_stdev()
-        self.step_4_image_scrunch()
-        self.step_5_interactive_image()
-        self.step_6_ds9_image()
+        self.step_3_rough_image_altaz()
+        self.step_4_image_stdev()
+        self.step_5_image_scrunch()
+        self.step_6_interactive_image()
+        self.step_7_ds9_image()
 
 
 class Test3_MultiFeed(unittest.TestCase):
@@ -660,9 +701,17 @@ class Test3_MultiFeed(unittest.TestCase):
                           config_file=self.config)
         scanset.save_ds9_images('multifeed_nooffsets.fits', no_offsets=True)
 
+    def step5_altaz(self):
+        scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
+                          config_file=self.config)
+        scanset.save_ds9_images('multifeed_nooffsets_altaz.fits',
+                                no_offsets=True,
+                                altaz=True)
+
     def test_all_multifeed(self):
         '''Test that sets of data are read also with multifeed.'''
         self.step1_scanset()
         self.step2_img()
         self.step3_scrunch()
         self.step4_nocorrect()
+        self.step5_altaz()

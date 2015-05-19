@@ -105,10 +105,10 @@ def read_data_fitszilla(fname):
         new_table['derot_angle'][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)
-    new_table['raj2000'] = \
+    new_table['ra'] = \
         np.tile(data_table_data['raj2000'],
                 (np.max(feeds) + 1, 1)).transpose()
-    new_table['decj2000'] = \
+    new_table['dec'] = \
         np.tile(data_table_data['decj2000'],
                 (np.max(feeds) + 1, 1)).transpose()
     new_table['el'] = \
@@ -119,7 +119,7 @@ def read_data_fitszilla(fname):
                 (np.max(feeds) + 1, 1)).transpose()
 
 
-    for info in ['raj2000', 'decj2000', 'az', 'el', 'derot_angle']:
+    for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
 
     # Coordinate correction. Will it work?
@@ -146,8 +146,8 @@ def read_data_fitszilla(fname):
         # operation in this function, taking between 80 and 90% of the
         # execution time. Need to study a way to avoid this.
         coords_deg = coords.icrs
-        new_table['raj2000'][:, i] = np.radians(coords_deg.ra)
-        new_table['decj2000'][:, i] = np.radians(coords_deg.dec)
+        new_table['ra'][:, i] = np.radians(coords_deg.ra)
+        new_table['dec'][:, i] = np.radians(coords_deg.dec)
 
     for ic, ch in enumerate(chan_ids):
         new_table['Ch{}'.format(ch)] = \
@@ -209,8 +209,8 @@ class TestCoords(unittest.TestCase):
     def step_coordinate_conversion(self):
         new_table = self.table
 
-        probe_location = SkyCoord(ra = new_table['raj2000'][:, 0],
-                                  dec = new_table['decj2000'][:, 0],
+        probe_location = SkyCoord(ra = new_table['ra'][:, 0],
+                                  dec = new_table['dec'][:, 0],
                                   unit= u.radian)
         print(new_table['time'])
         print((new_table['time'] * u.day).unit)
