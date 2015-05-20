@@ -31,16 +31,20 @@ class DataSelector:
         self.xlabel = xlabel
         self.title = title
         self.info = {}
-        self.info['FLAG'] = False
-        self.info['zap'] = intervals()
-        self.info['base'] = intervals()
-        self.info['fitpars'] = []
+        for key in self.xs.keys():
+            self.info[key] = {}
+            self.info[key]['FLAG'] = False
+            self.info[key]['zap'] = intervals()
+            self.info[key]['base'] = intervals()
+            self.info[key]['fitpars'] = []
         self.lines = []
         self.print_instructions()
+        self.current = None
         self.plot_all()
 
         ax1.figure.canvas.mpl_connect('button_press_event', self.on_click)
         ax1.figure.canvas.mpl_connect('key_press_event', self.on_key)
+        ax1.figure.canvas.mpl_connect('pick_event', self.on_pick)
         self.zcounter = 0
         self.bcounter = 0
 
@@ -49,7 +53,10 @@ class DataSelector:
 
     def zap(self, event):
         '''Create a zap interval'''
-        self.info['zap'].add([event.xdata, event.ydata])
+        key = self.current
+        if key is None:
+            return
+        self.info[key]['zap'].add([event.xdata, event.ydata])
         self.zcounter += 1
         color = 'r'
         if self.zcounter % 2 == 1:
@@ -63,7 +70,10 @@ class DataSelector:
 
     def base(self, event):
         '''Adds an interval to the ones that will be used by baseline sub.'''
-        self.info['base'].add([event.xdata, event.ydata])
+        key = self.current
+        if key is None:
+            return
+        self.info[key]['base'].add([event.xdata, event.ydata])
         self.bcounter += 1
         color = 'b'
         if self.bcounter % 2 == 1:
@@ -78,6 +88,7 @@ class DataSelector:
     def on_key(self, event):
         '''What to do when the keyboard is used'''
 
+        current = self.current
         if event.key == 'z':
             self.zap(event)
         if event.key == 'h':
@@ -89,19 +100,22 @@ class DataSelector:
         if event.key == 'u':
             self.plot_all()
         if event.key == 'x':
-            self.info['FLAG'] = True
+            self.info[current]['FLAG'] = True
             print('Marked as flagged')
+        if event.key == 'P':
+            self.print_info()
         if event.key == 'v':
-            if self.info['FLAG']:
-                self.info['FLAG'] = False
+            if self.info[current]['FLAG']:
+                self.info[current]['FLAG'] = False
                 print('Removed flag ()')
         elif event.key == 'r':
             for l in self.lines:
                 l.remove()
-            self.lines = []
-            self.info['zap'].clear()
-            self.info['base'].clear()
-            self.info['fitpars'] = []
+            for current in self.xs.keys():
+                self.lines = []
+                self.info[current]['zap'].clear()
+                self.info[current]['base'].clear()
+                self.info[current]['fitpars'] = []
             self.plot_all()
         elif event.key == 'q':
             plt.close(self.ax1.figure)
@@ -110,18 +124,25 @@ class DataSelector:
 
     def subtract_baseline(self):
         '''Subtract the baseline based on the selected intervals'''
-        if len(self.info['base'].xs) < 2:
-            self.info['fitpars'] = [np.min(self.ys)]
+        key = self.current
+        if len(self.info[key]['base'].xs) < 2:
+            self.info[key]['fitpars'] = [np.min(self.ys[key])]
         else:
-            base_xs = self.info['base'].xs
-            good = np.zeros(len(self.xs), dtype=bool)
+            base_xs = self.info[key]['base'].xs
+            good = np.zeros(len(self.xs[key]), dtype=bool)
             intervals = list(zip(base_xs[:-1:2], base_xs[1::2]))
             for i in intervals:
-                good[np.logical_and(self.xs >= i[0],
-                                    self.xs <= i[1])] = True
-            self.info['fitpars'] = linear_fit(self.xs[good], self.ys[good],
-                                              [np.min(self.ys), 0])
+                good[np.logical_and(self.xs[key] >= i[0],
+                                    self.xs[key] <= i[1])] = True
+            self.info[key]['fitpars'] = linear_fit(self.xs[key][good],
+                                              self.ys[key][good],
+                                              [np.min(self.ys[key]), 0])
 
+        self.plot_all()
+
+    def on_pick(self, event):
+        thisline = event.artist
+        self.current=(thisline._label)
         self.plot_all()
 
     def plot_all(self):
@@ -129,43 +150,53 @@ class DataSelector:
             l.remove()
         self.lines = []
         self.ax1.cla()
-        self.ax1.plot(self.xs, self.ys, color='k')
-
         plt.setp(self.ax1.get_xticklabels(), visible=False)
+        good = {}
+        model = {}
 
-        zap_xs = self.info['zap'].xs
+        if self.current is not None:
+            self.ax1.plot(self.xs[self.current], self.ys[self.current], color='g', lw=3)
+        for key in self.xs.keys():
+            self.ax1.plot(self.xs[key], self.ys[key], color='k', picker=True,
+                          label=key)
 
-        # Eliminate zapped intervals
-        plt.draw()
-        good = np.ones(len(self.xs), dtype=bool)
-        if len(zap_xs) >= 2:
-            intervals = list(zip(zap_xs[:-1:2], zap_xs[1::2]))
-            for i in intervals:
-                good[np.logical_and(self.xs >= i[0],
-                                    self.xs <= i[1])] = False
-        fitpars = self.info['fitpars']
-        if len(self.info['fitpars']) >= 2:
-            model = linear_fun(self.xs, *fitpars)
-            self.ax1.plot(self.xs, model, color='b')
-        else:
-            model = np.zeros(len(self.xs)) + np.min(self.ys)
+
+            zap_xs = self.info[key]['zap'].xs
+
+            # Eliminate zapped intervals
+            plt.draw()
+            good[key] = np.ones(len(self.xs[key]), dtype=bool)
+            if len(zap_xs) >= 2:
+                intervals = list(zip(zap_xs[:-1:2], zap_xs[1::2]))
+                for i in intervals:
+                    good[key][np.logical_and(self.xs[key] >= i[0],
+                                             self.xs[key] <= i[1])] = False
+            fitpars = self.info[key]['fitpars']
+            if len(self.info[key]['fitpars']) >= 2:
+                model[key] = linear_fun(self.xs[key], *fitpars)
+                self.ax1.plot(self.xs[key], model[key], color='b')
+            else:
+                model[key] = np.zeros(len(self.xs[key])) + np.min(self.ys[key])
 
         self.ax2.cla()
         self.ax2.axhline(0, ls='--', color='k')
-        self.ax2.plot(self.xs, self.ys - model, color='grey', ls='-')
-        self.ax2.plot(self.xs[good], self.ys[good] - model[good], 'k-', lw=2)
+        for key in self.xs.keys():
+            self.ax2.plot(self.xs[key], self.ys[key] - model[key], color='grey', ls='-')
+            self.ax2.plot(self.xs[key][good[key]], self.ys[key][good[key]] - model[key][good[key]], 'k-', lw=2)
 
         if self.xlabel is not None:
             self.ax2.set_xlabel(self.xlabel)
         plt.draw()
 
     def print_instructions(self):
-            instructions = '''
+        instructions = '''
 -------------------------------------------------------------
 
 Interactive plotter.
 
 -------------------------------------------------------------
+
+Choose line to fit: Click on the line
 
 Interval selection: Point mouse + <key>
     z     create zap intervals
@@ -176,6 +207,7 @@ Flagging actions:
     v     Remove flag;
 
 Actions:
+    P     print current zap list and fit parameters
     u     update plots with new selections
     B     subtract the baseline;
     r     reset baseline and zapping intervals, and fit parameters;
@@ -184,10 +216,23 @@ Actions:
 -------------------------------------------------------------
     '''
 
-            print(instructions)
+        print(instructions)
 
+    def print_info(self):
+        for key in self.info.keys():
+            print(key + ':')
+            if len(self.info[key]['zap'].xs) >= 2:
+                print('  Zap intervals: ', list(zip(self.info[key]['zap'].xs[:-1:2],
+                                                    self.info[key]['zap'].xs[1::2])))
+
+            print('  Fit pars:      ', self.info[key]['fitpars'])
 
 def select_data(xs, ys, title=None, xlabel=None):
+    try:
+        xs.keys()
+    except:
+        xs = {'Ch': xs}
+        ys = {'Ch': ys}
 
     gs = gridspec.GridSpec(2, 1, height_ratios=[3, 2], hspace=0)
 
@@ -238,11 +283,17 @@ class ImageSelector():
 
 def test_select_data():
     times = np.arange(0, 100, 0.1)
-    lc = np.random.normal(0, 0.3, len(times)) + times * 0.5 +\
+    lc1 = np.random.normal(0, 0.3, len(times)) + times * 0.5 +\
         10 * np.exp(-(times - 30) ** 2 / 20 ** 2) + \
         3 * np.exp(-(times - 55) ** 2 / 6 ** 2) + \
         10 * np.exp(-(times - 80) ** 2 / 0.1 ** 2)
-    select_data(times, lc)
+    lc2 = np.random.normal(0, 0.3, len(times)) + times * 0.3 +\
+        10 * np.exp(-(times - 30) ** 2 / 20 ** 2) + \
+        3 * np.exp(-(times - 55) ** 2 / 6 ** 2) + \
+        10 * np.exp(-(times - 80) ** 2 / 0.1 ** 2)
+    xs = {'Ch0': times, 'Ch1': times}
+    ys = {'Ch0': lc1, 'Ch1': lc2}
+    select_data(xs, ys)
 
 
 def test_imageselector():
