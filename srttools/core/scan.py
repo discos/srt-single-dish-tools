@@ -11,10 +11,10 @@ import astropy.io.fits as fits
 import logging
 import matplotlib.pyplot as plt
 from .fit import rough_baseline_sub, linear_fun
+from .interactive_filter import select_data
 import astropy.units as u
 import re
 import unittest
-
 
 chan_re = re.compile(r'^Ch[0-9]+$')
 
@@ -103,7 +103,6 @@ class Scan(Table):
 
     def interactive_filter(self, save=True):
         '''Run the interactive filter'''
-        from .interactive_filter import select_data
         for ch in self.chan_columns():
             # Temporary, waiting for AstroPy's metadata handling improvements
             feed = self[ch + '_feed'][0]
@@ -204,6 +203,7 @@ class ScanSet(Table):
 
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
+        self.current = None
 
     def analyze_coordinates(self, altaz=False):
         if altaz:
@@ -393,49 +393,71 @@ class ScanSet(Table):
 
         return images
 
-    def interactive_display(self):
+    def interactive_display(self, ch = None):
         '''Modify original scans from the image display'''
         from .interactive_filter import ImageSelector
 
         if not hasattr(self, 'images'):
             self.calculate_images()
 
-        for ch in self.chan_columns:
+        if ch is None:
+            chs = self.chan_columns
+        else:
+            chs = [ch]
+        for ch in chs:
             fig = plt.figure('Imageactive Display')
             ax = fig.add_subplot(111)
             img = self.images[ch]
+            self.current = ch
             imagesel = ImageSelector(img, ax, fun=self.rerun_scan_analysis)
             plt.show()
 
     def rerun_scan_analysis(self, x, y, key):
         print(x, y, key)
         if key == 'a':
-            for ch in self.chan_columns:
-                feed = list(set(self[ch+'_feed']))[0]
+            ra_xs = {}
+            ra_ys = {}
+            dec_xs = {}
+            dec_ys = {}
 
-                good_entries = np.logical_and(self['x'][:, feed].astype(int) == int(x),
-                                              self['y'][:, feed].astype(int) == int(y))
-                scans = list(set(self['Scan_id'][good_entries]))
-                for s in scans:
-                    sname = self.meta['scan_list'][s].decode()
-                    scan = Scan(sname)
+            ch = self.current
+            feed = list(set(self[ch+'_feed']))[0]
 
-                    xs = scan['ra'][:, feed]
-                    ys = scan['dec'][:, feed]
+            good_entries = \
+                np.logical_and(self['x'][:, feed].astype(int) == int(x),
+                               self['y'][:, feed].astype(int) == int(y))
+            scans = list(set(self['Scan_id'][good_entries]))
+            for s in scans:
+                sname = self.meta['scan_list'][s].decode()
+                scan = Scan(sname)
 
-                    z = scan[ch]
+                ras = scan['ra'][:, feed]
+                decs = scan['dec'][:, feed]
 
-                    xvar = np.max(xs) - np.min(xs)
-                    yvar = np.max(ys) - np.min(ys)
-                    if xvar > yvar:
-                        name_to_plot = 'RA'
-                        to_plot = xs
-                    else:
-                        name_to_plot = 'Dec'
-                        to_plot = ys
-                    plt.figure('Scan comparison - ' + name_to_plot)
-                    plt.plot(to_plot, z)
-                plt.show()
+                z = scan[ch]
+
+                ravar = np.max(ras) - np.min(ras)
+                decvar = np.max(decs) - np.min(decs)
+                if ravar > decvar:
+                    name_to_plot = 'RA'
+                    ra_xs[sname] = ras
+                    ra_ys[sname] = z
+                else:
+                    dec_xs[sname] = decs
+                    dec_ys[sname] = z
+
+            info = select_data(ra_xs, ra_ys, xlabel='RA', title='RA')
+            plt.show()
+            for sname in info.keys():
+                if len(info[sname]['zap'].xs) > 0:
+                    print(sname + ' has to be modified')
+            info = select_data(dec_xs, dec_ys, xlabel='Dec', title='Dec')
+            plt.show()
+            for sname in info.keys():
+                if len(info[sname]['zap'].xs) > 0:
+                    print(sname + ' has to be modified')
+            self.interactive_display(ch=ch)
+
 
         elif key == 'h':
             pass
