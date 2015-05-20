@@ -410,14 +410,32 @@ class ScanSet(Table):
     def rerun_scan_analysis(self, x, y, key):
         print(x, y, key)
         if key == 'a':
-            for col in range(len(self['x'][0, :])):
-                good_entries = np.logical_and(self['x'][:, col].astype(int) == int(x),
-                                              self['y'][:, col].astype(int) == int(y))
+            for ch in self.chan_columns:
+                feed = list(set(self[ch+'_feed']))[0]
+
+                good_entries = np.logical_and(self['x'][:, feed].astype(int) == int(x),
+                                              self['y'][:, feed].astype(int) == int(y))
                 scans = list(set(self['Scan_id'][good_entries]))
                 for s in scans:
                     sname = self.meta['scan_list'][s].decode()
-                    rescan = Scan(sname, interactive=True)
-                    rescan.save()
+                    scan = Scan(sname)
+
+                    xs = scan['ra'][:, feed]
+                    ys = scan['dec'][:, feed]
+
+                    z = scan[ch]
+
+                    xvar = np.max(xs) - np.min(xs)
+                    yvar = np.max(ys) - np.min(ys)
+                    if xvar > yvar:
+                        name_to_plot = 'RA'
+                        to_plot = xs
+                    else:
+                        name_to_plot = 'Dec'
+                        to_plot = ys
+                    plt.figure('Scan comparison - ' + name_to_plot)
+                    plt.plot(to_plot, z)
+                plt.show()
 
         elif key == 'h':
             pass
