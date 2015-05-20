@@ -234,17 +234,16 @@ def select_data(xs, ys, title=None, xlabel=None):
         xs = {'Ch': xs}
         ys = {'Ch': ys}
 
-    gs = gridspec.GridSpec(2, 1, height_ratios=[3, 2], hspace=0)
+    if title is None:
+        title = 'Data selector'
 
-    if title is not None:
-        plt.title(title)
+    fig = plt.figure(title)
+    gs = gridspec.GridSpec(2, 1, height_ratios=[3, 2], hspace=0)
 
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[1], sharex=ax1)
 
     datasel = DataSelector(xs, ys, ax1, ax2, title=title, xlabel=xlabel)
-
-    plt.show()
 
     return datasel.info
 
@@ -272,6 +271,7 @@ class ImageSelector():
             print("Invalid choice. Is the window under focus?")
             return
         if self.fun is not None:
+            plt.close(self.ax.figure)
             self.fun(x, y, key)
         else:
             print(x, y, key)
