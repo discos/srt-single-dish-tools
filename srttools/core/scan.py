@@ -32,6 +32,7 @@ def list_scans(datadir, dirlist):
 class Scan(Table):
     '''Class containing a single scan'''
     def __init__(self, data=None, config_file=None, norefilt=True,
+                 interactive=False,
                  **kwargs):
 
         if config_file is None:
@@ -56,10 +57,8 @@ class Scan(Table):
 
             self.check_order()
 
-#            if 'ifilt' not in self.meta.keys() \
-#                    or not self.meta['ifilt'] \
-#                    or not norefilt:
-#                self.interactive_filter()
+            if interactive:
+                self.interactive_filter()
             if 'backsub' not in self.meta.keys() \
                     or not self.meta['backsub'] \
                     or not norefilt:
@@ -411,13 +410,14 @@ class ScanSet(Table):
     def rerun_scan_analysis(self, x, y, key):
         print(x, y, key)
         if key == 'a':
-            good_entries = np.logical_and(self['x'].astype(int) == int(x),
-                                          self['y'].astype(int) == int(y))
-            scans = list(set(self['Scan_id'][good_entries]))
-            for s in scans:
-                sname = self.meta['scan_list'][s].decode()
-                rescan = Scan(sname, norefilt=False)
-                rescan.save()
+            for col in range(len(self['x'][0, :])):
+                good_entries = np.logical_and(self['x'][:, col].astype(int) == int(x),
+                                              self['y'][:, col].astype(int) == int(y))
+                scans = list(set(self['Scan_id'][good_entries]))
+                for s in scans:
+                    sname = self.meta['scan_list'][s].decode()
+                    rescan = Scan(sname, interactive=True)
+                    rescan.save()
 
         elif key == 'h':
             pass
