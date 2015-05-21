@@ -393,11 +393,11 @@ class ScanSet(Table):
 
         return images
 
-    def interactive_display(self, ch = None):
+    def interactive_display(self, ch = None, recreate=False):
         '''Modify original scans from the image display'''
         from .interactive_filter import ImageSelector
 
-        if not hasattr(self, 'images'):
+        if not hasattr(self, 'images') or recreate:
             self.calculate_images()
 
         if ch is None:
@@ -419,44 +419,108 @@ class ScanSet(Table):
             ra_ys = {}
             dec_xs = {}
             dec_ys = {}
+            scan_ids = {}
 
             ch = self.current
             feed = list(set(self[ch+'_feed']))[0]
 
+            # Select data inside the pixel +- 1
             good_entries = \
-                np.logical_and(self['x'][:, feed].astype(int) == int(x),
-                               self['y'][:, feed].astype(int) == int(y))
-            scans = list(set(self['Scan_id'][good_entries]))
-            for s in scans:
-                sname = self.meta['scan_list'][s].decode()
-                scan = Scan(sname)
+                np.logical_and(
+                    np.abs(self['x'][:, feed].astype(int) - int(x)) <= 1,
+                    np.abs(self['y'][:, feed].astype(int) - int(y)) <= 1)
+            sids = list(set(self['Scan_id'][good_entries]))
+            vars_to_filter = {}
+            for sid in sids:
+                sname = self.meta['scan_list'][sid].decode()
+                s = Scan(sname)
+                scan_ids[sname] = sid
+                ras = s['ra'][:, feed]
+                decs = s['dec'][:, feed]
 
-                ras = scan['ra'][:, feed]
-                decs = scan['dec'][:, feed]
-
-                z = scan[ch]
+                z = s[ch]
 
                 ravar = np.max(ras) - np.min(ras)
                 decvar = np.max(decs) - np.min(decs)
                 if ravar > decvar:
-                    name_to_plot = 'RA'
+                    vars_to_filter[sname] = 'ra'
                     ra_xs[sname] = ras
                     ra_ys[sname] = z
                 else:
+                    vars_to_filter[sname] = 'dec'
                     dec_xs[sname] = decs
                     dec_ys[sname] = z
 
             info = select_data(ra_xs, ra_ys, xlabel='RA', title='RA')
             plt.show()
             for sname in info.keys():
+                mask = self['Scan_id'] == scan_ids[sname]
+                s = Scan(sname)
+                dim = vars_to_filter[sname]
                 if len(info[sname]['zap'].xs) > 0:
-                    print(sname + ' has to be modified')
+
+                    xs = info[sname]['zap'].xs
+                    good = np.ones(len(s[dim]), dtype=bool)
+                    if len(xs) >= 2:
+                        intervals = list(zip(xs[:-1:2], xs[1::2]))
+                        for i in intervals:
+                            good[np.logical_and(s[dim][:, feed] >= i[0],
+                                                s[dim][:, feed] <= i[1])] = False
+                    s['{}-filt'.format(ch)] = good
+                    print(s['{}-filt'.format(ch)])
+                    self['{}-filt'.format(ch)][mask] = good
+
+                if len(info[sname]['fitpars']) > 1:
+                    s[ch] -= linear_fun(s[dim][:, feed],
+                                        *info[sname]['fitpars'])
+                # TODO: make it channel-independent
+                    s.meta['backsub'] = True
+                    self[ch][mask][:] = s[ch]
+
+                # TODO: make it channel-independent
+                if info[sname]['FLAG']:
+                    s.meta['FLAG'] = True
+                    self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
+                                                                dtype=bool)
+
+                s.save()
+
             info = select_data(dec_xs, dec_ys, xlabel='Dec', title='Dec')
             plt.show()
+
             for sname in info.keys():
+                mask = self['Scan_id'] == scan_ids[sname]
+                s = Scan(sname)
+                dim = vars_to_filter[sname]
                 if len(info[sname]['zap'].xs) > 0:
-                    print(sname + ' has to be modified')
-            self.interactive_display(ch=ch)
+
+                    xs = info[sname]['zap'].xs
+                    good = np.ones(len(s[dim]), dtype=bool)
+                    if len(xs) >= 2:
+                        intervals = list(zip(xs[:-1:2], xs[1::2]))
+                        for i in intervals:
+                            good[np.logical_and(s[dim][:, feed] >= i[0],
+                                                s[dim][:, feed] <= i[1])] = False
+                    s['{}-filt'.format(ch)] = good
+                    print(s['{}-filt'.format(ch)])
+                    self['{}-filt'.format(ch)][mask] = good
+
+                if len(info[sname]['fitpars']) > 1:
+                    s[ch] -= linear_fun(s[dim][:, feed],
+                                        *info[sname]['fitpars'])
+                # TODO: make it channel-independent
+                    s.meta['backsub'] = True
+                    self[ch][mask][:] = s[ch]
+
+                # TODO: make it channel-independent
+                if info[sname]['FLAG']:
+                    s.meta['FLAG'] = True
+                    self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
+                                                                dtype=bool)
+
+                s.save()
+
+            self.interactive_display(ch=ch, recreate=True)
 
 
         elif key == 'h':
