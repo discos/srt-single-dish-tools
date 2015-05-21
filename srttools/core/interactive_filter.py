@@ -278,7 +278,8 @@ class ImageSelector():
         return x, y, key
 
     def plot_img(self):
-        self.ax.imshow(self.img, origin='lower')
+        self.ax.imshow(np.log10(self.img), origin='lower',
+                       vmin=np.percentile(np.log10(self.img), 10))
 
 
 def test_select_data():

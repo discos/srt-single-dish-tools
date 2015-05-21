@@ -165,6 +165,8 @@ def read_data_fitszilla(fname):
         new_table['Ch{}_feed'.format(ch)] = \
             np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
 
+        new_table['Ch{}-filt'.format(ch)] = \
+            np.ones(len(data_table_data['Ch{}'.format(ch)]), dtype=bool)
     lchdulist.close()
     return new_table
 
