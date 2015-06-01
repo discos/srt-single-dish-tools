@@ -164,19 +164,22 @@ class DataSelector:
     def align_all(self):
         reference = self.current
 
-        xs = [self.xs[reference]]
-        ys = [self.subtract_model(reference)]
+        xs = [np.array(self.xs[reference])]
+        ys = [np.array(self.subtract_model(reference))]
         keys = [reference]
 
         for key in self.xs.keys():
             if key == reference:
                 continue
 
-            x = self.xs[key].copy()
-            y = self.ys[key].copy()
+            x = np.array(self.xs[key].copy())
+            y = np.array(self.ys[key].copy())
+            print(type(x))
             zap_xs = self.info[key]['zap'].xs
 
             good = mask(x, zap_xs)
+            if len(x[good]) == 0:
+                continue
 
             xs.append(x[good])
             ys.append(y[good])
