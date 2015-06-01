@@ -51,8 +51,8 @@ def rough_baseline_sub(time, lc, start_pars=None):
 
 
 def function_to_minimize_align(xs, ys, params):
-    '''Sum of the local root mean squares after subtracting a linear fun from
-    all but the first series'''
+    '''Calculate the total variance of a series of scans, after subtracting
+    a linear function from each of them (excluding the first one)'''
 
     params = np.array(params).flatten()
     qs = params[:len(xs) - 1]
@@ -87,6 +87,7 @@ def objective_function(params, args):
 
 
 def align(xs, ys):
+    '''Given the first scan, it aligns all the others to that'''
     from scipy.optimize import minimize
 
     qs = np.zeros(len(xs) - 1)
