@@ -162,6 +162,7 @@ class DataSelector:
         return self.ys[channel] - linear_fun(self.xs[channel], *fitpars)
 
     def align_all(self):
+        '''Given the selected scan, aligns all the others to that.'''
         reference = self.current
 
         xs = [np.array(self.xs[reference])]
