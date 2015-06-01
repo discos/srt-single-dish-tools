@@ -186,7 +186,7 @@ class DataSelector:
 
             x = np.array(self.xs[key].copy())
             y = np.array(self.ys[key].copy())
-            print(type(x))
+
             zap_xs = self.info[key]['zap'].xs
 
             good = mask(x, zap_xs)
@@ -239,7 +239,7 @@ class DataSelector:
             good[key] = good[key] * self.masks[key]
 
             fitpars = list(self.info[key]['fitpars'])
-            print(fitpars)
+
             if len(self.info[key]['fitpars']) >= 2:
                 model[key] = linear_fun(self.xs[key], *fitpars)
                 self.ax1.plot(self.xs[key], model[key], color='b')
@@ -340,6 +340,7 @@ class ImageSelector():
     def on_key(self, event):
         x, y = event.xdata, event.ydata
         key = event.key
+        print(x, y, key)
 
         if x is None or y is None or x != x or y != y:
             print("Invalid choice. Is the window under focus?")
@@ -347,8 +348,7 @@ class ImageSelector():
         if self.fun is not None:
             plt.close(self.ax.figure)
             self.fun(x, y, key)
-        else:
-            print(x, y, key)
+
         return x, y, key
 
     def plot_img(self):
