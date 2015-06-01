@@ -396,6 +396,7 @@ class ScanSet(Table):
     def interactive_display(self, ch = None, recreate=False):
         '''Modify original scans from the image display'''
         from .interactive_filter import ImageSelector
+        from matplotlib.gridspec import GridSpec
 
         if not hasattr(self, 'images') or recreate:
             self.calculate_images()
@@ -406,7 +407,13 @@ class ScanSet(Table):
             chs = [ch]
         for ch in chs:
             fig = plt.figure('Imageactive Display')
-            ax = fig.add_subplot(111)
+            gs = GridSpec(1, 2, width_ratios=(3,2))
+            ax = fig.add_subplot(gs[0])
+            ax2 = fig.add_subplot(gs[1])
+            img = self.images[ch]
+            ax2.imshow(img, origin='lower',
+                       vmin=np.percentile(img, 20))
+
             img = self.images['{}-Sdev'.format(ch)]
             self.current = ch
             imagesel = ImageSelector(img, ax, fun=self.rerun_scan_analysis)
