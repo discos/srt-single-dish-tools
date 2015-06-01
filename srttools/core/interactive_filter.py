@@ -41,9 +41,14 @@ class intervals():
 
 
 class DataSelector:
-    def __init__(self, xs, ys, ax1, ax2, xlabel=None, title=None):
+    def __init__(self, xs, ys, ax1, ax2, masks=None, xlabel=None, title=None):
         self.xs = xs
         self.ys = ys
+        if masks is None:
+            masks = dict(list(zip(self.xs.keys(),
+                                  [np.ones(len(self.xs[k]), dtype=bool)
+                                   for k in self.xs.keys()])))
+        self.masks = masks
         self.ax1 = ax1
         self.ax2 = ax2
         self.xlabel = xlabel
@@ -165,8 +170,14 @@ class DataSelector:
         '''Given the selected scan, aligns all the others to that.'''
         reference = self.current
 
-        xs = [np.array(self.xs[reference])]
-        ys = [np.array(self.subtract_model(reference))]
+        x = np.array(self.xs[reference])
+        y = np.array(self.subtract_model(reference))
+        zap_xs = self.info[reference]['zap'].xs
+
+        good = mask(x, zap_xs)
+
+        xs = [x[good]]
+        ys = [y[good]]
         keys = [reference]
 
         for key in self.xs.keys():
@@ -179,6 +190,8 @@ class DataSelector:
             zap_xs = self.info[key]['zap'].xs
 
             good = mask(x, zap_xs)
+
+            good = good * self.masks[key]
             if len(x[good]) == 0:
                 continue
 
@@ -223,6 +236,7 @@ class DataSelector:
             # Eliminate zapped intervals
             plt.draw()
             good[key] = mask(self.xs[key], zap_xs)
+            good[key] = good[key] * self.masks[key]
 
             fitpars = list(self.info[key]['fitpars'])
             print(fitpars)
@@ -287,7 +301,7 @@ Actions:
             print('  Fit pars:      ', self.info[key]['fitpars'])
 
 
-def select_data(xs, ys, title=None, xlabel=None):
+def select_data(xs, ys, masks=None, title=None, xlabel=None):
     try:
         xs.keys()
     except:
@@ -303,7 +317,7 @@ def select_data(xs, ys, title=None, xlabel=None):
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[1], sharex=ax1)
 
-    datasel = DataSelector(xs, ys, ax1, ax2, title=title, xlabel=xlabel)
+    datasel = DataSelector(xs, ys, ax1, ax2, masks, title=title, xlabel=xlabel)
 
     return datasel.info
 

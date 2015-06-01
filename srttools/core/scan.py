@@ -407,7 +407,7 @@ class ScanSet(Table):
         for ch in chs:
             fig = plt.figure('Imageactive Display')
             ax = fig.add_subplot(111)
-            img = self.images[ch]
+            img = self.images['{}-Sdev'.format(ch)]
             self.current = ch
             imagesel = ImageSelector(img, ax, fun=self.rerun_scan_analysis)
             plt.show()
@@ -431,9 +431,17 @@ class ScanSet(Table):
                     np.abs(self['y'][:, feed].astype(int) - int(y)) <= 1)
             sids = list(set(self['Scan_id'][good_entries]))
             vars_to_filter = {}
+            ra_masks = {}
+            dec_masks = {}
             for sid in sids:
                 sname = self.meta['scan_list'][sid].decode()
                 s = Scan(sname)
+
+                try:
+                    chan_mask = s['{}-filt'.format(ch)]
+                except:
+                    chan_mask = np.zeros_like(s[ch])
+
                 scan_ids[sname] = sid
                 ras = s['ra'][:, feed]
                 decs = s['dec'][:, feed]
@@ -446,12 +454,15 @@ class ScanSet(Table):
                     vars_to_filter[sname] = 'ra'
                     ra_xs[sname] = ras
                     ra_ys[sname] = z
+                    ra_masks[sname] = chan_mask
                 else:
                     vars_to_filter[sname] = 'dec'
                     dec_xs[sname] = decs
                     dec_ys[sname] = z
+                    dec_masks[sname] = chan_mask
 
-            info = select_data(ra_xs, ra_ys, xlabel='RA', title='RA')
+            info = select_data(ra_xs, ra_ys, masks=ra_masks,
+                               xlabel='RA', title='RA')
             plt.show()
             for sname in info.keys():
                 mask = self['Scan_id'] == scan_ids[sname]
@@ -485,7 +496,8 @@ class ScanSet(Table):
 
                 s.save()
 
-            info = select_data(dec_xs, dec_ys, xlabel='Dec', title='Dec')
+            info = select_data(dec_xs, dec_ys, masks=dec_masks,
+                               xlabel='Dec', title='Dec')
             plt.show()
 
             for sname in info.keys():
