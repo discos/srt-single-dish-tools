@@ -4,7 +4,7 @@ from scipy.optimize import curve_fit
 import numpy as np
 
 
-def linear_fun(x, m, q):
+def linear_fun(x, q, m):
     '''A linear function'''
     return m * x + q
 
@@ -25,7 +25,7 @@ def rough_baseline_sub(time, lc, start_pars=None):
     if start_pars is None:
         m0 = 0
         q0 = min(lc)
-        start_pars = [m0, q0]
+        start_pars = [q0, m0]
 
     # only consider start and end quarters of image
     nbin = len(time)
@@ -50,3 +50,94 @@ def rough_baseline_sub(time, lc, start_pars=None):
     return lc
 
 
+def function_to_minimize_align(xs, ys, params):
+    '''Sum of the local root mean squares after subtracting a linear fun from
+    all but the first series'''
+
+    params = np.array(params).flatten()
+    qs = params[:len(xs) - 1]
+    ms = params[len(xs) - 1:]
+
+    x = xs[0].copy()
+    y = ys[0].copy()
+    for i in range(1, len(xs)):
+        x = np.append(x, xs[i])
+        scaled_y = ys[i] - (xs[i] * ms[i - 1] + qs[i - 1])
+        y = np.append(y, scaled_y)
+
+    order = np.argsort(x)
+
+    x = x[order]
+    y = y[order]
+
+    xrange = [np.min(x), np.max(x)]
+
+    xints = np.linspace(xrange[0], xrange[1], len(x) / 20)
+
+    values = [np.var(y[(x >= xints[k]) & (x < xints[k+1])])
+              for k in range(len(xints[:-1]))]
+    value = np.sum(values)
+
+    return value
+
+
+def objective_function(params, args):
+    '''Put the parameters in the right order to use with scipy's minimize'''
+    return function_to_minimize_align(args[0], args[1], params)
+
+
+def align(xs, ys):
+    from scipy.optimize import minimize
+
+    qs = np.zeros(len(xs) - 1)
+    ms = np.zeros(len(xs) - 1)
+
+    result = minimize(objective_function, [qs, ms], args=[xs, ys],
+                      options={'disp': True})
+
+    print(result)
+
+    qs = result.x[:len(xs) - 1]
+    ms = result.x[len(xs) - 1:]
+
+    return qs, ms
+
+
+def test_function_to_minimize_align():
+    import matplotlib.pyplot as plt
+
+    shape = lambda x: 100 * np.exp(-(x - 50) ** 2 / 3)
+    x1 = np.arange(0, 100, 0.1)
+    y1 = np.random.poisson(100, len(x1)) + shape(x1)
+    x2 = np.arange(0.02, 100, 0.1)
+    y2 = np.random.poisson(100, len(x2)) + shape(x2)
+    x3 = np.arange(0.053, 98.34, 0.1)
+    y3 = np.random.poisson(100, len(x3)) + shape(x3)
+
+    xs = [x1, x2, x3]
+    ys = [y1, y2, y3]
+
+    qs = [20, -60, 60]
+    ms = [0, 0.3, -0.8]
+
+    plt.figure('Original')
+    for ix, x in enumerate(xs):
+        ys[ix] = ys[ix] + qs[ix] + ms[ix] * xs[ix]
+
+        plt.plot(xs[ix], ys[ix], label=ix)
+
+    plt.legend()
+
+    qs, ms = align(xs, ys)
+
+    plt.figure('After fit')
+    for ix, x in enumerate(xs):
+        if ix == 0:
+            plt.plot(xs[0], ys[0], label=ix)
+        else:
+            ys[ix] = ys[ix] - (qs[ix-1] + ms[ix-1] * xs[ix])
+
+            plt.plot(xs[ix], ys[ix], label=ix)
+
+    plt.legend()
+    plt.show()
