@@ -174,9 +174,12 @@ class DataSelector:
 
             x = self.xs[key].copy()
             y = self.ys[key].copy()
+            zap_xs = self.info[key]['zap'].xs
 
-            xs.append(x)
-            ys.append(y)
+            good = mask(x, zap_xs)
+
+            xs.append(x[good])
+            ys.append(y[good])
             keys.append(key)
 
         # ------- Make FIT!!! -----
@@ -258,7 +261,7 @@ Flagging actions:
 
 Actions:
     P     print current zap list and fit parameters
-    A     align all series w.r.t. the selected one
+    A     align all scans w.r.t. the selected one
     u     update plots with new selections
     B     subtract the baseline;
     r     reset baseline and zapping intervals, and fit parameters;
