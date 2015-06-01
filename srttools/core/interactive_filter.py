@@ -4,7 +4,25 @@ from __future__ import (absolute_import, unicode_literals, division,
 from matplotlib import pyplot as plt
 from matplotlib import gridspec
 import numpy as np
-from .fit import linear_fit, linear_fun
+from .fit import linear_fit, linear_fun, align
+
+
+def mask(xs, mask_xs, invert=False):
+    '''Create mask from ranges. Mask value is False if invert = False, and v.v.
+
+    E.g. for zapped intervals, invert = False. For baseline fit selections,
+    invert = True
+    '''
+    good = np.ones(len(xs), dtype=bool)
+    if len(mask_xs) >= 2:
+        intervals = list(zip(mask_xs[:-1:2], mask_xs[1::2]))
+        for i in intervals:
+            good[np.logical_and(xs >= i[0],
+                                xs <= i[1])] = False
+    if invert:
+        good = np.logical_not(good)
+
+    return good
 
 
 class intervals():
@@ -36,7 +54,7 @@ class DataSelector:
             self.info[key]['FLAG'] = False
             self.info[key]['zap'] = intervals()
             self.info[key]['base'] = intervals()
-            self.info[key]['fitpars'] = []
+            self.info[key]['fitpars'] = np.array([0, 0])
         self.lines = []
         self.print_instructions()
         self.current = None
@@ -104,6 +122,8 @@ class DataSelector:
             print('Marked as flagged')
         if event.key == 'P':
             self.print_info()
+        if event.key == 'A':
+            self.align_all()
         if event.key == 'v':
             if self.info[current]['FLAG']:
                 self.info[current]['FLAG'] = False
@@ -115,7 +135,7 @@ class DataSelector:
                 self.lines = []
                 self.info[current]['zap'].clear()
                 self.info[current]['base'].clear()
-                self.info[current]['fitpars'] = []
+                self.info[current]['fitpars'] = np.array([0, 0])
             self.plot_all()
         elif event.key == 'q':
             plt.close(self.ax1.figure)
@@ -126,23 +146,53 @@ class DataSelector:
         '''Subtract the baseline based on the selected intervals'''
         key = self.current
         if len(self.info[key]['base'].xs) < 2:
-            self.info[key]['fitpars'] = [np.min(self.ys[key])]
+            self.info[key]['fitpars'] = np.array([np.min(self.ys[key]), 0])
         else:
             base_xs = self.info[key]['base'].xs
-            good = np.zeros(len(self.xs[key]), dtype=bool)
-            intervals = list(zip(base_xs[:-1:2], base_xs[1::2]))
-            for i in intervals:
-                good[np.logical_and(self.xs[key] >= i[0],
-                                    self.xs[key] <= i[1])] = True
+            good = mask(self.xs[key], base_xs, invert=True)
+
             self.info[key]['fitpars'] = linear_fit(self.xs[key][good],
-                                              self.ys[key][good],
-                                              [np.min(self.ys[key]), 0])
+                                                   self.ys[key][good],
+                                                   self.info[key]['fitpars'])
+
+        self.plot_all()
+
+    def subtract_model(self, channel):
+        fitpars = list(self.info[channel]['fitpars'])
+        return self.ys[channel] - linear_fun(self.xs[channel], *fitpars)
+
+    def align_all(self):
+        reference = self.current
+
+        xs = [self.xs[reference]]
+        ys = [self.subtract_model(reference)]
+        keys = [reference]
+
+        for key in self.xs.keys():
+            if key == reference:
+                continue
+
+            x = self.xs[key].copy()
+            y = self.ys[key].copy()
+
+            xs.append(x)
+            ys.append(y)
+            keys.append(key)
+
+        # ------- Make FIT!!! -----
+        qs, ms = align(xs, ys)
+        # -------------------------
+
+        for ik, key in enumerate(keys):
+            if ik == 0:
+                continue
+            self.info[key]['fitpars'] = np.array([qs[ik - 1], ms[ik - 1]])
 
         self.plot_all()
 
     def on_pick(self, event):
         thisline = event.artist
-        self.current=(thisline._label)
+        self.current = (thisline._label)
         self.plot_all()
 
     def plot_all(self):
@@ -155,23 +205,20 @@ class DataSelector:
         model = {}
 
         if self.current is not None:
-            self.ax1.plot(self.xs[self.current], self.ys[self.current], color='g', lw=3)
+            self.ax1.plot(self.xs[self.current], self.ys[self.current],
+                          color='g', lw=3, zorder=10)
         for key in self.xs.keys():
             self.ax1.plot(self.xs[key], self.ys[key], color='k', picker=True,
                           label=key)
-
 
             zap_xs = self.info[key]['zap'].xs
 
             # Eliminate zapped intervals
             plt.draw()
-            good[key] = np.ones(len(self.xs[key]), dtype=bool)
-            if len(zap_xs) >= 2:
-                intervals = list(zip(zap_xs[:-1:2], zap_xs[1::2]))
-                for i in intervals:
-                    good[key][np.logical_and(self.xs[key] >= i[0],
-                                             self.xs[key] <= i[1])] = False
-            fitpars = self.info[key]['fitpars']
+            good[key] = mask(self.xs[key], zap_xs)
+
+            fitpars = list(self.info[key]['fitpars'])
+            print(fitpars)
             if len(self.info[key]['fitpars']) >= 2:
                 model[key] = linear_fun(self.xs[key], *fitpars)
                 self.ax1.plot(self.xs[key], model[key], color='b')
@@ -181,8 +228,11 @@ class DataSelector:
         self.ax2.cla()
         self.ax2.axhline(0, ls='--', color='k')
         for key in self.xs.keys():
-            self.ax2.plot(self.xs[key], self.ys[key] - model[key], color='grey', ls='-')
-            self.ax2.plot(self.xs[key][good[key]], self.ys[key][good[key]] - model[key][good[key]], 'k-', lw=2)
+            self.ax2.plot(self.xs[key], self.ys[key] - model[key],
+                          color='grey', ls='-')
+            self.ax2.plot(self.xs[key][good[key]],
+                          self.ys[key][good[key]] - model[key][good[key]],
+                          'k-', lw=2)
 
         if self.xlabel is not None:
             self.ax2.set_xlabel(self.xlabel)
@@ -208,6 +258,7 @@ Flagging actions:
 
 Actions:
     P     print current zap list and fit parameters
+    A     align all series w.r.t. the selected one
     u     update plots with new selections
     B     subtract the baseline;
     r     reset baseline and zapping intervals, and fit parameters;
@@ -222,10 +273,12 @@ Actions:
         for key in self.info.keys():
             print(key + ':')
             if len(self.info[key]['zap'].xs) >= 2:
-                print('  Zap intervals: ', list(zip(self.info[key]['zap'].xs[:-1:2],
-                                                    self.info[key]['zap'].xs[1::2])))
+                print('  Zap intervals: ',
+                      list(zip(self.info[key]['zap'].xs[:-1:2],
+                               self.info[key]['zap'].xs[1::2])))
 
             print('  Fit pars:      ', self.info[key]['fitpars'])
+
 
 def select_data(xs, ys, title=None, xlabel=None):
     try:
@@ -237,7 +290,7 @@ def select_data(xs, ys, title=None, xlabel=None):
     if title is None:
         title = 'Data selector'
 
-    fig = plt.figure(title)
+    plt.figure(title)
     gs = gridspec.GridSpec(2, 1, height_ratios=[3, 2], hspace=0)
 
     ax1 = plt.subplot(gs[0])
@@ -279,4 +332,4 @@ class ImageSelector():
 
     def plot_img(self):
         self.ax.imshow(np.log10(self.img), origin='lower',
-                       vmin=np.percentile(np.log10(self.img), 10))
+                       vmin=np.percentile(np.log10(self.img), 20))

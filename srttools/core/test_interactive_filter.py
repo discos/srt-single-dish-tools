@@ -9,6 +9,7 @@ from .interactive_filter import select_data, ImageSelector
 
 
 def test_select_data():
+    plt.ioff()
     times = np.arange(0, 100, 0.1)
     lc1 = np.random.normal(0, 0.3, len(times)) + times * 0.5 +\
         10 * np.exp(-(times - 30) ** 2 / 20 ** 2) + \
@@ -21,10 +22,12 @@ def test_select_data():
     xs = {'Ch0': times, 'Ch1': times}
     ys = {'Ch0': lc1, 'Ch1': lc2}
     select_data(xs, ys)
+    plt.show()
 
 
 def test_imageselector():
-    img = np.random.normal(100, 100, (100, 100))
+    plt.ioff()
+    img = np.random.poisson(100, (100, 100))
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
