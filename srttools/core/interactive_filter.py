@@ -115,22 +115,22 @@ class DataSelector:
         current = self.current
         if event.key == 'z':
             self.zap(event)
-        if event.key == 'h':
+        elif event.key == 'h':
             self.print_instructions()
-        if event.key == 'b':
+        elif event.key == 'b':
             self.base(event)
-        if event.key == 'B':
+        elif event.key == 'B':
             self.subtract_baseline()
-        if event.key == 'u':
+        elif event.key == 'u':
             self.plot_all()
-        if event.key == 'x':
+        elif event.key == 'x':
             self.info[current]['FLAG'] = True
             print('Marked as flagged')
-        if event.key == 'P':
+        elif event.key == 'P':
             self.print_info()
-        if event.key == 'A':
+        elif event.key == 'A':
             self.align_all()
-        if event.key == 'v':
+        elif event.key == 'v':
             if self.info[current]['FLAG']:
                 self.info[current]['FLAG'] = False
                 print('Removed flag ()')
@@ -240,7 +240,7 @@ class DataSelector:
 
             fitpars = list(self.info[key]['fitpars'])
 
-            if len(self.info[key]['fitpars']) >= 2:
+            if len(fitpars) >= 2:
                 model[key] = linear_fun(self.xs[key], *fitpars)
                 self.ax1.plot(self.xs[key], model[key], color='b')
             else:
