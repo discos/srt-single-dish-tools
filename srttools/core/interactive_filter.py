@@ -51,6 +51,7 @@ class DataSelector:
         self.masks = masks
         self.ax1 = ax1
         self.ax2 = ax2
+
         self.xlabel = xlabel
         self.title = title
         self.info = {}
@@ -223,7 +224,6 @@ class DataSelector:
         plt.setp(self.ax1.get_xticklabels(), visible=False)
         good = {}
         model = {}
-
         if self.current is not None:
             self.ax1.plot(self.xs[self.current], self.ys[self.current],
                           color='g', lw=3, zorder=10)
@@ -317,7 +317,8 @@ def select_data(xs, ys, masks=None, title=None, xlabel=None):
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[1], sharex=ax1)
 
-    datasel = DataSelector(xs, ys, ax1, ax2, masks, title=title, xlabel=xlabel)
+    datasel = DataSelector(xs, ys, ax1, ax2, masks=masks, title=title,
+                           xlabel=xlabel)
 
     return datasel.info
 
@@ -342,10 +343,12 @@ class ImageSelector():
         key = event.key
         print(x, y, key)
 
-        if x is None or y is None or x != x or y != y:
+        if key == 'q':
+            plt.close(self.ax.figure)
+        elif x is None or y is None or x != x or y != y:
             print("Invalid choice. Is the window under focus?")
             return
-        if self.fun is not None:
+        elif self.fun is not None:
             plt.close(self.ax.figure)
             self.fun(x, y, key)
 
