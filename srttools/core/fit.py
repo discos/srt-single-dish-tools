@@ -74,9 +74,10 @@ def function_to_minimize_align(xs, ys, params):
 
     xints = np.linspace(xrange[0], xrange[1], len(x) / 20)
 
-    values = [np.var(y[(x >= xints[k]) & (x < xints[k+1])])
-              for k in range(len(xints[:-1]))]
-    value = np.sum(values)
+    values = np.array([np.var(y[(x >= xints[k]) & (x < xints[k+1])])
+                      for k in range(len(xints[:-1]))])
+    good = values == values
+    value = np.mean(values[good])
 
     return value
 
