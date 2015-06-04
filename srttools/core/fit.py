@@ -70,9 +70,9 @@ def function_to_minimize_align(xs, ys, params):
     x = x[order]
     y = y[order]
 
-    xrange = [np.min(x), np.max(x)]
+    x_range = [np.min(x), np.max(x)]
 
-    xints = np.linspace(xrange[0], xrange[1], len(x) / 20)
+    xints = np.linspace(x_range[0], x_range[1], len(x) / 20)
 
     values = np.array([np.var(y[(x >= xints[k]) & (x < xints[k+1])])
                       for k in range(len(xints[:-1]))])
