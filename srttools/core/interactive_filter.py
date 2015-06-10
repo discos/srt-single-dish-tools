@@ -255,6 +255,11 @@ class DataSelector:
                           self.ys[key][good[key]] - model[key][good[key]],
                           'k-', lw=2)
 
+        if self.current is not None:
+            key = self.current
+            self.ax2.plot(self.xs[key][good[key]],
+                          self.ys[key][good[key]] - model[key][good[key]],
+                          color='g', lw=3, zorder=10)
         if self.xlabel is not None:
             self.ax2.set_xlabel(self.xlabel)
         plt.draw()

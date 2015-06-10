@@ -19,8 +19,12 @@ def test_select_data():
         10 * np.exp(-(times - 30) ** 2 / 20 ** 2) + \
         3 * np.exp(-(times - 55) ** 2 / 6 ** 2) + \
         10 * np.exp(-(times - 80) ** 2 / 0.1 ** 2)
-    xs = {'Ch0': times, 'Ch1': times}
-    ys = {'Ch0': lc1, 'Ch1': lc2}
+    lc3 = np.random.normal(0, 0.3, len(times)) + times * (-0.3) +\
+        10 * np.exp(-(times - 30) ** 2 / 20 ** 2) + \
+        3 * np.exp(-(times - 55) ** 2 / 6 ** 2) + \
+        10 * np.exp(-(times - 80) ** 2 / 0.1 ** 2)
+    xs = {'Ch0': times, 'Ch1': times, 'Ch2': times}
+    ys = {'Ch0': lc1, 'Ch1': lc2, 'Ch2': lc3}
     select_data(xs, ys)
     plt.show()
 
