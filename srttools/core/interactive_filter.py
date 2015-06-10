@@ -69,6 +69,9 @@ class DataSelector:
         ax1.figure.canvas.mpl_connect('button_press_event', self.on_click)
         ax1.figure.canvas.mpl_connect('key_press_event', self.on_key)
         ax1.figure.canvas.mpl_connect('pick_event', self.on_pick)
+        ax2.figure.canvas.mpl_connect('button_press_event', self.on_click)
+        ax2.figure.canvas.mpl_connect('key_press_event', self.on_key)
+        ax2.figure.canvas.mpl_connect('pick_event', self.on_pick)
         self.zcounter = 0
         self.bcounter = 0
 
@@ -250,11 +253,17 @@ class DataSelector:
         self.ax2.axhline(0, ls='--', color='k')
         for key in self.xs.keys():
             self.ax2.plot(self.xs[key], self.ys[key] - model[key],
-                          color='grey', ls='-')
+                          color='grey', ls='-', picker=True,
+                          label=key)
             self.ax2.plot(self.xs[key][good[key]],
                           self.ys[key][good[key]] - model[key][good[key]],
                           'k-', lw=2)
 
+        if self.current is not None:
+            key = self.current
+            self.ax2.plot(self.xs[key][good[key]],
+                          self.ys[key][good[key]] - model[key][good[key]],
+                          color='g', lw=3, zorder=10)
         if self.xlabel is not None:
             self.ax2.set_xlabel(self.xlabel)
         plt.draw()
