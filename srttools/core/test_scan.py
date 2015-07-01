@@ -158,14 +158,16 @@ class Test2_ScanSet(unittest.TestCase):
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
                           config_file=self.config)
 
+        scanset.calculate_images()
         scanset.interactive_display()
 
     def step_7_ds9_image(self):
         '''Test image production.'''
 
-        scanset = ScanSet.read('test.hdf5')
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config)
 
-        scanset.save_ds9_images()
+        scanset.save_ds9_images(save_sdev=True)
 
     def test_all(self):
         self.step_1_scanset()
@@ -255,9 +257,18 @@ class Test3_MultiFeed(unittest.TestCase):
                                 no_offsets=True,
                                 altaz=True)
 
+    def step6_interactive_image(self):
+        '''Test image production.'''
+
+        scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
+                          config_file=self.config)
+
+        scanset.interactive_display()
+
     def test_all_multifeed(self):
         '''Test that sets of data are read also with multifeed.'''
         self.step1_scanset()
         self.step2_img()
         self.step3_scrunch()
         self.step4_nocorrect()
+        self.step6_interactive_image()

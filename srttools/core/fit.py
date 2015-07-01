@@ -105,6 +105,57 @@ def align(xs, ys):
     return qs, ms
 
 
+def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
+    """Fit a function composed of a linear baseline plus a bell function.
+
+    kind:     'gauss' or 'lorentz'
+    """
+    assert kind in ['gauss', 'lorentz'], \
+        'kind has to be one of: gauss, lorentz'
+    from astropy.modeling import models, fitting
+
+    base = models.Linear1D(slope=0, intercept=np.min(y))
+
+    xrange =  np.max(x) - np.min(x)
+    yrange =  np.max(y) - np.min(y)
+
+    if kind == 'gauss':
+        bell = models.Gaussian1D(mean=np.mean(x), stddev=xrange / 20,
+                                 amplitude=yrange)
+        max_name='mean'
+    elif kind == 'lorentz':
+        bell = models.Lorentz1D(x_0=np.mean(x), fwhm=xrange / 20,
+                                 amplitude=yrange)
+        max_name='x_0'
+    mod_init = base + bell
+
+    fit = fitting.LevMarLSQFitter()
+
+    mod_out = fit(mod_init, x, y)
+
+    return mod_out
+
+
+def test_fit_baseline_plus_bell():
+    import matplotlib.pyplot as plt
+    shape = lambda x: 1000 * np.exp(-(x - 50) ** 2 / 3)
+    x = np.arange(0, 100, 0.1)
+    y = np.random.poisson(1000, len(x)) + shape(x) + x * 6 + 20
+
+    model = fit_baseline_plus_bell(x, y, ye=10, kind='gauss')
+
+    plt.figure('After fit')
+    plt.errorbar(x, y, yerr=10)
+
+    plt.plot(x, model(x))
+
+    print(model)
+    print('Amplitude: {}'.format(model.amplitude_1.value))
+    print('Stddev: {}'.format(model.stddev_1.value))
+    print('Mean: {}'.format(model.mean_1.value))
+    plt.show()
+
+
 def test_function_to_minimize_align():
     import matplotlib.pyplot as plt
 
