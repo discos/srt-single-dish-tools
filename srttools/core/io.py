@@ -73,6 +73,7 @@ def read_data_fitszilla(fname):
     global DEBUG_MODE
     lchdulist = fits.open(fname)
 
+    source = lchdulist[0].header['SOURCE']
     section_table_data = lchdulist['SECTION TABLE'].data
     chan_ids = section_table_data['id']
 
@@ -97,6 +98,8 @@ def read_data_fitszilla(fname):
     info_to_retrieve = ['time', 'derot_angle']
 
     new_table = Table()
+
+    new_table.meta['SOURCE'] = source
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]
 
@@ -148,6 +151,7 @@ def read_data_fitszilla(fname):
         coords_deg = coords.icrs
         new_table['ra'][:, i] = np.radians(coords_deg.ra)
         new_table['dec'][:, i] = np.radians(coords_deg.dec)
+
 
     for ic, ch in enumerate(chan_ids):
         new_table['Ch{}'.format(ch)] = \

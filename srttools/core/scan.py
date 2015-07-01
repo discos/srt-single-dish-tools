@@ -18,7 +18,6 @@ import unittest
 
 chan_re = re.compile(r'^Ch[0-9]+$')
 
-
 def list_scans(datadir, dirlist):
     '''List all scans contained in the directory listed in config'''
     scan_list = []
@@ -59,9 +58,9 @@ class Scan(Table):
 
             if interactive:
                 self.interactive_filter()
-            if 'backsub' not in self.meta.keys() \
-                    or not self.meta['backsub'] \
-                    or not norefilt:
+            if ('backsub' not in self.meta.keys() \
+                    or not self.meta['backsub']) \
+                    and not norefilt:
                 print('Subtracting the baseline')
                 self.baseline_subtract()
 
