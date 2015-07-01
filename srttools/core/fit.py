@@ -127,13 +127,14 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
         bell = models.Lorentz1D(x_0=np.mean(x), fwhm=xrange / 20,
                                  amplitude=yrange)
         max_name='x_0'
+
     mod_init = base + bell
 
     fit = fitting.LevMarLSQFitter()
 
     mod_out = fit(mod_init, x, y)
 
-    return mod_out
+    return mod_out, fit.fit_info
 
 
 def test_fit_baseline_plus_bell():
@@ -142,7 +143,7 @@ def test_fit_baseline_plus_bell():
     x = np.arange(0, 100, 0.1)
     y = np.random.poisson(1000, len(x)) + shape(x) + x * 6 + 20
 
-    model = fit_baseline_plus_bell(x, y, ye=10, kind='gauss')
+    model, _ = fit_baseline_plus_bell(x, y, ye=10, kind='gauss')
 
     plt.figure('After fit')
     plt.errorbar(x, y, yerr=10)
