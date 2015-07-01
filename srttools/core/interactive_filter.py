@@ -229,10 +229,12 @@ class DataSelector:
         model = {}
         if self.current is not None:
             self.ax1.plot(self.xs[self.current], self.ys[self.current],
-                          color='g', lw=3, zorder=10)
+                          color='g', lw=3, zorder=10,
+                          rasterized=True)
         for key in self.xs.keys():
             self.ax1.plot(self.xs[key], self.ys[key], color='k', picker=True,
-                          label=key)
+                          label=key,
+                          rasterized=True)
 
             zap_xs = self.info[key]['zap'].xs
 
@@ -245,7 +247,8 @@ class DataSelector:
 
             if len(fitpars) >= 2:
                 model[key] = linear_fun(self.xs[key], *fitpars)
-                self.ax1.plot(self.xs[key], model[key], color='b')
+                self.ax1.plot(self.xs[key], model[key], color='b',
+                              rasterized=True)
             else:
                 model[key] = np.zeros(len(self.xs[key])) + np.min(self.ys[key])
 
@@ -254,16 +257,19 @@ class DataSelector:
         for key in self.xs.keys():
             self.ax2.plot(self.xs[key], self.ys[key] - model[key],
                           color='grey', ls='-', picker=True,
-                          label=key)
+                          label=key,
+                          rasterized=True)
             self.ax2.plot(self.xs[key][good[key]],
                           self.ys[key][good[key]] - model[key][good[key]],
-                          'k-', lw=2)
+                          'k-', lw=2,
+                          rasterized=True)
 
         if self.current is not None:
             key = self.current
             self.ax2.plot(self.xs[key][good[key]],
                           self.ys[key][good[key]] - model[key][good[key]],
-                          color='g', lw=3, zorder=10)
+                          color='g', lw=3, zorder=10,
+                          rasterized=True)
         if self.xlabel is not None:
             self.ax2.set_xlabel(self.xlabel)
         plt.draw()

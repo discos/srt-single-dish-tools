@@ -181,7 +181,7 @@ class ScanSet(Table):
             tables = []
 
             for i_s, s in enumerate(self.load_scans(scan_list)):
-                print('{}/{}'.format(i_s, nscans))
+                print('{}/{}'.format(i_s + 1, nscans))
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
@@ -568,7 +568,9 @@ class ScanSet(Table):
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
 
-        for ic, ch in enumerate(images.keys()):
+        keys = list(images.keys())
+        keys.sort()
+        for ic, ch in enumerate(keys):
             is_sdev = ch.endswith('Sdev')
 
             if is_sdev and not save_sdev:
