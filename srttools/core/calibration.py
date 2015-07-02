@@ -114,10 +114,8 @@ def get_full_table(config_file, channel='Ch0', feed=0, plot=False):
     return Table(vstack(list(tables.values())))
 
 
-def show_calibration(config_file, channel='Ch0', feed=0, plotall=False):
+def show_calibration(full_table, feed=0, plotall=False):
     """Show the results of calibration"""
-    full_table = get_full_table(config_file, channel=channel, feed=0,
-                                plot=plotall)
 
     dir_list = list(set(full_table["Dir"]))
 
@@ -188,7 +186,8 @@ def test_calibration_tp():
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib.ini'))
-    show_calibration(config_file)
+    full_table = get_full_table(config_file)
+    show_calibration(full_table)
 
 
 def test_calibration_roach():
@@ -197,4 +196,5 @@ def test_calibration_roach():
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib_roach.ini'))
-    show_calibration(config_file)
+    full_table = get_full_table(config_file)
+    show_calibration(full_table)
