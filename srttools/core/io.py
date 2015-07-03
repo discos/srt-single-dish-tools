@@ -74,8 +74,12 @@ def read_data_fitszilla(fname):
     lchdulist = fits.open(fname)
 
     source = lchdulist[0].header['SOURCE']
-    receiver = lchdulist[0].header['Receiver Code']
-    backend = lchdulist[0].header['Backend Name']
+    receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
+    # Check. If backend is not specified, use Total Power
+    try:
+        backend = lchdulist[0].header['HIERARCH BACKEND NAME']
+    except:
+        backend = 'TP'
 
     section_table_data = lchdulist['SECTION TABLE'].data
     chan_ids = section_table_data['id']
