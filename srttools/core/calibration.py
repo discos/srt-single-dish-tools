@@ -394,7 +394,7 @@ def show_calibration(full_table, feed=0, plotall=False):
     tot_symb = mpl.lines.Line2D([0], [0], linestyle="none", c='k', marker='o')
 
     plt.legend([rap_symb, dep_symb, ram_symb, dem_symb, tot_symb],
-              ['RA>', 'Dec>', 'RA<', 'Dec<', 'Tot'], numpoints=1)
+               ['RA>', 'Dec>', 'RA<', 'Dec<', 'Tot'], numpoints=1)
 
     fc = np.mean(calibrator_table["Flux/Counts"])
     fce = np.sqrt(np.sum(calibrator_table["Flux/Counts Err"] ** 2))\
@@ -413,7 +413,10 @@ def show_calibration(full_table, feed=0, plotall=False):
                         "Counts", "Counts Err")])
         if len(filtered) > 20:
             plt.figure(s)
-            plt.hist(filtered["Flux Density"], bins=len(filtered))
+            from astropy.visualization import hist
+            hist(filtered["Flux Density"], bins='knuth',
+                 histtype='stepfilled')
+
             plt.xlabel("Flux values")
 
     plt.show()
@@ -427,7 +430,7 @@ def test_calibration_tp():
                                      'TEST_DATASET',
                                      'test_calib.ini'))
     full_table = get_full_table(config_file, plotall=True,
-                                    picklefile='data_tp.pickle')
+                                picklefile='data_tp.pickle')
 
     with open('data_tp.pickle', 'rb') as f:
         full_table = pickle.load(f)
