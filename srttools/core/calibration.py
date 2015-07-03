@@ -133,19 +133,24 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
                                 "Flux Density", "Flux Density Err",
                                 "Kind",
                                 "Elevation",
-                                "Flux/Counts", "Flux/Counts Err"],
+                                "Flux/Counts", "Flux/Counts Err",
+                                "RA", "Dec",
+                                "Fit RA", "Fit Dec"],
                          dtype=['U200', 'U200', 'U200', np.longdouble,
                                 np.float, np.float,
                                 np.float, np.float,
                                 np.float, np.float,
                                 "U200",
                                 np.float,
+                                np.float, np.float,
+                                np.float, np.float,
                                 np.float, np.float])
 
     if plotall:
         figures = []
         plotted_kinds = []
-        plt.ion()
+
+        # plt.ion()
     for s in scan_list:
         sname = os.path.basename(s)
         try:
@@ -160,6 +165,8 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
         el = np.degrees(np.mean(scan['el'][:, feed]))
         source = scan.meta['SOURCE']
         backend = scan.meta['backend']
+        pnt_ra = np.degrees(scan.meta['RA'])
+        pnt_dec = np.degrees(scan.meta['Dec'])
 
         frequency = scan[channel].meta['frequency']
 
@@ -193,7 +200,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
             xvariab = 'RA'
         else:
             x = decs
-            xvariab = 'DEC'
+            xvariab = 'Dec'
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
 
         try:
@@ -202,28 +209,43 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
             print("fit failed")
             continue
 
+        baseline = model['Baseline']
+        bell = model['Bell']
         pars = model.parameters
         pnames = model.param_names
         counts = model.amplitude_1.value
+        if xvariab == "RA":
+            fit_ra = bell.mean
+            fit_dec = None
+            to_plot = pnt_ra
+        elif xvariab == "Dec":
+            fit_ra = None
+            fit_dec = bell.mean
+            to_plot = pnt_dec
 
         index = pnames.index("amplitude_1")
 
         counts_err = uncert[index]
 
         if plotall:
-            baseline = model['Baseline']
-            bell = model['Bell']
             figure_name = '{}_{}_{}'.format(source, xvariab, backend)
+            first = False
             if figure_name not in figures:
+                first = True
                 figures.append(figure_name)
                 plotted_kinds.append(kind)
+
             plt.figure(figure_name)
+
+            if first:
+                plt.axvline(to_plot)
             data = plt.plot(x, y - baseline(x), label='{:.2f}'.format(el))
             plt.plot(x, bell(x), color=plt.getp(data[0], 'color'))
             plt.title('{} (baseline-subtracted)'.format(source))
             plt.xlabel(xvariab)
-            if kind == 'Calibrator':
-                plt.draw()
+
+            # if kind == 'Calibrator':
+            #     plt.draw()
 
         flux_over_counts = flux / counts
         flux_over_counts_err = \
@@ -232,7 +254,8 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
         output_table.add_row([scandir, sname, source, time,
                               frequency, bandwidth, counts, counts_err,
                               flux_density, flux_density_err, kind, el,
-                              flux_over_counts, flux_over_counts_err])
+                              flux_over_counts, flux_over_counts_err,
+                              pnt_ra, pnt_dec, fit_ra, fit_dec])
 
     if plotall:
         for i_f, f in enumerate(figures):
@@ -240,8 +263,9 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
             if plotted_kinds[i_f] == 'Calibrator':
                 plt.legend()
             fig.savefig(f + ".png")
-        # plt.close(fig)
-        plt.ioff()
+            # plt.close(fig)
+        # plt.ioff()
+
     return output_table
 
 
@@ -272,6 +296,23 @@ def show_calibration(full_table, feed=0, plotall=False):
         subtable = calibrator_table[calibrator_table["Dir"] == d]
         if len(subtable) == 0:
             continue
+
+        fig = plt.figure("Pointing Error vs Elevation")
+        good_ra = subtable["Fit RA"] == subtable["Fit RA"]
+        good_dec = subtable["Fit Dec"] == subtable["Fit Dec"]
+        ra_pnt = np.mean(subtable["RA"])
+        dec_pnt = np.mean(subtable["Dec"])
+        ra_fit = np.mean(subtable["Fit RA"][good_ra])
+        dec_fit = np.mean(subtable["Fit Dec"][good_dec])
+        print(ra_pnt, dec_pnt, ra_fit, dec_fit)
+        el = np.mean(subtable["Elevation"])
+        ra_err = (ra_fit - ra_pnt) / np.cos(np.radians(dec_pnt))
+        dec_err = dec_fit - dec_pnt
+        pointing_err = np.sqrt(ra_err**2 + dec_err**2)
+
+        plt.scatter(el, pointing_err * 60, color='k')
+        plt.scatter(el, ra_err * 60, color='r')
+        plt.scatter(el, dec_err * 60, color='b')
 
         fig = plt.figure("Time evolution")
 
@@ -304,6 +345,11 @@ def show_calibration(full_table, feed=0, plotall=False):
     plt.figure("Vs Flux")
     plt.ylabel("Jansky / Counts")
     plt.xlabel("Flux Density")
+    fig = plt.figure("Pointing Error vs Elevation")
+    plt.title("Pointing Error vs Elevation (black: total; red: RA; blue: Dec)")
+    plt.xlabel('Elevation')
+    plt.ylabel('Pointing error (arcmin)')
+
 
     fc = np.mean(calibrator_table["Flux/Counts"])
     fce = np.sqrt(np.sum(calibrator_table["Flux/Counts Err"] ** 2))\
@@ -329,20 +375,34 @@ def show_calibration(full_table, feed=0, plotall=False):
 
 
 def test_calibration_tp():
+    import pickle
     curdir = os.path.abspath(os.path.dirname(__file__))
     config_file = \
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib.ini'))
     full_table = get_full_table(config_file, plotall=True)
+
+    with open('data_tp.pickle', 'wb') as f:
+        pickle.dump(full_table, f)
+
+    with open('data_tp.pickle', 'rb') as f:
+        full_table = pickle.load(f)
     show_calibration(full_table)
 
 
 def test_calibration_roach():
+    import pickle
     curdir = os.path.abspath(os.path.dirname(__file__))
     config_file = \
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib_roach.ini'))
+
     full_table = get_full_table(config_file)
+    with open('data_r2.pickle', 'wb') as f:
+        pickle.dump(full_table, f)
+
+    with open('data_r2.pickle', 'rb') as f:
+        full_table = pickle.load(f)
     show_calibration(full_table)
