@@ -144,6 +144,8 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
 
     if plotall:
         figures = []
+        plotted_kinds = []
+        plt.ion()
     for s in scan_list:
         sname = os.path.basename(s)
         try:
@@ -157,6 +159,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
         time = np.mean(scan['time'][:])
         el = np.degrees(np.mean(scan['el'][:, feed]))
         source = scan.meta['SOURCE']
+        backend = scan.meta['backend']
 
         frequency = scan[channel].meta['frequency']
 
@@ -210,14 +213,17 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
         if plotall:
             baseline = model['Baseline']
             bell = model['Bell']
-            figure_name = source + '_' + xvariab
+            figure_name = '{}_{}_{}'.format(source, xvariab, backend)
             if figure_name not in figures:
                 figures.append(figure_name)
+                plotted_kinds.append(kind)
             plt.figure(figure_name)
-            plt.plot(x, y - baseline(x), label='{:.2f}'.format(el))
-            plt.plot(x, bell(x))
+            data = plt.plot(x, y - baseline(x), label='{:.2f}'.format(el))
+            plt.plot(x, bell(x), color=plt.getp(data[0], 'color'))
             plt.title('{} (baseline-subtracted)'.format(source))
             plt.xlabel(xvariab)
+            if kind == 'Calibrator':
+                plt.draw()
 
         flux_over_counts = flux / counts
         flux_over_counts_err = \
@@ -229,11 +235,13 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
                               flux_over_counts, flux_over_counts_err])
 
     if plotall:
-        for f in figures:
+        for i_f, f in enumerate(figures):
             fig = plt.figure(f)
-            plt.legend()
+            if plotted_kinds[i_f] == 'Calibrator':
+                plt.legend()
             fig.savefig(f + ".png")
         # plt.close(fig)
+        plt.ioff()
     return output_table
 
 
