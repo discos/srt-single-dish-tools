@@ -114,18 +114,18 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
         'kind has to be one of: gauss, lorentz'
     from astropy.modeling import models, fitting
 
-    base = models.Linear1D(slope=0, intercept=np.min(y))
+    base = models.Linear1D(slope=0, intercept=np.min(y), name='Baseline')
 
     xrange =  np.max(x) - np.min(x)
     yrange =  np.max(y) - np.min(y)
 
     if kind == 'gauss':
         bell = models.Gaussian1D(mean=np.mean(x), stddev=xrange / 20,
-                                 amplitude=yrange)
+                                 amplitude=yrange, name='Bell')
         max_name='mean'
     elif kind == 'lorentz':
         bell = models.Lorentz1D(x_0=np.mean(x), fwhm=xrange / 20,
-                                 amplitude=yrange)
+                                 amplitude=yrange, name='Bell')
         max_name='x_0'
 
     mod_init = base + bell
