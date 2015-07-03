@@ -426,7 +426,7 @@ def test_calibration_tp():
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib.ini'))
-        full_table = get_full_table(config_file, plotall=True,
+    full_table = get_full_table(config_file, plotall=True,
                                     picklefile='data_tp.pickle')
 
     with open('data_tp.pickle', 'rb') as f:
