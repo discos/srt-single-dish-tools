@@ -74,6 +74,9 @@ def read_data_fitszilla(fname):
     lchdulist = fits.open(fname)
 
     source = lchdulist[0].header['SOURCE']
+    receiver = lchdulist[0].header['Receiver Code']
+    backend = lchdulist[0].header['Backend Name']
+
     section_table_data = lchdulist['SECTION TABLE'].data
     chan_ids = section_table_data['id']
 
@@ -100,6 +103,9 @@ def read_data_fitszilla(fname):
     new_table = Table()
 
     new_table.meta['SOURCE'] = source
+    new_table.meta['backend'] = backend
+    new_table.meta['receiver'] = receiver
+
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]
 
@@ -130,7 +136,7 @@ def read_data_fitszilla(fname):
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
         if xoffsets[i] < np.radians(0.001 / 60.) and \
            yoffsets[i] < np.radians(0.001 / 60.):
-               continue
+            continue
         xoffs, yoffs = correct_offsets(new_table['derot_angle'],
                                        xoffsets[i],
                                        yoffsets[i])
@@ -140,8 +146,8 @@ def read_data_fitszilla(fname):
         new_table['az'][:, i] += xoffs / np.cos(new_table['el'][:, i])
 
         obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
-        coords = AltAz(az = new_table['az'][:, i],
-                       alt = new_table['el'][:, i], unit= u.radian,
+        coords = AltAz(az=new_table['az'][:, i],
+                       alt=new_table['el'][:, i], unit=u.radian,
                        location=locations['SRT'],
                        obstime=obstimes)
 
@@ -151,7 +157,6 @@ def read_data_fitszilla(fname):
         coords_deg = coords.icrs
         new_table['ra'][:, i] = np.radians(coords_deg.ra)
         new_table['dec'][:, i] = np.radians(coords_deg.dec)
-
 
     for ic, ch in enumerate(chan_ids):
         new_table['Ch{}'.format(ch)] = \
