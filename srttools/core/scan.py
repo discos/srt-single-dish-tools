@@ -31,7 +31,7 @@ def list_scans(datadir, dirlist):
 class Scan(Table):
     '''Class containing a single scan'''
     def __init__(self, data=None, config_file=None, norefilt=True,
-                 interactive=False,
+                 interactive=False, nosave=False,
                  **kwargs):
 
         if config_file is None:
@@ -64,7 +64,8 @@ class Scan(Table):
                 print('Subtracting the baseline')
                 self.baseline_subtract()
 
-            self.save()
+            if not nosave:
+                self.save()
 
     def chan_columns(self):
         '''List columns containing samples'''
