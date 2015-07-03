@@ -136,7 +136,8 @@ colors = ['k', 'b', 'r', 'g', 'c', 'm']
 colors = dict(zip(calist, colors))
 
 
-def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
+def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
+               verbose=True):
     """Get fluxes from all scans in path."""
     dname = os.path.basename(scandir)
     scan_list = \
@@ -173,7 +174,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
         sname = os.path.basename(s)
         try:
             # For now, use nosave. HDF5 doesn't store meta, essential for this
-            scan = Scan(s, norefilt=True, nosave=True)
+            scan = Scan(s, norefilt=True, nosave=True, verbose=verbose)
         except:
             print('{} is an invalid file'.format(s))
             continue
@@ -298,7 +299,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
 
 
 def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
-                   picklefile=None):
+                   picklefile=None, verbose=True):
     """Get all fluxes in the directories specified by the config file"""
     config = read_config(config_file)
 
@@ -306,7 +307,7 @@ def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
     tables = {}
     for d in dir_list:
         output_table = get_fluxes(config['datadir'], d, channel=channel,
-                                  feed=feed, plotall=plotall)
+                                  feed=feed, plotall=plotall, verbose=verbose)
         tables[d] = output_table
 
     full_table = Table(vstack(list(tables.values())))

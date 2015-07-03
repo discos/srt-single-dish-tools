@@ -31,7 +31,7 @@ def list_scans(datadir, dirlist):
 class Scan(Table):
     '''Class containing a single scan'''
     def __init__(self, data=None, config_file=None, norefilt=True,
-                 interactive=False, nosave=False,
+                 interactive=False, nosave=False, verbose=True,
                  **kwargs):
 
         if config_file is None:
@@ -46,7 +46,8 @@ class Scan(Table):
         else:  # if data is a filename
             if os.path.exists(root_name(data) + '.hdf5'):
                 data = root_name(data) + '.hdf5'
-            print('Loading file {}'.format(data))
+            if verbose:
+                print('Loading file {}'.format(data))
             table = read_data(data)
             Table.__init__(self, table, masked=True, **kwargs)
             self.meta['filename'] = os.path.abspath(data)
