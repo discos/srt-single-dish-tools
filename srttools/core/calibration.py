@@ -426,8 +426,8 @@ def test_calibration_tp():
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib.ini'))
-    # full_table = get_full_table(config_file, plotall=True,
-    #                             picklefile='data_tp.pickle')
+        full_table = get_full_table(config_file, plotall=True,
+                                    picklefile='data_tp.pickle')
 
     with open('data_tp.pickle', 'rb') as f:
         full_table = pickle.load(f)
@@ -440,8 +440,8 @@ def test_calibration_roach():
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib_roach.ini'))
-    # full_table = get_full_table(config_file, plotall=True,
-    #                             picklefile='data_r2.pickle')
+    full_table = get_full_table(config_file, plotall=True,
+                                picklefile='data_r2.pickle')
 
     with open('data_r2.pickle', 'rb') as f:
         full_table = pickle.load(f)
