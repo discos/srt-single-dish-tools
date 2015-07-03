@@ -75,6 +75,8 @@ def read_data_fitszilla(fname):
 
     source = lchdulist[0].header['SOURCE']
     receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
+    ra = lchdulist[0].header['HIERARCH RIGHTASCENSION']
+    dec = lchdulist[0].header['HIERARCH DECLINATION']
     # Check. If backend is not specified, use Total Power
     try:
         backend = lchdulist[0].header['HIERARCH BACKEND NAME']
@@ -109,6 +111,9 @@ def read_data_fitszilla(fname):
     new_table.meta['SOURCE'] = source
     new_table.meta['backend'] = backend
     new_table.meta['receiver'] = receiver
+    new_table.meta['RA'] = ra
+    new_table.meta['Dec'] = dec
+
 
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]

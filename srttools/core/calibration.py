@@ -9,6 +9,10 @@ from .fit import fit_baseline_plus_bell
 import os
 import glob
 import re
+try:
+    import pickle
+except:
+    import cPickle as pickle
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,6 +24,20 @@ except ImportError:
     import ConfigParser as configparser
 
 CALIBRATOR_CONFIG = None
+
+
+def decide_symbol(values):
+    raplus = values == "RA>"
+    ramin = values == "RA<"
+    decplus = values == "Dec>"
+    decmin = values == "Dec<"
+    symbols = np.array(['a' for i in values])
+    symbols[raplus] = u"+"
+    symbols[ramin] = u"s"
+    symbols[decplus] = u"^"
+    symbols[decmin] = u"v"
+    return symbols
+
 
 def read_calibrator_config():
     """Read the configuration of calibrators in data/calibrators"""
@@ -57,11 +75,11 @@ def read_calibrator_config():
     return configs
 
 
-def flux_function(frequency, bandwidth, coeffs, ecoeffs):
+def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     a0, a1, a2, a3 = coeffs
     a0e, a1e, a2e, a3e = ecoeffs
-    f0 = frequency - bandwidth / 2
-    f1 = frequency + bandwidth / 2
+    f0 = start_frequency
+    f1 = start_frequency + bandwidth
 
     fs = np.linspace(f0, f1, 21)
     df = np.diff(fs)[0]
@@ -113,9 +131,7 @@ def get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         return calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
 
-calist =            ['3C147', '3C48', '3C123', '3C295', '3C286', 'NGC7027']
-fluxlist = np.array([5.1885, 3.6722, 11.0837, 4.1610, 5.7194, 5.6107])
-efluxlist = fluxlist * 0.05
+calist = ['3C147', '3C48', '3C123', '3C295', '3C286', 'NGC7027']
 colors = ['k', 'b', 'r', 'g', 'c', 'm']
 colors = dict(zip(calist, colors))
 
@@ -127,18 +143,20 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
         list_scans(basedir, [scandir])
 
     scan_list.sort()
-    output_table = Table(names=["Dir", "File", "Source", "Time",
+    output_table = Table(names=["Dir", "File", "Scan Type",  "Source", "Time",
                                 "Frequency", "Bandwidth",
                                 "Counts", "Counts Err",
+                                "Width",
                                 "Flux Density", "Flux Density Err",
                                 "Kind",
                                 "Elevation",
                                 "Flux/Counts", "Flux/Counts Err",
                                 "RA", "Dec",
                                 "Fit RA", "Fit Dec"],
-                         dtype=['U200', 'U200', 'U200', np.longdouble,
+                         dtype=['U200', 'U200', 'U200', 'U200', np.longdouble,
                                 np.float, np.float,
                                 np.float, np.float,
+                                np.float,
                                 np.float, np.float,
                                 "U200",
                                 np.float,
@@ -201,6 +219,13 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
         else:
             x = decs
             xvariab = 'Dec'
+
+        if x[-1] > x[0]:
+            scan_direction = '>'
+        else:
+            scan_direction = '<'
+        scan_type = xvariab + scan_direction
+
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
 
         try:
@@ -216,12 +241,14 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
         counts = model.amplitude_1.value
         if xvariab == "RA":
             fit_ra = bell.mean
+            fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
             fit_dec = None
             to_plot = pnt_ra
         elif xvariab == "Dec":
             fit_ra = None
             fit_dec = bell.mean
             to_plot = pnt_dec
+            fit_width = bell.stddev
 
         index = pnames.index("amplitude_1")
 
@@ -251,8 +278,9 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
         flux_over_counts_err = \
             (counts_err / counts + eflux / flux) * flux_over_counts
 
-        output_table.add_row([scandir, sname, source, time,
+        output_table.add_row([scandir, sname, scan_type, source, time,
                               frequency, bandwidth, counts, counts_err,
+                              fit_width,
                               flux_density, flux_density_err, kind, el,
                               flux_over_counts, flux_over_counts_err,
                               pnt_ra, pnt_dec, fit_ra, fit_dec])
@@ -269,7 +297,8 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False):
     return output_table
 
 
-def get_full_table(config_file, channel='Ch0', feed=0, plotall=False):
+def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
+                   picklefile=None):
     """Get all fluxes in the directories specified by the config file"""
     config = read_config(config_file)
 
@@ -280,7 +309,11 @@ def get_full_table(config_file, channel='Ch0', feed=0, plotall=False):
                                   feed=feed, plotall=plotall)
         tables[d] = output_table
 
-    return Table(vstack(list(tables.values())))
+    full_table = Table(vstack(list(tables.values())))
+    if picklefile is not None:
+        with open(picklefile, 'wb') as f:
+            pickle.dump(full_table, f)
+    return full_table
 
 
 def show_calibration(full_table, feed=0, plotall=False):
@@ -297,59 +330,71 @@ def show_calibration(full_table, feed=0, plotall=False):
         if len(subtable) == 0:
             continue
 
+        symbols = decide_symbol(subtable["Scan Type"])
+
+        # ----------------------- Pointing vs. ELEVATION -------------------
         fig = plt.figure("Pointing Error vs Elevation")
         good_ra = subtable["Fit RA"] == subtable["Fit RA"]
         good_dec = subtable["Fit Dec"] == subtable["Fit Dec"]
-        ra_pnt = np.mean(subtable["RA"])
-        dec_pnt = np.mean(subtable["Dec"])
-        ra_fit = np.mean(subtable["Fit RA"][good_ra])
-        dec_fit = np.mean(subtable["Fit Dec"][good_dec])
-        print(ra_pnt, dec_pnt, ra_fit, dec_fit)
-        el = np.mean(subtable["Elevation"])
+
+        ra_pnt = subtable["RA"]
+        dec_pnt = subtable["Dec"]
+        ra_fit = subtable["Fit RA"]
+        dec_fit = subtable["Fit Dec"]
+
+        # print(ra_pnt, dec_pnt, ra_fit, dec_fit)
+        el = subtable["Elevation"]
         ra_err = (ra_fit - ra_pnt) / np.cos(np.radians(dec_pnt))
         dec_err = dec_fit - dec_pnt
-        pointing_err = np.sqrt(ra_err**2 + dec_err**2)
+        pointing_err = np.sqrt(np.mean(ra_err[good_ra])**2 +
+                               np.mean(dec_err[good_dec])**2)
 
-        plt.scatter(el, pointing_err * 60, color='k')
-        plt.scatter(el, ra_err * 60, color='r')
-        plt.scatter(el, dec_err * 60, color='b')
-
-        fig = plt.figure("Time evolution")
+        plt.scatter(np.mean(el), pointing_err * 60, color='k', marker='o')
+        for _e, _r, _d,  _s in zip(el, ra_err, dec_err, symbols):
+            plt.scatter(_e, _r * 60, color='r', marker=_s)
+            plt.scatter(_e, _d * 60, color='b', marker=_s)
 
         fc = np.mean(subtable["Flux/Counts"]) / subtable["Bandwidth"][0]
         fce = np.sqrt(np.sum(subtable["Flux/Counts Err"] ** 2)) / len(subtable) / subtable["Bandwidth"][0]
+        fce = np.max([fce, np.std(fc)])
 
-        plt.errorbar(np.mean(subtable["Time"]), fc, yerr=fce,
-                     ecolor=colors[subtable["Source"][0]],
-                     elinewidth=3)
-
+        # ----------------------- Calibration vs. ELEVATION -------------------
         plt.figure("Vs Elevation")
         plt.errorbar(np.mean(subtable["Elevation"]), fc, yerr=fce,
                      ecolor=colors[subtable["Source"][0]],
                      elinewidth=3)
 
-        counts = np.mean(subtable["Counts"])
-        counts_err = \
-            np.sqrt(np.sum(subtable["Counts Err"] ** 2)) / len(subtable)
-        plt.figure("Vs Flux")
-        plt.errorbar(counts, fc, yerr=fce, xerr=counts_err,
-                     ecolor=colors[subtable["Source"][0]],
-                     elinewidth=3)
+        # ----------------------- Width vs. ELEVATION -------------------
+        ras = np.char.rstrip(subtable["Scan Type"], "><") == "RA"
+        decs = np.char.rstrip(subtable["Scan Type"], "><") == "Dec"
 
-    plt.figure("Time evolution")
-    plt.xlabel("Time")
-    plt.ylabel("Jansky / Counts")
+        plt.figure("Width Vs Elevation")
+        plt.scatter(subtable["Elevation"][ras], subtable["Width"][ras],
+                    color=colors[subtable["Source"][0]], marker='o')
+        plt.scatter(subtable["Elevation"][decs], subtable["Width"][decs],
+                    color=colors[subtable["Source"][0]], marker='^')
+
     plt.figure("Vs Elevation")
     plt.ylabel("Jansky / Counts")
     plt.xlabel("Elevation")
-    plt.figure("Vs Flux")
-    plt.ylabel("Jansky / Counts")
-    plt.xlabel("Flux Density")
-    fig = plt.figure("Pointing Error vs Elevation")
+
+    plt.figure("Width Vs Elevation")
+    plt.xlabel("Elevation")
+    plt.ylabel("Gaussian Width (deg)")
+
+    plt.figure("Pointing Error vs Elevation")
     plt.title("Pointing Error vs Elevation (black: total; red: RA; blue: Dec)")
     plt.xlabel('Elevation')
     plt.ylabel('Pointing error (arcmin)')
+    import matplotlib as mpl
+    rap_symb = mpl.lines.Line2D([0], [0], linestyle="none", c='r', marker='+')
+    dep_symb = mpl.lines.Line2D([0], [0], linestyle="none", c='b', marker='^')
+    ram_symb = mpl.lines.Line2D([0], [0], linestyle="none", c='r', marker='s')
+    dem_symb = mpl.lines.Line2D([0], [0], linestyle="none", c='b', marker='v')
+    tot_symb = mpl.lines.Line2D([0], [0], linestyle="none", c='k', marker='o')
 
+    plt.legend([rap_symb, dep_symb, ram_symb, dem_symb, tot_symb],
+              ['RA>', 'Dec>', 'RA<', 'Dec<', 'Tot'], numpoints=1)
 
     fc = np.mean(calibrator_table["Flux/Counts"])
     fce = np.sqrt(np.sum(calibrator_table["Flux/Counts Err"] ** 2))\
@@ -381,10 +426,8 @@ def test_calibration_tp():
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib.ini'))
-    full_table = get_full_table(config_file, plotall=True)
-
-    with open('data_tp.pickle', 'wb') as f:
-        pickle.dump(full_table, f)
+    # full_table = get_full_table(config_file, plotall=True,
+    #                             picklefile='data_tp.pickle')
 
     with open('data_tp.pickle', 'rb') as f:
         full_table = pickle.load(f)
@@ -392,16 +435,13 @@ def test_calibration_tp():
 
 
 def test_calibration_roach():
-    import pickle
     curdir = os.path.abspath(os.path.dirname(__file__))
     config_file = \
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib_roach.ini'))
-
-    full_table = get_full_table(config_file)
-    with open('data_r2.pickle', 'wb') as f:
-        pickle.dump(full_table, f)
+    # full_table = get_full_table(config_file, plotall=True,
+    #                             picklefile='data_r2.pickle')
 
     with open('data_r2.pickle', 'rb') as f:
         full_table = pickle.load(f)
