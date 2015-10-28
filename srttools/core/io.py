@@ -71,8 +71,11 @@ def print_obs_info_fitszilla(fname):
 def read_data_fitszilla(fname):
     '''Open a fitszilla FITS file and read all relevant information.'''
     global DEBUG_MODE
+
+    # Open FITS file
     lchdulist = fits.open(fname)
 
+    # ----------- Extract generic observation information ------------------
     source = lchdulist[0].header['SOURCE']
     receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
     ra = lchdulist[0].header['HIERARCH RIGHTASCENSION']
@@ -83,9 +86,11 @@ def read_data_fitszilla(fname):
     except:
         backend = 'TP'
 
+    # ----------- Read the list of channel ids ------------------
     section_table_data = lchdulist['SECTION TABLE'].data
     chan_ids = section_table_data['id']
 
+    # ----------- Read the list of RF inputs, feeds, polarization, etc. --
     rf_input_data = lchdulist['RF INPUTS'].data
     feeds = rf_input_data['feed']
     IFs = rf_input_data['ifChain']
@@ -93,6 +98,7 @@ def read_data_fitszilla(fname):
     frequencies = rf_input_data['frequency']
     bandwidths = rf_input_data['bandWidth']
 
+    # ----- Read the offsets of different feeds (nonzero only if multifeed)--
     feed_input_data = lchdulist['FEED TABLE'].data
     xoffsets = feed_input_data['xOffset']
     yoffsets = feed_input_data['yOffset']
@@ -102,7 +108,21 @@ def read_data_fitszilla(fname):
 
     relpowers = feed_input_data['relativePower']
 
-    data_table_data = lchdulist['DATA TABLE'].data
+    # -------------- Read data!-----------------------------------------
+    datahdu = lchdulist['DATA TABLE']
+    data_table_data = Table(datahdu.data)
+    is_spectrum = 'SPECTRUM' in list(datahdu.header.values())
+    if is_spectrum:
+        nchan = len(chan_ids)
+
+        nrows, nbins = data_table_data['SPECTRUM'].shape
+        nbin_per_chan = nbins // nchan
+        assert nbin_per_chan * nchan == nbins, \
+            'Something wrong with channel subdivision'
+        for ic, ch in enumerate(chan_ids):
+            data_table_data['Ch{}'.format(ch)] = \
+                data_table_data['SPECTRUM'][:, ic * nbin_per_chan:
+                                            (ic + 1 ) * nbin_per_chan]
 
     info_to_retrieve = ['time', 'derot_angle']
 
@@ -178,7 +198,7 @@ def read_data_fitszilla(fname):
                                              'bandwidth': bandwidths[ic],
                                              'xoffset': xoffsets[feeds[ic]],
                                              'yoffset': yoffsets[feeds[ic]],
-                                             'relpower': relpowers[feeds[ic]],
+                                             'relpower': relpowers[feeds[ic]]
                                              }
         new_table['Ch{}_feed'.format(ch)] = \
             np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
