@@ -32,7 +32,9 @@ class Scan(Table):
     '''Class containing a single scan'''
     def __init__(self, data=None, config_file=None, norefilt=True,
                  interactive=False, nosave=False, verbose=True,
-                 **kwargs):
+                 freqsplat=None, **kwargs):
+        '''Freqsplat is a string, freqmin:freqmax, and gives the limiting
+         frequencies of the interval to splat in a single channel'''
 
         if config_file is None:
             config_file = get_config_file()
@@ -56,7 +58,20 @@ class Scan(Table):
             self.meta.update(read_config(self.meta['config_file']))
 
             self.check_order()
+            if freqsplat is not None:
+                freqmin, freqmax = [float(f) for f in freqsplat.split(':')]
 
+                for ic, ch in enumerate(self.chan_columns()):
+                    _, nbin = self[ch].shape
+                    binmin = nbin * freqmin / self[ch].meta['bandwidth']
+                    binmax = nbin * freqmax / self[ch].meta['bandwidth']
+
+                    self[ch + 'TEMP'] = Table(np.sum(self[ch][:, binmin:binmax],
+                                                     axis=1))
+                    self[ch + 'TEMP'].meta = self[ch].meta.copy()
+                    self.remove_column(ch)
+                    self[ch + 'TEMP'].name = ch
+                    self[ch + 'TEMP'].meta['bandwidth'] = freqmax - freqmin
             if interactive:
                 self.interactive_filter()
             if ('backsub' not in self.meta.keys() \
@@ -85,11 +100,11 @@ class Scan(Table):
         '''Zap bad intervals.'''
         pass
 
-    def __repr__(self):
-        '''Give the print() function something to print.'''
-        reprstring = '\n\n----Scan from file {} ----\n'.format(self.filename)
-        reprstring += repr(self)
-        return reprstring
+    # def __repr__(self):
+    #     '''Give the print() function something to print.'''
+    #     reprstring = '\n\n----Scan from file {} ----\n'.format(self.meta['filename'])
+    #     reprstring += repr(self)
+    #     return reprstring
 
     def write(self, fname, **kwargs):
         '''Set default path and call Table.write'''

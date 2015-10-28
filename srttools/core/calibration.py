@@ -137,7 +137,7 @@ colors = dict(zip(calist, colors))
 
 
 def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
-               verbose=True):
+               verbose=True, freqsplat=None):
     """Get fluxes from all scans in path."""
     dname = os.path.basename(scandir)
     scan_list = \
@@ -174,7 +174,8 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
         sname = os.path.basename(s)
         try:
             # For now, use nosave. HDF5 doesn't store meta, essential for this
-            scan = Scan(s, norefilt=True, nosave=True, verbose=verbose)
+            scan = Scan(s, norefilt=True, nosave=True, verbose=verbose,
+                        freqsplat=freqsplat)
         except:
             print('{} is an invalid file'.format(s))
             continue
