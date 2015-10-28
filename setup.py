@@ -21,19 +21,22 @@ if PY2 and PYX6:
 
 calibdir = os.path.join('data', 'calibrators')
 calibfiles = [(calibdir, [f for f in glob.glob(os.path.join(calibdir, '*.ini'))])]
+
+entry_points = {}
+entry_points['console_scripts'] = ["pySDI = srttools.core.scan:main_imager"]
+
 setup(name='srttools',
       version='0.1',
       description="SRT Single dish tools",
       packages=['srttools', 'srttools.core'],
       package_data={'': ['README.md']},
-      data_files = calibfiles,
+      data_files=calibfiles,
       include_package_data=True,
       author='OAC high-energygroup',
       author_email="blablabla@bla.net",
       license='3-clause BSD',
       url='https://bitbucket.org/srttools/srt-single-dish-tools',
       keywords='Radio astronomy maps',
-      scripts=glob.glob('scripts/*'),
       platforms='all',
       classifiers=[
           'Intended Audience :: Science/Research, Education, Developers',
@@ -41,5 +44,6 @@ setup(name='srttools',
           'Programming Language :: Python :: 3.4',
           'Topic :: Scientific/Engineering :: Astronomy'
           ],
-      install_requires=install_requires
+      install_requires=install_requires,
+      entry_points=entry_points
       )
