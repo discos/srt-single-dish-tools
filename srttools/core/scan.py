@@ -18,6 +18,7 @@ import unittest
 
 chan_re = re.compile(r'^Ch[0-9]+$')
 
+
 def list_scans(datadir, dirlist):
     '''List all scans contained in the directory listed in config'''
     scan_list = []
@@ -59,7 +60,7 @@ class Scan(Table):
 
             if interactive:
                 self.interactive_filter()
-            if ('backsub' not in self.meta.keys() \
+            if ('backsub' not in self.meta.keys()
                     or not self.meta['backsub']) \
                     and not norefilt:
                 print('Subtracting the baseline')
@@ -87,7 +88,8 @@ class Scan(Table):
 
     def __repr__(self):
         '''Give the print() function something to print.'''
-        reprstring = '\n\n----Scan from file {} ----\n'.format(self.filename)
+        reprstring = \
+            '\n\n----Scan from file {0} ----\n'.format(self.meta['filename'])
         reprstring += repr(self)
         return reprstring
 
@@ -126,10 +128,11 @@ class Scan(Table):
             # ------- CALL INTERACTIVE FITTER ---------
             info = select_data(self[dim][:, feed], self[ch],
                                xlabel=dim)
+            plt.show()
             # -----------------------------------------
 
             # Treat zapped intervals
-            xs = info['zap'].xs
+            xs = info['Ch']['zap'].xs
             good = np.ones(len(self[dim]), dtype=bool)
             if len(xs) >= 2:
                 intervals = list(zip(xs[:-1:2], xs[1::2]))
@@ -138,13 +141,14 @@ class Scan(Table):
                                         self[dim][:, feed] <= i[1])] = False
             self['{}-filt'.format(ch)] = good
 
-            if len(info['fitpars']) > 1:
-                self[ch] -= linear_fun(self[dim][:, feed], *info['fitpars'])
+            if len(info['Ch']['fitpars']) > 1:
+                self[ch] -= linear_fun(self[dim][:, feed],
+                                       *info['Ch']['fitpars'])
             # TODO: make it channel-independent
                 self.meta['backsub'] = True
 
             # TODO: make it channel-independent
-            if info['FLAG']:
+            if info['Ch']['FLAG']:
                 self.meta['FLAG'] = True
         if save:
             self.save()
@@ -181,8 +185,7 @@ class ScanSet(Table):
 
             tables = []
 
-            for i_s, s in enumerate(self.load_scans(scan_list)):
-                print('{}/{}'.format(i_s + 1, nscans))
+            for i_s, s in enumerate(self.load_scans(scan_list, **kwargs)):
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
@@ -226,10 +229,10 @@ class ScanSet(Table):
         '''List all scans contained in the directory listed in config'''
         return list_scans(datadir, dirlist)
 
-    def load_scans(self, scan_list):
+    def load_scans(self, scan_list, **kwargs):
         '''Load the scans in the list one by ones'''
         for f in scan_list:
-            yield Scan(f, norefilt=self.norefilt)
+            yield Scan(f, norefilt=self.norefilt, **kwargs)
 
     def get_coordinates(self, altaz=False):
         '''Give the coordinates as pairs of RA, DEC'''
@@ -394,8 +397,8 @@ class ScanSet(Table):
 
         return images
 
-    def interactive_display(self, ch = None, recreate=False):
-        '''Modify original scans from the image display'''
+    def interactive_display(self, ch=None, recreate=False):
+        """Modify original scans from the image display."""
         from .interactive_filter import ImageSelector
         from matplotlib.gridspec import GridSpec
 
@@ -408,7 +411,7 @@ class ScanSet(Table):
             chs = [ch]
         for ch in chs:
             fig = plt.figure('Imageactive Display')
-            gs = GridSpec(1, 2, width_ratios=(3,2))
+            gs = GridSpec(1, 2, width_ratios=(3, 2))
             ax = fig.add_subplot(gs[0])
             ax2 = fig.add_subplot(gs[1])
             img = self.images[ch]
