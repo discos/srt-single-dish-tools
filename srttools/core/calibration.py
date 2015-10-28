@@ -46,6 +46,7 @@ def read_calibrator_config():
     curdir = os.path.dirname(__file__)
     calibdir = os.path.join(curdir, '..', '..', 'data', 'calibrators')
     calibrator_file_list = glob.glob(os.path.join(calibdir, '*.ini'))
+
     configs = {}
     for cfile in calibrator_file_list:
         cparser = configparser.ConfigParser()
@@ -119,7 +120,12 @@ def get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         CALIBRATOR_CONFIG = read_calibrator_config()
 
     calibrators = CALIBRATOR_CONFIG.keys()
-    if calibrator not in calibrators:
+
+    for cal in calibrators:
+        if cal in calibrator:
+            calibrator = cal
+            break
+    else:
         return None, None
 
     conf = CALIBRATOR_CONFIG[calibrator]
@@ -198,6 +204,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
             get_calibrator_flux(source, frequency / 1000,
                                 bandwidth / 1000, time=time)
 
+        print(source, flux, eflux)
         if flux is None:
             flux_density = 1 / bandwidth
             flux_density_err = 0
@@ -327,6 +334,7 @@ def show_calibration(full_table, feed=0, plotall=False):
     calibrator_table = full_table[full_table["Kind"] == "Calibrator"]
 
     source_table = full_table[full_table["Kind"] == "Source"]
+    print(calibrator_table, source_table)
 
     for d in dir_list:
         subtable = calibrator_table[calibrator_table["Dir"] == d]
@@ -334,6 +342,12 @@ def show_calibration(full_table, feed=0, plotall=False):
             continue
 
         symbols = decide_symbol(subtable["Scan Type"])
+        for k in colors.keys():
+            if k in subtable["Source"][0]:
+                source_color = colors[k]
+                break
+        else:
+            source_color = 'grey'
 
         # ----------------------- Pointing vs. ELEVATION -------------------
         fig = plt.figure("Pointing Error vs Elevation")
@@ -364,7 +378,7 @@ def show_calibration(full_table, feed=0, plotall=False):
         # ----------------------- Calibration vs. ELEVATION -------------------
         plt.figure("Vs Elevation")
         plt.errorbar(np.mean(subtable["Elevation"]), fc, yerr=fce,
-                     ecolor=colors[subtable["Source"][0]],
+                     ecolor=source_color,
                      elinewidth=3)
 
         # ----------------------- Width vs. ELEVATION -------------------
@@ -373,9 +387,9 @@ def show_calibration(full_table, feed=0, plotall=False):
 
         plt.figure("Width Vs Elevation")
         plt.scatter(subtable["Elevation"][ras], subtable["Width"][ras],
-                    color=colors[subtable["Source"][0]], marker='o')
+                    color=source_color, marker='o')
         plt.scatter(subtable["Elevation"][decs], subtable["Width"][decs],
-                    color=colors[subtable["Source"][0]], marker='^')
+                    color=source_color, marker='^')
 
     plt.figure("Vs Elevation")
     plt.ylabel("Jansky / Counts")
@@ -399,9 +413,15 @@ def show_calibration(full_table, feed=0, plotall=False):
     plt.legend([rap_symb, dep_symb, ram_symb, dem_symb, tot_symb],
                ['RA>', 'Dec>', 'RA<', 'Dec<', 'Tot'], numpoints=1)
 
-    fc = np.mean(calibrator_table["Flux/Counts"])
-    fce = np.sqrt(np.sum(calibrator_table["Flux/Counts Err"] ** 2))\
+    f_c_ratio = calibrator_table["Flux/Counts"]
+
+    good = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
+    fc = np.mean(f_c_ratio[good])
+    f_c_ratio_err = calibrator_table["Flux/Counts"]
+    good = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err > 0)
+    fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
         / len(calibrator_table)
+    print(f_c_ratio, f_c_ratio_err, fc, fce)
 
     source_table["Flux Density"] = \
         source_table["Counts"] * fc / source_table["Bandwidth"]
@@ -412,8 +432,8 @@ def show_calibration(full_table, feed=0, plotall=False):
     sources = list(set(source_table["Source"]))
     for s in sources:
         filtered = source_table[source_table["Source"] == s]
-        print(filtered[("Source", "Flux Density", "Flux Density Err",
-                        "Counts", "Counts Err")])
+        print(filtered[("Source", "Time", "Flux Density", "Flux Density Err",
+                        "Counts", "Counts Err", "Kind")])
         if len(filtered) > 20:
             plt.figure(s)
             from astropy.visualization import hist
@@ -421,6 +441,27 @@ def show_calibration(full_table, feed=0, plotall=False):
                  histtype='stepfilled')
 
             plt.xlabel("Flux values")
+        plt.figure(s + '_callc')
+        plt.errorbar(filtered['Time'], filtered['Flux Density'],
+                     yerr=filtered['Flux Density Err'], label=s)
+        plt.xlabel('Time (MJD)')
+        plt.ylabel('Flux (Jy)')
+        plt.savefig(s + '_callc.png')
+        np.savetxt(s + '_callc_data.txt',
+                   np.array([filtered['Time'],
+                             filtered['Flux Density'],
+                             filtered['Flux Density Err']]).T)
+
+        plt.figure(s + '_lc')
+        plt.errorbar(filtered['Time'], filtered['Counts'],
+                     yerr=filtered['Counts Err'], label=s)
+        plt.xlabel('Time (MJD)')
+        plt.ylabel('Counts')
+        plt.savefig(s + '_lc.png')
+        np.savetxt(s + '_lc_data.txt',
+                   np.array([filtered['Time'],
+                             filtered['Counts'],
+                             filtered['Counts Err']]).T)
 
     plt.show()
 
