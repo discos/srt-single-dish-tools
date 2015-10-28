@@ -13,6 +13,33 @@ SRT_tools_config_file = None
 SRT_tools_config = None
 
 
+def sample_config_file(fname='sample_config_file.ini'):
+    string = """
+[local]
+     workdir : .
+     datadir : ../../TEST_DATASET
+
+     [analysis]
+     projection : ARC
+     interpolation : spline
+     prefix : test_
+     list_of_directories :
+         dir1
+         dir2
+;               (....)
+
+     ; Coordinates have to be specified in decimal degrees
+     ;reference_ra : 10.5
+     ;reference_dec : 5.3
+
+     ; Number of pixels, specified as pair x y
+
+     npix : 30 30
+    """
+    with open(fname, 'w') as fobj:
+        print(string, file=fobj)
+
+
 def get_config_file():
     return SRT_tools_config_file
 

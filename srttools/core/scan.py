@@ -2,7 +2,7 @@ from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 from .io import read_data, root_name, DEBUG_MODE
 import glob
-from .read_config import read_config, get_config_file
+from .read_config import read_config, get_config_file, sample_config_file
 import os
 import numpy as np
 from astropy import wcs
@@ -15,6 +15,7 @@ from .interactive_filter import select_data
 import astropy.units as u
 import re
 import unittest
+import sys
 
 chan_re = re.compile(r'^Ch[0-9]+$')
 
@@ -609,6 +610,9 @@ def main_imager(args=None):
                    'and produce a map.')
     parser = argparse.ArgumentParser(description=description)
 
+    parser.add_argument("--sample-config", action='store_true', default=False,
+                        help='Produce sample config file')
+
     parser.add_argument("-c", "--config", type=str, default=None,
                         help='Config file')
 
@@ -617,6 +621,10 @@ def main_imager(args=None):
                         help='Re-run the scan filtering')
 
     args = parser.parse_args(args)
+
+    if args.sample_config:
+        sample_config_file()
+        sys.exit()
 
     assert args.config is not None, "Please specify the config file!"
 

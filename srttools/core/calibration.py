@@ -4,9 +4,10 @@ from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
 from .scan import Scan, list_scans
-from .read_config import read_config
+from .read_config import read_config, sample_config_file
 from .fit import fit_baseline_plus_bell
 import os
+import sys
 import glob
 import re
 try:
@@ -446,6 +447,40 @@ def test_calibration_roach():
                                      'TEST_DATASET',
                                      'test_calib_roach.ini'))
     full_table = get_full_table(config_file, plotall=True,
+                                picklefile='data_r2.pickle')
+
+    with open('data_r2.pickle', 'rb') as f:
+        full_table = pickle.load(f)
+    show_calibration(full_table)
+
+
+def main_lc_calibrator(args=None):
+    """Main function."""
+    import argparse
+
+    description = ('Load a series of scans from a config file '
+                   'and produce a map.')
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument("--sample-config", action='store_true', default=False,
+                        help='Produce sample config file')
+
+    parser.add_argument("-c", "--config", type=str, default=None,
+                        help='Config file')
+
+    parser.add_argument("--refilt", default=False,
+                        action='store_true',
+                        help='Re-run the scan filtering')
+
+    args = parser.parse_args(args)
+
+    if args.sample_config:
+        sample_config_file()
+        sys.exit()
+
+    assert args.config is not None, "Please specify the config file!"
+
+    full_table = get_full_table(args.config, plotall=True,
                                 picklefile='data_r2.pickle')
 
     with open('data_r2.pickle', 'rb') as f:

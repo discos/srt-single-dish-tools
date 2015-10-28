@@ -23,7 +23,9 @@ calibdir = os.path.join('data', 'calibrators')
 calibfiles = [(calibdir, [f for f in glob.glob(os.path.join(calibdir, '*.ini'))])]
 
 entry_points = {}
-entry_points['console_scripts'] = ["pySDI = srttools.core.scan:main_imager"]
+entry_points['console_scripts'] = \
+    ["SDTimage = srttools.core.scan:main_imager",
+     "SDTlcurve = srttools.core.calibration:main_lc_calibrator"]
 
 setup(name='srttools',
       version='0.1',
