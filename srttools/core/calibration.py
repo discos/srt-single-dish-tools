@@ -430,11 +430,15 @@ def show_calibration(full_table, feed=0, plotall=False):
     source_table["Flux Density"] = \
         source_table["Counts"] * fc / source_table["Bandwidth"]
     source_table["Flux Density Err"] = \
-        (source_table["Counts Err"] / source_table["Counts"] + fce / fc) * \
+        (source_table["Counts Err"] / source_table["Counts"]) * \
         source_table["Flux Density"]
+    source_table["Flux Density Systematic"] = \
+        fce / fc * source_table["Flux Density"]
 
     sources = list(set(source_table["Source"]))
+    source_colors = ['k', 'b', 'r', 'g', 'c', 'm']
     for i_s, s in enumerate(sources):
+        c = source_colors[i_s % len(sources)]
         filtered = source_table[source_table["Source"] == s]
         print(filtered[("Source", "Time", "Flux Density", "Flux Density Err",
                         "Counts", "Counts Err", "Kind")])
@@ -447,7 +451,16 @@ def show_calibration(full_table, feed=0, plotall=False):
             plt.xlabel("Flux values")
         plt.figure(s + '_callc')
         plt.errorbar(filtered['Time'], filtered['Flux Density'],
-                     yerr=filtered['Flux Density Err'], label=s, fmt=None)
+                     yerr=filtered['Flux Density Err'], label=s, fmt=None,
+                     ecolor=c, color=c)
+        plt.fill_between(
+            filtered['Time'],
+            filtered['Flux Density'] - filtered['Flux Density Systematic'],
+            filtered['Flux Density'] + filtered['Flux Density Systematic'],
+            color=c, alpha=0.1,
+            label=s + '-systematic')
+
+        plt.legend()
         plt.xlabel('Time (MJD)')
         plt.ylabel('Flux (Jy)')
         plt.savefig(s + '_callc.png')
@@ -459,6 +472,7 @@ def show_calibration(full_table, feed=0, plotall=False):
         plt.figure(s + '_lc')
         plt.errorbar(filtered['Time'], filtered['Counts'],
                      yerr=filtered['Counts Err'], label=s, fmt=None)
+
         plt.xlabel('Time (MJD)')
         plt.ylabel('Counts')
         plt.savefig(s + '_lc.png')
@@ -467,6 +481,7 @@ def show_calibration(full_table, feed=0, plotall=False):
                              filtered['Counts'],
                              filtered['Counts Err']]).T)
 
+        plt.legend()
     plt.show()
 
 
