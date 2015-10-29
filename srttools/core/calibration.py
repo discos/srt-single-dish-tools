@@ -178,8 +178,10 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
         figures = []
         plotted_kinds = []
 
-        # plt.ion()
-    for s in scan_list:
+    nscan = len(scan_list)
+
+    for i_s, s in enumerate(scan_list):
+        print('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
         sname = os.path.basename(s)
         try:
             # For now, use nosave. HDF5 doesn't store meta, essential for this
@@ -310,7 +312,13 @@ def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
 
     dir_list = config['list_of_directories']
     tables = {}
-    for d in dir_list:
+
+    ndir = len(dir_list)
+    for i_d, d in enumerate(dir_list):
+        print('\n-----------------\n')
+        print('{}/{}: Loading data in {}'.format(i_d + 1, ndir, d))
+        print('\n-----------------\n')
+
         output_table = get_fluxes(config['datadir'], d, channel=channel,
                                   feed=feed, plotall=plotall, verbose=verbose)
         tables[d] = output_table
@@ -426,7 +434,7 @@ def show_calibration(full_table, feed=0, plotall=False):
         source_table["Flux Density"]
 
     sources = list(set(source_table["Source"]))
-    for s in sources:
+    for i_s, s in enumerate(sources):
         filtered = source_table[source_table["Source"] == s]
         print(filtered[("Source", "Time", "Flux Density", "Flux Density Err",
                         "Counts", "Counts Err", "Kind")])

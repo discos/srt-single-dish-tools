@@ -97,8 +97,6 @@ def align(xs, ys):
     result = minimize(objective_function, [qs, ms], args=[xs, ys],
                       options={'disp': True})
 
-    print(result)
-
     qs = result.x[:len(xs) - 1]
     ms = result.x[len(xs) - 1:]
 
@@ -160,7 +158,6 @@ def test_fit_baseline_plus_bell():
 
     plt.plot(x, model(x))
 
-    print(model)
     print('Amplitude: {}'.format(model.amplitude_1.value))
     print('Stddev: {}'.format(model.stddev_1.value))
     print('Mean: {}'.format(model.mean_1.value))
