@@ -50,7 +50,7 @@ def rough_baseline_sub(time, lc, start_pars=None):
     return lc
 
 
-def function_to_minimize_align(xs, ys, params):
+def minimize_align(xs, ys, params):
     '''Calculate the total variance of a series of scans, after subtracting
     a linear function from each of them (excluding the first one)'''
 
@@ -84,7 +84,7 @@ def function_to_minimize_align(xs, ys, params):
 
 def objective_function(params, args):
     '''Put the parameters in the right order to use with scipy's minimize'''
-    return function_to_minimize_align(args[0], args[1], params)
+    return minimize_align(args[0], args[1], params)
 
 
 def align(xs, ys):
@@ -125,14 +125,14 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
         bell.amplitude.bounds = (0, None)
         bell.mean.bounds = (0, None)
         bell.stddev.bounds = (0, None)
-        max_name='mean'
+        max_name = 'mean'
     elif kind == 'lorentz':
         bell = models.Lorentz1D(x_0=np.mean(x), fwhm=xrange / 20,
-                                 amplitude=yrange, name='Bell')
+                                amplitude=yrange, name='Bell')
         bell.amplitude.bounds = (0, None)
         bell.x_0.bounds = (0, None)
         bell.fwhm.bounds = (0, None)
-        max_name='x_0'
+        max_name = 'x_0'
 
     mod_init = base + bell
 
@@ -143,11 +143,15 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     return mod_out, fit.fit_info
 
 
+def _test_shape(x):
+    return 1000 * np.exp(-(x - 50) ** 2 / 3)
+
+
 def test_fit_baseline_plus_bell():
     import matplotlib.pyplot as plt
-    shape = lambda x: 1000 * np.exp(-(x - 50) ** 2 / 3)
+
     x = np.arange(0, 100, 0.1)
-    y = np.random.poisson(1000, len(x)) + shape(x) + x * 6 + 20
+    y = np.random.poisson(1000, len(x)) + _test_shape(x) + x * 6 + 20
 
     model, _ = fit_baseline_plus_bell(x, y, ye=10, kind='gauss')
 
@@ -163,16 +167,15 @@ def test_fit_baseline_plus_bell():
     plt.show()
 
 
-def test_function_to_minimize_align():
+def test_minimize_align():
     import matplotlib.pyplot as plt
 
-    shape = lambda x: 100 * np.exp(-(x - 50) ** 2 / 3)
     x1 = np.arange(0, 100, 0.1)
-    y1 = np.random.poisson(100, len(x1)) + shape(x1)
+    y1 = np.random.poisson(100, len(x1)) + _test_shape(x1)
     x2 = np.arange(0.02, 100, 0.1)
-    y2 = np.random.poisson(100, len(x2)) + shape(x2)
+    y2 = np.random.poisson(100, len(x2)) + _test_shape(x2)
     x3 = np.arange(0.053, 98.34, 0.1)
-    y3 = np.random.poisson(100, len(x3)) + shape(x3)
+    y3 = np.random.poisson(100, len(x3)) + _test_shape(x3)
 
     xs = [x1, x2, x3]
     ys = [y1, y2, y3]
