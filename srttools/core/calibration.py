@@ -10,6 +10,8 @@ import os
 import sys
 import glob
 import re
+import warnings
+
 try:
     import pickle
 except:
@@ -99,9 +101,9 @@ def calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     coefftable = conf["CoeffTable"]["coeffs"]
     fobj = io.BytesIO(coefftable.encode())
     table = Table.read(fobj, format='ascii.csv')
-    # print(table)
+
     idx = np.argmin(np.abs(table["time"] - time))
-    # print(idx, table[idx])
+
     a0, a0e = table['a0', 'a0e'][idx]
     a1, a1e = table['a1', 'a1e'][idx]
     a2, a2e = table['a2', 'a2e'][idx]
@@ -146,7 +148,7 @@ colors = dict(zip(calist, colors))
 def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
                verbose=True, freqsplat=None):
     """Get fluxes from all scans in path."""
-    dname = os.path.basename(scandir)
+    # dname = os.path.basename(scandir)
     scan_list = \
         list_scans(basedir, [scandir])
 
@@ -184,7 +186,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
             scan = Scan(s, norefilt=True, nosave=True, verbose=verbose,
                         freqsplat=freqsplat)
         except:
-            print('{} is an invalid file'.format(s))
+            warnings.warn('{} is an invalid file'.format(s))
             continue
         ras = np.degrees(scan['ra'][:, feed])
         decs = np.degrees(scan['dec'][:, feed])
@@ -204,7 +206,6 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
             get_calibrator_flux(source, frequency / 1000,
                                 bandwidth / 1000, time=time)
 
-        print(source, flux, eflux)
         if flux is None:
             flux_density = 1 / bandwidth
             flux_density_err = 0
@@ -241,12 +242,12 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
         try:
             uncert = fit_info['param_cov'].diagonal() ** 0.5
         except:
-            print("fit failed")
+            warnings.warn("Fit failed in scan {s}".format(s=s))
             continue
 
         baseline = model['Baseline']
         bell = model['Bell']
-        pars = model.parameters
+        # pars = model.parameters
         pnames = model.param_names
         counts = model.amplitude_1.value
         if xvariab == "RA":
@@ -281,9 +282,6 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
             plt.title('{} (baseline-subtracted)'.format(source))
             plt.xlabel(xvariab)
 
-            # if kind == 'Calibrator':
-            #     plt.draw()
-
         flux_over_counts = flux / counts
         flux_over_counts_err = \
             (counts_err / counts + eflux / flux) * flux_over_counts
@@ -301,8 +299,6 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
             if plotted_kinds[i_f] == 'Calibrator':
                 plt.legend()
             fig.savefig(f + ".png")
-            # plt.close(fig)
-        # plt.ioff()
 
     return output_table
 
@@ -328,13 +324,13 @@ def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
 
 def show_calibration(full_table, feed=0, plotall=False):
     """Show the results of calibration"""
+    import matplotlib as mpl
 
     dir_list = list(set(full_table["Dir"]))
 
     calibrator_table = full_table[full_table["Kind"] == "Calibrator"]
 
     source_table = full_table[full_table["Kind"] == "Source"]
-    print(calibrator_table, source_table)
 
     for d in dir_list:
         subtable = calibrator_table[calibrator_table["Dir"] == d]
@@ -350,7 +346,7 @@ def show_calibration(full_table, feed=0, plotall=False):
             source_color = 'grey'
 
         # ----------------------- Pointing vs. ELEVATION -------------------
-        fig = plt.figure("Pointing Error vs Elevation")
+        plt.figure("Pointing Error vs Elevation")
         good_ra = subtable["Fit RA"] == subtable["Fit RA"]
         good_dec = subtable["Fit Dec"] == subtable["Fit Dec"]
 
@@ -359,7 +355,6 @@ def show_calibration(full_table, feed=0, plotall=False):
         ra_fit = subtable["Fit RA"]
         dec_fit = subtable["Fit Dec"]
 
-        # print(ra_pnt, dec_pnt, ra_fit, dec_fit)
         el = subtable["Elevation"]
         ra_err = (ra_fit - ra_pnt) / np.cos(np.radians(dec_pnt))
         dec_err = dec_fit - dec_pnt
@@ -372,7 +367,9 @@ def show_calibration(full_table, feed=0, plotall=False):
             plt.scatter(_e, _d * 60, color='b', marker=_s)
 
         fc = np.mean(subtable["Flux/Counts"]) / subtable["Bandwidth"][0]
-        fce = np.sqrt(np.sum(subtable["Flux/Counts Err"] ** 2)) / len(subtable) / subtable["Bandwidth"][0]
+        fce = np.sqrt(
+            np.sum(subtable["Flux/Counts Err"] ** 2)) / \
+            len(subtable) / subtable["Bandwidth"][0]
         fce = np.max([fce, np.std(fc)])
 
         # ----------------------- Calibration vs. ELEVATION -------------------
@@ -403,7 +400,7 @@ def show_calibration(full_table, feed=0, plotall=False):
     plt.title("Pointing Error vs Elevation (black: total; red: RA; blue: Dec)")
     plt.xlabel('Elevation')
     plt.ylabel('Pointing error (arcmin)')
-    import matplotlib as mpl
+
     rap_symb = mpl.lines.Line2D([0], [0], linestyle="none", c='r', marker='+')
     dep_symb = mpl.lines.Line2D([0], [0], linestyle="none", c='b', marker='^')
     ram_symb = mpl.lines.Line2D([0], [0], linestyle="none", c='r', marker='s')
@@ -421,7 +418,6 @@ def show_calibration(full_table, feed=0, plotall=False):
     good = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err > 0)
     fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
         / len(calibrator_table)
-    print(f_c_ratio, f_c_ratio_err, fc, fce)
 
     source_table["Flux Density"] = \
         source_table["Counts"] * fc / source_table["Bandwidth"]
@@ -510,6 +506,9 @@ def main_lc_calibrator(args=None):
     parser.add_argument("-c", "--config", type=str, default=None,
                         help='Config file')
 
+    parser.add_argument("--pickle-file", type=str, default='db.pickle',
+                        help='Name for the intermediate pickle file')
+
     parser.add_argument("--refilt", default=False,
                         action='store_true',
                         help='Re-run the scan filtering')
@@ -522,11 +521,11 @@ def main_lc_calibrator(args=None):
 
     assert args.config is not None, "Please specify the config file!"
 
-    if not os.path.exists('data_r2.pickle'):
+    if not os.path.exists(args.pickle_file):
         full_table = get_full_table(args.config, plotall=True,
-                                    picklefile='data_r2.pickle')
+                                    picklefile=args.pickle_file)
 
-    with open('data_r2.pickle', 'rb') as f:
+    with open(args.pickle_file, 'rb') as f:
         full_table = pickle.load(f)
         full_table.sort('Time')
     show_calibration(full_table)
