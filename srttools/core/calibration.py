@@ -151,7 +151,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
         list_scans(basedir, [scandir])
 
     scan_list.sort()
-    output_table = Table(names=["Dir", "File", "Scan Type",  "Source", "Time",
+    output_table = Table(names=["Dir", "File", "Scan Type", "Source", "Time",
                                 "Frequency", "Bandwidth",
                                 "Counts", "Counts Err",
                                 "Width",
@@ -427,7 +427,7 @@ def show_calibration(full_table, feed=0, plotall=False):
         source_table["Counts"] * fc / source_table["Bandwidth"]
     source_table["Flux Density Err"] = \
         (source_table["Counts Err"] / source_table["Counts"] + fce / fc) * \
-        source_table["Flux Density"] / source_table["Bandwidth"]
+        source_table["Flux Density"]
 
     sources = list(set(source_table["Source"]))
     for s in sources:
@@ -443,7 +443,7 @@ def show_calibration(full_table, feed=0, plotall=False):
             plt.xlabel("Flux values")
         plt.figure(s + '_callc')
         plt.errorbar(filtered['Time'], filtered['Flux Density'],
-                     yerr=filtered['Flux Density Err'], label=s)
+                     yerr=filtered['Flux Density Err'], label=s, fmt=None)
         plt.xlabel('Time (MJD)')
         plt.ylabel('Flux (Jy)')
         plt.savefig(s + '_callc.png')
@@ -454,7 +454,7 @@ def show_calibration(full_table, feed=0, plotall=False):
 
         plt.figure(s + '_lc')
         plt.errorbar(filtered['Time'], filtered['Counts'],
-                     yerr=filtered['Counts Err'], label=s)
+                     yerr=filtered['Counts Err'], label=s, fmt=None)
         plt.xlabel('Time (MJD)')
         plt.ylabel('Counts')
         plt.savefig(s + '_lc.png')
@@ -498,6 +498,7 @@ def test_calibration_roach():
 def main_lc_calibrator(args=None):
     """Main function."""
     import argparse
+    import os
 
     description = ('Load a series of scans from a config file '
                    'and produce a map.')
@@ -521,9 +522,11 @@ def main_lc_calibrator(args=None):
 
     assert args.config is not None, "Please specify the config file!"
 
-    full_table = get_full_table(args.config, plotall=True,
-                                picklefile='data_r2.pickle')
+    if not os.path.exists('data_r2.pickle'):
+        full_table = get_full_table(args.config, plotall=True,
+                                    picklefile='data_r2.pickle')
 
     with open('data_r2.pickle', 'rb') as f:
         full_table = pickle.load(f)
+        full_table.sort('Time')
     show_calibration(full_table)
