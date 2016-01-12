@@ -28,7 +28,6 @@ except ImportError:
 
 CALIBRATOR_CONFIG = None
 
-
 def decide_symbol(values):
     raplus = values == "RA>"
     ramin = values == "RA<"
