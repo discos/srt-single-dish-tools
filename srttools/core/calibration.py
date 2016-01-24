@@ -1,5 +1,9 @@
-"""Functions for the calibration of scans"""
+"""
+``SDTlcurve`` is a script that, given a list of cross scans from different
+sources, is able to recognize calibrators and use them to convert the observed
+counts into a density flux value in Jy.
 
+"""
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
