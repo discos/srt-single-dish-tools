@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>srttools.core package &mdash; srttools v0.1.dev2</title>
+    <title>srttools.core package &mdash; srttools v0.1.dev167</title>
     
-    <link rel="stylesheet" href="../../_static/bootstrap-astropy.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.1.dev2',
+        VERSION:     '0.1.dev167',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,53 +23,26 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../_static/sidebar.js"></script>
     <link rel="shortcut icon" href="../../_static/astropy_logo.ico"/>
-    <link rel="top" title="srttools v0.1.dev2" href="../../index.html" />
-    <link rel="prev" title="Command line interface" href="../../scripts/cli.html" />
-<link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,600' rel='stylesheet' type='text/css'/>
-<script type="text/javascript" src="../../_static/copybutton.js"></script>
-
-
+    <link rel="top" title="srttools v0.1.dev167" href="../../index.html" />
+    <link rel="prev" title="Command line interface" href="../../scripts/cli.html" /> 
   </head>
   <body role="document">
-<div class="topbar">
-  <a class="brand" title="Documentation Home" href="../../index.html"><span id="logotext1">astro</span><span id="logotext2">py</span><span id="logotext3">:docs</span></a>
-  <ul>
-    <li><a class="homelink" title="Astropy Homepage" href="http://www.astropy.org"></a></li>
-    <li><a title="General Index" href="../../genindex.html">Index</a></li>
-    <li><a title="Module Index" href="../../py-modindex.html">Modules</a></li>
-    <li>
-      
-      
-<form action="../../search.html" method="get">
-  <input type="text" name="q" placeholder="Search" />
-  <input type="hidden" name="check_keywords" value="yes" />
-  <input type="hidden" name="area" value="default" />
-</form>
-      
-    </li>
-  </ul>
-</div>
-
-<div class="related">
-    <h3>Navigation</h3>
-    <ul>
-      <li class="right">
-	<a href="../../scripts/cli.html" title="Command line interface">
-	  &laquo; previous
-	</a>
-	
-      </li>
-      <li>
-	<a href="../../index.html">srttools v0.1.dev2</a>
-	 &raquo;
-      </li>
-      
-      <li>srttools.core package</li> 
-    </ul>
-</div>
-  
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../../scripts/cli.html" title="Command line interface"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">srttools v0.1.dev167</a> &raquo;</li> 
+      </ul>
+    </div>  
 
     <div class="document">
       <div class="documentwrapper">
@@ -83,7 +56,9 @@
 </div>
 <div class="section" id="module-srttools.core.calibration">
 <span id="srttools-core-calibration-module"></span><h2>srttools.core.calibration module<a class="headerlink" href="#module-srttools.core.calibration" title="Permalink to this headline">¶</a></h2>
-<p>Functions for the calibration of scans</p>
+<p><code class="docutils literal"><span class="pre">SDTlcurve</span></code> is a script that, given a list of cross scans from different
+sources, is able to recognize calibrators and use them to convert the observed
+counts into a density flux value in Jy.</p>
 <dl class="function">
 <dt id="srttools.core.calibration.calc_flux_from_coeffs">
 <code class="descclassname">srttools.core.calibration.</code><code class="descname">calc_flux_from_coeffs</code><span class="sig-paren">(</span><em>conf</em>, <em>frequency</em>, <em>bandwidth=1</em>, <em>time=0</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/srttools/core/calibration.html#calc_flux_from_coeffs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#srttools.core.calibration.calc_flux_from_coeffs" title="Permalink to this definition">¶</a></dt>
@@ -274,15 +249,46 @@ a linear function from each of them (excluding the first one)</p>
 <dt id="srttools.core.interactive_filter.ImageSelector">
 <em class="property">class </em><code class="descclassname">srttools.core.interactive_filter.</code><code class="descname">ImageSelector</code><span class="sig-paren">(</span><em>data</em>, <em>ax</em>, <em>fun=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/srttools/core/interactive_filter.html#ImageSelector"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#srttools.core.interactive_filter.ImageSelector" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="http://docs.python.org/3/library/functions.html#object" title="(in Python v3.4)"><code class="xref py py-class docutils literal"><span class="pre">object</span></code></a></p>
-<p>Return xs and ys of the image, and the key that was pressed.
-Inputs:</p>
+<p>Return xs and ys of the image, and the key that was pressed.</p>
+<p class="rubric">Attributes</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="3%" />
+<col width="97%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>img</td>
+<td>(array) the image</td>
+</tr>
+<tr class="row-even"><td>ax</td>
+<td>(pyplot.axis instance) the axis where the image will be plotted</td>
+</tr>
+<tr class="row-odd"><td>fun</td>
+<td>(function) the function to call when a key is pressed. It must accept three arguments: <code class="xref py py-obj docutils literal"><span class="pre">x</span></code>, <code class="xref py py-obj docutils literal"><span class="pre">y</span></code> and <code class="xref py py-obj docutils literal"><span class="pre">key</span></code></td>
+</tr>
+</tbody>
+</table>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>data</strong> : array</p>
 <blockquote>
-<div><p>data:       the image
-ax:         a pyplot.axis instance where the image will be plotted
-fun:        (optional) the function to call when a key is pressed.</p>
-<blockquote>
-<div>it must accept three arguments: <code class="xref py py-obj docutils literal"><span class="pre">x</span></code>, <code class="xref py py-obj docutils literal"><span class="pre">y</span></code> and <code class="xref py py-obj docutils literal"><span class="pre">key</span></code></div></blockquote>
+<div><p>the image</p>
 </div></blockquote>
+<p><strong>ax</strong> : pyplot.axis instance</p>
+<blockquote>
+<div><p>the axis where the image will be plotted</p>
+</div></blockquote>
+<p><strong>fun</strong> : function, optional</p>
+<blockquote class="last">
+<div><p>the function to call when a key is pressed. It must accept three
+arguments: <code class="xref py py-obj docutils literal"><span class="pre">x</span></code>, <code class="xref py py-obj docutils literal"><span class="pre">y</span></code> and <code class="xref py py-obj docutils literal"><span class="pre">key</span></code></p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
 <dl class="method">
 <dt id="srttools.core.interactive_filter.ImageSelector.on_key">
 <code class="descname">on_key</code><span class="sig-paren">(</span><em>event</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/srttools/core/interactive_filter.html#ImageSelector.on_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#srttools.core.interactive_filter.ImageSelector.on_key" title="Permalink to this definition">¶</a></dt>
@@ -314,10 +320,39 @@ fun:        (optional) the function to call when a key is pressed.</p>
 
 <dl class="function">
 <dt id="srttools.core.interactive_filter.mask">
-<code class="descclassname">srttools.core.interactive_filter.</code><code class="descname">mask</code><span class="sig-paren">(</span><em>xs</em>, <em>mask_xs</em>, <em>invert=False</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/srttools/core/interactive_filter.html#mask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#srttools.core.interactive_filter.mask" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create mask from ranges. Mask value is False if invert = False, and v.v.</p>
-<p>E.g. for zapped intervals, invert = False. For baseline fit selections,
+<code class="descclassname">srttools.core.interactive_filter.</code><code class="descname">mask</code><span class="sig-paren">(</span><em>xs</em>, <em>border_xs</em>, <em>invert=False</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/srttools/core/interactive_filter.html#mask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#srttools.core.interactive_filter.mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create mask from a list of interval borders.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>xs</strong> : array</p>
+<blockquote>
+<div><p>the array of values to filter</p>
+</div></blockquote>
+<p><strong>border_xs</strong> : array</p>
+<blockquote>
+<div><p>the list of borders. Should be an even number of positions</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>mask</strong> : array</p>
+<blockquote>
+<div><p>Array of boolean values, that work as a mask to xs</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name" colspan="2">Other Parameters:</th></tr>
+<tr class="field-odd field"><td>&nbsp;</td><td class="field-body"><p class="first"><strong>invert</strong> : bool</p>
+<blockquote class="last">
+<div><p>Mask value is False if invert = False, and vice versa.
+E.g. for zapped intervals, invert = False. For baseline fit selections,
 invert = True</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="function">
@@ -566,8 +601,9 @@ no_offsets:      use positions from feed 0 for all feeds</p>
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper"><h3>Page Contents</h3>
-<ul>
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
 <li><a class="reference internal" href="#">srttools.core package</a><ul>
 <li><a class="reference internal" href="#submodules">Submodules</a></li>
 <li><a class="reference internal" href="#module-srttools.core.calibration">srttools.core.calibration module</a></li>
@@ -581,21 +617,29 @@ no_offsets:      use positions from feed 0 for all feeds</p>
 </li>
 </ul>
 
-
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-<footer class="footer">
-  <p class="pull-right">
-    <a href="../../_sources/srttools/core/modules.txt"
-       rel="nofollow">Page Source</a> &nbsp;
-    <a href="#">Back to Top</a></p>
-  <p>
-    &copy; Copyright 2016, SRT Imaging team.<br/>
-    Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.3.1. &nbsp;
-    Last built 19 Jan 2016. <br/>
-  </p>
-</footer>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../../scripts/cli.html" title="Command line interface"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">srttools v0.1.dev167</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &copy; Copyright 2016, SRT Imaging team.
+      Last updated on 24 Jan 2016.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.1.
+    </div>
   </body>
 </html>

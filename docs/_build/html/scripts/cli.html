@@ -6,15 +6,15 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Command line interface &mdash; srttools v0.1.dev2</title>
+    <title>Command line interface &mdash; srttools v0.1.dev167</title>
     
-    <link rel="stylesheet" href="../_static/bootstrap-astropy.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '0.1.dev2',
+        VERSION:     '0.1.dev167',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,59 +23,30 @@
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/sidebar.js"></script>
     <link rel="shortcut icon" href="../_static/astropy_logo.ico"/>
-    <link rel="top" title="srttools v0.1.dev2" href="../index.html" />
+    <link rel="top" title="srttools v0.1.dev167" href="../index.html" />
     <link rel="next" title="srttools.core package" href="../srttools/core/modules.html" />
-    <link rel="prev" title="Welcome to SRT Single Dish Tools’s documentation!" href="../index.html" />
-<link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,600' rel='stylesheet' type='text/css'/>
-<script type="text/javascript" src="../_static/copybutton.js"></script>
-
-
+    <link rel="prev" title="Welcome to SRT Single Dish Tools’s documentation!" href="../index.html" /> 
   </head>
   <body role="document">
-<div class="topbar">
-  <a class="brand" title="Documentation Home" href="../index.html"><span id="logotext1">astro</span><span id="logotext2">py</span><span id="logotext3">:docs</span></a>
-  <ul>
-    <li><a class="homelink" title="Astropy Homepage" href="http://www.astropy.org"></a></li>
-    <li><a title="General Index" href="../genindex.html">Index</a></li>
-    <li><a title="Module Index" href="../py-modindex.html">Modules</a></li>
-    <li>
-      
-      
-<form action="../search.html" method="get">
-  <input type="text" name="q" placeholder="Search" />
-  <input type="hidden" name="check_keywords" value="yes" />
-  <input type="hidden" name="area" value="default" />
-</form>
-      
-    </li>
-  </ul>
-</div>
-
-<div class="related">
-    <h3>Navigation</h3>
-    <ul>
-      <li class="right">
-	<a href="../srttools/core/modules.html" title="srttools.core package">
-	  next &raquo;
-	</a>
-      </li>
-      <li class="right">
-	<a href="../index.html" title="Welcome to SRT Single Dish Tools’s documentation!">
-	  &laquo; previous
-	</a>
-	 |
-      </li>
-      <li>
-	<a href="../index.html">srttools v0.1.dev2</a>
-	 &raquo;
-      </li>
-      
-      <li>Command line interface</li> 
-    </ul>
-</div>
-  
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../srttools/core/modules.html" title="srttools.core package"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../index.html" title="Welcome to SRT Single Dish Tools’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">srttools v0.1.dev167</a> &raquo;</li> 
+      </ul>
+    </div>  
 
     <div class="document">
       <div class="documentwrapper">
@@ -98,7 +69,7 @@ optional arguments:
   --refilt              Re-run the scan filtering
 </pre></div>
 </div>
-</div>
+<span class="target" id="module-srttools.core.scan"></span></div>
 <div class="section" id="sdtlcurve">
 <h2>SDTlcurve<a class="headerlink" href="#sdtlcurve" title="Permalink to this headline">¶</a></h2>
 <div class="highlight-python"><div class="highlight"><pre>usage: SDTlcurve [-h] [--sample-config] [-c CONFIG]
@@ -116,6 +87,9 @@ optional arguments:
   --refilt              Re-run the scan filtering
 </pre></div>
 </div>
+<span class="target" id="module-srttools.core.calibration"></span><p><code class="docutils literal"><span class="pre">SDTlcurve</span></code> is a script that, given a list of cross scans from different
+sources, is able to recognize calibrators and use them to convert the observed
+counts into a density flux value in Jy.</p>
 </div>
 </div>
 
@@ -124,8 +98,9 @@ optional arguments:
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper"><h3>Page Contents</h3>
-<ul>
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
 <li><a class="reference internal" href="#">Command line interface</a><ul>
 <li><a class="reference internal" href="#sdtimage">SDTimage</a></li>
 <li><a class="reference internal" href="#sdtlcurve">SDTlcurve</a></li>
@@ -133,21 +108,32 @@ optional arguments:
 </li>
 </ul>
 
-
         </div>
       </div>
       <div class="clearer"></div>
     </div>
-<footer class="footer">
-  <p class="pull-right">
-    <a href="../_sources/scripts/cli.txt"
-       rel="nofollow">Page Source</a> &nbsp;
-    <a href="#">Back to Top</a></p>
-  <p>
-    &copy; Copyright 2016, SRT Imaging team.<br/>
-    Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.3.1. &nbsp;
-    Last built 19 Jan 2016. <br/>
-  </p>
-</footer>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../srttools/core/modules.html" title="srttools.core package"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../index.html" title="Welcome to SRT Single Dish Tools’s documentation!"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">srttools v0.1.dev167</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &copy; Copyright 2016, SRT Imaging team.
+      Last updated on 24 Jan 2016.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.1.
+    </div>
   </body>
 </html>

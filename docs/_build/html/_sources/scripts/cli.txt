@@ -18,6 +18,8 @@ SDTimage
       --refilt              Re-run the scan filtering
 
 
+.. automodule:: srttools.core.scan
+
 SDTlcurve
 ---------
 
@@ -37,4 +39,6 @@ SDTlcurve
                             Name for the intermediate pickle file
       --refilt              Re-run the scan filtering
 
+
+.. automodule:: srttools.core.calibration
 
