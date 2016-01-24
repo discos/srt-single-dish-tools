@@ -1,0 +1,651 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>srttools.core.calibration &mdash; srttools v0.1.dev2</title>
+    
+    <link rel="stylesheet" href="../../../_static/bootstrap-astropy.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '0.1.dev2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/sidebar.js"></script>
+    <link rel="shortcut icon" href="../../../_static/astropy_logo.ico"/>
+    <link rel="top" title="srttools v0.1.dev2" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+<link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,600' rel='stylesheet' type='text/css'/>
+<script type="text/javascript" src="../../../_static/copybutton.js"></script>
+
+
+  </head>
+  <body role="document">
+<div class="topbar">
+  <a class="brand" title="Documentation Home" href="../../../index.html"><span id="logotext1">astro</span><span id="logotext2">py</span><span id="logotext3">:docs</span></a>
+  <ul>
+    <li><a class="homelink" title="Astropy Homepage" href="http://www.astropy.org"></a></li>
+    <li><a title="General Index" href="../../../genindex.html">Index</a></li>
+    <li><a title="Module Index" href="../../../py-modindex.html">Modules</a></li>
+    <li>
+      
+      
+<form action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+      
+    </li>
+  </ul>
+</div>
+
+<div class="related">
+    <h3>Navigation</h3>
+    <ul>
+      <li>
+	<a href="../../../index.html">srttools v0.1.dev2</a>
+	 &raquo;
+      </li>
+      <li><a href="../../index.html" accesskey="U">Module code</a> &raquo;</li>
+      
+       
+    </ul>
+</div>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for srttools.core.calibration</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot;Functions for the calibration of scans&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="p">(</span><span class="n">absolute_import</span><span class="p">,</span> <span class="n">unicode_literals</span><span class="p">,</span> <span class="n">division</span><span class="p">,</span>
+                        <span class="n">print_function</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.scan</span> <span class="kn">import</span> <span class="n">Scan</span><span class="p">,</span> <span class="n">list_scans</span>
+<span class="kn">from</span> <span class="nn">.read_config</span> <span class="kn">import</span> <span class="n">read_config</span><span class="p">,</span> <span class="n">sample_config_file</span>
+<span class="kn">from</span> <span class="nn">.fit</span> <span class="kn">import</span> <span class="n">fit_baseline_plus_bell</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pickle</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pickle</span> <span class="kn">as</span> <span class="nn">pickle</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">astropy.table</span> <span class="kn">import</span> <span class="n">Table</span><span class="p">,</span> <span class="n">vstack</span>
+<span class="c"># For Python 2 and 3 compatibility</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">configparser</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">configparser</span> <span class="kn">as</span> <span class="nn">configparser</span>
+
+<span class="n">CALIBRATOR_CONFIG</span> <span class="o">=</span> <span class="bp">None</span>
+
+<div class="viewcode-block" id="decide_symbol"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.decide_symbol">[docs]</a><span class="k">def</span> <span class="nf">decide_symbol</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+    <span class="n">raplus</span> <span class="o">=</span> <span class="n">values</span> <span class="o">==</span> <span class="s">&quot;RA&gt;&quot;</span>
+    <span class="n">ramin</span> <span class="o">=</span> <span class="n">values</span> <span class="o">==</span> <span class="s">&quot;RA&lt;&quot;</span>
+    <span class="n">decplus</span> <span class="o">=</span> <span class="n">values</span> <span class="o">==</span> <span class="s">&quot;Dec&gt;&quot;</span>
+    <span class="n">decmin</span> <span class="o">=</span> <span class="n">values</span> <span class="o">==</span> <span class="s">&quot;Dec&lt;&quot;</span>
+    <span class="n">symbols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s">&#39;a&#39;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">values</span><span class="p">])</span>
+    <span class="n">symbols</span><span class="p">[</span><span class="n">raplus</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;+&quot;</span>
+    <span class="n">symbols</span><span class="p">[</span><span class="n">ramin</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;s&quot;</span>
+    <span class="n">symbols</span><span class="p">[</span><span class="n">decplus</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;^&quot;</span>
+    <span class="n">symbols</span><span class="p">[</span><span class="n">decmin</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;v&quot;</span>
+    <span class="k">return</span> <span class="n">symbols</span>
+
+</div>
+<div class="viewcode-block" id="read_calibrator_config"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.read_calibrator_config">[docs]</a><span class="k">def</span> <span class="nf">read_calibrator_config</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Read the configuration of calibrators in data/calibrators&quot;&quot;&quot;</span>
+    <span class="n">flux_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s">r&#39;^Flux&#39;</span><span class="p">)</span>
+    <span class="n">curdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">)</span>
+    <span class="n">calibdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">curdir</span><span class="p">,</span> <span class="s">&#39;..&#39;</span><span class="p">,</span> <span class="s">&#39;..&#39;</span><span class="p">,</span> <span class="s">&#39;data&#39;</span><span class="p">,</span> <span class="s">&#39;calibrators&#39;</span><span class="p">)</span>
+    <span class="n">calibrator_file_list</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">calibdir</span><span class="p">,</span> <span class="s">&#39;*.ini&#39;</span><span class="p">))</span>
+
+    <span class="n">configs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">cfile</span> <span class="ow">in</span> <span class="n">calibrator_file_list</span><span class="p">:</span>
+        <span class="n">cparser</span> <span class="o">=</span> <span class="n">configparser</span><span class="o">.</span><span class="n">ConfigParser</span><span class="p">()</span>
+        <span class="n">cparser</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">cfile</span><span class="p">)</span>
+        <span class="n">cparser</span><span class="p">[</span><span class="s">&quot;Info&quot;</span><span class="p">][</span><span class="s">&quot;Name&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s">&#39;CoeffTable&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">cparser</span><span class="o">.</span><span class="n">sections</span><span class="p">()):</span>
+            <span class="n">configs</span><span class="p">[</span><span class="n">cparser</span><span class="p">[</span><span class="s">&quot;Info&quot;</span><span class="p">][</span><span class="s">&quot;Name&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span><span class="s">&quot;Kind&quot;</span><span class="p">:</span> <span class="s">&quot;FreqList&quot;</span><span class="p">,</span>
+                                                <span class="s">&quot;Frequencies&quot;</span><span class="p">:</span> <span class="p">[],</span>
+                                                <span class="s">&quot;Bandwidths&quot;</span><span class="p">:</span> <span class="p">[],</span>
+                                                <span class="s">&quot;Fluxes&quot;</span><span class="p">:</span> <span class="p">[],</span>
+                                                <span class="s">&quot;Flux Errors&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+
+            <span class="k">for</span> <span class="n">section</span> <span class="ow">in</span> <span class="n">cparser</span><span class="o">.</span><span class="n">sections</span><span class="p">():</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">flux_re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">section</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="n">configs</span><span class="p">[</span><span class="n">cparser</span><span class="p">[</span><span class="s">&quot;Info&quot;</span><span class="p">][</span><span class="s">&quot;Name&quot;</span><span class="p">]][</span><span class="s">&quot;Frequencies&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">cparser</span><span class="p">[</span><span class="n">section</span><span class="p">][</span><span class="s">&quot;freq&quot;</span><span class="p">]))</span>
+                <span class="n">configs</span><span class="p">[</span><span class="n">cparser</span><span class="p">[</span><span class="s">&quot;Info&quot;</span><span class="p">][</span><span class="s">&quot;Name&quot;</span><span class="p">]][</span><span class="s">&quot;Bandwidths&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">cparser</span><span class="p">[</span><span class="n">section</span><span class="p">][</span><span class="s">&quot;bwidth&quot;</span><span class="p">]))</span>
+                <span class="n">configs</span><span class="p">[</span><span class="n">cparser</span><span class="p">[</span><span class="s">&quot;Info&quot;</span><span class="p">][</span><span class="s">&quot;Name&quot;</span><span class="p">]][</span><span class="s">&quot;Fluxes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">cparser</span><span class="p">[</span><span class="n">section</span><span class="p">][</span><span class="s">&quot;flux&quot;</span><span class="p">]))</span>
+                <span class="n">configs</span><span class="p">[</span><span class="n">cparser</span><span class="p">[</span><span class="s">&quot;Info&quot;</span><span class="p">][</span><span class="s">&quot;Name&quot;</span><span class="p">]][</span><span class="s">&quot;Flux Errors&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">cparser</span><span class="p">[</span><span class="n">section</span><span class="p">][</span><span class="s">&quot;eflux&quot;</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">configs</span><span class="p">[</span><span class="n">cparser</span><span class="p">[</span><span class="s">&quot;Info&quot;</span><span class="p">][</span><span class="s">&quot;Name&quot;</span><span class="p">]]</span> <span class="o">=</span> \
+                <span class="p">{</span><span class="s">&quot;CoeffTable&quot;</span><span class="p">:</span> <span class="n">cparser</span><span class="p">[</span><span class="s">&quot;CoeffTable&quot;</span><span class="p">],</span> <span class="s">&quot;Kind&quot;</span><span class="p">:</span> <span class="s">&quot;CoeffTable&quot;</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">configs</span>
+
+</div>
+<div class="viewcode-block" id="flux_function"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.flux_function">[docs]</a><span class="k">def</span> <span class="nf">flux_function</span><span class="p">(</span><span class="n">start_frequency</span><span class="p">,</span> <span class="n">bandwidth</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">ecoeffs</span><span class="p">):</span>
+    <span class="n">a0</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">a3</span> <span class="o">=</span> <span class="n">coeffs</span>
+    <span class="n">a0e</span><span class="p">,</span> <span class="n">a1e</span><span class="p">,</span> <span class="n">a2e</span><span class="p">,</span> <span class="n">a3e</span> <span class="o">=</span> <span class="n">ecoeffs</span>
+    <span class="n">f0</span> <span class="o">=</span> <span class="n">start_frequency</span>
+    <span class="n">f1</span> <span class="o">=</span> <span class="n">start_frequency</span> <span class="o">+</span> <span class="n">bandwidth</span>
+
+    <span class="n">fs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">f0</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="mi">21</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">fs</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">logf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">fs</span><span class="p">)</span>
+    <span class="n">logS</span> <span class="o">=</span> <span class="n">a0</span> <span class="o">+</span> <span class="n">a1</span> <span class="o">*</span> <span class="n">logf</span> <span class="o">+</span> <span class="n">a2</span> <span class="o">*</span> <span class="n">logf</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">a3</span> <span class="o">*</span> <span class="n">logf</span><span class="o">**</span><span class="mi">3</span>
+
+    <span class="n">S</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">**</span> <span class="n">logS</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">S</span><span class="p">)</span> <span class="o">*</span> <span class="n">df</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="calc_flux_from_coeffs"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.calc_flux_from_coeffs">[docs]</a><span class="k">def</span> <span class="nf">calc_flux_from_coeffs</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">frequency</span><span class="p">,</span> <span class="n">bandwidth</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">io</span>
+    <span class="n">coefftable</span> <span class="o">=</span> <span class="n">conf</span><span class="p">[</span><span class="s">&quot;CoeffTable&quot;</span><span class="p">][</span><span class="s">&quot;coeffs&quot;</span><span class="p">]</span>
+    <span class="n">fobj</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">coefftable</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">Table</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">fobj</span><span class="p">,</span> <span class="n">format</span><span class="o">=</span><span class="s">&#39;ascii.csv&#39;</span><span class="p">)</span>
+
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="s">&quot;time&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">time</span><span class="p">))</span>
+
+    <span class="n">a0</span><span class="p">,</span> <span class="n">a0e</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="s">&#39;a0&#39;</span><span class="p">,</span> <span class="s">&#39;a0e&#39;</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span>
+    <span class="n">a1</span><span class="p">,</span> <span class="n">a1e</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="s">&#39;a1&#39;</span><span class="p">,</span> <span class="s">&#39;a1e&#39;</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span>
+    <span class="n">a2</span><span class="p">,</span> <span class="n">a2e</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="s">&#39;a2&#39;</span><span class="p">,</span> <span class="s">&#39;a2e&#39;</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span>
+    <span class="n">a3</span><span class="p">,</span> <span class="n">a3e</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="s">&#39;a3&#39;</span><span class="p">,</span> <span class="s">&#39;a3e&#39;</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">a0</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">a3</span><span class="p">])</span>
+
+    <span class="n">ecoeffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">a0e</span><span class="p">,</span> <span class="n">a1e</span><span class="p">,</span> <span class="n">a2e</span><span class="p">,</span> <span class="n">a3e</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">flux_function</span><span class="p">(</span><span class="n">frequency</span><span class="p">,</span> <span class="n">bandwidth</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">ecoeffs</span><span class="p">),</span> <span class="mi">0</span>
+
+</div>
+<div class="viewcode-block" id="get_calibrator_flux"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.get_calibrator_flux">[docs]</a><span class="k">def</span> <span class="nf">get_calibrator_flux</span><span class="p">(</span><span class="n">calibrator</span><span class="p">,</span> <span class="n">frequency</span><span class="p">,</span> <span class="n">bandwidth</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">CALIBRATOR_CONFIG</span>
+
+    <span class="k">if</span> <span class="n">CALIBRATOR_CONFIG</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">CALIBRATOR_CONFIG</span> <span class="o">=</span> <span class="n">read_calibrator_config</span><span class="p">()</span>
+
+    <span class="n">calibrators</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">CALIBRATOR_CONFIG</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+    <span class="k">for</span> <span class="n">cal</span> <span class="ow">in</span> <span class="n">calibrators</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">cal</span> <span class="ow">in</span> <span class="n">calibrator</span><span class="p">:</span>
+            <span class="n">calibrator</span> <span class="o">=</span> <span class="n">cal</span>
+            <span class="k">break</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span>
+
+    <span class="n">conf</span> <span class="o">=</span> <span class="n">CALIBRATOR_CONFIG</span><span class="p">[</span><span class="n">calibrator</span><span class="p">]</span>
+    <span class="c"># find closest value among frequencies</span>
+    <span class="k">if</span> <span class="n">conf</span><span class="p">[</span><span class="s">&quot;Kind&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s">&quot;FreqList&quot;</span><span class="p">:</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="s">&quot;Frequencies&quot;</span><span class="p">])</span> <span class="o">-</span> <span class="n">frequency</span><span class="p">))</span><span class="o">.</span><span class="n">argmin</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">conf</span><span class="p">[</span><span class="s">&quot;Fluxes&quot;</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span> <span class="o">*</span> <span class="n">bandwidth</span><span class="p">,</span> \
+            <span class="n">conf</span><span class="p">[</span><span class="s">&quot;Flux Errors&quot;</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span> <span class="o">*</span> <span class="n">bandwidth</span>
+    <span class="k">elif</span> <span class="n">conf</span><span class="p">[</span><span class="s">&quot;Kind&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s">&quot;CoeffTable&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">calc_flux_from_coeffs</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">frequency</span><span class="p">,</span> <span class="n">bandwidth</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
+
+</div>
+<span class="n">calist</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;3C147&#39;</span><span class="p">,</span> <span class="s">&#39;3C48&#39;</span><span class="p">,</span> <span class="s">&#39;3C123&#39;</span><span class="p">,</span> <span class="s">&#39;3C295&#39;</span><span class="p">,</span> <span class="s">&#39;3C286&#39;</span><span class="p">,</span> <span class="s">&#39;NGC7027&#39;</span><span class="p">]</span>
+<span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;k&#39;</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="s">&#39;g&#39;</span><span class="p">,</span> <span class="s">&#39;c&#39;</span><span class="p">,</span> <span class="s">&#39;m&#39;</span><span class="p">]</span>
+<span class="n">colors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">calist</span><span class="p">,</span> <span class="n">colors</span><span class="p">)))</span>
+
+
+<div class="viewcode-block" id="get_fluxes"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.get_fluxes">[docs]</a><span class="k">def</span> <span class="nf">get_fluxes</span><span class="p">(</span><span class="n">basedir</span><span class="p">,</span> <span class="n">scandir</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s">&#39;Ch0&#39;</span><span class="p">,</span> <span class="n">feed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">plotall</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+               <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">freqsplat</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get fluxes from all scans in path.&quot;&quot;&quot;</span>
+    <span class="c"># dname = os.path.basename(scandir)</span>
+    <span class="n">scan_list</span> <span class="o">=</span> \
+        <span class="n">list_scans</span><span class="p">(</span><span class="n">basedir</span><span class="p">,</span> <span class="p">[</span><span class="n">scandir</span><span class="p">])</span>
+
+    <span class="n">scan_list</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+    <span class="n">output_table</span> <span class="o">=</span> <span class="n">Table</span><span class="p">(</span><span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s">&quot;Dir&quot;</span><span class="p">,</span> <span class="s">&quot;File&quot;</span><span class="p">,</span> <span class="s">&quot;Scan Type&quot;</span><span class="p">,</span> <span class="s">&quot;Source&quot;</span><span class="p">,</span> <span class="s">&quot;Time&quot;</span><span class="p">,</span>
+                                <span class="s">&quot;Frequency&quot;</span><span class="p">,</span> <span class="s">&quot;Bandwidth&quot;</span><span class="p">,</span>
+                                <span class="s">&quot;Counts&quot;</span><span class="p">,</span> <span class="s">&quot;Counts Err&quot;</span><span class="p">,</span>
+                                <span class="s">&quot;Width&quot;</span><span class="p">,</span>
+                                <span class="s">&quot;Flux Density&quot;</span><span class="p">,</span> <span class="s">&quot;Flux Density Err&quot;</span><span class="p">,</span>
+                                <span class="s">&quot;Kind&quot;</span><span class="p">,</span>
+                                <span class="s">&quot;Elevation&quot;</span><span class="p">,</span>
+                                <span class="s">&quot;Flux/Counts&quot;</span><span class="p">,</span> <span class="s">&quot;Flux/Counts Err&quot;</span><span class="p">,</span>
+                                <span class="s">&quot;RA&quot;</span><span class="p">,</span> <span class="s">&quot;Dec&quot;</span><span class="p">,</span>
+                                <span class="s">&quot;Fit RA&quot;</span><span class="p">,</span> <span class="s">&quot;Fit Dec&quot;</span><span class="p">],</span>
+                         <span class="n">dtype</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;U200&#39;</span><span class="p">,</span> <span class="s">&#39;U200&#39;</span><span class="p">,</span> <span class="s">&#39;U200&#39;</span><span class="p">,</span> <span class="s">&#39;U200&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">longdouble</span><span class="p">,</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span>
+                                <span class="s">&quot;U200&quot;</span><span class="p">,</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">plotall</span><span class="p">:</span>
+        <span class="n">figures</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">plotted_kinds</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">nscan</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">scan_list</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i_s</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">scan_list</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">((</span><span class="s">&#39;{}/{}: Loading {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i_s</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nscan</span><span class="p">,</span> <span class="n">s</span><span class="p">)))</span>
+        <span class="n">sname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c"># For now, use nosave. HDF5 doesn&#39;t store meta, essential for this</span>
+            <span class="n">scan</span> <span class="o">=</span> <span class="n">Scan</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">norefilt</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">nosave</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+                        <span class="n">freqsplat</span><span class="o">=</span><span class="n">freqsplat</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s">&#39;{} is an invalid file&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+            <span class="k">continue</span>
+        <span class="n">ras</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">scan</span><span class="p">[</span><span class="s">&#39;ra&#39;</span><span class="p">][:,</span> <span class="n">feed</span><span class="p">])</span>
+        <span class="n">decs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">scan</span><span class="p">[</span><span class="s">&#39;dec&#39;</span><span class="p">][:,</span> <span class="n">feed</span><span class="p">])</span>
+        <span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">scan</span><span class="p">[</span><span class="s">&#39;time&#39;</span><span class="p">][:])</span>
+        <span class="n">el</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">scan</span><span class="p">[</span><span class="s">&#39;el&#39;</span><span class="p">][:,</span> <span class="n">feed</span><span class="p">]))</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">scan</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s">&#39;SOURCE&#39;</span><span class="p">]</span>
+        <span class="n">backend</span> <span class="o">=</span> <span class="n">scan</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s">&#39;backend&#39;</span><span class="p">]</span>
+        <span class="n">pnt_ra</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">scan</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s">&#39;RA&#39;</span><span class="p">])</span>
+        <span class="n">pnt_dec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">scan</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s">&#39;Dec&#39;</span><span class="p">])</span>
+
+        <span class="n">frequency</span> <span class="o">=</span> <span class="n">scan</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s">&#39;frequency&#39;</span><span class="p">]</span>
+
+        <span class="n">bandwidth</span> <span class="o">=</span> <span class="n">scan</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s">&#39;bandwidth&#39;</span><span class="p">]</span>
+
+        <span class="c"># Note: Formulas are in GHz here.</span>
+        <span class="n">flux</span><span class="p">,</span> <span class="n">eflux</span> <span class="o">=</span> \
+            <span class="n">get_calibrator_flux</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">frequency</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">,</span>
+                                <span class="n">bandwidth</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">flux</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">flux_density</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">bandwidth</span>
+            <span class="n">flux_density_err</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">flux</span> <span class="o">=</span> <span class="mf">1.</span>
+            <span class="n">eflux</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">kind</span> <span class="o">=</span> <span class="s">&quot;Source&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">flux</span> <span class="o">*=</span> <span class="mi">1000</span>
+            <span class="n">eflux</span> <span class="o">*=</span> <span class="mi">1000</span>
+            <span class="c"># Config gives flux density (... Hz^-1). Normalize by bandwidth</span>
+            <span class="n">flux_density</span> <span class="o">=</span> <span class="n">flux</span> <span class="o">/</span> <span class="n">bandwidth</span>
+            <span class="n">flux_density_err</span> <span class="o">=</span> <span class="n">eflux</span> <span class="o">/</span> <span class="n">bandwidth</span>
+            <span class="n">kind</span> <span class="o">=</span> <span class="s">&quot;Calibrator&quot;</span>
+
+        <span class="n">y</span> <span class="o">=</span> <span class="n">scan</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+
+        <span class="n">ravar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">ras</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">ras</span><span class="p">)</span>
+        <span class="n">decvar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">decs</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">decs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ravar</span> <span class="o">&gt;</span> <span class="n">decvar</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">ras</span>
+            <span class="n">xvariab</span> <span class="o">=</span> <span class="s">&#39;RA&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">decs</span>
+            <span class="n">xvariab</span> <span class="o">=</span> <span class="s">&#39;Dec&#39;</span>
+
+        <span class="k">if</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">scan_direction</span> <span class="o">=</span> <span class="s">&#39;&gt;&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scan_direction</span> <span class="o">=</span> <span class="s">&#39;&lt;&#39;</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">xvariab</span> <span class="o">+</span> <span class="n">scan_direction</span>
+
+        <span class="n">model</span><span class="p">,</span> <span class="n">fit_info</span> <span class="o">=</span> <span class="n">fit_baseline_plus_bell</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s">&#39;gauss&#39;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">uncert</span> <span class="o">=</span> <span class="n">fit_info</span><span class="p">[</span><span class="s">&#39;param_cov&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">diagonal</span><span class="p">()</span> <span class="o">**</span> <span class="mf">0.5</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s">&quot;Fit failed in scan {s}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">))</span>
+            <span class="k">continue</span>
+
+        <span class="n">baseline</span> <span class="o">=</span> <span class="n">model</span><span class="p">[</span><span class="s">&#39;Baseline&#39;</span><span class="p">]</span>
+        <span class="n">bell</span> <span class="o">=</span> <span class="n">model</span><span class="p">[</span><span class="s">&#39;Bell&#39;</span><span class="p">]</span>
+        <span class="c"># pars = model.parameters</span>
+        <span class="n">pnames</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">param_names</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">amplitude_1</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">xvariab</span> <span class="o">==</span> <span class="s">&quot;RA&quot;</span><span class="p">:</span>
+            <span class="n">fit_ra</span> <span class="o">=</span> <span class="n">bell</span><span class="o">.</span><span class="n">mean</span>
+            <span class="n">fit_width</span> <span class="o">=</span> <span class="n">bell</span><span class="o">.</span><span class="n">stddev</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">pnt_dec</span><span class="p">))</span>
+            <span class="n">fit_dec</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="n">to_plot</span> <span class="o">=</span> <span class="n">pnt_ra</span>
+        <span class="k">elif</span> <span class="n">xvariab</span> <span class="o">==</span> <span class="s">&quot;Dec&quot;</span><span class="p">:</span>
+            <span class="n">fit_ra</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="n">fit_dec</span> <span class="o">=</span> <span class="n">bell</span><span class="o">.</span><span class="n">mean</span>
+            <span class="n">to_plot</span> <span class="o">=</span> <span class="n">pnt_dec</span>
+            <span class="n">fit_width</span> <span class="o">=</span> <span class="n">bell</span><span class="o">.</span><span class="n">stddev</span>
+
+        <span class="n">index</span> <span class="o">=</span> <span class="n">pnames</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&quot;amplitude_1&quot;</span><span class="p">)</span>
+
+        <span class="n">counts_err</span> <span class="o">=</span> <span class="n">uncert</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">plotall</span><span class="p">:</span>
+            <span class="n">figure_name</span> <span class="o">=</span> <span class="s">&#39;{}_{}_{}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">xvariab</span><span class="p">,</span> <span class="n">backend</span><span class="p">)</span>
+            <span class="n">first</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="k">if</span> <span class="n">figure_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">figures</span><span class="p">:</span>
+                <span class="n">first</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="n">figures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">figure_name</span><span class="p">)</span>
+                <span class="n">plotted_kinds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+
+            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figure_name</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">first</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">to_plot</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">-</span> <span class="n">baseline</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;{:.2f}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">el</span><span class="p">))</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">bell</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="n">plt</span><span class="o">.</span><span class="n">getp</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s">&#39;color&#39;</span><span class="p">))</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s">&#39;{} (baseline-subtracted)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">source</span><span class="p">))</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">xvariab</span><span class="p">)</span>
+
+        <span class="n">flux_over_counts</span> <span class="o">=</span> <span class="n">flux</span> <span class="o">/</span> <span class="n">counts</span>
+        <span class="n">flux_over_counts_err</span> <span class="o">=</span> \
+            <span class="p">(</span><span class="n">counts_err</span> <span class="o">/</span> <span class="n">counts</span> <span class="o">+</span> <span class="n">eflux</span> <span class="o">/</span> <span class="n">flux</span><span class="p">)</span> <span class="o">*</span> <span class="n">flux_over_counts</span>
+
+        <span class="n">output_table</span><span class="o">.</span><span class="n">add_row</span><span class="p">([</span><span class="n">scandir</span><span class="p">,</span> <span class="n">sname</span><span class="p">,</span> <span class="n">scan_type</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span>
+                              <span class="n">frequency</span><span class="p">,</span> <span class="n">bandwidth</span><span class="p">,</span> <span class="n">counts</span><span class="p">,</span> <span class="n">counts_err</span><span class="p">,</span>
+                              <span class="n">fit_width</span><span class="p">,</span>
+                              <span class="n">flux_density</span><span class="p">,</span> <span class="n">flux_density_err</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">el</span><span class="p">,</span>
+                              <span class="n">flux_over_counts</span><span class="p">,</span> <span class="n">flux_over_counts_err</span><span class="p">,</span>
+                              <span class="n">pnt_ra</span><span class="p">,</span> <span class="n">pnt_dec</span><span class="p">,</span> <span class="n">fit_ra</span><span class="p">,</span> <span class="n">fit_dec</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">plotall</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i_f</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">figures</span><span class="p">):</span>
+            <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">plotted_kinds</span><span class="p">[</span><span class="n">i_f</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;Calibrator&#39;</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">f</span> <span class="o">+</span> <span class="s">&quot;.png&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">output_table</span>
+
+</div>
+<div class="viewcode-block" id="get_full_table"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.get_full_table">[docs]</a><span class="k">def</span> <span class="nf">get_full_table</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s">&#39;Ch0&#39;</span><span class="p">,</span> <span class="n">feed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">plotall</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                   <span class="n">picklefile</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get all fluxes in the directories specified by the config file&quot;&quot;&quot;</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">read_config</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span>
+
+    <span class="n">dir_list</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s">&#39;list_of_directories&#39;</span><span class="p">]</span>
+    <span class="n">tables</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">ndir</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dir_list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i_d</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dir_list</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">-----------------</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">((</span><span class="s">&#39;{}/{}: Loading data in {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i_d</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ndir</span><span class="p">,</span> <span class="n">d</span><span class="p">)))</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">-----------------</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+
+        <span class="n">output_table</span> <span class="o">=</span> <span class="n">get_fluxes</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;datadir&#39;</span><span class="p">],</span> <span class="n">d</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span>
+                                  <span class="n">feed</span><span class="o">=</span><span class="n">feed</span><span class="p">,</span> <span class="n">plotall</span><span class="o">=</span><span class="n">plotall</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">)</span>
+        <span class="n">tables</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_table</span>
+
+    <span class="n">full_table</span> <span class="o">=</span> <span class="n">Table</span><span class="p">(</span><span class="n">vstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">tables</span><span class="o">.</span><span class="n">values</span><span class="p">())))</span>
+    <span class="k">if</span> <span class="n">picklefile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklefile</span><span class="p">,</span> <span class="s">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">full_table</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">full_table</span>
+
+</div>
+<div class="viewcode-block" id="show_calibration"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.show_calibration">[docs]</a><span class="k">def</span> <span class="nf">show_calibration</span><span class="p">(</span><span class="n">full_table</span><span class="p">,</span> <span class="n">feed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">plotall</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Show the results of calibration&quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">matplotlib</span> <span class="kn">as</span> <span class="nn">mpl</span>
+
+    <span class="n">dir_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">full_table</span><span class="p">[</span><span class="s">&quot;Dir&quot;</span><span class="p">]))</span>
+
+    <span class="n">calibrator_table</span> <span class="o">=</span> <span class="n">full_table</span><span class="p">[</span><span class="n">full_table</span><span class="p">[</span><span class="s">&quot;Kind&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s">&quot;Calibrator&quot;</span><span class="p">]</span>
+
+    <span class="n">source_table</span> <span class="o">=</span> <span class="n">full_table</span><span class="p">[</span><span class="n">full_table</span><span class="p">[</span><span class="s">&quot;Kind&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s">&quot;Source&quot;</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dir_list</span><span class="p">:</span>
+        <span class="n">subtable</span> <span class="o">=</span> <span class="n">calibrator_table</span><span class="p">[</span><span class="n">calibrator_table</span><span class="p">[</span><span class="s">&quot;Dir&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">d</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subtable</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="n">symbols</span> <span class="o">=</span> <span class="n">decide_symbol</span><span class="p">(</span><span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Scan Type&quot;</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">colors</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Source&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">source_color</span> <span class="o">=</span> <span class="n">colors</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">source_color</span> <span class="o">=</span> <span class="s">&#39;grey&#39;</span>
+
+        <span class="c"># ----------------------- Pointing vs. ELEVATION -------------------</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s">&quot;Pointing Error vs Elevation&quot;</span><span class="p">)</span>
+        <span class="n">good_ra</span> <span class="o">=</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Fit RA&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Fit RA&quot;</span><span class="p">]</span>
+        <span class="n">good_dec</span> <span class="o">=</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Fit Dec&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Fit Dec&quot;</span><span class="p">]</span>
+
+        <span class="n">ra_pnt</span> <span class="o">=</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;RA&quot;</span><span class="p">]</span>
+        <span class="n">dec_pnt</span> <span class="o">=</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Dec&quot;</span><span class="p">]</span>
+        <span class="n">ra_fit</span> <span class="o">=</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Fit RA&quot;</span><span class="p">]</span>
+        <span class="n">dec_fit</span> <span class="o">=</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Fit Dec&quot;</span><span class="p">]</span>
+
+        <span class="n">el</span> <span class="o">=</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Elevation&quot;</span><span class="p">]</span>
+        <span class="n">ra_err</span> <span class="o">=</span> <span class="p">(</span><span class="n">ra_fit</span> <span class="o">-</span> <span class="n">ra_pnt</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">dec_pnt</span><span class="p">))</span>
+        <span class="n">dec_err</span> <span class="o">=</span> <span class="n">dec_fit</span> <span class="o">-</span> <span class="n">dec_pnt</span>
+        <span class="n">pointing_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ra_err</span><span class="p">[</span><span class="n">good_ra</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span>
+                               <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dec_err</span><span class="p">[</span><span class="n">good_dec</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">el</span><span class="p">),</span> <span class="n">pointing_err</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;k&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s">&#39;o&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_e</span><span class="p">,</span> <span class="n">_r</span><span class="p">,</span> <span class="n">_d</span><span class="p">,</span>  <span class="n">_s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">el</span><span class="p">,</span> <span class="n">ra_err</span><span class="p">,</span> <span class="n">dec_err</span><span class="p">,</span> <span class="n">symbols</span><span class="p">):</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">_e</span><span class="p">,</span> <span class="n">_r</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="n">_s</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">_e</span><span class="p">,</span> <span class="n">_d</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="n">_s</span><span class="p">)</span>
+
+        <span class="n">fc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Flux/Counts&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Bandwidth&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">fce</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Flux/Counts Err&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> \
+            <span class="nb">len</span><span class="p">(</span><span class="n">subtable</span><span class="p">)</span> <span class="o">/</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Bandwidth&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">fce</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">([</span><span class="n">fce</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">fc</span><span class="p">)])</span>
+
+        <span class="c"># ----------------------- Calibration vs. ELEVATION -------------------</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s">&quot;Vs Elevation&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Elevation&quot;</span><span class="p">]),</span> <span class="n">fc</span><span class="p">,</span> <span class="n">yerr</span><span class="o">=</span><span class="n">fce</span><span class="p">,</span>
+                     <span class="n">ecolor</span><span class="o">=</span><span class="n">source_color</span><span class="p">,</span>
+                     <span class="n">elinewidth</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+        <span class="c"># ----------------------- Width vs. ELEVATION -------------------</span>
+        <span class="n">ras</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">char</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Scan Type&quot;</span><span class="p">],</span> <span class="s">&quot;&gt;&lt;&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s">&quot;RA&quot;</span>
+        <span class="n">decs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">char</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Scan Type&quot;</span><span class="p">],</span> <span class="s">&quot;&gt;&lt;&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s">&quot;Dec&quot;</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s">&quot;Width Vs Elevation&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Elevation&quot;</span><span class="p">][</span><span class="n">ras</span><span class="p">],</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Width&quot;</span><span class="p">][</span><span class="n">ras</span><span class="p">],</span>
+                    <span class="n">color</span><span class="o">=</span><span class="n">source_color</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s">&#39;o&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Elevation&quot;</span><span class="p">][</span><span class="n">decs</span><span class="p">],</span> <span class="n">subtable</span><span class="p">[</span><span class="s">&quot;Width&quot;</span><span class="p">][</span><span class="n">decs</span><span class="p">],</span>
+                    <span class="n">color</span><span class="o">=</span><span class="n">source_color</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s">&#39;^&#39;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s">&quot;Vs Elevation&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s">&quot;Jansky / Counts&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s">&quot;Elevation&quot;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s">&quot;Width Vs Elevation&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s">&quot;Elevation&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s">&quot;Gaussian Width (deg)&quot;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s">&quot;Pointing Error vs Elevation&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s">&quot;Pointing Error vs Elevation (black: total; red: RA; blue: Dec)&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s">&#39;Elevation&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s">&#39;Pointing error (arcmin)&#39;</span><span class="p">)</span>
+
+    <span class="n">rap_symb</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">Line2D</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s">&#39;+&#39;</span><span class="p">)</span>
+    <span class="n">dep_symb</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">Line2D</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s">&#39;^&#39;</span><span class="p">)</span>
+    <span class="n">ram_symb</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">Line2D</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s">&#39;s&#39;</span><span class="p">)</span>
+    <span class="n">dem_symb</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">Line2D</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s">&#39;v&#39;</span><span class="p">)</span>
+    <span class="n">tot_symb</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">Line2D</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s">&#39;k&#39;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s">&#39;o&#39;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">([</span><span class="n">rap_symb</span><span class="p">,</span> <span class="n">dep_symb</span><span class="p">,</span> <span class="n">ram_symb</span><span class="p">,</span> <span class="n">dem_symb</span><span class="p">,</span> <span class="n">tot_symb</span><span class="p">],</span>
+               <span class="p">[</span><span class="s">&#39;RA&gt;&#39;</span><span class="p">,</span> <span class="s">&#39;Dec&gt;&#39;</span><span class="p">,</span> <span class="s">&#39;RA&lt;&#39;</span><span class="p">,</span> <span class="s">&#39;Dec&lt;&#39;</span><span class="p">,</span> <span class="s">&#39;Tot&#39;</span><span class="p">],</span> <span class="n">numpoints</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">f_c_ratio</span> <span class="o">=</span> <span class="n">calibrator_table</span><span class="p">[</span><span class="s">&quot;Flux/Counts&quot;</span><span class="p">]</span>
+
+    <span class="n">good</span> <span class="o">=</span> <span class="p">(</span><span class="n">f_c_ratio</span> <span class="o">==</span> <span class="n">f_c_ratio</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">f_c_ratio</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">fc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">f_c_ratio</span><span class="p">[</span><span class="n">good</span><span class="p">])</span>
+    <span class="n">f_c_ratio_err</span> <span class="o">=</span> <span class="n">calibrator_table</span><span class="p">[</span><span class="s">&quot;Flux/Counts&quot;</span><span class="p">]</span>
+    <span class="n">good</span> <span class="o">=</span> <span class="p">(</span><span class="n">f_c_ratio_err</span> <span class="o">==</span> <span class="n">f_c_ratio_err</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">f_c_ratio_err</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">fce</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f_c_ratio_err</span><span class="p">[</span><span class="n">good</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>\
+        <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">calibrator_table</span><span class="p">)</span>
+
+    <span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Flux Density&quot;</span><span class="p">]</span> <span class="o">=</span> \
+        <span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Counts&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">fc</span> <span class="o">/</span> <span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Bandwidth&quot;</span><span class="p">]</span>
+    <span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Flux Density Err&quot;</span><span class="p">]</span> <span class="o">=</span> \
+        <span class="p">(</span><span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Counts Err&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Counts&quot;</span><span class="p">])</span> <span class="o">*</span> \
+        <span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Flux Density&quot;</span><span class="p">]</span>
+    <span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Flux Density Systematic&quot;</span><span class="p">]</span> <span class="o">=</span> \
+        <span class="n">fce</span> <span class="o">/</span> <span class="n">fc</span> <span class="o">*</span> <span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Flux Density&quot;</span><span class="p">]</span>
+
+    <span class="n">sources</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Source&quot;</span><span class="p">]))</span>
+    <span class="n">source_colors</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;k&#39;</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="s">&#39;g&#39;</span><span class="p">,</span> <span class="s">&#39;c&#39;</span><span class="p">,</span> <span class="s">&#39;m&#39;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i_s</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sources</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">source_colors</span><span class="p">[</span><span class="n">i_s</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">sources</span><span class="p">)]</span>
+        <span class="n">filtered</span> <span class="o">=</span> <span class="n">source_table</span><span class="p">[</span><span class="n">source_table</span><span class="p">[</span><span class="s">&quot;Source&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">]</span>
+        <span class="k">print</span><span class="p">((</span><span class="n">filtered</span><span class="p">[(</span><span class="s">&quot;Source&quot;</span><span class="p">,</span> <span class="s">&quot;Time&quot;</span><span class="p">,</span> <span class="s">&quot;Flux Density&quot;</span><span class="p">,</span> <span class="s">&quot;Flux Density Err&quot;</span><span class="p">,</span>
+                        <span class="s">&quot;Counts&quot;</span><span class="p">,</span> <span class="s">&quot;Counts Err&quot;</span><span class="p">,</span> <span class="s">&quot;Kind&quot;</span><span class="p">)]))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">filtered</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">20</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+            <span class="kn">from</span> <span class="nn">astropy.visualization</span> <span class="kn">import</span> <span class="n">hist</span>
+            <span class="n">hist</span><span class="p">(</span><span class="n">filtered</span><span class="p">[</span><span class="s">&quot;Flux Density&quot;</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="s">&#39;knuth&#39;</span><span class="p">,</span>
+                 <span class="n">histtype</span><span class="o">=</span><span class="s">&#39;stepfilled&#39;</span><span class="p">)</span>
+
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s">&quot;Flux values&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="s">&#39;_callc&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Time&#39;</span><span class="p">],</span> <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Flux Density&#39;</span><span class="p">],</span>
+                     <span class="n">yerr</span><span class="o">=</span><span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Flux Density Err&#39;</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                     <span class="n">ecolor</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">c</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span>
+            <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Time&#39;</span><span class="p">],</span>
+            <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Flux Density&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Flux Density Systematic&#39;</span><span class="p">],</span>
+            <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Flux Density&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Flux Density Systematic&#39;</span><span class="p">],</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="n">s</span> <span class="o">+</span> <span class="s">&#39;-systematic&#39;</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s">&#39;Time (MJD)&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s">&#39;Flux (Jy)&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="s">&#39;_callc.png&#39;</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="s">&#39;_callc_data.txt&#39;</span><span class="p">,</span>
+                   <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Time&#39;</span><span class="p">],</span>
+                             <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Flux Density&#39;</span><span class="p">],</span>
+                             <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Flux Density Err&#39;</span><span class="p">]])</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="s">&#39;_lc&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Time&#39;</span><span class="p">],</span> <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Counts&#39;</span><span class="p">],</span>
+                     <span class="n">yerr</span><span class="o">=</span><span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Counts Err&#39;</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s">&#39;Time (MJD)&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s">&#39;Counts&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="s">&#39;_lc.png&#39;</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="s">&#39;_lc_data.txt&#39;</span><span class="p">,</span>
+                   <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Time&#39;</span><span class="p">],</span>
+                             <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Counts&#39;</span><span class="p">],</span>
+                             <span class="n">filtered</span><span class="p">[</span><span class="s">&#39;Counts Err&#39;</span><span class="p">]])</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+</div>
+<div class="viewcode-block" id="test_calibration_tp"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.test_calibration_tp">[docs]</a><span class="k">def</span> <span class="nf">test_calibration_tp</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">pickle</span>
+    <span class="n">curdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">))</span>
+    <span class="n">config_file</span> <span class="o">=</span> \
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">curdir</span><span class="p">,</span> <span class="s">&#39;..&#39;</span><span class="p">,</span> <span class="s">&#39;..&#39;</span><span class="p">,</span>
+                                     <span class="s">&#39;TEST_DATASET&#39;</span><span class="p">,</span>
+                                     <span class="s">&#39;test_calib.ini&#39;</span><span class="p">))</span>
+    <span class="n">full_table</span> <span class="o">=</span> <span class="n">get_full_table</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="n">plotall</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                                <span class="n">picklefile</span><span class="o">=</span><span class="s">&#39;data_tp.pickle&#39;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">&#39;data_tp.pickle&#39;</span><span class="p">,</span> <span class="s">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">full_table</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">show_calibration</span><span class="p">(</span><span class="n">full_table</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="test_calibration_roach"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.test_calibration_roach">[docs]</a><span class="k">def</span> <span class="nf">test_calibration_roach</span><span class="p">():</span>
+    <span class="n">curdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">))</span>
+    <span class="n">config_file</span> <span class="o">=</span> \
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">curdir</span><span class="p">,</span> <span class="s">&#39;..&#39;</span><span class="p">,</span> <span class="s">&#39;..&#39;</span><span class="p">,</span>
+                                     <span class="s">&#39;TEST_DATASET&#39;</span><span class="p">,</span>
+                                     <span class="s">&#39;test_calib_roach.ini&#39;</span><span class="p">))</span>
+    <span class="n">full_table</span> <span class="o">=</span> <span class="n">get_full_table</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="n">plotall</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                                <span class="n">picklefile</span><span class="o">=</span><span class="s">&#39;data_r2.pickle&#39;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">&#39;data_r2.pickle&#39;</span><span class="p">,</span> <span class="s">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">full_table</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">show_calibration</span><span class="p">(</span><span class="n">full_table</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="main_lc_calibrator"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.calibration.main_lc_calibrator">[docs]</a><span class="k">def</span> <span class="nf">main_lc_calibrator</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Main function.&quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">argparse</span>
+    <span class="kn">import</span> <span class="nn">os</span>
+
+    <span class="n">description</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;Load a series of scans from a config file &#39;</span>
+                   <span class="s">&#39;and produce a map.&#39;</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&quot;--sample-config&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s">&#39;Produce sample config file&#39;</span><span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&quot;-c&quot;</span><span class="p">,</span> <span class="s">&quot;--config&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s">&#39;Config file&#39;</span><span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&quot;--pickle-file&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s">&#39;db.pickle&#39;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s">&#39;Name for the intermediate pickle file&#39;</span><span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&quot;--refilt&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                        <span class="n">action</span><span class="o">=</span><span class="s">&#39;store_true&#39;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s">&#39;Re-run the scan filtering&#39;</span><span class="p">)</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">sample_config</span><span class="p">:</span>
+        <span class="n">sample_config_file</span><span class="p">()</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+
+    <span class="k">assert</span> <span class="n">args</span><span class="o">.</span><span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">,</span> <span class="s">&quot;Please specify the config file!&quot;</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">pickle_file</span><span class="p">):</span>
+        <span class="n">full_table</span> <span class="o">=</span> <span class="n">get_full_table</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">plotall</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                                    <span class="n">picklefile</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">pickle_file</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">full_table</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">full_table</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="s">&#39;Time&#39;</span><span class="p">)</span>
+    <span class="n">show_calibration</span><span class="p">(</span><span class="n">full_table</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><h3>Page Contents</h3>
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+<footer class="footer">
+  <p class="pull-right"> &nbsp;
+    <a href="#">Back to Top</a></p>
+  <p>
+    &copy; Copyright 2016, SRT Imaging team.<br/>
+    Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.3.1. &nbsp;
+    Last built 19 Jan 2016. <br/>
+  </p>
+</footer>
+  </body>
+</html>

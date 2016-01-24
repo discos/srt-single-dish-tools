@@ -1,0 +1,472 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>srttools.core.interactive_filter &mdash; srttools v0.1.dev2</title>
+    
+    <link rel="stylesheet" href="../../../_static/bootstrap-astropy.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '0.1.dev2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/sidebar.js"></script>
+    <link rel="shortcut icon" href="../../../_static/astropy_logo.ico"/>
+    <link rel="top" title="srttools v0.1.dev2" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+<link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,600' rel='stylesheet' type='text/css'/>
+<script type="text/javascript" src="../../../_static/copybutton.js"></script>
+
+
+  </head>
+  <body role="document">
+<div class="topbar">
+  <a class="brand" title="Documentation Home" href="../../../index.html"><span id="logotext1">astro</span><span id="logotext2">py</span><span id="logotext3">:docs</span></a>
+  <ul>
+    <li><a class="homelink" title="Astropy Homepage" href="http://www.astropy.org"></a></li>
+    <li><a title="General Index" href="../../../genindex.html">Index</a></li>
+    <li><a title="Module Index" href="../../../py-modindex.html">Modules</a></li>
+    <li>
+      
+      
+<form action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+      
+    </li>
+  </ul>
+</div>
+
+<div class="related">
+    <h3>Navigation</h3>
+    <ul>
+      <li>
+	<a href="../../../index.html">srttools v0.1.dev2</a>
+	 &raquo;
+      </li>
+      <li><a href="../../index.html" accesskey="U">Module code</a> &raquo;</li>
+      
+       
+    </ul>
+</div>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for srttools.core.interactive_filter</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="p">(</span><span class="n">absolute_import</span><span class="p">,</span> <span class="n">unicode_literals</span><span class="p">,</span> <span class="n">division</span><span class="p">,</span>
+                        <span class="n">print_function</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">gridspec</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">.fit</span> <span class="kn">import</span> <span class="n">linear_fit</span><span class="p">,</span> <span class="n">linear_fun</span><span class="p">,</span> <span class="n">align</span>
+
+
+<div class="viewcode-block" id="mask"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.mask">[docs]</a><span class="k">def</span> <span class="nf">mask</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">mask_xs</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;Create mask from ranges. Mask value is False if invert = False, and v.v.</span>
+
+<span class="sd">    E.g. for zapped intervals, invert = False. For baseline fit selections,</span>
+<span class="sd">    invert = True</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">good</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">xs</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mask_xs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">intervals</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">mask_xs</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">],</span> <span class="n">mask_xs</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">intervals</span><span class="p">:</span>
+            <span class="n">good</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">xs</span> <span class="o">&gt;=</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                <span class="n">xs</span> <span class="o">&lt;=</span> <span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="k">if</span> <span class="n">invert</span><span class="p">:</span>
+        <span class="n">good</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">good</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">good</span>
+
+</div>
+<div class="viewcode-block" id="intervals"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.intervals">[docs]</a><span class="k">class</span> <span class="nc">intervals</span><span class="p">():</span>
+    <span class="sd">&#39;&#39;&#39;A list of xs and ys of the points taken during interactive selection&#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ys</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="intervals.clear"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.intervals.clear">[docs]</a>    <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ys</span> <span class="o">=</span> <span class="p">[]</span>
+</div>
+<div class="viewcode-block" id="intervals.add"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.intervals.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+</div></div>
+<div class="viewcode-block" id="DataSelector"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector">[docs]</a><span class="k">class</span> <span class="nc">DataSelector</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">masks</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xs</span> <span class="o">=</span> <span class="n">xs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ys</span> <span class="o">=</span> <span class="n">ys</span>
+        <span class="k">if</span> <span class="n">masks</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">masks</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
+                                  <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+                                   <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="o">.</span><span class="n">keys</span><span class="p">())])))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="o">=</span> <span class="n">masks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span> <span class="o">=</span> <span class="n">ax1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span> <span class="o">=</span> <span class="n">ax2</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">xlabel</span> <span class="o">=</span> <span class="n">xlabel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;FLAG&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;zap&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;base&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;fitpars&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">print_instructions</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plot_all</span><span class="p">()</span>
+
+        <span class="n">ax1</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s">&#39;button_press_event&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_click</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s">&#39;key_press_event&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_key</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s">&#39;pick_event&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_pick</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s">&#39;button_press_event&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_click</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s">&#39;key_press_event&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_key</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s">&#39;pick_event&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_pick</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zcounter</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bcounter</span> <span class="o">=</span> <span class="mi">0</span>
+
+<div class="viewcode-block" id="DataSelector.on_click"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.on_click">[docs]</a>    <span class="k">def</span> <span class="nf">on_click</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+<div class="viewcode-block" id="DataSelector.zap"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.zap">[docs]</a>    <span class="k">def</span> <span class="nf">zap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Create a zap interval&#39;&#39;&#39;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;zap&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">([</span><span class="n">event</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">ydata</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zcounter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="s">&#39;r&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zcounter</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">ls</span> <span class="o">=</span> <span class="s">&#39;-&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ls</span> <span class="o">=</span> <span class="s">&#39;--&#39;</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="n">ls</span><span class="p">)</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="n">ls</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="DataSelector.base"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.base">[docs]</a>    <span class="k">def</span> <span class="nf">base</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Adds an interval to the ones that will be used by baseline sub.&#39;&#39;&#39;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;base&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">([</span><span class="n">event</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">ydata</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bcounter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="s">&#39;b&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcounter</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">ls</span> <span class="o">=</span> <span class="s">&#39;-&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ls</span> <span class="o">=</span> <span class="s">&#39;--&#39;</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="n">ls</span><span class="p">)</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="n">ls</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="DataSelector.on_key"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.on_key">[docs]</a>    <span class="k">def</span> <span class="nf">on_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;What to do when the keyboard is used&#39;&#39;&#39;</span>
+
+        <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span>
+        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;z&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zap</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;h&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">print_instructions</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;b&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;B&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">subtract_baseline</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;u&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plot_all</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;x&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">current</span><span class="p">][</span><span class="s">&#39;FLAG&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&#39;Marked as flagged&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;P&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">print_info</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;A&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">align_all</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;v&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">current</span><span class="p">][</span><span class="s">&#39;FLAG&#39;</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">current</span><span class="p">][</span><span class="s">&#39;FLAG&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">False</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&#39;Removed flag ()&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;r&#39;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">:</span>
+                <span class="n">l</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">current</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">current</span><span class="p">][</span><span class="s">&#39;zap&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">current</span><span class="p">][</span><span class="s">&#39;base&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">current</span><span class="p">][</span><span class="s">&#39;fitpars&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plot_all</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s">&#39;q&#39;</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">figure</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">pass</span>
+</div>
+<div class="viewcode-block" id="DataSelector.subtract_baseline"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.subtract_baseline">[docs]</a>    <span class="k">def</span> <span class="nf">subtract_baseline</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Subtract the baseline based on the selected intervals&#39;&#39;&#39;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;base&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">xs</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;fitpars&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="n">key</span><span class="p">]),</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">base_xs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;base&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">xs</span>
+            <span class="n">good</span> <span class="o">=</span> <span class="n">mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">base_xs</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;fitpars&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">linear_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">good</span><span class="p">],</span>
+                                                   <span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">good</span><span class="p">],</span>
+                                                   <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;fitpars&#39;</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">plot_all</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="DataSelector.subtract_model"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.subtract_model">[docs]</a>    <span class="k">def</span> <span class="nf">subtract_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">):</span>
+        <span class="n">fitpars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">channel</span><span class="p">][</span><span class="s">&#39;fitpars&#39;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span> <span class="o">-</span> <span class="n">linear_fun</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">channel</span><span class="p">],</span> <span class="o">*</span><span class="n">fitpars</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="DataSelector.align_all"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.align_all">[docs]</a>    <span class="k">def</span> <span class="nf">align_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Given the selected scan, aligns all the others to that.&#39;&#39;&#39;</span>
+        <span class="n">reference</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">reference</span><span class="p">])</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subtract_model</span><span class="p">(</span><span class="n">reference</span><span class="p">))</span>
+        <span class="n">zap_xs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">reference</span><span class="p">][</span><span class="s">&#39;zap&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">xs</span>
+
+        <span class="n">good</span> <span class="o">=</span> <span class="n">mask</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">zap_xs</span><span class="p">)</span>
+
+        <span class="n">xs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="n">good</span><span class="p">]]</span>
+        <span class="n">ys</span> <span class="o">=</span> <span class="p">[</span><span class="n">y</span><span class="p">[</span><span class="n">good</span><span class="p">]]</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">reference</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="n">reference</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+
+            <span class="n">zap_xs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;zap&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">xs</span>
+
+            <span class="n">good</span> <span class="o">=</span> <span class="n">mask</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">zap_xs</span><span class="p">)</span>
+
+            <span class="n">good</span> <span class="o">=</span> <span class="n">good</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">good</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">xs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">good</span><span class="p">])</span>
+            <span class="n">ys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">good</span><span class="p">])</span>
+            <span class="n">keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+        <span class="c"># ------- Make FIT!!! -----</span>
+        <span class="n">qs</span><span class="p">,</span> <span class="n">ms</span> <span class="o">=</span> <span class="n">align</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">)</span>
+        <span class="c"># -------------------------</span>
+
+        <span class="k">for</span> <span class="n">ik</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">keys</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">ik</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;fitpars&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">qs</span><span class="p">[</span><span class="n">ik</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">ms</span><span class="p">[</span><span class="n">ik</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">plot_all</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="DataSelector.on_pick"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.on_pick">[docs]</a>    <span class="k">def</span> <span class="nf">on_pick</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="n">thisline</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">artist</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="p">(</span><span class="n">thisline</span><span class="o">.</span><span class="n">_label</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plot_all</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="DataSelector.plot_all"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.plot_all">[docs]</a>    <span class="k">def</span> <span class="nf">plot_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">:</span>
+            <span class="n">l</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">cla</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">setp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">get_xticklabels</span><span class="p">(),</span> <span class="n">visible</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+        <span class="n">good</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">current</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">current</span><span class="p">],</span>
+                          <span class="n">color</span><span class="o">=</span><span class="s">&#39;g&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                          <span class="n">rasterized</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;k&#39;</span><span class="p">,</span> <span class="n">picker</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                          <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+                          <span class="n">rasterized</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+            <span class="n">zap_xs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;zap&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">xs</span>
+
+            <span class="c"># Eliminate zapped intervals</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+            <span class="n">good</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">zap_xs</span><span class="p">)</span>
+            <span class="n">good</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">good</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+            <span class="n">fitpars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;fitpars&#39;</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fitpars</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">model</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">linear_fun</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="o">*</span><span class="n">fitpars</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">model</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;b&#39;</span><span class="p">,</span>
+                              <span class="n">rasterized</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">model</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">]))</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">cla</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s">&#39;--&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;k&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">-</span> <span class="n">model</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
+                          <span class="n">color</span><span class="o">=</span><span class="s">&#39;grey&#39;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="n">picker</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                          <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+                          <span class="n">rasterized</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">good</span><span class="p">[</span><span class="n">key</span><span class="p">]],</span>
+                          <span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">good</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span> <span class="o">-</span> <span class="n">model</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">good</span><span class="p">[</span><span class="n">key</span><span class="p">]],</span>
+                          <span class="s">&#39;k-&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                          <span class="n">rasterized</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">good</span><span class="p">[</span><span class="n">key</span><span class="p">]],</span>
+                          <span class="bp">self</span><span class="o">.</span><span class="n">ys</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">good</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span> <span class="o">-</span> <span class="n">model</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">good</span><span class="p">[</span><span class="n">key</span><span class="p">]],</span>
+                          <span class="n">color</span><span class="o">=</span><span class="s">&#39;g&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                          <span class="n">rasterized</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">xlabel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xlabel</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="DataSelector.print_instructions"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.print_instructions">[docs]</a>    <span class="k">def</span> <span class="nf">print_instructions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">instructions</span> <span class="o">=</span> <span class="s">&#39;&#39;&#39;</span>
+<span class="s">-------------------------------------------------------------</span>
+
+<span class="s">Interactive plotter.</span>
+
+<span class="s">-------------------------------------------------------------</span>
+
+<span class="s">Choose line to fit: Click on the line</span>
+
+<span class="s">Interval selection: Point mouse + &lt;key&gt;</span>
+<span class="s">    z     create zap intervals</span>
+<span class="s">    b     suggest intervals to use for baseline fit</span>
+
+<span class="s">Flagging actions:</span>
+<span class="s">    x     flag as bad;</span>
+<span class="s">    v     Remove flag;</span>
+
+<span class="s">Actions:</span>
+<span class="s">    P     print current zap list and fit parameters</span>
+<span class="s">    A     align all scans w.r.t. the selected one</span>
+<span class="s">    u     update plots with new selections</span>
+<span class="s">    B     subtract the baseline;</span>
+<span class="s">    r     reset baseline and zapping intervals, and fit parameters;</span>
+<span class="s">    q     quit</span>
+
+<span class="s">-------------------------------------------------------------</span>
+<span class="s">    &#39;&#39;&#39;</span>
+
+        <span class="k">print</span><span class="p">(</span><span class="n">instructions</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="DataSelector.print_info"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.DataSelector.print_info">[docs]</a>    <span class="k">def</span> <span class="nf">print_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">print</span><span class="p">((</span><span class="n">key</span> <span class="o">+</span> <span class="s">&#39;:&#39;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;zap&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">xs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">((</span><span class="s">&#39;  Zap intervals: &#39;</span><span class="p">,</span>
+                      <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;zap&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">xs</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">],</span>
+                               <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;zap&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">xs</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]))))</span>
+
+            <span class="k">print</span><span class="p">((</span><span class="s">&#39;  Fit pars:      &#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s">&#39;fitpars&#39;</span><span class="p">]))</span>
+
+</div></div>
+<div class="viewcode-block" id="select_data"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.select_data">[docs]</a><span class="k">def</span> <span class="nf">select_data</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">masks</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="nb">list</span><span class="p">(</span><span class="n">xs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">xs</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;Ch&#39;</span><span class="p">:</span> <span class="n">xs</span><span class="p">}</span>
+        <span class="n">ys</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;Ch&#39;</span><span class="p">:</span> <span class="n">ys</span><span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="s">&#39;Data selector&#39;</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+    <span class="n">gs</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">height_ratios</span><span class="o">=</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">hspace</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">ax1</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">ax2</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">sharex</span><span class="o">=</span><span class="n">ax1</span><span class="p">)</span>
+
+    <span class="n">datasel</span> <span class="o">=</span> <span class="n">DataSelector</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">masks</span><span class="o">=</span><span class="n">masks</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+                           <span class="n">xlabel</span><span class="o">=</span><span class="n">xlabel</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">datasel</span><span class="o">.</span><span class="n">info</span>
+
+</div>
+<div class="viewcode-block" id="ImageSelector"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.ImageSelector">[docs]</a><span class="k">class</span> <span class="nc">ImageSelector</span><span class="p">():</span>
+    <span class="sd">&#39;&#39;&#39;Return xs and ys of the image, and the key that was pressed.</span>
+<span class="sd">    Inputs:</span>
+<span class="sd">        data:       the image</span>
+<span class="sd">        ax:         a pyplot.axis instance where the image will be plotted</span>
+<span class="sd">        fun:        (optional) the function to call when a key is pressed.</span>
+<span class="sd">                    it must accept three arguments: `x`, `y` and `key`</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">ax</span><span class="p">,</span> <span class="n">fun</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span> <span class="o">=</span> <span class="n">ax</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fun</span> <span class="o">=</span> <span class="n">fun</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plot_img</span><span class="p">()</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s">&#39;key_press_event&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_key</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ImageSelector.on_key"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.ImageSelector.on_key">[docs]</a>    <span class="k">def</span> <span class="nf">on_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">ydata</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span>
+        <span class="k">print</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">key</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s">&#39;q&#39;</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">figure</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">x</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">y</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">x</span> <span class="o">!=</span> <span class="n">x</span> <span class="ow">or</span> <span class="n">y</span> <span class="o">!=</span> <span class="n">y</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&quot;Invalid choice. Is the window under focus?&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">fun</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">figure</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">key</span>
+</div>
+<div class="viewcode-block" id="ImageSelector.plot_img"><a class="viewcode-back" href="../../../srttools/core/modules.html#srttools.core.interactive_filter.ImageSelector.plot_img">[docs]</a>    <span class="k">def</span> <span class="nf">plot_img</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">),</span> <span class="n">origin</span><span class="o">=</span><span class="s">&#39;lower&#39;</span><span class="p">,</span>
+                       <span class="n">vmin</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img</span><span class="p">),</span> <span class="mi">20</span><span class="p">))</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><h3>Page Contents</h3>
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+<footer class="footer">
+  <p class="pull-right"> &nbsp;
+    <a href="#">Back to Top</a></p>
+  <p>
+    &copy; Copyright 2016, SRT Imaging team.<br/>
+    Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.3.1. &nbsp;
+    Last built 19 Jan 2016. <br/>
+  </p>
+</footer>
+  </body>
+</html>
