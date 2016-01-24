@@ -82,6 +82,9 @@ if not on_rtd:
                 else:
                     print('    ' + l, file=fobj)
             print(file=fobj)
+            print(".. automodule:: {}".format(scripts[cl].split(":")[0]),
+                  file=fobj)
+            print(file=fobj)
 
 # -- General configuration ----------------------------------------------------
 
@@ -148,7 +151,7 @@ release = package.__version__
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes. To override the custom theme, set this to the
 # name of a builtin theme or the name of a custom theme in html_theme_path.
-# html_theme = None
+html_theme = "default"
 
 # Custom sidebar templates, maps document names to template names.
 # html_sidebars = {}
