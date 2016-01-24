@@ -199,6 +199,7 @@ class ScanSet(Table):
             scan_list.sort()
             nscans = len(scan_list)
 
+            print(scan_list)
             tables = []
 
             for i_s, s in enumerate(self.load_scans(scan_list, **kwargs)):
@@ -432,7 +433,8 @@ class ScanSet(Table):
             ax2 = fig.add_subplot(gs[1])
             img = self.images[ch]
             ax2.imshow(img, origin='lower',
-                       vmin=np.percentile(img, 20))
+                       vmin=np.percentile(img, 20), cmap="gnuplot2",
+                       interpolation="nearest")
 
             img = self.images['{}-Sdev'.format(ch)]
             self.current = ch
@@ -452,10 +454,11 @@ class ScanSet(Table):
             feed = list(set(self[ch+'_feed']))[0]
 
             # Select data inside the pixel +- 1
+
             good_entries = \
                 np.logical_and(
-                    np.abs(self['x'][:, feed].astype(int) - int(x)) <= 1,
-                    np.abs(self['y'][:, feed].astype(int) - int(y)) <= 1)
+                    np.abs(self['x'][:, feed] - x) < 1,
+                    np.abs(self['y'][:, feed] - y) < 1)
             sids = list(set(self['Scan_id'][good_entries]))
             vars_to_filter = {}
             ra_masks = {}
@@ -637,3 +640,4 @@ def main_imager(args=None):
 
     scanset.calculate_images()
     scanset.interactive_display()
+    scanset.save_ds9_images(save_sdev=True)
