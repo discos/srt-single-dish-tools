@@ -3,3 +3,7 @@ __pycache__
 *~
 *.pyc
 *.hdf5
+TEST_DATASET
+build
+dist
+*egg-info*
