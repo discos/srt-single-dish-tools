@@ -7,15 +7,31 @@ import numpy as np
 from .fit import linear_fit, linear_fun, align
 
 
-def mask(xs, mask_xs, invert=False):
-    '''Create mask from ranges. Mask value is False if invert = False, and v.v.
+def mask(xs, border_xs, invert=False):
+    '''Create mask from a list of interval borders.
 
-    E.g. for zapped intervals, invert = False. For baseline fit selections,
-    invert = True
+    Parameters
+    ----------
+    xs : array
+        the array of values to filter
+    border_xs : array
+        the list of borders. Should be an even number of positions
+
+    Returns
+    -------
+    mask : array
+        Array of boolean values, that work as a mask to xs
+
+    Other Parameters
+    ----------------
+    invert : bool
+        Mask value is False if invert = False, and vice versa.
+        E.g. for zapped intervals, invert = False. For baseline fit selections,
+        invert = True
     '''
     good = np.ones(len(xs), dtype=bool)
-    if len(mask_xs) >= 2:
-        intervals = list(zip(mask_xs[:-1:2], mask_xs[1::2]))
+    if len(border_xs) >= 2:
+        intervals = list(zip(border_xs[:-1:2], border_xs[1::2]))
         for i in intervals:
             good[np.logical_and(xs >= i[0],
                                 xs <= i[1])] = False
@@ -342,14 +358,29 @@ def select_data(xs, ys, masks=None, title=None, xlabel=None):
 
 class ImageSelector():
     '''Return xs and ys of the image, and the key that was pressed.
-    Inputs
-    ------
-    data :       the image
-    ax :         a pyplot.axis instance where the image will be plotted
-    fun :        (optional) the function to call when a key is pressed.
-                it must accept three arguments: `x`, `y` and `key`
+
+    Attributes
+    ----------
+    img : array
+        the image
+    ax : pyplot.axis instance
+        the axis where the image will be plotted
+    fun : function
+        the function to call when a key is pressed. It must accept three
+        arguments: `x`, `y` and `key`
     '''
     def __init__(self, data, ax, fun=None):
+        """
+        Parameters
+        ----------
+        data : array
+            the image
+        ax : pyplot.axis instance
+            the axis where the image will be plotted
+        fun : function, optional
+            the function to call when a key is pressed. It must accept three
+            arguments: `x`, `y` and `key`
+        """
         self.img = data
         self.ax = ax
         self.fun = fun
