@@ -45,11 +45,14 @@ def read_calibrator_config():
     """Read the configuration of calibrators in data/calibrators"""
     flux_re = re.compile(r'^Flux')
     curdir = os.path.dirname(__file__)
-    calibdir = os.path.join(curdir, '..', '..', 'data', 'calibrators')
+    calibdir = os.path.join(curdir, '..', 'data', 'calibrators')
     calibrator_file_list = glob.glob(os.path.join(calibdir, '*.ini'))
+    print("Reading calibrator files ")
+    print(curdir, calibrator_file_list)
 
     configs = {}
     for cfile in calibrator_file_list:
+        print(cfile)
         cparser = configparser.ConfigParser()
         cparser.read(cfile)
         cparser["Info"]["Name"]
