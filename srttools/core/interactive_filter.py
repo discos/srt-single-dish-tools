@@ -215,7 +215,9 @@ class DataSelector:
         self.plot_all()
 
     def on_pick(self, event):
+
         thisline = event.artist
+
         self.current = (thisline._label)
         self.plot_all()
 
@@ -340,11 +342,12 @@ def select_data(xs, ys, masks=None, title=None, xlabel=None):
 
 class ImageSelector():
     '''Return xs and ys of the image, and the key that was pressed.
-    Inputs:
-        data:       the image
-        ax:         a pyplot.axis instance where the image will be plotted
-        fun:        (optional) the function to call when a key is pressed.
-                    it must accept three arguments: `x`, `y` and `key`
+    Inputs
+    ------
+    data :       the image
+    ax :         a pyplot.axis instance where the image will be plotted
+    fun :        (optional) the function to call when a key is pressed.
+                it must accept three arguments: `x`, `y` and `key`
     '''
     def __init__(self, data, ax, fun=None):
         self.img = data
@@ -371,4 +374,5 @@ class ImageSelector():
 
     def plot_img(self):
         self.ax.imshow(np.log10(self.img), origin='lower',
-                       vmin=np.percentile(np.log10(self.img), 20))
+                       vmin=np.percentile(np.log10(self.img), 20),
+                       interpolation="nearest", cmap="gnuplot2")
