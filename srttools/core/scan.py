@@ -32,7 +32,7 @@ def list_scans(datadir, dirlist):
 
 class Scan(Table):
     '''Class containing a single scan'''
-    def __init__(self, data=None, config_file=None, norefilt=True,
+    def __init__(self, data=None, config_file=None, norefilt=False,
                  interactive=False, nosave=False, verbose=True,
                  freqsplat=None, **kwargs):
         '''Freqsplat is a string, freqmin:freqmax, and gives the limiting
