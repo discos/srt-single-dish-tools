@@ -32,11 +32,11 @@ Cloning and installation
 Clone the repository::
 
     (py35) $ cd /my/software/directory/
-    (py35) $ git clone https://username@bitbucket.org/srt-tools/srt-single-dish-tools.git
+    (py35) $ git clone https://username@bitbucket.org/mbachett/srt-single-dish-tools.git
 
 or if you have deployed your SSH key to Bitbucket::
 
-    (py35) $ git clone git@bitbucket.org:srt-tools/srt-single-dish-tools.git
+    (py35) $ git clone git@bitbucket.org:mbachett/srt-single-dish-tools.git
 
 Then::
 
