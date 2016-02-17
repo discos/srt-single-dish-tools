@@ -1,6 +1,4 @@
-# README #
-
-This README would normally document whatever steps are necessary to get your application up and running.
+# SRT Single dish tools #
 
 ## Installation
 
@@ -47,11 +45,3 @@ If the help message appears, you're done!
 ### Contribution guidelines ###
 
 See the [Wiki](https://bitbucket.org/srttools/srt-single-dish-tools/wiki/Home)
-
-### Who do I talk to? ###
-
-* Alberto Pellizzoni
-* Matteo Bachetti
-* Elise Egron
-* Noemi Iacolina
-* (...)
