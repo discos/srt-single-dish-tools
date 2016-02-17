@@ -44,4 +44,4 @@ If the help message appears, you're done!
 
 ### Contribution guidelines ###
 
-See the [Wiki](https://bitbucket.org/srttools/srt-single-dish-tools/wiki/Home)
+See the [Wiki](https://bitbucket.org/srt-tools/srt-single-dish-tools/wiki/Home)
