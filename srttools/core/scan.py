@@ -2,7 +2,7 @@ from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 from .io import read_data, root_name, DEBUG_MODE
 import glob
-from .read_config import read_config, get_config_file
+from .read_config import read_config, get_config_file, sample_config_file
 import os
 import numpy as np
 from astropy import wcs
@@ -11,10 +11,11 @@ import astropy.io.fits as fits
 import logging
 import matplotlib.pyplot as plt
 from .fit import rough_baseline_sub, linear_fun
+from .interactive_filter import select_data
 import astropy.units as u
 import re
 import unittest
-
+import sys
 
 chan_re = re.compile(r'^Ch[0-9]+$')
 
@@ -32,7 +33,10 @@ def list_scans(datadir, dirlist):
 class Scan(Table):
     '''Class containing a single scan'''
     def __init__(self, data=None, config_file=None, norefilt=True,
-                 **kwargs):
+                 interactive=False, nosave=False, verbose=True,
+                 freqsplat=None, **kwargs):
+        '''Freqsplat is a string, freqmin:freqmax, and gives the limiting
+         frequencies of the interval to splat in a single channel'''
 
         if config_file is None:
             config_file = get_config_file()
@@ -46,7 +50,8 @@ class Scan(Table):
         else:  # if data is a filename
             if os.path.exists(root_name(data) + '.hdf5'):
                 data = root_name(data) + '.hdf5'
-            print('Loading file {}'.format(data))
+            if verbose:
+                print('Loading file {}'.format(data))
             table = read_data(data)
             Table.__init__(self, table, masked=True, **kwargs)
             self.meta['filename'] = os.path.abspath(data)
@@ -55,18 +60,30 @@ class Scan(Table):
             self.meta.update(read_config(self.meta['config_file']))
 
             self.check_order()
+            if freqsplat is not None:
+                freqmin, freqmax = [float(f) for f in freqsplat.split(':')]
 
-#            if 'ifilt' not in self.meta.keys() \
-#                    or not self.meta['ifilt'] \
-#                    or not norefilt:
-#                self.interactive_filter()
-            if 'backsub' not in self.meta.keys() \
-                    or not self.meta['backsub'] \
-                    or not norefilt:
+                for ic, ch in enumerate(self.chan_columns()):
+                    _, nbin = self[ch].shape
+                    binmin = nbin * freqmin / self[ch].meta['bandwidth']
+                    binmax = nbin * freqmax / self[ch].meta['bandwidth']
+
+                    self[ch + 'TEMP'] = \
+                        Table(np.sum(self[ch][:, binmin:binmax], axis=1))
+                    self[ch + 'TEMP'].meta = self[ch].meta.copy()
+                    self.remove_column(ch)
+                    self[ch + 'TEMP'].name = ch
+                    self[ch + 'TEMP'].meta['bandwidth'] = freqmax - freqmin
+            if interactive:
+                self.interactive_filter()
+            if ('backsub' not in self.meta.keys() or
+                    not self.meta['backsub']) \
+                    and not norefilt:
                 print('Subtracting the baseline')
                 self.baseline_subtract()
 
-            self.save()
+            if not nosave:
+                self.save()
 
     def chan_columns(self):
         '''List columns containing samples'''
@@ -87,7 +104,8 @@ class Scan(Table):
 
     def __repr__(self):
         '''Give the print() function something to print.'''
-        reprstring = '\n\n----Scan from file {} ----\n'.format(self.filename)
+        reprstring = \
+            '\n\n----Scan from file {0} ----\n'.format(self.meta['filename'])
         reprstring += repr(self)
         return reprstring
 
@@ -104,33 +122,33 @@ class Scan(Table):
 
     def interactive_filter(self, save=True):
         '''Run the interactive filter'''
-        from .interactive_filter import select_data
         for ch in self.chan_columns():
             # Temporary, waiting for AstroPy's metadata handling improvements
             feed = self[ch + '_feed'][0]
 
-            selection = self['raj2000'][:, feed]
+            selection = self['ra'][:, feed]
 
             ravar = np.abs(selection[-1] -
                            selection[0])
 
-            selection = self['decj2000'][:, feed]
+            selection = self['dec'][:, feed]
             decvar = np.abs(selection[-1] -
                             selection[0])
 
             # Choose if plotting by R.A. or Dec.
             if ravar > decvar:
-                dim = 'raj2000'
+                dim = 'ra'
             else:
-                dim = 'decj2000'
+                dim = 'dec'
 
             # ------- CALL INTERACTIVE FITTER ---------
             info = select_data(self[dim][:, feed], self[ch],
                                xlabel=dim)
+            plt.show()
             # -----------------------------------------
 
             # Treat zapped intervals
-            xs = info['zap'].xs
+            xs = info['Ch']['zap'].xs
             good = np.ones(len(self[dim]), dtype=bool)
             if len(xs) >= 2:
                 intervals = list(zip(xs[:-1:2], xs[1::2]))
@@ -139,13 +157,14 @@ class Scan(Table):
                                         self[dim][:, feed] <= i[1])] = False
             self['{}-filt'.format(ch)] = good
 
-            if len(info['fitpars']) > 1:
-                self[ch] -= linear_fun(self[dim][:, feed], *info['fitpars'])
+            if len(info['Ch']['fitpars']) > 1:
+                self[ch] -= linear_fun(self[dim][:, feed],
+                                       *info['Ch']['fitpars'])
             # TODO: make it channel-independent
                 self.meta['backsub'] = True
 
             # TODO: make it channel-independent
-            if info['FLAG']:
+            if info['Ch']['FLAG']:
                 self.meta['FLAG'] = True
         if save:
             self.save()
@@ -180,10 +199,10 @@ class ScanSet(Table):
             scan_list.sort()
             nscans = len(scan_list)
 
+            print(scan_list)
             tables = []
 
-            for i_s, s in enumerate(self.load_scans(scan_list)):
-                print('{}/{}'.format(i_s, nscans))
+            for i_s, s in enumerate(self.load_scans(scan_list, **kwargs)):
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
@@ -198,59 +217,76 @@ class ScanSet(Table):
 
             self.meta['scan_list'] = np.array(self.meta['scan_list'],
                                               dtype='S')
-
-            allras = self['raj2000']
-            alldecs = self['decj2000']
-
-            self.meta['mean_ra'] = np.mean(allras)
-            self.meta['mean_dec'] = np.mean(alldecs)
-            self.meta['min_ra'] = np.min(allras)
-            self.meta['min_dec'] = np.min(alldecs)
-            self.meta['max_ra'] = np.max(allras)
-            self.meta['max_dec'] = np.max(alldecs)
+            self.analyze_coordinates(altaz=False)
+            self.analyze_coordinates(altaz=True)
 
             self.convert_coordinates()
 
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
+        self.current = None
+
+    def analyze_coordinates(self, altaz=False):
+        if altaz:
+            hor, ver = 'az', 'el'
+        else:
+            hor, ver = 'ra', 'dec'
+
+        allhor = self[hor]
+        allver = self[ver]
+
+        self.meta['mean_' + hor] = np.mean(allhor)
+        self.meta['mean_' + ver] = np.mean(allver)
+        self.meta['min_' + hor] = np.min(allhor)
+        self.meta['min_' + ver] = np.min(allver)
+        self.meta['max_' + hor] = np.max(allhor)
+        self.meta['max_' + ver] = np.max(allver)
 
     def list_scans(self, datadir, dirlist):
         '''List all scans contained in the directory listed in config'''
         return list_scans(datadir, dirlist)
 
-    def load_scans(self, scan_list):
+    def load_scans(self, scan_list, **kwargs):
         '''Load the scans in the list one by ones'''
         for f in scan_list:
-            yield Scan(f, norefilt=self.norefilt)
+            yield Scan(f, norefilt=self.norefilt, **kwargs)
 
-    def get_coordinates(self):
+    def get_coordinates(self, altaz=False):
         '''Give the coordinates as pairs of RA, DEC'''
 
-        return np.array(np.dstack([self['raj2000'],
-                                   self['decj2000']]))
+        if altaz:
+            return np.array(np.dstack([self['az'],
+                                       self['el']]))
+        else:
+            return np.array(np.dstack([self['ra'],
+                                       self['dec']]))
 
-    def create_wcs(self):
+    def create_wcs(self, altaz=False):
         '''Create a wcs object from the pointing information'''
+        if altaz:
+            hor, ver = 'az', 'el'
+        else:
+            hor, ver = 'ra', 'dec'
         npix = np.array(self.meta['npix'])
         self.wcs = wcs.WCS(naxis=2)
 
         self.wcs.wcs.crpix = npix / 2
-        delta_ra = self.meta['max_ra'] - self.meta['min_ra']
-        delta_dec = self.meta['max_dec'] - self.meta['min_dec']
+        delta_hor = self.meta['max_' + hor] - self.meta['min_' + hor]
+        delta_ver = self.meta['max_' + ver] - self.meta['min_' + ver]
 
-        if not hasattr(self.meta, 'reference_ra'):
-            self.meta['reference_ra'] = self.meta['mean_ra']
-        if not hasattr(self.meta, 'reference_dec'):
-            self.meta['reference_dec'] = self.meta['mean_dec']
+        if not hasattr(self.meta, 'reference_' + hor):
+            self.meta['reference_' + hor] = self.meta['mean_' + hor]
+        if not hasattr(self.meta, 'reference_' + ver):
+            self.meta['reference_' + ver] = self.meta['mean_' + ver]
 
         # TODO: check consistency of units
         # Here I'm assuming all angles are radians
-        crval = np.array([self.meta['reference_ra'],
-                          self.meta['reference_dec']])
+        crval = np.array([self.meta['reference_' + hor],
+                          self.meta['reference_' + ver]])
         self.wcs.wcs.crval = np.degrees(crval)
 
-        cdelt = np.array([-delta_ra / npix[0],
-                          delta_dec / npix[1]])
+        cdelt = np.array([-delta_hor / npix[0],
+                          delta_ver / npix[1]])
         self.wcs.wcs.cdelt = np.degrees(cdelt)
 
         self.wcs.wcs.ctype = \
@@ -287,20 +323,24 @@ class ScanSet(Table):
 #
 #        feed_mask = np.in1d(allfeeds, feeds)
 
-    def convert_coordinates(self):
+    def convert_coordinates(self, altaz=False):
         '''Convert the coordinates from sky to pixel.'''
-        self.create_wcs()
+        if altaz:
+            hor, ver = 'az', 'el'
+        else:
+            hor, ver = 'ra', 'dec'
+        self.create_wcs(altaz)
 
-        self['x'] = np.zeros_like(self['raj2000'])
-        self['y'] = np.zeros_like(self['decj2000'])
+        self['x'] = np.zeros_like(self[hor])
+        self['y'] = np.zeros_like(self[ver])
         coords = np.degrees(self.get_coordinates())
-        for f in range(len(self['raj2000'][0, :])):
+        for f in range(len(self[hor][0, :])):
             pixcrd = self.wcs.wcs_world2pix(coords[:, f], 0)
 
             self['x'][:, f] = pixcrd[:, 0]
             self['y'][:, f] = pixcrd[:, 1]
 
-    def calculate_images(self, scrunch=False, no_offsets=False):
+    def calculate_images(self, scrunch=False, no_offsets=False, altaz=False):
         '''Obtain image from all scans.
 
         scrunch:         sum all channels
@@ -374,30 +414,156 @@ class ScanSet(Table):
 
         return images
 
-    def interactive_display(self):
-        '''Modify original scans from the image display'''
+    def interactive_display(self, ch=None, recreate=False):
+        """Modify original scans from the image display."""
         from .interactive_filter import ImageSelector
+        from matplotlib.gridspec import GridSpec
 
-        if not hasattr(self, 'images'):
+        if not hasattr(self, 'images') or recreate:
             self.calculate_images()
 
-        for ch in self.chan_columns:
+        if ch is None:
+            chs = self.chan_columns
+        else:
+            chs = [ch]
+        for ch in chs:
             fig = plt.figure('Imageactive Display')
-            ax = fig.add_subplot(111)
+            gs = GridSpec(1, 2, width_ratios=(3, 2))
+            ax = fig.add_subplot(gs[0])
+            ax2 = fig.add_subplot(gs[1])
             img = self.images[ch]
+            ax2.imshow(img, origin='lower',
+                       vmin=np.percentile(img, 20), cmap="gnuplot2",
+                       interpolation="nearest")
+
+            img = self.images['{}-Sdev'.format(ch)]
+            self.current = ch
             imagesel = ImageSelector(img, ax, fun=self.rerun_scan_analysis)
             plt.show()
 
     def rerun_scan_analysis(self, x, y, key):
         print(x, y, key)
         if key == 'a':
-            good_entries = np.logical_and(self['x'].astype(int) == int(x),
-                                          self['y'].astype(int) == int(y))
-            scans = list(set(self['Scan_id'][good_entries]))
-            for s in scans:
-                sname = self.meta['scan_list'][s].decode()
-                rescan = Scan(sname, norefilt=False)
-                rescan.save()
+            ra_xs = {}
+            ra_ys = {}
+            dec_xs = {}
+            dec_ys = {}
+            scan_ids = {}
+
+            ch = self.current
+            feed = list(set(self[ch+'_feed']))[0]
+
+            # Select data inside the pixel +- 1
+
+            good_entries = \
+                np.logical_and(
+                    np.abs(self['x'][:, feed] - x) < 1,
+                    np.abs(self['y'][:, feed] - y) < 1)
+            sids = list(set(self['Scan_id'][good_entries]))
+            vars_to_filter = {}
+            ra_masks = {}
+            dec_masks = {}
+            for sid in sids:
+                sname = self.meta['scan_list'][sid].decode()
+                s = Scan(sname)
+
+                try:
+                    chan_mask = s['{}-filt'.format(ch)]
+                except:
+                    chan_mask = np.zeros_like(s[ch])
+
+                scan_ids[sname] = sid
+                ras = s['ra'][:, feed]
+                decs = s['dec'][:, feed]
+
+                z = s[ch]
+
+                ravar = np.max(ras) - np.min(ras)
+                decvar = np.max(decs) - np.min(decs)
+                if ravar > decvar:
+                    vars_to_filter[sname] = 'ra'
+                    ra_xs[sname] = ras
+                    ra_ys[sname] = z
+                    ra_masks[sname] = chan_mask
+                else:
+                    vars_to_filter[sname] = 'dec'
+                    dec_xs[sname] = decs
+                    dec_ys[sname] = z
+                    dec_masks[sname] = chan_mask
+
+            info = select_data(ra_xs, ra_ys, masks=ra_masks,
+                               xlabel='RA', title='RA')
+            plt.show()
+            for sname in info.keys():
+                mask = self['Scan_id'] == scan_ids[sname]
+                s = Scan(sname)
+                dim = vars_to_filter[sname]
+                if len(info[sname]['zap'].xs) > 0:
+
+                    xs = info[sname]['zap'].xs
+                    good = np.ones(len(s[dim]), dtype=bool)
+                    if len(xs) >= 2:
+                        intervals = list(zip(xs[:-1:2], xs[1::2]))
+                        for i in intervals:
+                            good[np.logical_and(s[dim][:, feed] >= i[0],
+                                                s[dim][:, feed] <= i[1])] = False
+                    s['{}-filt'.format(ch)] = good
+                    print(s['{}-filt'.format(ch)])
+                    self['{}-filt'.format(ch)][mask] = good
+
+                if len(info[sname]['fitpars']) > 1:
+                    s[ch] -= linear_fun(s[dim][:, feed],
+                                        *info[sname]['fitpars'])
+                # TODO: make it channel-independent
+                    s.meta['backsub'] = True
+                    self[ch][mask][:] = s[ch]
+
+                # TODO: make it channel-independent
+                if info[sname]['FLAG']:
+                    s.meta['FLAG'] = True
+                    self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
+                                                                dtype=bool)
+
+                s.save()
+
+            info = select_data(dec_xs, dec_ys, masks=dec_masks,
+                               xlabel='Dec', title='Dec')
+            plt.show()
+
+            for sname in info.keys():
+                mask = self['Scan_id'] == scan_ids[sname]
+                s = Scan(sname)
+                dim = vars_to_filter[sname]
+                if len(info[sname]['zap'].xs) > 0:
+
+                    xs = info[sname]['zap'].xs
+                    good = np.ones(len(s[dim]), dtype=bool)
+                    if len(xs) >= 2:
+                        intervals = list(zip(xs[:-1:2], xs[1::2]))
+                        for i in intervals:
+                            good[np.logical_and(s[dim][:, feed] >= i[0],
+                                                s[dim][:, feed] <= i[1])] = False
+                    s['{}-filt'.format(ch)] = good
+                    print(s['{}-filt'.format(ch)])
+                    self['{}-filt'.format(ch)][mask] = good
+
+                if len(info[sname]['fitpars']) > 1:
+                    s[ch] -= linear_fun(s[dim][:, feed],
+                                        *info[sname]['fitpars'])
+                # TODO: make it channel-independent
+                    s.meta['backsub'] = True
+                    self[ch][mask][:] = s[ch]
+
+                # TODO: make it channel-independent
+                if info[sname]['FLAG']:
+                    s.meta['FLAG'] = True
+                    self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
+                                                                dtype=bool)
+
+                s.save()
+
+            self.interactive_display(ch=ch, recreate=True)
+
 
         elif key == 'h':
             pass
@@ -410,12 +576,13 @@ class ScanSet(Table):
         t.write(fname, path='scanset', **kwargs)
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
-                        no_offsets=False):
+                        no_offsets=False, altaz=False):
         '''Save a ds9-compatible file with one image per extension.'''
         if fname is None:
             fname = 'img.fits'
-        images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets)
-        self.create_wcs()
+        images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
+                                       altaz=altaz)
+        self.create_wcs(altaz)
 
         hdulist = fits.HDUList()
 
@@ -424,7 +591,9 @@ class ScanSet(Table):
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
 
-        for ic, ch in enumerate(images.keys()):
+        keys = list(images.keys())
+        keys.sort()
+        for ic, ch in enumerate(keys):
             is_sdev = ch.endswith('Sdev')
 
             if is_sdev and not save_sdev:
@@ -436,232 +605,39 @@ class ScanSet(Table):
         hdulist.writeto(fname, clobber=True)
 
 
-class Test1_Scan(unittest.TestCase):
-    @classmethod
-    def setup_class(klass):
-        import os
-        global DEBUG_MODE
-        DEBUG_MODE = True
+def main_imager(args=None):
+    """Main function."""
+    import argparse
 
-        klass.curdir = os.path.dirname(__file__)
-        klass.datadir = os.path.join(klass.curdir, '..', '..', 'TEST_DATASET')
+    description = ('Load a series of scans from a config file '
+                   'and produce a map.')
+    parser = argparse.ArgumentParser(description=description)
 
-        klass.fname = \
-            os.path.abspath(
-                os.path.join(klass.datadir, '20140603-103246-scicom-3C157',
-                             '20140603-103246-scicom-3C157_003_003.fits'))
+    parser.add_argument("--sample-config", action='store_true', default=False,
+                        help='Produce sample config file')
 
-        klass.config_file = \
-            os.path.abspath(os.path.join(klass.curdir, '..', '..',
-                                         'TEST_DATASET',
-                                         'test_config.ini'))
+    parser.add_argument("-c", "--config", type=str, default=None,
+                        help='Config file')
 
-        read_config(klass.config_file)
+    parser.add_argument("--refilt", default=False,
+                        action='store_true',
+                        help='Re-run the scan filtering')
 
-    def step_1_scan(self):
-        '''Test that data are read.'''
+    args = parser.parse_args(args)
 
-        scan = Scan(self.fname)
+    if args.sample_config:
+        sample_config_file()
+        sys.exit()
 
-        scan.write('scan.hdf5', overwrite=True)
+    assert args.config is not None, "Please specify the config file!"
 
-    def step_2_read_scan(self):
-        scan = Scan('scan.hdf5')
-        plt.ion()
-        for col in scan.chan_columns():
-            plt.plot(scan['time'], scan[col])
-        plt.show()
+    scanset = ScanSet(args.config, norefilt=not args.refilt)
 
-        return scan
+    scanset.write('test.hdf5', overwrite=True)
 
-    def test_all(self):
-        self.step_1_scan()
-        self.step_2_read_scan()
+    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                      config_file=args.config)
 
-
-class Test2_ScanSet(unittest.TestCase):
-    @classmethod
-    def setup_class(klass):
-        import os
-        global DEBUG_MODE
-        DEBUG_MODE = True
-
-        klass.curdir = os.path.dirname(__file__)
-        klass.datadir = os.path.join(klass.curdir, '..', '..', 'TEST_DATASET')
-
-        klass.fname = \
-            os.path.abspath(
-                os.path.join(klass.datadir, '20140603-103246-scicom-3C157',
-                             '20140603-103246-scicom-3C157_003_003.fits'))
-
-        klass.config = \
-            os.path.abspath(os.path.join(klass.curdir, '..', '..',
-                                         'TEST_DATASET',
-                                         'test_config.ini'))
-
-        read_config(klass.config)
-
-    def step_1_scanset(self):
-        '''Test that sets of data are read.'''
-        plt.ioff()
-
-        scanset = ScanSet(self.config, norefilt=True)
-    #    scanset = ScanSet(config)
-
-        scanset.write('test.hdf5', overwrite=True)
-
-    def step_2_rough_image(self):
-        '''Test image production.'''
-
-        plt.ion()
-
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
-
-        images = scanset.calculate_images()
-
-        img = images['Ch0']
-
-        plt.figure('img')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-    #    plt.ioff()
-        plt.show()
-
-    def step_3_image_stdev(self):
-        '''Test image production.'''
-
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
-
-        images = scanset.calculate_images()
-
-        img = images['Ch0-Sdev']
-
-        plt.figure('log(img-Sdev)')
-        plt.imshow(np.log10(img), origin='lower')
-        plt.colorbar()
-        plt.ioff()
-        plt.show()
-
-    def step_4_image_scrunch(self):
-        '''Test image production.'''
-
-        plt.ion()
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
-
-        images = scanset.calculate_images(scrunch=True)
-
-        img = images['Ch0']
-
-        plt.figure('img - scrunched')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-        img = images['Ch0-Sdev']
-
-        plt.figure('img - scrunched - sdev')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-        plt.ioff()
-        plt.show()
-
-    def step_5_interactive_image(self):
-        '''Test image production.'''
-
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
-
-        scanset.interactive_display()
-
-    def step_6_ds9_image(self):
-        '''Test image production.'''
-
-        scanset = ScanSet.read('test.hdf5')
-
-        scanset.save_ds9_images()
-
-    def test_all(self):
-        self.step_1_scanset()
-        self.step_2_rough_image()
-        self.step_3_image_stdev()
-        self.step_4_image_scrunch()
-        self.step_5_interactive_image()
-        self.step_6_ds9_image()
-
-
-class Test3_MultiFeed(unittest.TestCase):
-    @classmethod
-    def setup_class(klass):
-        import os
-        global DEBUG_MODE
-        print('Setting up class')
-        DEBUG_MODE = True
-
-        klass.curdir = os.path.dirname(__file__)
-        klass.datadir = os.path.join(klass.curdir, '..', '..', 'TEST_DATASET')
-
-        klass.config = \
-            os.path.abspath(os.path.join(klass.curdir, '..', '..',
-                                         'TEST_DATASET',
-                                         'test_config_w44.ini'))
-
-        read_config(klass.config)
-
-    def step1_scanset(self):
-        '''Test that sets of data are read also with multifeed.'''
-        plt.ioff()
-        scanset = ScanSet(self.config, norefilt=True)
-
-        scanset.write('test_multifeed.hdf5', overwrite=True)
-
-    def step2_img(self):
-        scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
-                          config_file=self.config)
-
-        images = scanset.calculate_images()
-
-        scanset.save_ds9_images('multifeed.fits')
-
-        img = images['Ch0']
-
-        plt.figure('img 0')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-
-        img = images['Ch0-Sdev']
-
-        plt.figure('log(img 0 -Sdev)')
-        plt.imshow(np.log10(img), origin='lower')
-        plt.colorbar()
-
-    def step3_scrunch(self):
-        scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
-                          config_file=self.config)
-        images = scanset.calculate_images(scrunch=True)
-        scanset.save_ds9_images('scrunch.fits', scrunch=True)
-
-        img = images['Ch0']
-
-        plt.figure('img - scrunched')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-        img = images['Ch0-Sdev']
-
-        plt.figure('log(img - scrunched - sdev)')
-        plt.imshow(np.log10(img), origin='lower')
-        plt.colorbar()
-        plt.ioff()
-        plt.show()
-
-    def step4_nocorrect(self):
-        scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
-                          config_file=self.config)
-        scanset.save_ds9_images('multifeed_nooffsets.fits', no_offsets=True)
-
-    def test_all_multifeed(self):
-        '''Test that sets of data are read also with multifeed.'''
-        self.step1_scanset()
-        self.step2_img()
-        self.step3_scrunch()
-        self.step4_nocorrect()
+    scanset.calculate_images()
+    scanset.interactive_display()
+    scanset.save_ds9_images(save_sdev=True)

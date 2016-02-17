@@ -24,7 +24,7 @@ def standard_offsets():
     radii = np.array([0] + [radius]*6)
     # Feeds 1--6 are at angles -60, -120, etc. Here I use angle 0 for
     # convenience for feed 0, but it has no effect since radii[0] is 0
-    feed_angles = -np.arange(0, 7, 1) * np.pi * 2/3
+    feed_angles = -np.arange(0, 7, 1) * np.pi * 2/6
 
     xoffsets = radii * np.cos(feed_angles)
     yoffsets = radii * np.sin(feed_angles)
@@ -69,13 +69,30 @@ def print_obs_info_fitszilla(fname):
 
 #@profile
 def read_data_fitszilla(fname):
-    '''Open a fitszilla FITS file and read all relevant information.'''
+    '''Open a fitszilla FITS file and read all relevant information.
+
+    '''
     global DEBUG_MODE
+
+    # Open FITS file
     lchdulist = fits.open(fname)
 
+    # ----------- Extract generic observation information ------------------
+    source = lchdulist[0].header['SOURCE']
+    receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
+    ra = lchdulist[0].header['HIERARCH RIGHTASCENSION']
+    dec = lchdulist[0].header['HIERARCH DECLINATION']
+    # Check. If backend is not specified, use Total Power
+    try:
+        backend = lchdulist[0].header['HIERARCH BACKEND NAME']
+    except:
+        backend = 'TP'
+
+    # ----------- Read the list of channel ids ------------------
     section_table_data = lchdulist['SECTION TABLE'].data
     chan_ids = section_table_data['id']
 
+    # ----------- Read the list of RF inputs, feeds, polarization, etc. --
     rf_input_data = lchdulist['RF INPUTS'].data
     feeds = rf_input_data['feed']
     IFs = rf_input_data['ifChain']
@@ -83,6 +100,7 @@ def read_data_fitszilla(fname):
     frequencies = rf_input_data['frequency']
     bandwidths = rf_input_data['bandWidth']
 
+    # ----- Read the offsets of different feeds (nonzero only if multifeed)--
     feed_input_data = lchdulist['FEED TABLE'].data
     xoffsets = feed_input_data['xOffset']
     yoffsets = feed_input_data['yOffset']
@@ -92,11 +110,33 @@ def read_data_fitszilla(fname):
 
     relpowers = feed_input_data['relativePower']
 
-    data_table_data = lchdulist['DATA TABLE'].data
+    # -------------- Read data!-----------------------------------------
+    datahdu = lchdulist['DATA TABLE']
+    data_table_data = Table(datahdu.data)
+    is_spectrum = 'SPECTRUM' in list(datahdu.header.values())
+    if is_spectrum:
+        nchan = len(chan_ids)
+
+        nrows, nbins = data_table_data['SPECTRUM'].shape
+        nbin_per_chan = nbins // nchan
+        assert nbin_per_chan * nchan == nbins, \
+            'Something wrong with channel subdivision'
+        for ic, ch in enumerate(chan_ids):
+            data_table_data['Ch{}'.format(ch)] = \
+                data_table_data['SPECTRUM'][:, ic * nbin_per_chan:
+                                            (ic + 1 ) * nbin_per_chan]
 
     info_to_retrieve = ['time', 'derot_angle']
 
     new_table = Table()
+
+    new_table.meta['SOURCE'] = source
+    new_table.meta['backend'] = backend
+    new_table.meta['receiver'] = receiver
+    new_table.meta['RA'] = ra
+    new_table.meta['Dec'] = dec
+
+
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]
 
@@ -105,10 +145,10 @@ def read_data_fitszilla(fname):
         new_table['derot_angle'][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)
-    new_table['raj2000'] = \
+    new_table['ra'] = \
         np.tile(data_table_data['raj2000'],
                 (np.max(feeds) + 1, 1)).transpose()
-    new_table['decj2000'] = \
+    new_table['dec'] = \
         np.tile(data_table_data['decj2000'],
                 (np.max(feeds) + 1, 1)).transpose()
     new_table['el'] = \
@@ -119,7 +159,7 @@ def read_data_fitszilla(fname):
                 (np.max(feeds) + 1, 1)).transpose()
 
 
-    for info in ['raj2000', 'decj2000', 'az', 'el', 'derot_angle']:
+    for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
 
     # Coordinate correction. Will it work?
@@ -127,7 +167,7 @@ def read_data_fitszilla(fname):
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
         if xoffsets[i] < np.radians(0.001 / 60.) and \
            yoffsets[i] < np.radians(0.001 / 60.):
-               continue
+            continue
         xoffs, yoffs = correct_offsets(new_table['derot_angle'],
                                        xoffsets[i],
                                        yoffsets[i])
@@ -137,8 +177,8 @@ def read_data_fitszilla(fname):
         new_table['az'][:, i] += xoffs / np.cos(new_table['el'][:, i])
 
         obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
-        coords = AltAz(az = new_table['az'][:, i],
-                       alt = new_table['el'][:, i], unit= u.radian,
+        coords = AltAz(az=new_table['az'][:, i],
+                       alt=new_table['el'][:, i], unit=u.radian,
                        location=locations['SRT'],
                        obstime=obstimes)
 
@@ -146,8 +186,8 @@ def read_data_fitszilla(fname):
         # operation in this function, taking between 80 and 90% of the
         # execution time. Need to study a way to avoid this.
         coords_deg = coords.icrs
-        new_table['raj2000'][:, i] = np.radians(coords_deg.ra)
-        new_table['decj2000'][:, i] = np.radians(coords_deg.dec)
+        new_table['ra'][:, i] = np.radians(coords_deg.ra)
+        new_table['dec'][:, i] = np.radians(coords_deg.dec)
 
     for ic, ch in enumerate(chan_ids):
         new_table['Ch{}'.format(ch)] = \
@@ -160,11 +200,13 @@ def read_data_fitszilla(fname):
                                              'bandwidth': bandwidths[ic],
                                              'xoffset': xoffsets[feeds[ic]],
                                              'yoffset': yoffsets[feeds[ic]],
-                                             'relpower': relpowers[feeds[ic]],
+                                             'relpower': relpowers[feeds[ic]]
                                              }
         new_table['Ch{}_feed'.format(ch)] = \
             np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
 
+        new_table['Ch{}-filt'.format(ch)] = \
+            np.ones(len(data_table_data['Ch{}'.format(ch)]), dtype=bool)
     lchdulist.close()
     return new_table
 
@@ -176,63 +218,6 @@ def read_data(fname):
         return read_data_fitszilla(fname)
     elif kind == 'hdf5':
         return Table.read(fname)
-
-
-#def test_open_data_fitszilla():
-#    '''Test that data are read.'''
-#    import os
-#    import matplotlib.pyplot as plt
-#    curdir = os.path.abspath(os.path.dirname(__file__))
-#    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
-#
-#    fname = os.path.join(datadir, '20140603-103246-scicom-3C157',
-#                         '20140603-103246-scicom-3C157_003_003.fits')
-#    print_obs_info_fitszilla(fname)
-#    table = read_data(fname)
-#    for i in range(2):
-#        plt.plot(table.field('time'), table.field('Ch{}'.format(i))[:])
-#    plt.show()
-
-
-class TestCoords(unittest.TestCase):
-    @classmethod
-    def setup_class(klass):
-        global DEBUG_MODE
-        DEBUG_MODE = True
-        curdir = os.path.abspath(os.path.dirname(__file__))
-        datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
-
-        fname = os.path.join(datadir, '20150410-001307-scicom-W44',
-                             '20150410-001307-scicom-W44_002_003.fits')
-        klass.table = read_data(fname)
-
-    def step_coordinate_conversion(self):
-        new_table = self.table
-
-        probe_location = SkyCoord(ra = new_table['raj2000'][:, 0],
-                                  dec = new_table['decj2000'][:, 0],
-                                  unit= u.radian)
-        print(new_table['time'])
-        print((new_table['time'] * u.day).unit)
-        obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
-
-        print(obstimes)
-        altaz = probe_location.transform_to(AltAz(location=locations['SRT'],
-                                                  obstime=obstimes))
-        print(altaz.alt, altaz.alt.unit)
-        print(new_table['el'][:, 0].to(u.deg))
-        delta_alt = (altaz.alt - new_table['el'][:, 0].to(u.deg))
-        delta_az = (altaz.az - new_table['az'][:, 0].to(u.deg))
-
-        print(delta_alt.to(u.arcsecond), delta_az.to(u.arcsecond))
-        plt.hist2d(delta_alt.to(u.arcsecond).value,
-                   delta_az.to(u.arcsecond).value, bins=20)
-        plt.colorbar()
-        plt.show()
-
-    def test_coordinates(self):
-
-        self.step_coordinate_conversion()
 
 
 def root_name(fname):
