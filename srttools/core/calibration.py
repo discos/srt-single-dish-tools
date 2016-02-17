@@ -285,7 +285,8 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
 
             if first:
                 plt.axvline(to_plot)
-            data = plt.plot(x, y - baseline(x), label='{:.2f}'.format(el))
+            data = plt.plot(x, np.array(y - baseline(x)),
+                            label='{:.2f}'.format(el))
             plt.plot(x, bell(x), color=plt.getp(data[0], 'color'))
             plt.title('{} (baseline-subtracted)'.format(source))
             plt.xlabel(xvariab)

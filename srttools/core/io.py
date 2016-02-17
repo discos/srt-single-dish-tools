@@ -69,7 +69,9 @@ def print_obs_info_fitszilla(fname):
 
 #@profile
 def read_data_fitszilla(fname):
-    '''Open a fitszilla FITS file and read all relevant information.'''
+    '''Open a fitszilla FITS file and read all relevant information.
+
+    '''
     global DEBUG_MODE
 
     # Open FITS file
