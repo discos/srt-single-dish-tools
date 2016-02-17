@@ -26,7 +26,7 @@ and install the dependencies:
 Clone the repository:
 
     (py35) $ cd /my/software/directory/
-    (py35) $ git clone https://mbachett@bitbucket.org/srt-tools/srt-single-dish-tools.git
+    (py35) $ git clone https://username@bitbucket.org/srt-tools/srt-single-dish-tools.git
 
 or if you have deployed your SSH key to Bitbucket:
 
