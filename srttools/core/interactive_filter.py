@@ -80,16 +80,16 @@ class DataSelector:
         self.lines = []
         self.print_instructions()
         self.current = None
-        self.plot_all()
-
         ax1.figure.canvas.mpl_connect('button_press_event', self.on_click)
         ax1.figure.canvas.mpl_connect('key_press_event', self.on_key)
         ax1.figure.canvas.mpl_connect('pick_event', self.on_pick)
         ax2.figure.canvas.mpl_connect('button_press_event', self.on_click)
         ax2.figure.canvas.mpl_connect('key_press_event', self.on_key)
         ax2.figure.canvas.mpl_connect('pick_event', self.on_pick)
+        self.plot_all()
         self.zcounter = 0
         self.bcounter = 0
+        plt.show()
 
     def on_click(self, event):
         pass
