@@ -50,6 +50,14 @@ by executing::
 
 If the help message appears, you're done!
 
+Updating
+~~~~~~~~
+
+To update the code, simply run ``git pull`` and reinstall::
+
+    (py35) $ git pull
+    (py35) $ python setup.py install
+
 Command line interface
 ----------------------
 
