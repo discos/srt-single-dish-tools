@@ -255,7 +255,10 @@ class ScanSet(Table):
     def load_scans(self, scan_list, **kwargs):
         '''Load the scans in the list one by ones'''
         for f in scan_list:
-            yield Scan(f, norefilt=self.norefilt, **kwargs)
+            try:
+                yield Scan(f, norefilt=self.norefilt, **kwargs)
+            except:
+                pass
 
     def get_coordinates(self, altaz=False):
         '''Give the coordinates as pairs of RA, DEC'''
@@ -471,8 +474,10 @@ class ScanSet(Table):
             dec_masks = {}
             for sid in sids:
                 sname = self.meta['scan_list'][sid].decode()
-                s = Scan(sname)
-
+                try:
+                    s = Scan(sname)
+                except:
+                    continue
                 try:
                     chan_mask = s['{}-filt'.format(ch)]
                 except:
@@ -502,7 +507,10 @@ class ScanSet(Table):
             plt.show()
             for sname in info.keys():
                 mask = self['Scan_id'] == scan_ids[sname]
-                s = Scan(sname)
+                try:
+                    s = Scan(sname)
+                except:
+                    pass
                 dim = vars_to_filter[sname]
                 if len(info[sname]['zap'].xs) > 0:
 
@@ -538,7 +546,10 @@ class ScanSet(Table):
 
             for sname in info.keys():
                 mask = self['Scan_id'] == scan_ids[sname]
-                s = Scan(sname)
+                try:
+                    s = Scan(sname)
+                except:
+                    continue
                 dim = vars_to_filter[sname]
                 if len(info[sname]['zap'].xs) > 0:
 
