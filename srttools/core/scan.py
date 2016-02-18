@@ -10,7 +10,7 @@ from astropy.table import Table, vstack
 import astropy.io.fits as fits
 import logging
 import matplotlib.pyplot as plt
-from .fit import rough_baseline_sub, linear_fun
+from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
 import astropy.units as u
 import re
@@ -90,12 +90,18 @@ class Scan(Table):
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
-    def baseline_subtract(self, kind='rough'):
+    def baseline_subtract(self, kind='als'):
         '''Subtract the baseline.'''
-        if kind == 'rough':
+        if kind == 'als':
+
             for col in self.chan_columns():
-                self[col] = rough_baseline_sub(self['time'],
+                self[col] = baseline_als(self['time'],
                                                self[col])
+        elif kind == 'rough':
+            for col in self.chan_columns():
+                self[col] = baseline_rough(self['time'],
+                                               self[col])
+
         self.meta['backsub'] = True
 
     def zap_birdies(self):
