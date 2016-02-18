@@ -19,7 +19,7 @@ def linear_fit(time, lc, start_pars, return_err=False):
         return par
 
 
-def rough_baseline_sub(time, lc, start_pars=None):
+def baseline_rough(time, lc, start_pars=None):
     '''Rough function to subtract the baseline'''
 
     if start_pars is None:
@@ -48,6 +48,29 @@ def rough_baseline_sub(time, lc, start_pars=None):
         lc -= linear_fun(time, *par)
 
     return lc
+
+
+def baseline_als(x, y, lam=None, p=None, niter=10):
+    """Baseline Correction with Asymmetric Least Squares Smoothing.
+
+    From Eilers & Boelens 2005, https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
+    Found at http://stackoverflow.com/questions/29156532/python-baseline-correction-library
+
+    """
+    from scipy import sparse
+    if lam is None:
+        lam = 1e10
+    if p is None:
+        p = 0.001
+    L = len(y)
+    D = sparse.csc_matrix(np.diff(np.eye(L), 2))
+    w = np.ones(L)
+    for i in range(niter):
+        W = sparse.spdiags(w, 0, L, L)
+        Z = W + lam * D.dot(D.transpose())
+        z = sparse.linalg.spsolve(Z, w*y)
+        w = p * (y > z) + (1-p) * (y < z)
+    return y - z
 
 
 def minimize_align(xs, ys, params):
