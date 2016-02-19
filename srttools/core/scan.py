@@ -6,7 +6,7 @@ from .read_config import read_config, get_config_file, sample_config_file
 import os
 import numpy as np
 from astropy import wcs
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
 import logging
 import matplotlib.pyplot as plt
@@ -61,21 +61,31 @@ class Scan(Table):
 
             self.check_order()
             if freqsplat is not None:
-                freqmin, freqmax = [float(f) for f in freqsplat.split(':')]
-
                 for ic, ch in enumerate(self.chan_columns()):
+                    try:
+                        freqmin, freqmax = [float(f) for f in freqsplat.split(':')]
+                    except:
+                        freqsplat = ":"
+
+                    if freqsplat == ":" or freqsplat == "all":
+                        bandwidth = self[ch].meta['bandwidth']
+                        freqmin = 0
+                        freqmax = bandwidth
+
                     _, nbin = self[ch].shape
                     binmin = nbin * freqmin / self[ch].meta['bandwidth']
                     binmax = nbin * freqmax / self[ch].meta['bandwidth']
 
                     self[ch + 'TEMP'] = \
-                        Table(np.sum(self[ch][:, binmin:binmax], axis=1))
+                        Column(np.sum(self[ch][:, binmin:binmax], axis=1))
                     self[ch + 'TEMP'].meta = self[ch].meta.copy()
                     self.remove_column(ch)
                     self[ch + 'TEMP'].name = ch
-                    self[ch + 'TEMP'].meta['bandwidth'] = freqmax - freqmin
+                    self[ch].meta['bandwidth'] = freqmax - freqmin
+
             if interactive:
                 self.interactive_filter()
+
             if ('backsub' not in self.meta.keys() or
                     not self.meta['backsub']) \
                     and not norefilt:
@@ -205,7 +215,6 @@ class ScanSet(Table):
             scan_list.sort()
             nscans = len(scan_list)
 
-            print(scan_list)
             tables = []
 
             for i_s, s in enumerate(self.load_scans(scan_list, **kwargs)):
@@ -373,7 +382,7 @@ class ScanSet(Table):
                 feed = 0
             else:
                 feed = feeds[0]
-            print(feed)
+
             if '{}-filt'.format(ch) in self.keys():
                 good = self['{}-filt'.format(ch)]
             else:
@@ -640,6 +649,14 @@ def main_imager(args=None):
                         action='store_true',
                         help='Re-run the scan filtering')
 
+    parser.add_argument("--splat", type=str, default=None,
+                        help=("Spectral scans will be scrunched into a single "
+                              "channel containing data in the given frequency "
+                              "range, starting from the frequency of the first "
+                              "bin. E.g. '0:1000' indicates 'from the first "
+                              "bin of the spectrum up to 1000 MHz above'. ':' "
+                              "or 'all' for all the channels."))
+
     args = parser.parse_args(args)
 
     if args.sample_config:
@@ -648,12 +665,14 @@ def main_imager(args=None):
 
     assert args.config is not None, "Please specify the config file!"
 
-    scanset = ScanSet(args.config, norefilt=not args.refilt)
+    scanset = ScanSet(args.config, norefilt=not args.refilt,
+                      freqsplat=args.splat)
 
     scanset.write('test.hdf5', overwrite=True)
 
     scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                      config_file=args.config)
+                      config_file=args.config,
+                      freqsplat=args.splat)
 
     scanset.calculate_images()
     scanset.interactive_display()
