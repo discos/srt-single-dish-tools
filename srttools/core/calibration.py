@@ -313,7 +313,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
 
 
 def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
-                   picklefile=None, verbose=True):
+                   picklefile=None, verbose=True, freqsplat=None):
     """Get all fluxes in the directories specified by the config file"""
     config = read_config(config_file)
 
@@ -327,7 +327,8 @@ def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
         print('\n-----------------\n')
 
         output_table = get_fluxes(config['datadir'], d, channel=channel,
-                                  feed=feed, plotall=plotall, verbose=verbose)
+                                  feed=feed, plotall=plotall, verbose=verbose,
+                                  freqsplat=freqsplat)
         tables[d] = output_table
 
     full_table = Table(vstack(list(tables.values())))
@@ -539,6 +540,14 @@ def main_lc_calibrator(args=None):
     parser.add_argument("--pickle-file", type=str, default='db.pickle',
                         help='Name for the intermediate pickle file')
 
+    parser.add_argument("--splat", type=str, default=None,
+                        help=("Spectral scans will be scrunched into a single "
+                              "channel containing data in the given frequency "
+                              "range, starting from the frequency of the first "
+                              "bin. E.g. '0:1000' indicates 'from the first "
+                              "bin of the spectrum up to 1000 MHz above'. ':' "
+                              "or 'all' for all the channels."))
+
     parser.add_argument("--refilt", default=False,
                         action='store_true',
                         help='Re-run the scan filtering')
@@ -553,7 +562,8 @@ def main_lc_calibrator(args=None):
 
     if not os.path.exists(args.pickle_file):
         full_table = get_full_table(args.config, plotall=True,
-                                    picklefile=args.pickle_file)
+                                    picklefile=args.pickle_file,
+                                    freqsplat=args.splat)
 
     with open(args.pickle_file, 'rb') as f:
         full_table = pickle.load(f)
