@@ -649,6 +649,14 @@ def main_imager(args=None):
                         action='store_true',
                         help='Re-run the scan filtering')
 
+    parser.add_argument("--splat", type=str, default=None,
+                        help=("Spectral scans will be scrunched into a single "
+                              "channel containing data in the given frequency "
+                              "range, starting from the frequency of the first "
+                              "bin. E.g. '0:1000' indicates 'from the first "
+                              "bin of the spectrum up to 1000 MHz above'. ':' "
+                              "or 'all' for all the channels."))
+
     args = parser.parse_args(args)
 
     if args.sample_config:
@@ -657,12 +665,14 @@ def main_imager(args=None):
 
     assert args.config is not None, "Please specify the config file!"
 
-    scanset = ScanSet(args.config, norefilt=not args.refilt)
+    scanset = ScanSet(args.config, norefilt=not args.refilt,
+                      freqsplat=args.splat)
 
     scanset.write('test.hdf5', overwrite=True)
 
     scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                      config_file=args.config)
+                      config_file=args.config,
+                      freqsplat=args.splat)
 
     scanset.calculate_images()
     scanset.interactive_display()
