@@ -62,6 +62,8 @@ class Scan(Table):
             self.check_order()
             if freqsplat is not None:
                 for ic, ch in enumerate(self.chan_columns()):
+                    if len(self[ch].shape) == 1:
+                        continue
                     try:
                         freqmin, freqmax = [float(f) for f in freqsplat.split(':')]
                     except:
@@ -78,7 +80,8 @@ class Scan(Table):
 
                     self[ch + 'TEMP'] = \
                         Column(np.sum(self[ch][:, binmin:binmax], axis=1))
-                    self[ch + 'TEMP'].meta = self[ch].meta.copy()
+                    self[ch + 'TEMP'].meta.update(self[ch].meta)
+                    # print(self[ch + 'TEMP'].meta)
                     self.remove_column(ch)
                     self[ch + 'TEMP'].name = ch
                     self[ch].meta['bandwidth'] = freqmax - freqmin
@@ -92,6 +95,7 @@ class Scan(Table):
                 print('Subtracting the baseline')
                 self.baseline_subtract()
 
+            # print()
             if not nosave:
                 self.save()
 
