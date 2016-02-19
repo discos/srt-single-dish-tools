@@ -75,7 +75,7 @@ class Scan(Table):
                     _, nbin = self[ch].shape
                     binmin = nbin * freqmin / self[ch].meta['bandwidth']
                     binmax = nbin * freqmax / self[ch].meta['bandwidth']
-                    print(self[ch])
+
                     self[ch + 'TEMP'] = \
                         Column(np.sum(self[ch][:, binmin:binmax], axis=1))
                     self[ch + 'TEMP'].meta = self[ch].meta.copy()
@@ -215,7 +215,6 @@ class ScanSet(Table):
             scan_list.sort()
             nscans = len(scan_list)
 
-            print(scan_list)
             tables = []
 
             for i_s, s in enumerate(self.load_scans(scan_list, **kwargs)):
@@ -383,7 +382,7 @@ class ScanSet(Table):
                 feed = 0
             else:
                 feed = feeds[0]
-            print(feed)
+
             if '{}-filt'.format(ch) in self.keys():
                 good = self['{}-filt'.format(ch)]
             else:
