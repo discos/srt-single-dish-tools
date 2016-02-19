@@ -406,4 +406,5 @@ class ImageSelector():
     def plot_img(self):
         self.ax.imshow(np.log10(self.img), origin='lower',
                        vmin=np.percentile(np.log10(self.img), 20),
-                       interpolation="nearest", cmap="gnuplot2")
+                       interpolation="nearest", cmap="gnuplot2",
+                       extent=[0, self.img.shape[1], 0, self.img.shape[0]])
