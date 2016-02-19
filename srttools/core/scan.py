@@ -199,7 +199,8 @@ class Scan(Table):
 
 class ScanSet(Table):
     '''Class containing a set of scans'''
-    def __init__(self, data=None, norefilt=True, config_file=None, **kwargs):
+    def __init__(self, data=None, norefilt=True, config_file=None,
+                 freqsplat=None, **kwargs):
 
         self.norefilt = norefilt
         if isinstance(data, Table):
@@ -221,7 +222,8 @@ class ScanSet(Table):
 
             tables = []
 
-            for i_s, s in enumerate(self.load_scans(scan_list, **kwargs)):
+            for i_s, s in enumerate(self.load_scans(scan_list,
+                                    freqsplat=freqsplat, **kwargs)):
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
@@ -265,11 +267,12 @@ class ScanSet(Table):
         '''List all scans contained in the directory listed in config'''
         return list_scans(datadir, dirlist)
 
-    def load_scans(self, scan_list, **kwargs):
+    def load_scans(self, scan_list, freqsplat=None, **kwargs):
         '''Load the scans in the list one by ones'''
         for f in scan_list:
             try:
-                yield Scan(f, norefilt=self.norefilt, **kwargs)
+                yield Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
+                           **kwargs)
             except:
                 pass
 
@@ -368,11 +371,17 @@ class ScanSet(Table):
         scrunch:         sum all channels
         no_offsets:      use positions from feed 0 for all feeds'''
         images = {}
-        xbins = np.linspace(np.min(self['x']),
-                            np.max(self['x']),
+        # xbins = np.linspace(np.min(self['x']),
+        #                     np.max(self['x']),
+        #                     self.meta['npix'][0] + 1)
+        # ybins = np.linspace(np.min(self['y']),
+        #                     np.max(self['y']),
+        #                     self.meta['npix'][1] + 1)
+        xbins = np.linspace(0,
+                            self.meta['npix'][0],
                             self.meta['npix'][0] + 1)
-        ybins = np.linspace(np.min(self['y']),
-                            np.max(self['y']),
+        ybins = np.linspace(0,
+                            self.meta['npix'][1],
                             self.meta['npix'][1] + 1)
 
         total_expo = 0
@@ -523,7 +532,7 @@ class ScanSet(Table):
                 try:
                     s = Scan(sname)
                 except:
-                    pass
+                    continue
                 dim = vars_to_filter[sname]
                 if len(info[sname]['zap'].xs) > 0:
 
@@ -537,13 +546,22 @@ class ScanSet(Table):
                     s['{}-filt'.format(ch)] = good
                     print(s['{}-filt'.format(ch)])
                     self['{}-filt'.format(ch)][mask] = good
+                    print(len(good), len(s[ch]))
 
                 if len(info[sname]['fitpars']) > 1:
                     s[ch] -= linear_fun(s[dim][:, feed],
                                         *info[sname]['fitpars'])
                 # TODO: make it channel-independent
                     s.meta['backsub'] = True
-                    self[ch][mask][:] = s[ch]
+                    try:
+                        self[ch][mask][:] = s[ch]
+                    except:
+                        print(ch, sname, s.meta['filename'], scan_ids[sname],
+                              self['Scan_id'][mask], s[ch], self[ch][mask])
+                        plt.figure("DEBUG")
+                        plt.plot(self['ra'][mask], self['dec'][mask])
+                        plt.show()
+                        raise
 
                 # TODO: make it channel-independent
                 if info[sname]['FLAG']:
