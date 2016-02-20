@@ -32,7 +32,7 @@ def standard_offsets():
 
 
 def detect_data_kind(fname):
-    '''Placeholder for function that recognizes data format.'''
+    """Placeholder for function that recognizes data format."""
     if fname.endswith('.hdf5'):
         return 'hdf5'
     else:
@@ -40,7 +40,7 @@ def detect_data_kind(fname):
 
 
 def correct_offsets(derot_angle, xoffset, yoffset):
-    '''Correct feed offsets for derotation angle'''
+    """Correct feed offsets for derotation angle."""
 
     # Clockwise rotation of angle derot_angle
     new_xoff = xoffset * np.cos(derot_angle) - yoffset * np.sin(derot_angle)
@@ -50,7 +50,7 @@ def correct_offsets(derot_angle, xoffset, yoffset):
 
 
 def print_obs_info_fitszilla(fname):
-    '''Placeholder for function that prints out oberving information.'''
+    """Placeholder for function that prints out oberving information."""
     lchdulist = fits.open(fname)
     section_table_data = lchdulist['SECTION TABLE'].data
     sample_rates = section_table_data['sampleRate']
@@ -69,9 +69,9 @@ def print_obs_info_fitszilla(fname):
 
 #@profile
 def read_data_fitszilla(fname):
-    '''Open a fitszilla FITS file and read all relevant information.
+    """Open a fitszilla FITS file and read all relevant information.
 
-    '''
+    """
     global DEBUG_MODE
 
     # Open FITS file
@@ -212,7 +212,7 @@ def read_data_fitszilla(fname):
 
 #@profile
 def read_data(fname):
-    '''Read the data, whatever the format, and return them'''
+    """Read the data, whatever the format, and return them."""
     kind = detect_data_kind(fname)
     if kind == 'fitszilla':
         return read_data_fitszilla(fname)
@@ -226,7 +226,7 @@ def root_name(fname):
 
 #@profile
 def profile_coords():
-        '''Same test above, with profiling'''
+        """Same test above, with profiling."""
         global DEBUG_MODE
         DEBUG_MODE = True
         curdir = os.path.abspath(os.path.dirname(__file__))
