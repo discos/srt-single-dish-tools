@@ -1,3 +1,4 @@
+"""Interactive operations."""
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
@@ -8,7 +9,7 @@ from .fit import linear_fit, linear_fun, align
 
 
 def mask(xs, border_xs, invert=False):
-    '''Create mask from a list of interval borders.
+    """Create mask from a list of interval borders.
 
     Parameters
     ----------
@@ -28,7 +29,7 @@ def mask(xs, border_xs, invert=False):
         Mask value is False if invert = False, and vice versa.
         E.g. for zapped intervals, invert = False. For baseline fit selections,
         invert = True
-    '''
+    """
     good = np.ones(len(xs), dtype=bool)
     if len(border_xs) >= 2:
         intervals = list(zip(border_xs[:-1:2], border_xs[1::2]))
@@ -42,22 +43,29 @@ def mask(xs, border_xs, invert=False):
 
 
 class intervals():
-    '''A list of xs and ys of the points taken during interactive selection'''
+    """A list of xs and ys of the points taken during interactive selection."""
+
     def __init__(self):
+        """Initialize."""
         self.xs = []
         self.ys = []
 
     def clear(self):
+        """Clear."""
         self.xs = []
         self.ys = []
 
     def add(self, point):
+        """Append points."""
         self.xs.append(point[0])
         self.ys.append(point[1])
 
 
 class DataSelector:
+    """Plot and process scans interactively."""
+
     def __init__(self, xs, ys, ax1, ax2, masks=None, xlabel=None, title=None):
+        """Initialize."""
         self.xs = xs
         self.ys = ys
         if masks is None:
@@ -95,7 +103,7 @@ class DataSelector:
         pass
 
     def zap(self, event):
-        '''Create a zap interval'''
+        """Create a zap interval."""
         key = self.current
         if key is None:
             return
@@ -112,7 +120,7 @@ class DataSelector:
         plt.draw()
 
     def base(self, event):
-        '''Adds an interval to the ones that will be used by baseline sub.'''
+        """Adds an interval to the ones that will be used by baseline sub."""
         key = self.current
         if key is None:
             return
@@ -129,7 +137,7 @@ class DataSelector:
         plt.draw()
 
     def on_key(self, event):
-        '''What to do when the keyboard is used'''
+        """What to do when the keyboard is used."""
 
         current = self.current
         if event.key == 'z':
@@ -168,7 +176,7 @@ class DataSelector:
             pass
 
     def subtract_baseline(self):
-        '''Subtract the baseline based on the selected intervals'''
+        """Subtract the baseline based on the selected intervals."""
         key = self.current
         if len(self.info[key]['base'].xs) < 2:
             self.info[key]['fitpars'] = np.array([np.min(self.ys[key]), 0])
@@ -187,7 +195,7 @@ class DataSelector:
         return self.ys[channel] - linear_fun(self.xs[channel], *fitpars)
 
     def align_all(self):
-        '''Given the selected scan, aligns all the others to that.'''
+        """Given the selected scan, aligns all the others to that."""
         reference = self.current
 
         x = np.array(self.xs[reference])
@@ -293,7 +301,7 @@ class DataSelector:
         plt.draw()
 
     def print_instructions(self):
-        instructions = '''
+        instructions = """
 -------------------------------------------------------------
 
 Interactive plotter.
@@ -319,7 +327,7 @@ Actions:
     q     quit
 
 -------------------------------------------------------------
-    '''
+    """
 
         print(instructions)
 
@@ -357,7 +365,7 @@ def select_data(xs, ys, masks=None, title=None, xlabel=None):
 
 
 class ImageSelector():
-    '''Return xs and ys of the image, and the key that was pressed.
+    """Return xs and ys of the image, and the key that was pressed.
 
     Attributes
     ----------
@@ -368,7 +376,7 @@ class ImageSelector():
     fun : function
         the function to call when a key is pressed. It must accept three
         arguments: `x`, `y` and `key`
-    '''
+    """
     def __init__(self, data, ax, fun=None):
         """
         Parameters
