@@ -46,7 +46,7 @@ def decide_symbol(values):
 
 
 def read_calibrator_config():
-    """Read the configuration of calibrators in data/calibrators"""
+    """Read the configuration of calibrators in data/calibrators."""
     flux_re = re.compile(r'^Flux')
     curdir = os.path.dirname(__file__)
     calibdir = os.path.join(curdir, '..', 'data', 'calibrators')
@@ -314,7 +314,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
 
 def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
                    picklefile=None, verbose=True, freqsplat=None):
-    """Get all fluxes in the directories specified by the config file"""
+    """Get all fluxes in the directories specified by the config file."""
     config = read_config(config_file)
 
     dir_list = config['list_of_directories']
@@ -339,7 +339,7 @@ def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
 
 
 def show_calibration(full_table, feed=0, plotall=False):
-    """Show the results of calibration"""
+    """Show the results of calibration."""
     import matplotlib as mpl
 
     dir_list = list(set(full_table["Dir"]))
