@@ -5,12 +5,12 @@ import numpy as np
 
 
 def linear_fun(x, q, m):
-    '''A linear function'''
+    """A linear function."""
     return m * x + q
 
 
 def linear_fit(time, lc, start_pars, return_err=False):
-    '''A linear fit with any set of data. Return the parameters'''
+    """A linear fit with any set of data. Return the parameters."""
     par, pcov = curve_fit(linear_fun, time, lc, start_pars,
                           maxfev=6000)
     if return_err:
@@ -20,7 +20,7 @@ def linear_fit(time, lc, start_pars, return_err=False):
 
 
 def baseline_rough(time, lc, start_pars=None):
-    '''Rough function to subtract the baseline'''
+    """Rough function to subtract the baseline."""
 
     if start_pars is None:
         m0 = 0
@@ -74,8 +74,8 @@ def baseline_als(x, y, lam=None, p=None, niter=10):
 
 
 def minimize_align(xs, ys, params):
-    '''Calculate the total variance of a series of scans, after subtracting
-    a linear function from each of them (excluding the first one)'''
+    """Calculate the total variance of a series of scans, after subtracting
+    a linear function from each of them (excluding the first one)"""
 
     params = np.array(params).flatten()
     qs = params[:len(xs) - 1]
@@ -106,12 +106,12 @@ def minimize_align(xs, ys, params):
 
 
 def objective_function(params, args):
-    '''Put the parameters in the right order to use with scipy's minimize'''
+    """Put the parameters in the right order to use with scipy's minimize."""
     return minimize_align(args[0], args[1], params)
 
 
 def align(xs, ys):
-    '''Given the first scan, it aligns all the others to that'''
+    """Given the first scan, it aligns all the others to that."""
     from scipy.optimize import minimize
 
     qs = np.zeros(len(xs) - 1)
