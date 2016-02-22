@@ -45,6 +45,10 @@ def sample_config_file(fname='sample_config_file.ini'):
 ;; Channels to save from RFI filtering. It might indicate known strong spectral
 ;; lines
     goodchans :
+
+;; Percentage of channels to filter out for rough RFI filtering (Spectral data
+;; only)
+    filtering_factor : 0.3
     """
     with open(fname, 'w') as fobj:
         print(string, file=fobj)
@@ -88,6 +92,7 @@ def read_config(fname=None):
     config_output['list_of_directories'] = '*'
     config_output['npix'] = '32 32'
     config_output['goodchans'] = None
+    config_output['filtering_factor'] = 0
 
     # --------------------------------------------------------------------
 
