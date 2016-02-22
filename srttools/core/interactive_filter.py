@@ -394,6 +394,7 @@ class ImageSelector():
         self.fun = fun
         self.plot_img()
         ax.figure.canvas.mpl_connect('key_press_event', self.on_key)
+        plt.show()
 
     def on_key(self, event):
         x, y = event.xdata, event.ydata
