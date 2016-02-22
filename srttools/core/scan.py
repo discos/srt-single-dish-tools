@@ -2,7 +2,7 @@
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
-from .io import read_data, root_name
+from .io import read_data, root_name, DEBUG_MODE
 import glob
 from .read_config import read_config, get_config_file, sample_config_file
 import os
@@ -15,6 +15,8 @@ from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
 import re
 import sys
+import warnings
+import logging
 
 chan_re = re.compile(r'^Ch[0-9]+$')
 
@@ -53,7 +55,7 @@ class Scan(Table):
             if os.path.exists(root_name(data) + '.hdf5'):
                 data = root_name(data) + '.hdf5'
             if verbose:
-                print('Loading file {}'.format(data))
+                logging.info('Loading file {}'.format(data))
             table = read_data(data)
             Table.__init__(self, table, masked=True, **kwargs)
             self.meta['filename'] = os.path.abspath(data)
@@ -84,7 +86,6 @@ class Scan(Table):
                     self[ch + 'TEMP'] = \
                         Column(np.sum(self[ch][:, binmin:binmax], axis=1))
                     self[ch + 'TEMP'].meta.update(self[ch].meta)
-                    # print(self[ch + 'TEMP'].meta)
                     self.remove_column(ch)
                     self[ch + 'TEMP'].name = ch
                     self[ch].meta['bandwidth'] = freqmax - freqmin
@@ -95,10 +96,9 @@ class Scan(Table):
             if ('backsub' not in self.meta.keys() or
                     not self.meta['backsub']) \
                     and not norefilt:
-                print('Subtracting the baseline')
+                logging.info('Subtracting the baseline')
                 self.baseline_subtract()
 
-            # print()
             if not nosave:
                 self.save()
 
@@ -127,12 +127,12 @@ class Scan(Table):
         """Give the print() function something to print."""
         reprstring = \
             '\n\n----Scan from file {0} ----\n'.format(self.meta['filename'])
-        reprstring += repr(self)
+        reprstring += repr(Table(self))
         return reprstring
 
     def write(self, fname, **kwargs):
         """Set default path and call Table.write."""
-        print('Saving to {}'.format(fname))
+        logging.info('Saving to {}'.format(fname))
         t = Table(self)
         t.write(fname, path='scan', **kwargs)
 
@@ -224,13 +224,15 @@ class ScanSet(Table):
 
             tables = []
 
-            for i_s, s in enumerate(self.load_scans(scan_list,
-                                    freqsplat=freqsplat, **kwargs)):
+            for i_s, s in self.load_scans(scan_list,
+                                          freqsplat=freqsplat, **kwargs):
+
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
                 tables.append(s)
+
             scan_table = Table(vstack(tables))
 
             Table.__init__(self, scan_table)
@@ -272,12 +274,13 @@ class ScanSet(Table):
 
     def load_scans(self, scan_list, freqsplat=None, **kwargs):
         """Load the scans in the list one by ones."""
-        for f in scan_list:
+        for i, f in enumerate(scan_list):
             try:
-                yield Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
-                           **kwargs)
+                s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
+                         **kwargs)
+                yield i, s
             except:
-                pass
+                warnings.warn("Error while processing {}".format(f))
 
     def get_coordinates(self, altaz=False):
         """Give the coordinates as pairs of RA, DEC."""
@@ -476,155 +479,145 @@ class ScanSet(Table):
 
 
     def rerun_scan_analysis(self, x, y, key):
-        print(x, y, key)
+        """Rerun the analysis of single scans."""
+        logging.debug(x, y, key)
         if key == 'a':
-            ra_xs = {}
-            ra_ys = {}
-            dec_xs = {}
-            dec_ys = {}
-            scan_ids = {}
-
-            ch = self.current
-            feed = list(set(self[ch+'_feed']))[0]
-
-            # Select data inside the pixel +- 1
-
-            good_entries = \
-                np.logical_and(
-                    np.abs(self['x'][:, feed] - x) < 1,
-                    np.abs(self['y'][:, feed] - y) < 1)
-            sids = list(set(self['Scan_id'][good_entries]))
-            vars_to_filter = {}
-            ra_masks = {}
-            dec_masks = {}
-            for sid in sids:
-                sname = self.meta['scan_list'][sid].decode()
-                try:
-                    s = Scan(sname)
-                except:
-                    continue
-                try:
-                    chan_mask = s['{}-filt'.format(ch)]
-                except:
-                    chan_mask = np.zeros_like(s[ch])
-
-                scan_ids[sname] = sid
-                ras = s['ra'][:, feed]
-                decs = s['dec'][:, feed]
-
-                z = s[ch]
-
-                ravar = np.max(ras) - np.min(ras)
-                decvar = np.max(decs) - np.min(decs)
-                if ravar > decvar:
-                    vars_to_filter[sname] = 'ra'
-                    ra_xs[sname] = ras
-                    ra_ys[sname] = z
-                    ra_masks[sname] = chan_mask
-                else:
-                    vars_to_filter[sname] = 'dec'
-                    dec_xs[sname] = decs
-                    dec_ys[sname] = z
-                    dec_masks[sname] = chan_mask
-
-            info = select_data(ra_xs, ra_ys, masks=ra_masks,
-                               xlabel='RA', title='RA')
-            plt.show()
-            for sname in info.keys():
-                mask = self['Scan_id'] == scan_ids[sname]
-                try:
-                    s = Scan(sname)
-                except:
-                    continue
-                dim = vars_to_filter[sname]
-                if len(info[sname]['zap'].xs) > 0:
-
-                    xs = info[sname]['zap'].xs
-                    good = np.ones(len(s[dim]), dtype=bool)
-                    if len(xs) >= 2:
-                        intervals = list(zip(xs[:-1:2], xs[1::2]))
-                        for i in intervals:
-                            good[np.logical_and(s[dim][:, feed] >= i[0],
-                                                s[dim][:, feed] <= i[1])] = False
-                    s['{}-filt'.format(ch)] = good
-                    print(s['{}-filt'.format(ch)])
-                    self['{}-filt'.format(ch)][mask] = good
-                    print(len(good), len(s[ch]))
-
-                if len(info[sname]['fitpars']) > 1:
-                    s[ch] -= linear_fun(s[dim][:, feed],
-                                        *info[sname]['fitpars'])
-                # TODO: make it channel-independent
-                    s.meta['backsub'] = True
-                    try:
-                        self[ch][mask][:] = s[ch]
-                    except:
-                        print(ch, sname, s.meta['filename'], scan_ids[sname],
-                              self['Scan_id'][mask], s[ch], self[ch][mask])
-                        plt.figure("DEBUG")
-                        plt.plot(self['ra'][mask], self['dec'][mask])
-                        plt.show()
-                        raise
-
-                # TODO: make it channel-independent
-                if info[sname]['FLAG']:
-                    s.meta['FLAG'] = True
-                    self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
-                                                                dtype=bool)
-
-                s.save()
-
-            info = select_data(dec_xs, dec_ys, masks=dec_masks,
-                               xlabel='Dec', title='Dec')
-            plt.show()
-
-            for sname in info.keys():
-                mask = self['Scan_id'] == scan_ids[sname]
-                try:
-                    s = Scan(sname)
-                except:
-                    continue
-                dim = vars_to_filter[sname]
-                if len(info[sname]['zap'].xs) > 0:
-
-                    xs = info[sname]['zap'].xs
-                    good = np.ones(len(s[dim]), dtype=bool)
-                    if len(xs) >= 2:
-                        intervals = list(zip(xs[:-1:2], xs[1::2]))
-                        for i in intervals:
-                            good[np.logical_and(s[dim][:, feed] >= i[0],
-                                                s[dim][:, feed] <= i[1])] = False
-                    s['{}-filt'.format(ch)] = good
-                    print(s['{}-filt'.format(ch)])
-                    self['{}-filt'.format(ch)][mask] = good
-
-                if len(info[sname]['fitpars']) > 1:
-                    s[ch] -= linear_fun(s[dim][:, feed],
-                                        *info[sname]['fitpars'])
-                # TODO: make it channel-independent
-                    s.meta['backsub'] = True
-                    self[ch][mask][:] = s[ch]
-
-                # TODO: make it channel-independent
-                if info[sname]['FLAG']:
-                    s.meta['FLAG'] = True
-                    self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
-                                                                dtype=bool)
-
-                s.save()
-
-            self.interactive_display(ch=ch, recreate=True)
-
-
+            self.reprocess_scans_through_pixel(x, y)
         elif key == 'h':
             pass
         elif key == 'v':
             pass
 
+    def reprocess_scans_through_pixel(self, x, y):
+        """Given a pixel in the image, find all scans passing through it."""
+        ch = self.current
+
+        ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, \
+            vars_to_filter = \
+            self.find_scans_through_pixel(x, y)
+
+        info = select_data(ra_xs, ra_ys, masks=ra_masks,
+                           xlabel="RA", title="RA")
+
+        for sname in info.keys():
+            self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
+                             info[sname]['zap'],
+                             info[sname]['fitpars'], info[sname]['FLAG'])
+
+        info = select_data(dec_xs, dec_ys, masks=dec_masks, xlabel="Dec",
+                           title="Dec")
+
+        for sname in info.keys():
+            self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
+                             info[sname]['zap'],
+                             info[sname]['fitpars'], info[sname]['FLAG'])
+
+        self.interactive_display(ch=ch, recreate=True)
+
+    def find_scans_through_pixel(self, x, y):
+        """Find scans passing through a pixel."""
+        ra_xs = {}
+        ra_ys = {}
+        dec_xs = {}
+        dec_ys = {}
+        scan_ids = {}
+        ra_masks = {}
+        dec_masks = {}
+        vars_to_filter = {}
+
+        ch = self.current
+        feed = list(set(self[ch+'_feed']))[0]
+
+        # Select data inside the pixel +- 1
+
+        good_entries = \
+            np.logical_and(
+                np.abs(self['x'][:, feed] - x) < 1,
+                np.abs(self['y'][:, feed] - y) < 1)
+
+        sids = list(set(self['Scan_id'][good_entries]))
+
+        for sid in sids:
+            sname = self.meta['scan_list'][sid].decode()
+            try:
+                s = Scan(sname)
+            except:
+                continue
+            try:
+                chan_mask = s['{}-filt'.format(ch)]
+            except:
+                chan_mask = np.zeros_like(s[ch])
+
+            scan_ids[sname] = sid
+            ras = s['ra'][:, feed]
+            decs = s['dec'][:, feed]
+
+            z = s[ch]
+
+            ravar = np.max(ras) - np.min(ras)
+            decvar = np.max(decs) - np.min(decs)
+            if ravar > decvar:
+                vars_to_filter[sname] = 'ra'
+                ra_xs[sname] = ras
+                ra_ys[sname] = z
+                ra_masks[sname] = chan_mask
+            else:
+                vars_to_filter[sname] = 'dec'
+                dec_xs[sname] = decs
+                dec_ys[sname] = z
+                dec_masks[sname] = chan_mask
+
+        return ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, \
+            vars_to_filter
+
+    def update_scan(self, sname, sid, dim, zap_info, fit_info, flag_info):
+        """Update a scan in the scanset after filtering."""
+        ch = self.current
+        feed = list(set(self[ch+'_feed']))[0]
+        mask = self['Scan_id'] == sid
+        try:
+            s = Scan(sname)
+        except:
+            return
+
+        if len(zap_info.xs) > 0:
+
+            xs = zap_info.xs
+            good = np.ones(len(s[dim]), dtype=bool)
+            if len(xs) >= 2:
+                intervals = list(zip(xs[:-1:2], xs[1::2]))
+                for i in intervals:
+                    good[np.logical_and(s[dim][:, feed] >= i[0],
+                                        s[dim][:, feed] <= i[1])] = False
+            s['{}-filt'.format(ch)] = good
+            self['{}-filt'.format(ch)][mask] = good
+
+        if len(fit_info) > 1:
+            s[ch] -= linear_fun(s[dim][:, feed],
+                                *fit_info)
+        # TODO: make it channel-independent
+            s.meta['backsub'] = True
+            try:
+                self[ch][mask][:] = s[ch]
+            except:
+                warnings.warn("Something while treating {}".format(sname))
+
+                plt.figure("DEBUG")
+                plt.plot(self['ra'][mask], self['dec'][mask])
+                plt.show()
+                raise
+
+        # TODO: make it channel-independent
+        if flag_info:
+            s.meta['FLAG'] = True
+            self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
+                                                        dtype=bool)
+
+        s.save()
+
     def write(self, fname, **kwargs):
         """Set default path and call Table.write."""
         t = Table(self)
-        print(t.meta)
         t.write(fname, path='scanset', **kwargs)
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
