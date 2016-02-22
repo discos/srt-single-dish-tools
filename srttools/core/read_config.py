@@ -1,3 +1,5 @@
+"""Read the configuration file."""
+
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 import os
@@ -14,38 +16,47 @@ SRT_tools_config = None
 
 
 def sample_config_file(fname='sample_config_file.ini'):
+    """Create a sample config file, to be modified by hand."""
     string = """
 [local]
-     workdir : .
-     datadir : ../../TEST_DATASET
+    workdir : .
+    datadir : ../../TEST_DATASET
 
-     [analysis]
-     projection : ARC
-     interpolation : spline
-     prefix : test_
-     list_of_directories :
-         dir1
-         dir2
-;               (....)
+[analysis]
+    projection : ARC
+    interpolation : spline
+    prefix : test_
+    list_of_directories :
+;;Two options: either a list of directories:
+;        dir1
+;        dir2
+;; or a star symbol for all directories
+;         *
 
-     ; Coordinates have to be specified in decimal degrees
-     ;reference_ra : 10.5
-     ;reference_dec : 5.3
+;; Coordinates have to be specified in decimal degrees. ONLY use if different
+;; from target coordinates!
+;    reference_ra : 10.5
+;    reference_dec : 5.3
 
-     ; Number of pixels, specified as pair x y
+;; Number of pixels, specified as pair x y
 
-     npix : 30 30
+    npix : 30 30
+
+;; Channels to save from RFI filtering. It might indicate known strong spectral
+;; lines
+    goodchans :
     """
     with open(fname, 'w') as fobj:
         print(string, file=fobj)
 
 
 def get_config_file():
+    """Get the current config file."""
     return SRT_tools_config_file
 
 
 def read_config(fname=None):
-    '''Read a config file and return a dictionary of all entries'''
+    """Read a config file and return a dictionary of all entries."""
     global SRT_tools_config_file, SRT_tools_config
 
     # --- If already read, use existing config ---
@@ -73,11 +84,10 @@ def read_config(fname=None):
     config_output['projection'] = 'ARC'
     config_output['interpolation'] = 'linear'
     config_output['workdir'] = './'
-    config_output['datadir'] = os.path.abspath(
-        os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                     '..', '..', 'TEST_DATASET'))
+    config_output['datadir'] = './'
     config_output['list_of_directories'] = '*'
     config_output['npix'] = '32 32'
+    config_output['goodchans'] = None
 
     # --------------------------------------------------------------------
 
@@ -112,7 +122,7 @@ def read_config(fname=None):
 
 
 def test_read_config():
-    '''Test that config file are read.'''
+    """Test that config file are read."""
     import os
     curdir = os.path.abspath(os.path.dirname(__file__))
     datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
@@ -127,7 +137,7 @@ def test_read_config():
 
 
 def test_read_incomplete_config():
-    '''Test that config file are read.'''
+    """Test that config file are read."""
     import os
     curdir = os.path.abspath(os.path.dirname(__file__))
     datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
