@@ -476,150 +476,144 @@ class ScanSet(Table):
 
 
     def rerun_scan_analysis(self, x, y, key):
+        """Rerun the analysis of single scans."""
         print(x, y, key)
         if key == 'a':
-            ra_xs = {}
-            ra_ys = {}
-            dec_xs = {}
-            dec_ys = {}
-            scan_ids = {}
-
-            ch = self.current
-            feed = list(set(self[ch+'_feed']))[0]
-
-            # Select data inside the pixel +- 1
-
-            good_entries = \
-                np.logical_and(
-                    np.abs(self['x'][:, feed] - x) < 1,
-                    np.abs(self['y'][:, feed] - y) < 1)
-            sids = list(set(self['Scan_id'][good_entries]))
-            vars_to_filter = {}
-            ra_masks = {}
-            dec_masks = {}
-            for sid in sids:
-                sname = self.meta['scan_list'][sid].decode()
-                try:
-                    s = Scan(sname)
-                except:
-                    continue
-                try:
-                    chan_mask = s['{}-filt'.format(ch)]
-                except:
-                    chan_mask = np.zeros_like(s[ch])
-
-                scan_ids[sname] = sid
-                ras = s['ra'][:, feed]
-                decs = s['dec'][:, feed]
-
-                z = s[ch]
-
-                ravar = np.max(ras) - np.min(ras)
-                decvar = np.max(decs) - np.min(decs)
-                if ravar > decvar:
-                    vars_to_filter[sname] = 'ra'
-                    ra_xs[sname] = ras
-                    ra_ys[sname] = z
-                    ra_masks[sname] = chan_mask
-                else:
-                    vars_to_filter[sname] = 'dec'
-                    dec_xs[sname] = decs
-                    dec_ys[sname] = z
-                    dec_masks[sname] = chan_mask
-
-            info = select_data(ra_xs, ra_ys, masks=ra_masks,
-                               xlabel='RA', title='RA')
-            plt.show()
-            for sname in info.keys():
-                mask = self['Scan_id'] == scan_ids[sname]
-                try:
-                    s = Scan(sname)
-                except:
-                    continue
-                dim = vars_to_filter[sname]
-                if len(info[sname]['zap'].xs) > 0:
-
-                    xs = info[sname]['zap'].xs
-                    good = np.ones(len(s[dim]), dtype=bool)
-                    if len(xs) >= 2:
-                        intervals = list(zip(xs[:-1:2], xs[1::2]))
-                        for i in intervals:
-                            good[np.logical_and(s[dim][:, feed] >= i[0],
-                                                s[dim][:, feed] <= i[1])] = False
-                    s['{}-filt'.format(ch)] = good
-                    print(s['{}-filt'.format(ch)])
-                    self['{}-filt'.format(ch)][mask] = good
-                    print(len(good), len(s[ch]))
-
-                if len(info[sname]['fitpars']) > 1:
-                    s[ch] -= linear_fun(s[dim][:, feed],
-                                        *info[sname]['fitpars'])
-                # TODO: make it channel-independent
-                    s.meta['backsub'] = True
-                    try:
-                        self[ch][mask][:] = s[ch]
-                    except:
-                        print(ch, sname, s.meta['filename'], scan_ids[sname],
-                              self['Scan_id'][mask], s[ch], self[ch][mask])
-                        plt.figure("DEBUG")
-                        plt.plot(self['ra'][mask], self['dec'][mask])
-                        plt.show()
-                        raise
-
-                # TODO: make it channel-independent
-                if info[sname]['FLAG']:
-                    s.meta['FLAG'] = True
-                    self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
-                                                                dtype=bool)
-
-                s.save()
-
-            info = select_data(dec_xs, dec_ys, masks=dec_masks,
-                               xlabel='Dec', title='Dec')
-            plt.show()
-
-            for sname in info.keys():
-                mask = self['Scan_id'] == scan_ids[sname]
-                try:
-                    s = Scan(sname)
-                except:
-                    continue
-                dim = vars_to_filter[sname]
-                if len(info[sname]['zap'].xs) > 0:
-
-                    xs = info[sname]['zap'].xs
-                    good = np.ones(len(s[dim]), dtype=bool)
-                    if len(xs) >= 2:
-                        intervals = list(zip(xs[:-1:2], xs[1::2]))
-                        for i in intervals:
-                            good[np.logical_and(s[dim][:, feed] >= i[0],
-                                                s[dim][:, feed] <= i[1])] = False
-                    s['{}-filt'.format(ch)] = good
-                    print(s['{}-filt'.format(ch)])
-                    self['{}-filt'.format(ch)][mask] = good
-
-                if len(info[sname]['fitpars']) > 1:
-                    s[ch] -= linear_fun(s[dim][:, feed],
-                                        *info[sname]['fitpars'])
-                # TODO: make it channel-independent
-                    s.meta['backsub'] = True
-                    self[ch][mask][:] = s[ch]
-
-                # TODO: make it channel-independent
-                if info[sname]['FLAG']:
-                    s.meta['FLAG'] = True
-                    self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
-                                                                dtype=bool)
-
-                s.save()
-
-            self.interactive_display(ch=ch, recreate=True)
-
-
+            self.reprocess_scans_through_pixel(x, y)
         elif key == 'h':
             pass
         elif key == 'v':
             pass
+
+    def reprocess_scans_through_pixel(self, x, y):
+        """Given a pixel in the image, find all scans passing through it."""
+        ch = self.current
+
+        ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, \
+            vars_to_filter = \
+            self.find_scans_through_pixel(x, y)
+
+        info = select_data(ra_xs, ra_ys, masks=ra_masks,
+                           xlabel="RA", title="RA")
+
+        for sname in info.keys():
+            self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
+                             info[sname]['zap'],
+                             info[sname]['fitpars'], info[sname]['FLAG'])
+
+        info = select_data(dec_xs, dec_ys, masks=dec_masks, xlabel="Dec",
+                           title="Dec")
+
+        for sname in info.keys():
+            self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
+                             info[sname]['zap'],
+                             info[sname]['fitpars'], info[sname]['FLAG'])
+
+        self.interactive_display(ch=ch, recreate=True)
+
+    def find_scans_through_pixel(self, x, y):
+        """Find scans passing through a pixel."""
+        ra_xs = {}
+        ra_ys = {}
+        dec_xs = {}
+        dec_ys = {}
+        scan_ids = {}
+        ra_masks = {}
+        dec_masks = {}
+        vars_to_filter = {}
+
+        ch = self.current
+        feed = list(set(self[ch+'_feed']))[0]
+
+        # Select data inside the pixel +- 1
+
+        good_entries = \
+            np.logical_and(
+                np.abs(self['x'][:, feed] - x) < 1,
+                np.abs(self['y'][:, feed] - y) < 1)
+
+        sids = list(set(self['Scan_id'][good_entries]))
+
+        for sid in sids:
+            sname = self.meta['scan_list'][sid].decode()
+            try:
+                s = Scan(sname)
+            except:
+                continue
+            try:
+                chan_mask = s['{}-filt'.format(ch)]
+            except:
+                chan_mask = np.zeros_like(s[ch])
+
+            scan_ids[sname] = sid
+            ras = s['ra'][:, feed]
+            decs = s['dec'][:, feed]
+
+            z = s[ch]
+
+            ravar = np.max(ras) - np.min(ras)
+            decvar = np.max(decs) - np.min(decs)
+            if ravar > decvar:
+                vars_to_filter[sname] = 'ra'
+                ra_xs[sname] = ras
+                ra_ys[sname] = z
+                ra_masks[sname] = chan_mask
+            else:
+                vars_to_filter[sname] = 'dec'
+                dec_xs[sname] = decs
+                dec_ys[sname] = z
+                dec_masks[sname] = chan_mask
+
+        return ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, \
+            vars_to_filter
+
+    def update_scan(self, sname, sid, dim, zap_info, fit_info, flag_info):
+        """Update a scan in the scanset after filtering."""
+        ch = self.current
+        feed = list(set(self[ch+'_feed']))[0]
+        mask = self['Scan_id'] == sid
+        try:
+            s = Scan(sname)
+        except:
+            return
+
+        if len(zap_info.xs) > 0:
+
+            xs = zap_info.xs
+            good = np.ones(len(s[dim]), dtype=bool)
+            if len(xs) >= 2:
+                intervals = list(zip(xs[:-1:2], xs[1::2]))
+                for i in intervals:
+                    good[np.logical_and(s[dim][:, feed] >= i[0],
+                                        s[dim][:, feed] <= i[1])] = False
+            s['{}-filt'.format(ch)] = good
+            print(s['{}-filt'.format(ch)])
+            self['{}-filt'.format(ch)][mask] = good
+            print(len(good), len(s[ch]))
+
+        if len(fit_info) > 1:
+            s[ch] -= linear_fun(s[dim][:, feed],
+                                *fit_info)
+        # TODO: make it channel-independent
+            s.meta['backsub'] = True
+            try:
+                self[ch][mask][:] = s[ch]
+            except:
+                print(ch, sname, s.meta['filename'], sid,
+                      self[ch][mask], self['Scan_id'][mask], s[ch])
+
+                plt.figure("DEBUG")
+                plt.plot(self['ra'][mask], self['dec'][mask])
+                plt.show()
+                raise
+
+        # TODO: make it channel-independent
+        if flag_info:
+            s.meta['FLAG'] = True
+            self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
+                                                        dtype=bool)
+
+        s.save()
 
     def write(self, fname, **kwargs):
         """Set default path and call Table.write."""
