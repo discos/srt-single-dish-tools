@@ -161,7 +161,7 @@ class Scan(Table):
             if good_mask is not None:
                 total_spec[good_mask] = 0
 
-            mask = total_spec >= \
+            mask = total_spec <= \
                 np.percentile(total_spec, 1 - self.meta['filtering_factor'])
             masks[ch] = mask
         return masks
