@@ -138,9 +138,9 @@ class Scan(Table):
 
         Returns
         -------
-        mask : boolean array
-            this mask contains True values for good channels, and False for bad
-            channels.
+        masks : dictionary of boolean arrays
+            this dictionary contains, for each detector/polarization, True
+            values for good spectral channels, and False for bad channels.
         """
         if self.meta['filtering_factor'] <= 0:
             return
