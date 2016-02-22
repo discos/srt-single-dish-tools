@@ -65,7 +65,7 @@ class Scan(Table):
 
             self.check_order()
 
-            masks = self.mask_noisy_channels()
+            masks = self.mask_noisy_channels(freqsplat=freqsplat)
 
             if freqsplat is not None:
                 self.make_single_channel(freqsplat, masks=masks)
