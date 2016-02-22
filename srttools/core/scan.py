@@ -164,10 +164,11 @@ class Scan(Table):
                 total_spec[good_mask] = 0
             plt.plot(total_spec)
             threshold = \
-                np.percentile(total_spec, 1 - self.meta['filtering_factor'])
+                np.percentile(total_spec,
+                              (1 - self.meta['filtering_factor']) * 100)
             mask = total_spec <= threshold
             plt.axhline(threshold)
-            print(1 - self.meta['filtering_factor'])
+
             plt.show()
 
             masks[ch] = mask
