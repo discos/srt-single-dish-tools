@@ -2,7 +2,7 @@
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
-from .io import read_data, root_name
+from .io import read_data, root_name, DEBUG_MODE
 import glob
 from .read_config import read_config, get_config_file, sample_config_file
 import os
@@ -15,6 +15,8 @@ from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
 import re
 import sys
+import warnings
+import logging
 
 chan_re = re.compile(r'^Ch[0-9]+$')
 
@@ -53,7 +55,7 @@ class Scan(Table):
             if os.path.exists(root_name(data) + '.hdf5'):
                 data = root_name(data) + '.hdf5'
             if verbose:
-                print('Loading file {}'.format(data))
+                logging.info('Loading file {}'.format(data))
             table = read_data(data)
             Table.__init__(self, table, masked=True, **kwargs)
             self.meta['filename'] = os.path.abspath(data)
@@ -84,7 +86,6 @@ class Scan(Table):
                     self[ch + 'TEMP'] = \
                         Column(np.sum(self[ch][:, binmin:binmax], axis=1))
                     self[ch + 'TEMP'].meta.update(self[ch].meta)
-                    # print(self[ch + 'TEMP'].meta)
                     self.remove_column(ch)
                     self[ch + 'TEMP'].name = ch
                     self[ch].meta['bandwidth'] = freqmax - freqmin
@@ -95,10 +96,9 @@ class Scan(Table):
             if ('backsub' not in self.meta.keys() or
                     not self.meta['backsub']) \
                     and not norefilt:
-                print('Subtracting the baseline')
+                logging.info('Subtracting the baseline')
                 self.baseline_subtract()
 
-            # print()
             if not nosave:
                 self.save()
 
@@ -127,12 +127,12 @@ class Scan(Table):
         """Give the print() function something to print."""
         reprstring = \
             '\n\n----Scan from file {0} ----\n'.format(self.meta['filename'])
-        reprstring += repr(self)
+        reprstring += repr(Table(self))
         return reprstring
 
     def write(self, fname, **kwargs):
         """Set default path and call Table.write."""
-        print('Saving to {}'.format(fname))
+        logging.info('Saving to {}'.format(fname))
         t = Table(self)
         t.write(fname, path='scan', **kwargs)
 
@@ -224,13 +224,15 @@ class ScanSet(Table):
 
             tables = []
 
-            for i_s, s in enumerate(self.load_scans(scan_list,
-                                    freqsplat=freqsplat, **kwargs)):
+            for i_s, s in self.load_scans(scan_list,
+                                          freqsplat=freqsplat, **kwargs):
+
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
                 tables.append(s)
+
             scan_table = Table(vstack(tables))
 
             Table.__init__(self, scan_table)
@@ -272,12 +274,13 @@ class ScanSet(Table):
 
     def load_scans(self, scan_list, freqsplat=None, **kwargs):
         """Load the scans in the list one by ones."""
-        for f in scan_list:
+        for i, f in enumerate(scan_list):
             try:
-                yield Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
-                           **kwargs)
+                s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
+                         **kwargs)
+                yield i, s
             except:
-                pass
+                warnings.warn("Error while processing {}".format(f))
 
     def get_coordinates(self, altaz=False):
         """Give the coordinates as pairs of RA, DEC."""
@@ -477,7 +480,7 @@ class ScanSet(Table):
 
     def rerun_scan_analysis(self, x, y, key):
         """Rerun the analysis of single scans."""
-        print(x, y, key)
+        logging.debug(x, y, key)
         if key == 'a':
             self.reprocess_scans_through_pixel(x, y)
         elif key == 'h':
@@ -587,9 +590,7 @@ class ScanSet(Table):
                     good[np.logical_and(s[dim][:, feed] >= i[0],
                                         s[dim][:, feed] <= i[1])] = False
             s['{}-filt'.format(ch)] = good
-            print(s['{}-filt'.format(ch)])
             self['{}-filt'.format(ch)][mask] = good
-            print(len(good), len(s[ch]))
 
         if len(fit_info) > 1:
             s[ch] -= linear_fun(s[dim][:, feed],
@@ -599,8 +600,7 @@ class ScanSet(Table):
             try:
                 self[ch][mask][:] = s[ch]
             except:
-                print(ch, sname, s.meta['filename'], sid,
-                      self[ch][mask], self['Scan_id'][mask], s[ch])
+                warnings.warn("Something while treating {}".format(sname))
 
                 plt.figure("DEBUG")
                 plt.plot(self['ra'][mask], self['dec'][mask])
@@ -618,7 +618,6 @@ class ScanSet(Table):
     def write(self, fname, **kwargs):
         """Set default path and call Table.write."""
         t = Table(self)
-        print(t.meta)
         t.write(fname, path='scanset', **kwargs)
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
