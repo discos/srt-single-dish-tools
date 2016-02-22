@@ -125,7 +125,7 @@ class Scan(Table):
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
-    def mask_noisy_channels(self, good_mask=None, freqsplat=None):
+    def mask_noisy_channels(self, good_mask=None, freqsplat=None, debug=False):
         """Clean from RFI.
 
         Very rough now, it will become complicated eventually.
@@ -165,19 +165,21 @@ class Scan(Table):
                                                    nbin)
                 freqmask[0:binmin] = False
                 freqmask[binmax:] = False
-            plt.figure(np.random.uniform(0, 100000))
-            plt.plot(total_spec)
+            if debug:
+                plt.figure(np.random.uniform(0, 100000))
+                plt.plot(total_spec)
 
             if good_mask is not None:
                 total_spec[good_mask] = 0
-            plt.plot(total_spec)
+
             threshold = \
                 np.percentile(total_spec[freqmask],
                               (1 - self.meta['filtering_factor']) * 100)
             mask = total_spec <= threshold
-            plt.axhline(threshold)
-
-            plt.show()
+            if debug:
+                plt.plot(total_spec)
+                plt.axhline(threshold)
+                plt.show()
 
             masks[ch] = mask
 
