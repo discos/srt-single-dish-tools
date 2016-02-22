@@ -64,31 +64,11 @@ class Scan(Table):
             self.meta.update(read_config(self.meta['config_file']))
 
             self.check_order()
+
+            mask = self.mask_noisy_channels()
+
             if freqsplat is not None:
-                for ic, ch in enumerate(self.chan_columns()):
-                    if len(self[ch].shape) == 1:
-                        continue
-                    try:
-                        freqmin, freqmax = \
-                            [float(f) for f in freqsplat.split(':')]
-                    except:
-                        freqsplat = ":"
-
-                    if freqsplat == ":" or freqsplat == "all":
-                        bandwidth = self[ch].meta['bandwidth']
-                        freqmin = 0
-                        freqmax = bandwidth
-
-                    _, nbin = self[ch].shape
-                    binmin = nbin * freqmin / self[ch].meta['bandwidth']
-                    binmax = nbin * freqmax / self[ch].meta['bandwidth']
-
-                    self[ch + 'TEMP'] = \
-                        Column(np.sum(self[ch][:, binmin:binmax], axis=1))
-                    self[ch + 'TEMP'].meta.update(self[ch].meta)
-                    self.remove_column(ch)
-                    self[ch + 'TEMP'].name = ch
-                    self[ch].meta['bandwidth'] = freqmax - freqmin
+                self.make_single_channel(freqsplat, mask=mask)
 
             if interactive:
                 self.interactive_filter()
@@ -102,10 +82,88 @@ class Scan(Table):
             if not nosave:
                 self.save()
 
+    def interpret_frequency_range(self, freqsplat, bandwidth, nbin):
+        """Interpret the frequency range specified in freqsplat."""
+        try:
+            freqmin, freqmax = \
+                [float(f) for f in freqsplat.split(':')]
+        except:
+            freqsplat = ":"
+
+        if freqsplat == ":" or freqsplat == "all":
+            freqmin = 0
+            freqmax = bandwidth
+
+        binmin = nbin * freqmin / bandwidth
+        binmax = nbin * freqmax / bandwidth
+        return freqmin, freqmax, binmin, binmax
+
+    def make_single_channel(self, freqsplat, mask=None):
+        """Transform a spectrum into a single-channel count rate."""
+        for ic, ch in enumerate(self.chan_columns()):
+            if len(self[ch].shape) == 1:
+                continue
+
+            _, nbin = self[ch].shape
+
+            freqmin, freqmax, binmin, binmax = \
+                self.interpret_frequency_range(freqsplat,
+                                               self[ch].meta['bandwidth'],
+                                               nbin)
+            if mask is not None:
+                self[ch][:, np.logical_not(mask)] = 0
+
+            self[ch + 'TEMP'] = \
+                Column(np.sum(self[ch][:, binmin:binmax], axis=1))
+            self[ch + 'TEMP'].meta.update(self[ch].meta)
+            self.remove_column(ch)
+            self[ch + 'TEMP'].name = ch
+            self[ch].meta['bandwidth'] = freqmax - freqmin
+
     def chan_columns(self):
         """List columns containing samples."""
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
+
+    def mask_noisy_channels(self, good_mask=None):
+        """Clean from RFI.
+
+        Very rough now, it will become complicated eventually.
+
+        Parameters
+        ----------
+        good_mask : boolean array
+            this mask specifies intervals that should never be discarded as
+            RFI, for example because they contain spectral lines
+
+        Returns
+        -------
+        mask : boolean array
+            this mask contains True values for good channels, and False for bad
+            channels.
+        """
+        if self.meta['filtering_factor'] <= 0:
+            return
+        if self.meta['filtering_factor'] > 0.5:
+            warnings.warn("Don't use filtering factors > 0.5. Skipping.")
+            return
+        total_spec = 0
+
+        chans = self.chan_columns()
+        for ic, ch in enumerate(chans):
+            if len(self[ch].shape) == 1:
+                break
+            _, nbin = self[ch].shape
+
+            total_spec += np.sum(self[ch], axis=1)
+
+        if good_mask is not None:
+            total_spec[good_mask] = 0
+
+        mask = total_spec >= np.percentile(total_spec,
+                                           1 - self.meta['filtering_factor'])
+
+        return mask
 
     def baseline_subtract(self, kind='als'):
         """Subtract the baseline."""
@@ -476,7 +534,6 @@ class ScanSet(Table):
             img = self.images['{}-Sdev'.format(ch)]
             self.current = ch
             ImageSelector(img, ax, fun=self.rerun_scan_analysis)
-
 
     def rerun_scan_analysis(self, x, y, key):
         """Rerun the analysis of single scans."""
