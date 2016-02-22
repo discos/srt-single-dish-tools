@@ -65,10 +65,10 @@ class Scan(Table):
 
             self.check_order()
 
-            mask = self.mask_noisy_channels()
+            masks = self.mask_noisy_channels()
 
             if freqsplat is not None:
-                self.make_single_channel(freqsplat, mask=mask)
+                self.make_single_channel(freqsplat, masks=masks)
 
             if interactive:
                 self.interactive_filter()
@@ -98,7 +98,7 @@ class Scan(Table):
         binmax = nbin * freqmax / bandwidth
         return freqmin, freqmax, binmin, binmax
 
-    def make_single_channel(self, freqsplat, mask=None):
+    def make_single_channel(self, freqsplat, masks=None):
         """Transform a spectrum into a single-channel count rate."""
         for ic, ch in enumerate(self.chan_columns()):
             if len(self[ch].shape) == 1:
@@ -110,8 +110,8 @@ class Scan(Table):
                 self.interpret_frequency_range(freqsplat,
                                                self[ch].meta['bandwidth'],
                                                nbin)
-            if mask is not None:
-                self[ch][:, np.logical_not(mask)] = 0
+            if masks is not None:
+                self[ch][:, np.logical_not(masks[ch])] = 0
 
             self[ch + 'TEMP'] = \
                 Column(np.sum(self[ch][:, binmin:binmax], axis=1))
@@ -147,23 +147,23 @@ class Scan(Table):
         if self.meta['filtering_factor'] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
             return
-        total_spec = 0
 
+        masks = {}
         chans = self.chan_columns()
         for ic, ch in enumerate(chans):
             if len(self[ch].shape) == 1:
                 break
             _, nbin = self[ch].shape
 
-            total_spec += np.sum(self[ch], axis=1)
+            total_spec = np.sum(self[ch], axis=1)
 
-        if good_mask is not None:
-            total_spec[good_mask] = 0
+            if good_mask is not None:
+                total_spec[good_mask] = 0
 
-        mask = total_spec >= np.percentile(total_spec,
-                                           1 - self.meta['filtering_factor'])
-
-        return mask
+            mask = total_spec >= \
+                np.percentile(total_spec, 1 - self.meta['filtering_factor'])
+            masks[ch] = mask
+        return masks
 
     def baseline_subtract(self, kind='als'):
         """Subtract the baseline."""
