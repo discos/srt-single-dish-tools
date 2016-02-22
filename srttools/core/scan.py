@@ -1,6 +1,8 @@
+"""Scan and ScanSet classes."""
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
-from .io import read_data, root_name, DEBUG_MODE
+
+from .io import read_data, root_name
 import glob
 from .read_config import read_config, get_config_file, sample_config_file
 import os
@@ -8,20 +10,17 @@ import numpy as np
 from astropy import wcs
 from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
-import logging
 import matplotlib.pyplot as plt
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
-import astropy.units as u
 import re
-import unittest
 import sys
 
 chan_re = re.compile(r'^Ch[0-9]+$')
 
 
 def list_scans(datadir, dirlist):
-    '''List all scans contained in the directory listed in config'''
+    """List all scans contained in the directory listed in config."""
     scan_list = []
 
     for d in dirlist:
@@ -31,13 +30,16 @@ def list_scans(datadir, dirlist):
 
 
 class Scan(Table):
-    '''Class containing a single scan'''
+    """Class containing a single scan."""
+
     def __init__(self, data=None, config_file=None, norefilt=False,
                  interactive=False, nosave=False, verbose=True,
                  freqsplat=None, **kwargs):
-        '''Freqsplat is a string, freqmin:freqmax, and gives the limiting
-         frequencies of the interval to splat in a single channel'''
+        """Initialize a Scan object.
 
+        Freqsplat is a string, freqmin:freqmax, and gives the limiting
+        frequencies of the interval to splat in a single channel.
+        """
         if config_file is None:
             config_file = get_config_file()
 
@@ -65,7 +67,8 @@ class Scan(Table):
                     if len(self[ch].shape) == 1:
                         continue
                     try:
-                        freqmin, freqmax = [float(f) for f in freqsplat.split(':')]
+                        freqmin, freqmax = \
+                            [float(f) for f in freqsplat.split(':')]
                     except:
                         freqsplat = ":"
 
@@ -100,48 +103,46 @@ class Scan(Table):
                 self.save()
 
     def chan_columns(self):
-        '''List columns containing samples'''
+        """List columns containing samples."""
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
     def baseline_subtract(self, kind='als'):
-        '''Subtract the baseline.'''
+        """Subtract the baseline."""
         if kind == 'als':
 
             for col in self.chan_columns():
-                self[col] = baseline_als(self['time'],
-                                               self[col])
+                self[col] = baseline_als(self['time'], self[col])
         elif kind == 'rough':
             for col in self.chan_columns():
-                self[col] = baseline_rough(self['time'],
-                                               self[col])
+                self[col] = baseline_rough(self['time'], self[col])
 
         self.meta['backsub'] = True
 
     def zap_birdies(self):
-        '''Zap bad intervals.'''
+        """Zap bad intervals."""
         pass
 
     def __repr__(self):
-        '''Give the print() function something to print.'''
+        """Give the print() function something to print."""
         reprstring = \
             '\n\n----Scan from file {0} ----\n'.format(self.meta['filename'])
         reprstring += repr(self)
         return reprstring
 
     def write(self, fname, **kwargs):
-        '''Set default path and call Table.write'''
+        """Set default path and call Table.write."""
         print('Saving to {}'.format(fname))
         t = Table(self)
         t.write(fname, path='scan', **kwargs)
 
     def check_order(self):
-        '''Check that times in a scan are monotonically increasing'''
+        """Check that times in a scan are monotonically increasing."""
         assert np.all(self['time'] == np.sort(self['time'])), \
             'The order of times in the table is wrong'
 
     def interactive_filter(self, save=True):
-        '''Run the interactive filter'''
+        """Run the interactive filter."""
         for ch in self.chan_columns():
             # Temporary, waiting for AstroPy's metadata handling improvements
             feed = self[ch + '_feed'][0]
@@ -164,7 +165,7 @@ class Scan(Table):
             # ------- CALL INTERACTIVE FITTER ---------
             info = select_data(self[dim][:, feed], self[ch],
                                xlabel=dim)
-            plt.show()
+
             # -----------------------------------------
 
             # Treat zapped intervals
@@ -191,17 +192,18 @@ class Scan(Table):
         self.meta['ifilt'] = True
 
     def save(self, fname=None):
-        '''Call self.write with a default filename, or specify it.'''
+        """Call self.write with a default filename, or specify it."""
         if fname is None:
             fname = root_name(self.meta['filename']) + '.hdf5'
         self.write(fname, overwrite=True)
 
 
 class ScanSet(Table):
-    '''Class containing a set of scans'''
+    """Class containing a set of scans."""
+
     def __init__(self, data=None, norefilt=True, config_file=None,
                  freqsplat=None, **kwargs):
-
+        """Initialize a ScanSet object."""
         self.norefilt = norefilt
         if isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
@@ -218,7 +220,7 @@ class ScanSet(Table):
                                 config['list_of_directories'])
 
             scan_list.sort()
-            nscans = len(scan_list)
+            # nscans = len(scan_list)
 
             tables = []
 
@@ -248,6 +250,7 @@ class ScanSet(Table):
         self.current = None
 
     def analyze_coordinates(self, altaz=False):
+        """Save statistical information on coordinates."""
         if altaz:
             hor, ver = 'az', 'el'
         else:
@@ -264,11 +267,11 @@ class ScanSet(Table):
         self.meta['max_' + ver] = np.max(allver)
 
     def list_scans(self, datadir, dirlist):
-        '''List all scans contained in the directory listed in config'''
+        """List all scans contained in the directory listed in config."""
         return list_scans(datadir, dirlist)
 
     def load_scans(self, scan_list, freqsplat=None, **kwargs):
-        '''Load the scans in the list one by ones'''
+        """Load the scans in the list one by ones."""
         for f in scan_list:
             try:
                 yield Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
@@ -277,8 +280,7 @@ class ScanSet(Table):
                 pass
 
     def get_coordinates(self, altaz=False):
-        '''Give the coordinates as pairs of RA, DEC'''
-
+        """Give the coordinates as pairs of RA, DEC."""
         if altaz:
             return np.array(np.dstack([self['az'],
                                        self['el']]))
@@ -287,7 +289,7 @@ class ScanSet(Table):
                                        self['dec']]))
 
     def create_wcs(self, altaz=False):
-        '''Create a wcs object from the pointing information'''
+        """Create a wcs object from the pointing information."""
         if altaz:
             hor, ver = 'az', 'el'
         else:
@@ -320,7 +322,7 @@ class ScanSet(Table):
 
 #    def scrunch_channels(self, feeds=None, polarizations=None,
 #                         chan_names=None):
-#        '''Scrunch channels and reduce their number.
+#        """Scrunch channels and reduce their number.
 #
 #        POLARIZATIONS NOT IMPLEMENTED YET!
 #        2-D lists of channels NOT IMPLEMENTED YET!
@@ -328,8 +330,8 @@ class ScanSet(Table):
 #        feed and polarization filters can be given as:
 #
 #        None:          all channels are to be summed in one
-#        list of chans: channels in this list are summed, the others are deleted
-#                       only one channel remains
+#        list of chans: channels in this list are summed, the others are
+#                       deleted only one channel remains
 #        2-d array:     the channels arr[0, :] will go to chan 0, arr[1, :] to
 #                       chan 1, and so on.
 #
@@ -337,7 +339,7 @@ class ScanSet(Table):
 #        ones selected.
 #        The axis-1 length of feeds and polarizations MUST be the same, unless
 #        one of them is None.
-#        '''
+#        """
 #        # TODO: Implement polarizations
 #        # TODO: Implement 2-d arrays
 #
@@ -349,7 +351,7 @@ class ScanSet(Table):
 #        feed_mask = np.in1d(allfeeds, feeds)
 
     def convert_coordinates(self, altaz=False):
-        '''Convert the coordinates from sky to pixel.'''
+        """Convert the coordinates from sky to pixel."""
         if altaz:
             hor, ver = 'az', 'el'
         else:
@@ -366,10 +368,11 @@ class ScanSet(Table):
             self['y'][:, f] = pixcrd[:, 1]
 
     def calculate_images(self, scrunch=False, no_offsets=False, altaz=False):
-        '''Obtain image from all scans.
+        """Obtain image from all scans.
 
         scrunch:         sum all channels
-        no_offsets:      use positions from feed 0 for all feeds'''
+        no_offsets:      use positions from feed 0 for all feeds.
+        """
         images = {}
         # xbins = np.linspace(np.min(self['x']),
         #                     np.max(self['x']),
@@ -469,8 +472,8 @@ class ScanSet(Table):
 
             img = self.images['{}-Sdev'.format(ch)]
             self.current = ch
-            imagesel = ImageSelector(img, ax, fun=self.rerun_scan_analysis)
-            plt.show()
+            ImageSelector(img, ax, fun=self.rerun_scan_analysis)
+
 
     def rerun_scan_analysis(self, x, y, key):
         print(x, y, key)
@@ -619,13 +622,14 @@ class ScanSet(Table):
             pass
 
     def write(self, fname, **kwargs):
-        '''Set default path and call Table.write'''
+        """Set default path and call Table.write."""
         t = Table(self)
+        print(t.meta)
         t.write(fname, path='scanset', **kwargs)
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False):
-        '''Save a ds9-compatible file with one image per extension.'''
+        """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             fname = 'img.fits'
         images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
@@ -674,8 +678,8 @@ def main_imager(args=None):
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
-                              "range, starting from the frequency of the first "
-                              "bin. E.g. '0:1000' indicates 'from the first "
+                              "range, starting from the frequency of the first"
+                              " bin. E.g. '0:1000' indicates 'from the first "
                               "bin of the spectrum up to 1000 MHz above'. ':' "
                               "or 'all' for all the channels."))
 
