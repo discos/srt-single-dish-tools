@@ -157,13 +157,20 @@ class Scan(Table):
             _, nbin = self[ch].shape
 
             total_spec = np.sum(self[ch], axis=0)
+            plt.figure(np.random.uniform(0, 100000))
+            plt.plot(total_spec)
 
             if good_mask is not None:
                 total_spec[good_mask] = 0
-
-            mask = total_spec <= \
+            plt.plot(total_spec)
+            threshold = \
                 np.percentile(total_spec, 1 - self.meta['filtering_factor'])
+            mask = total_spec <= threshold
+            plt.axhline(threshold)
+            plt.show()
+
             masks[ch] = mask
+
         return masks
 
     def baseline_subtract(self, kind='als'):
