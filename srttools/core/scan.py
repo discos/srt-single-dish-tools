@@ -143,6 +143,7 @@ class Scan(Table):
             values for good spectral channels, and False for bad channels.
         """
         if self.meta['filtering_factor'] <= 0:
+            logging.info("No filtering on frequency channels")
             return
         if self.meta['filtering_factor'] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
@@ -155,7 +156,7 @@ class Scan(Table):
                 break
             _, nbin = self[ch].shape
 
-            total_spec = np.sum(self[ch], axis=1)
+            total_spec = np.sum(self[ch], axis=0)
 
             if good_mask is not None:
                 total_spec[good_mask] = 0
