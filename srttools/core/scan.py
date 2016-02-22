@@ -337,8 +337,8 @@ class ScanSet(Table):
                 s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
                          **kwargs)
                 yield i, s
-            except:
-                warnings.warn("Error while processing {}".format(f))
+            except Exception as e:
+                warnings.warn("Error while processing {}: {}".format(f, e))
 
     def get_coordinates(self, altaz=False):
         """Give the coordinates as pairs of RA, DEC."""
