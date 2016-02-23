@@ -27,9 +27,16 @@ def _rolling_window(a, window):
 
     Found at http://www.rigtorp.se/2011/01/01/rolling-statistics-numpy.html
     """
-    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
-    strides = a.strides + (a.strides[-1],)
-    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+    try:
+        shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
+        strides = a.strides + (a.strides[-1],)
+        return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+    except Exception as e:
+        print(a.shape)
+        print(a)
+        print(window)
+        traceback.print_exc()
+        raise
 
 
 chan_re = re.compile(r'^Ch[0-9]+$')
@@ -101,12 +108,13 @@ class Scan(Table):
         except:
             freqsplat = ":"
 
-        if freqsplat == ":" or freqsplat == "all":
+        if freqsplat == ":" or freqsplat == "all" or freqsplat is None:
             freqmin = 0
             freqmax = bandwidth
 
         binmin = int(nbin * freqmin / bandwidth)
         binmax = int(nbin * freqmax / bandwidth)
+
         return freqmin, freqmax, binmin, binmax
 
     def make_single_channel(self, freqsplat, masks=None):
@@ -186,13 +194,13 @@ class Scan(Table):
             allbins = np.arange(len(total_spec))
 
             freqmask = np.ones(len(total_spec), dtype=bool)
-            if freqsplat is not None:
-                freqmin, freqmax, binmin, binmax = \
-                    self.interpret_frequency_range(freqsplat,
-                                                   self[ch].meta['bandwidth'],
-                                                   nbin)
-                freqmask[0:binmin] = False
-                freqmask[binmax:] = False
+
+            freqmin, freqmax, binmin, binmax = \
+                self.interpret_frequency_range(freqsplat,
+                                               self[ch].meta['bandwidth'],
+                                               nbin)
+            freqmask[0:binmin] = False
+            freqmask[binmax:] = False
 
             if debug:
                 fig = plt.figure("{}_{}".format(self.meta['filename'], ic))
@@ -212,13 +220,20 @@ class Scan(Table):
             mean_varimg = np.mean(varimg[:, freqmask])
             std_varimg = np.std(varimg[:, freqmask])
 
+            print(spectral_var, freqmask, nbin)
             ref_std = np.min(
                 np.std(_rolling_window(spectral_var[freqmask], nbin // 10), 1))
+
+            tot_std = np.std(spectral_var[freqmask])
+            print(tot_std, ref_std)
 
             _, baseline = baseline_als(np.arange(len(spectral_var)),
                                        spectral_var, return_baseline=True,
                                        lam=10, p=0.001)
-            threshold = baseline + 5 * ref_std
+            if tot_std > 10 * ref_std:  # Very noisy datasets
+                threshold = baseline + 10 * ref_std
+            else:
+                threshold = baseline + 5 * ref_std
 
             mask = spectral_var < threshold
 
@@ -250,9 +265,8 @@ class Scan(Table):
                 ax4.plot(allbins[mask], spectral_var[mask])
                 ax4.plot(allbins, baseline)
 
-                ax4.set_ylim([0, 0.4])
                 plt.savefig(
-                    "{}_{}.jpg".format(
+                    "{}_{}.pdf".format(
                         (self.meta['filename'].replace('.fits', '')
                          ).replace('.hdf5', ''), ic))
                 plt.close(fig)
