@@ -1,4 +1,9 @@
-"""Scan and ScanSet classes."""
+"""Produce calibrated light curves.
+
+``SDTimage`` is a script that, given a list of cross scans composing an
+on-the-fly map, is able to calculate the map and save it in FITS format after
+cleaning the data.
+"""
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
