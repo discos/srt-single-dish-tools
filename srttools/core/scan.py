@@ -11,6 +11,8 @@ from astropy import wcs
 from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
 import re
@@ -94,8 +96,8 @@ class Scan(Table):
             freqmin = 0
             freqmax = bandwidth
 
-        binmin = nbin * freqmin / bandwidth
-        binmax = nbin * freqmax / bandwidth
+        binmin = int(nbin * freqmin / bandwidth)
+        binmax = int(nbin * freqmax / bandwidth)
         return freqmin, freqmax, binmin, binmax
 
     def make_single_channel(self, freqsplat, masks=None):
@@ -110,11 +112,13 @@ class Scan(Table):
                 self.interpret_frequency_range(freqsplat,
                                                self[ch].meta['bandwidth'],
                                                nbin)
+
             if masks is not None:
                 self[ch][:, np.logical_not(masks[ch])] = 0
 
             self[ch + 'TEMP'] = \
                 Column(np.sum(self[ch][:, binmin:binmax], axis=1))
+
             self[ch + 'TEMP'].meta.update(self[ch].meta)
             self.remove_column(ch)
             self[ch + 'TEMP'].name = ch
@@ -125,7 +129,7 @@ class Scan(Table):
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
-    def mask_noisy_channels(self, good_mask=None, freqsplat=None, debug=False):
+    def mask_noisy_channels(self, good_mask=None, freqsplat=None, debug=True):
         """Clean from RFI.
 
         Very rough now, it will become complicated eventually.
@@ -142,9 +146,6 @@ class Scan(Table):
             this dictionary contains, for each detector/polarization, True
             values for good spectral channels, and False for bad channels.
         """
-        if self.meta['filtering_factor'] <= 0:
-            logging.info("No filtering on frequency channels")
-            return
         if self.meta['filtering_factor'] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
             return
@@ -156,7 +157,16 @@ class Scan(Table):
                 break
             _, nbin = self[ch].shape
 
-            total_spec = np.sum(self[ch], axis=0)
+            lc = np.sum(self[ch], axis=1)
+            lc = baseline_als(self['time'], lc)
+            lcbins = np.arange(len(lc))
+            total_spec = np.sum(self[ch], axis=0) / len(self[ch])
+            spectral_var = \
+                np.sqrt(np.sum((self[ch] - total_spec) ** 2 / total_spec ** 2,
+                        axis=0))
+
+            allbins = np.arange(len(total_spec))
+
             freqmask = np.ones(len(total_spec), dtype=bool)
             if freqsplat is not None:
                 freqmin, freqmax, binmin, binmax = \
@@ -165,21 +175,66 @@ class Scan(Table):
                                                    nbin)
                 freqmask[0:binmin] = False
                 freqmask[binmax:] = False
+
             if debug:
-                plt.figure(np.random.uniform(0, 100000))
-                plt.plot(total_spec)
+                fig = plt.figure("{}_{}".format(self.meta['filename'], ic))
+                gs = GridSpec(3, 2, hspace=0, height_ratios=(1.5, 3, 1.5),
+                              width_ratios=(3, 1.5))
+                ax1 = plt.subplot(gs[0, 0])
+                ax2 = plt.subplot(gs[1, 0], sharex=ax1)
+                ax3 = plt.subplot(gs[1, 1], sharey=ax2)
+                ax4 = plt.subplot(gs[2, 0], sharex=ax1)
+                ax1.plot(total_spec, label="Unfiltered")
+                ax4.plot(spectral_var, label="Spectral rms")
 
             if good_mask is not None:
                 total_spec[good_mask] = 0
 
-            threshold = \
-                np.percentile(total_spec[freqmask],
-                              (1 - self.meta['filtering_factor']) * 100)
-            mask = total_spec <= threshold
+            # threshold = \
+            #     np.percentile(total_spec[freqmask],
+            #                   (1 - self.meta['filtering_factor']) * 100)
+            # mask = total_spec <= threshold
+
+            threshold = 0.2
+            mask = spectral_var < threshold
+
+            wholemask = freqmask & mask
+            lc_corr = np.sum(self[ch][:, wholemask], axis=1)
+            lc_corr = baseline_als(self['time'], lc_corr)
+
+            varimg = np.sqrt((self[ch] - total_spec) ** 2 / total_spec ** 2)
+            mean_varimg = np.mean(varimg)
+            std_varimg = np.std(varimg)
+
+            img = self[ch] / total_spec
             if debug:
-                plt.plot(total_spec)
-                plt.axhline(threshold)
-                plt.show()
+                ax1.plot(total_spec, label="Whitelist applied")
+                ax1.axvline(binmin)
+                ax1.axvline(binmax)
+                ax1.plot(allbins[mask], total_spec[mask],
+                         label="Final mask")
+                ax1.legend()
+                print(np.min(self[ch] / total_spec),
+                      np.max(self[ch] / total_spec))
+                ax2.imshow(varimg, origin="lower", aspect='auto',
+                           cmap=plt.get_cmap("magma"),
+                           vmin=mean_varimg - 5 * std_varimg,
+                           vmax=mean_varimg + 5 * std_varimg)
+                ax2.axvline(binmin)
+                ax2.axvline(binmax)
+
+                ax3.plot(lc, lcbins)
+                ax3.plot(lc_corr, lcbins)
+                ax3.set_xlim([np.min(lc), max(lc)])
+                ax3.axvline(binmin)
+                ax3.axvline(binmax)
+                ax4.axhline(threshold)
+
+                ax4.set_ylim([0, 0.4])
+                plt.savefig(
+                    "dump/{}_{}.jpg".format(
+                        os.path.split(self.meta['filename'])[1], ic))
+                plt.close(fig)
 
             masks[ch] = mask
 
@@ -532,7 +587,6 @@ class ScanSet(Table):
     def interactive_display(self, ch=None, recreate=False):
         """Modify original scans from the image display."""
         from .interactive_filter import ImageSelector
-        from matplotlib.gridspec import GridSpec
 
         if not hasattr(self, 'images') or recreate:
             self.calculate_images()

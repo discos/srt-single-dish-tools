@@ -59,7 +59,7 @@ def baseline_als(x, y, lam=None, p=None, niter=10):
     """
     from scipy import sparse
     if lam is None:
-        lam = 1e10
+        lam = 1e9
     if p is None:
         p = 0.001
     L = len(y)
