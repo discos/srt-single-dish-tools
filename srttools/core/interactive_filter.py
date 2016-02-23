@@ -100,6 +100,7 @@ class DataSelector:
         plt.show()
 
     def on_click(self, event):
+        """Dummy function, in case I want to do something with a click."""
         pass
 
     def zap(self, event):
@@ -120,7 +121,7 @@ class DataSelector:
         plt.draw()
 
     def base(self, event):
-        """Adds an interval to the ones that will be used by baseline sub."""
+        """Add an interval to the ones that will be used by baseline sub."""
         key = self.current
         if key is None:
             return
@@ -137,8 +138,7 @@ class DataSelector:
         plt.draw()
 
     def on_key(self, event):
-        """What to do when the keyboard is used."""
-
+        """Do something when the keyboard is used."""
         current = self.current
         if event.key == 'z':
             self.zap(event)
@@ -191,6 +191,7 @@ class DataSelector:
         self.plot_all()
 
     def subtract_model(self, channel):
+        """Subtract the model from the scan."""
         fitpars = list(self.info[channel]['fitpars'])
         return self.ys[channel] - linear_fun(self.xs[channel], *fitpars)
 
@@ -239,13 +240,14 @@ class DataSelector:
         self.plot_all()
 
     def on_pick(self, event):
-
+        """Do this when I pick a line in the plot."""
         thisline = event.artist
 
         self.current = (thisline._label)
         self.plot_all()
 
     def plot_all(self):
+        """Plot everything."""
         for l in self.lines:
             l.remove()
         self.lines = []
@@ -301,6 +303,7 @@ class DataSelector:
         plt.draw()
 
     def print_instructions(self):
+        """Print to terminal some instructions for the interactive window."""
         instructions = """
 -------------------------------------------------------------
 
@@ -332,6 +335,10 @@ Actions:
         print(instructions)
 
     def print_info(self):
+        """Print info on the current scan.
+
+        Info includes zapped intervals and fit parameters.
+        """
         for key in self.info.keys():
             print(key + ':')
             if len(self.info[key]['zap'].xs) >= 2:
@@ -343,6 +350,7 @@ Actions:
 
 
 def select_data(xs, ys, masks=None, title=None, xlabel=None):
+    """Open a DataSelector window."""
     try:
         xs.keys()
     except:
@@ -377,8 +385,11 @@ class ImageSelector():
         the function to call when a key is pressed. It must accept three
         arguments: `x`, `y` and `key`
     """
+
     def __init__(self, data, ax, fun=None):
         """
+        Initialize an ImageSelector class.
+
         Parameters
         ----------
         data : array
@@ -397,6 +408,7 @@ class ImageSelector():
         plt.show()
 
     def on_key(self, event):
+        """Do this when the keyboard is pressed."""
         x, y = event.xdata, event.ydata
         key = event.key
         print(x, y, key)
@@ -413,6 +425,7 @@ class ImageSelector():
         return x, y, key
 
     def plot_img(self):
+        """Plot the image on the interactive display."""
         self.ax.imshow(np.log10(self.img), origin='lower',
                        vmin=np.percentile(np.log10(self.img), 20),
                        interpolation="nearest", cmap="gnuplot2",

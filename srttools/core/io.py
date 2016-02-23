@@ -1,23 +1,22 @@
+"""Input/output functions."""
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
+from astropy.coordinates import EarthLocation, AltAz
 import os
 from astropy.time import Time
-import matplotlib.pyplot as plt
-import unittest
 
 DEBUG_MODE = False
 
-locations={'SRT': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
-                                unit=u.m),
-           'Greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
+locations = {'SRT': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
+                                  unit=u.m),
+             'Greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
 
 
-def standard_offsets():
+def _standard_offsets():
     # Case with fake multibeam data in files. Damn it
     radius = 0.0006671036
     # 0 for feed 0, radius for the other six
@@ -41,7 +40,6 @@ def detect_data_kind(fname):
 
 def correct_offsets(derot_angle, xoffset, yoffset):
     """Correct feed offsets for derotation angle."""
-
     # Clockwise rotation of angle derot_angle
     new_xoff = xoffset * np.cos(derot_angle) - yoffset * np.sin(derot_angle)
     new_yoff = xoffset * np.sin(derot_angle) + yoffset * np.cos(derot_angle)
@@ -67,11 +65,8 @@ def print_obs_info_fitszilla(fname):
     lchdulist.close()
 
 
-#@profile
 def read_data_fitszilla(fname):
-    """Open a fitszilla FITS file and read all relevant information.
-
-    """
+    """Open a fitszilla FITS file and read all relevant information."""
     global DEBUG_MODE
 
     # Open FITS file
@@ -106,7 +101,7 @@ def read_data_fitszilla(fname):
     yoffsets = feed_input_data['yOffset']
 
     if DEBUG_MODE and len(xoffsets) > 1:
-        xoffsets, yoffsets = standard_offsets()
+        xoffsets, yoffsets = _standard_offsets()
 
     relpowers = feed_input_data['relativePower']
 
@@ -124,7 +119,7 @@ def read_data_fitszilla(fname):
         for ic, ch in enumerate(chan_ids):
             data_table_data['Ch{}'.format(ch)] = \
                 data_table_data['SPECTRUM'][:, ic * nbin_per_chan:
-                                            (ic + 1 ) * nbin_per_chan]
+                                            (ic + 1) * nbin_per_chan]
 
     info_to_retrieve = ['time', 'derot_angle']
 
@@ -135,7 +130,6 @@ def read_data_fitszilla(fname):
     new_table.meta['receiver'] = receiver
     new_table.meta['RA'] = ra
     new_table.meta['Dec'] = dec
-
 
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]
@@ -215,7 +209,7 @@ def read_data_fitszilla(fname):
     lchdulist.close()
     return new_table
 
-#@profile
+
 def read_data(fname):
     """Read the data, whatever the format, and return them."""
     kind = detect_data_kind(fname)
@@ -226,19 +220,19 @@ def read_data(fname):
 
 
 def root_name(fname):
-    return fname.replace('.fits', '').replace('.hdf5', '')
+    """Return the file name without extension."""
+    import os
+    return os.path.splitext(fname)[0]
 
 
-#@profile
 def profile_coords():
-        """Same test above, with profiling."""
-        global DEBUG_MODE
-        DEBUG_MODE = True
-        curdir = os.path.abspath(os.path.dirname(__file__))
-        datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
+    """Same test above, with profiling."""
+    global DEBUG_MODE
+    DEBUG_MODE = True
+    curdir = os.path.abspath(os.path.dirname(__file__))
+    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
 
-        fname = os.path.join(datadir, '20150410-001307-scicom-W44',
-                             '20150410-001307-scicom-W44_002_003.fits')
-        new_table = read_data(fname)
-
-#profile_coords()
+    fname = os.path.join(datadir, '20150410-001307-scicom-W44',
+                         '20150410-001307-scicom-W44_002_003.fits')
+    new_table = read_data(fname)
+    return new_table
