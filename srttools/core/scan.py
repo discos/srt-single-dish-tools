@@ -842,6 +842,10 @@ def main_imager(args=None):
                         action='store_true',
                         help='Re-run the scan filtering')
 
+    parser.add_argument("--interactive", default=False,
+                        action='store_true',
+                        help='Open the interactive display')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -868,5 +872,7 @@ def main_imager(args=None):
                       freqsplat=args.splat)
 
     scanset.calculate_images()
-    scanset.interactive_display()
+
+    if args.interactive:
+        scanset.interactive_display()
     scanset.save_ds9_images(save_sdev=True)
