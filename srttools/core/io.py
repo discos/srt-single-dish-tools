@@ -158,12 +158,11 @@ def read_data_fitszilla(fname):
         np.tile(data_table_data['az'],
                 (np.max(feeds) + 1, 1)).transpose()
 
-
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
 
     # Coordinate correction. Will it work?
-    for i in range(0, len(xoffsets)):
+    for i in range(0, new_table['el'].shape[1]):
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
         if xoffsets[i] < np.radians(0.001 / 60.) and \
            yoffsets[i] < np.radians(0.001 / 60.):
