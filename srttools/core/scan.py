@@ -19,6 +19,7 @@ import re
 import sys
 import warnings
 import logging
+import traceback
 
 
 def _rolling_window(a, window):
@@ -439,7 +440,9 @@ class ScanSet(Table):
                          **kwargs)
                 yield i, s
             except Exception as e:
-                warnings.warn("Error while processing {}: {}".format(f, e))
+                traceback.print_exc()
+                warnings.warn("Error while processing {}: {}".format(f,
+                                                                     str(e)))
 
     def get_coordinates(self, altaz=False):
         """Give the coordinates as pairs of RA, DEC."""
