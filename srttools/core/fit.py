@@ -19,7 +19,7 @@ def linear_fit(time, lc, start_pars, return_err=False):
         return par
 
 
-def baseline_rough(time, lc, start_pars=None):
+def baseline_rough(time, lc, start_pars=None, return_baseline=True):
     """Rough function to subtract the baseline."""
 
     if start_pars is None:
@@ -30,7 +30,8 @@ def baseline_rough(time, lc, start_pars=None):
     # only consider start and end quarters of image
     nbin = len(time)
     #    bins = np.arange(nbin, dtype=int)
-
+    lc = lc.copy()
+    total_trend = 0
     for percentage in [0.8, 0.15]:
         sorted_els = np.argsort(lc)
         # Select the lowest half elements
@@ -46,11 +47,15 @@ def baseline_rough(time, lc, start_pars=None):
         par = linear_fit(time_filt, lc_filt, start_pars)
 
         lc -= linear_fun(time, *par)
+        total_trend += linear_fun(time, *par)
 
-    return lc
+    if return_baseline:
+        return lc, total_trend
+    else:
+        return lc
 
 
-def baseline_als(x, y, lam=None, p=None, niter=10):
+def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
     From Eilers & Boelens 2005, https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
@@ -70,7 +75,14 @@ def baseline_als(x, y, lam=None, p=None, niter=10):
         Z = W + lam * D.dot(D.transpose())
         z = sparse.linalg.spsolve(Z, w*y)
         w = p * (y > z) + (1-p) * (y < z)
-    return y - z
+
+    _, z2 = baseline_rough(x, y - z, return_baseline=True)
+    z += z2
+
+    if return_baseline:
+        return y - z, z
+    else:
+        return y - z
 
 
 def minimize_align(xs, ys, params):
