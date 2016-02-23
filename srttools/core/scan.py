@@ -20,6 +20,17 @@ import sys
 import warnings
 import logging
 
+
+def _rolling_window(a, window):
+    """A smart rolling window.
+
+    Found at http://www.rigtorp.se/2011/01/01/rolling-statistics-numpy.html
+    """
+    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
+    strides = a.strides + (a.strides[-1],)
+    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+
+
 chan_re = re.compile(r'^Ch[0-9]+$')
 
 
@@ -67,10 +78,7 @@ class Scan(Table):
 
             self.check_order()
 
-            masks = self.mask_noisy_channels(freqsplat=freqsplat)
-
-            if freqsplat is not None:
-                self.make_single_channel(freqsplat, masks=masks)
+            self.clean_and_splat(freqsplat=freqsplat)
 
             if interactive:
                 self.interactive_filter()
@@ -129,7 +137,8 @@ class Scan(Table):
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
-    def mask_noisy_channels(self, good_mask=None, freqsplat=None, debug=True):
+    def clean_and_splat(self, good_mask=None, freqsplat=None, debug=True,
+                        save_spectrum=False):
         """Clean from RFI.
 
         Very rough now, it will become complicated eventually.
@@ -139,18 +148,26 @@ class Scan(Table):
         good_mask : boolean array
             this mask specifies intervals that should never be discarded as
             RFI, for example because they contain spectral lines
+        freqsplat : str
+            Specification of frequency interval to merge into a single channel
 
         Returns
         -------
         masks : dictionary of boolean arrays
             this dictionary contains, for each detector/polarization, True
             values for good spectral channels, and False for bad channels.
+
+        Other parameters
+        ----------------
+        save_spectrum : bool, default False
+            Save the spectrum into a 'ChX_spec' column
+        debug : bool, default True
+            Save images with quicklook information on single scans
         """
         if self.meta['filtering_factor'] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
             return
 
-        masks = {}
         chans = self.chan_columns()
         for ic, ch in enumerate(chans):
             if len(self[ch].shape) == 1:
@@ -190,23 +207,24 @@ class Scan(Table):
             if good_mask is not None:
                 total_spec[good_mask] = 0
 
-            # threshold = \
-            #     np.percentile(total_spec[freqmask],
-            #                   (1 - self.meta['filtering_factor']) * 100)
-            # mask = total_spec <= threshold
+            varimg = np.sqrt((self[ch] - total_spec) ** 2 / total_spec ** 2)
+            mean_varimg = np.mean(varimg[:, freqmask])
+            std_varimg = np.std(varimg[:, freqmask])
 
-            threshold = 0.2
+            ref_std = np.min(
+                np.std(_rolling_window(spectral_var[freqmask], nbin // 10), 1))
+
+            _, baseline = baseline_als(np.arange(len(spectral_var)),
+                                       spectral_var, return_baseline=True,
+                                       lam=10, p=0.001)
+            threshold = baseline + 5 * ref_std
+
             mask = spectral_var < threshold
 
             wholemask = freqmask & mask
             lc_corr = np.sum(self[ch][:, wholemask], axis=1)
             lc_corr = baseline_als(self['time'], lc_corr)
 
-            varimg = np.sqrt((self[ch] - total_spec) ** 2 / total_spec ** 2)
-            mean_varimg = np.mean(varimg)
-            std_varimg = np.std(varimg)
-
-            img = self[ch] / total_spec
             if debug:
                 ax1.plot(total_spec, label="Whitelist applied")
                 ax1.axvline(binmin)
@@ -214,12 +232,12 @@ class Scan(Table):
                 ax1.plot(allbins[mask], total_spec[mask],
                          label="Final mask")
                 ax1.legend()
-                print(np.min(self[ch] / total_spec),
-                      np.max(self[ch] / total_spec))
+
                 ax2.imshow(varimg, origin="lower", aspect='auto',
                            cmap=plt.get_cmap("magma"),
                            vmin=mean_varimg - 5 * std_varimg,
                            vmax=mean_varimg + 5 * std_varimg)
+
                 ax2.axvline(binmin)
                 ax2.axvline(binmax)
 
@@ -228,17 +246,25 @@ class Scan(Table):
                 ax3.set_xlim([np.min(lc), max(lc)])
                 ax3.axvline(binmin)
                 ax3.axvline(binmax)
-                ax4.axhline(threshold)
+                ax4.plot(allbins[mask], spectral_var[mask])
+                ax4.plot(allbins, baseline)
 
                 ax4.set_ylim([0, 0.4])
                 plt.savefig(
-                    "dump/{}_{}.jpg".format(
-                        os.path.split(self.meta['filename'])[1], ic))
+                    "{}_{}.jpg".format(
+                        (self.meta['filename'].replace('.fits', '')
+                         ).replace('.hdf5', ''), ic))
                 plt.close(fig)
 
-            masks[ch] = mask
+            self[ch + 'TEMP'] = Column(lc_corr)
 
-        return masks
+            self[ch + 'TEMP'].meta.update(self[ch].meta)
+            if save_spectrum:
+                self[ch].name = ch + "_spec"
+            else:
+                self.remove_column(ch)
+            self[ch + 'TEMP'].name = ch
+            self[ch].meta['bandwidth'] = freqmax - freqmin
 
     def baseline_subtract(self, kind='als'):
         """Subtract the baseline."""
