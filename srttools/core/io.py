@@ -189,6 +189,12 @@ def read_data_fitszilla(fname):
         new_table['dec'][:, i] = np.radians(coords_deg.dec)
 
     for ic, ch in enumerate(chan_ids):
+        if bandwidths[ic] < 0:
+            frequencies[ic] -= bandwidths[ic]
+            bandwidths[ic] *= -1
+            for i in range(data_table_data['Ch{}'.format(ch)].shape[0]):
+                data_table_data['Ch{}'.format(ch)][i, :] = \
+                    data_table_data['Ch{}'.format(ch)][i, ::-1]
         new_table['Ch{}'.format(ch)] = \
             data_table_data['Ch{}'.format(ch)] * relpowers[feeds[ic]]
 
