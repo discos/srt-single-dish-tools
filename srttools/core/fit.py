@@ -1,3 +1,4 @@
+"""Useful fitting functions."""
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 from scipy.optimize import curve_fit
@@ -21,7 +22,6 @@ def linear_fit(time, lc, start_pars, return_err=False):
 
 def baseline_rough(time, lc, start_pars=None, return_baseline=True):
     """Rough function to subtract the baseline."""
-
     if start_pars is None:
         m0 = 0
         q0 = min(lc)
@@ -58,9 +58,10 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=True):
 def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
-    From Eilers & Boelens 2005, https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
-    Found at http://stackoverflow.com/questions/29156532/python-baseline-correction-library
-
+    Modifications to the routine from Eilers & Boelens 2005
+    https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
+    The Python translation is partly from
+    http://stackoverflow.com/questions/29156532/python-baseline-correction-library
     """
     from scipy import sparse
     if lam is None:
@@ -86,9 +87,11 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
 
 
 def minimize_align(xs, ys, params):
-    """Calculate the total variance of a series of scans, after subtracting
-    a linear function from each of them (excluding the first one)"""
+    """Calculate the total variance of a series of scans.
 
+    This functions subtracts a linear function from each of the scans
+    (excluding the first one) and calculates the total variance.
+    """
     params = np.array(params).flatten()
     qs = params[:len(xs) - 1]
     ms = params[len(xs) - 1:]
@@ -181,6 +184,7 @@ def _test_shape(x):
 
 
 def test_fit_baseline_plus_bell():
+    """Test that the fit procedure works."""
     import matplotlib.pyplot as plt
 
     x = np.arange(0, 100, 0.1)
@@ -200,6 +204,7 @@ def test_fit_baseline_plus_bell():
 
 
 def test_minimize_align():
+    """Test that the minimization of the alignment works."""
     import matplotlib.pyplot as plt
 
     x1 = np.arange(0, 100, 0.1)

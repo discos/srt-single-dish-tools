@@ -2,7 +2,7 @@
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
-from .io import read_data, root_name, DEBUG_MODE
+from .io import read_data, root_name
 import glob
 from .read_config import read_config, get_config_file, sample_config_file
 import os
@@ -31,7 +31,7 @@ def _rolling_window(a, window):
         shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
         strides = a.strides + (a.strides[-1],)
         return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
-    except Exception as e:
+    except Exception:
         print(a.shape)
         print(a)
         print(window)
@@ -263,8 +263,7 @@ class Scan(Table):
 
                 plt.savefig(
                     "{}_{}.pdf".format(
-                        (self.meta['filename'].replace('.fits', '')
-                         ).replace('.hdf5', ''), ic))
+                        root_name(self.meta['filename']), ic))
                 plt.close(fig)
 
             self[ch + 'TEMP'] = Column(lc_corr)
@@ -634,6 +633,7 @@ class ScanSet(Table):
             chs = self.chan_columns
         else:
             chs = [ch]
+
         for ch in chs:
             fig = plt.figure('Imageactive Display')
             gs = GridSpec(1, 2, width_ratios=(3, 2))
