@@ -229,8 +229,8 @@ class Scan(Table):
 
             _, baseline = baseline_als(np.arange(len(spectral_var)),
                                        spectral_var, return_baseline=True,
-                                       lam=10, p=0.001)
-            if tot_std > 10 * ref_std:  # Very noisy datasets
+                                       lam=100, p=0.001)
+            if tot_std > 4 * ref_std:  # Very noisy datasets
                 threshold = baseline + 10 * ref_std
             else:
                 threshold = baseline + 5 * ref_std
