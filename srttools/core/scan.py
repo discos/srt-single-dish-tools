@@ -220,20 +220,16 @@ class Scan(Table):
             mean_varimg = np.mean(varimg[:, freqmask])
             std_varimg = np.std(varimg[:, freqmask])
 
-            print(spectral_var, freqmask, nbin)
             ref_std = np.min(
-                np.std(_rolling_window(spectral_var[freqmask], nbin // 10), 1))
+                np.std(_rolling_window(spectral_var[freqmask],
+                       np.max([nbin // 20, 20])), 1))
 
-            tot_std = np.std(spectral_var[freqmask])
-            print(tot_std, ref_std)
+            np.std(spectral_var[freqmask])
 
             _, baseline = baseline_als(np.arange(len(spectral_var)),
                                        spectral_var, return_baseline=True,
-                                       lam=100, p=0.001)
-            if tot_std > 4 * ref_std:  # Very noisy datasets
-                threshold = baseline + 10 * ref_std
-            else:
-                threshold = baseline + 5 * ref_std
+                                       lam=1000, p=0.001)
+            threshold = baseline + 5 * ref_std
 
             mask = spectral_var < threshold
 
