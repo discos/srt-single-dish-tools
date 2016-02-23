@@ -19,8 +19,10 @@ def sample_config_file(fname='sample_config_file.ini'):
     """Create a sample config file, to be modified by hand."""
     string = """
 [local]
+; the directory where the analysis will be executed.
     workdir : .
-    datadir : ../../TEST_DATASET
+; the root directory of the data repository.
+    datadir : .
 
 [analysis]
     projection : ARC
