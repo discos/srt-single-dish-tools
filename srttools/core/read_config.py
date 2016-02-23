@@ -48,7 +48,7 @@ def sample_config_file(fname='sample_config_file.ini'):
 
 ;; Percentage of channels to filter out for rough RFI filtering (Spectral data
 ;; only)
-    filtering_factor : 0.3
+    filtering_factor : 0.
     """
     with open(fname, 'w') as fobj:
         print(string, file=fobj)
