@@ -1,8 +1,13 @@
-"""Scan and ScanSet classes."""
+"""Produce calibrated light curves.
+
+``SDTimage`` is a script that, given a list of cross scans composing an
+on-the-fly map, is able to calculate the map and save it in FITS format after
+cleaning the data.
+"""
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
-from .io import read_data, root_name, DEBUG_MODE
+from .io import read_data, root_name
 import glob
 from .read_config import read_config, get_config_file, sample_config_file
 import os
@@ -11,12 +16,33 @@ from astropy import wcs
 from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
 import re
 import sys
 import warnings
 import logging
+import traceback
+
+
+def _rolling_window(a, window):
+    """A smart rolling window.
+
+    Found at http://www.rigtorp.se/2011/01/01/rolling-statistics-numpy.html
+    """
+    try:
+        shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
+        strides = a.strides + (a.strides[-1],)
+        return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+    except Exception:
+        print(a.shape)
+        print(a)
+        print(window)
+        traceback.print_exc()
+        raise
+
 
 chan_re = re.compile(r'^Ch[0-9]+$')
 
@@ -64,31 +90,8 @@ class Scan(Table):
             self.meta.update(read_config(self.meta['config_file']))
 
             self.check_order()
-            if freqsplat is not None:
-                for ic, ch in enumerate(self.chan_columns()):
-                    if len(self[ch].shape) == 1:
-                        continue
-                    try:
-                        freqmin, freqmax = \
-                            [float(f) for f in freqsplat.split(':')]
-                    except:
-                        freqsplat = ":"
 
-                    if freqsplat == ":" or freqsplat == "all":
-                        bandwidth = self[ch].meta['bandwidth']
-                        freqmin = 0
-                        freqmax = bandwidth
-
-                    _, nbin = self[ch].shape
-                    binmin = nbin * freqmin / self[ch].meta['bandwidth']
-                    binmax = nbin * freqmax / self[ch].meta['bandwidth']
-
-                    self[ch + 'TEMP'] = \
-                        Column(np.sum(self[ch][:, binmin:binmax], axis=1))
-                    self[ch + 'TEMP'].meta.update(self[ch].meta)
-                    self.remove_column(ch)
-                    self[ch + 'TEMP'].name = ch
-                    self[ch].meta['bandwidth'] = freqmax - freqmin
+            self.clean_and_splat(freqsplat=freqsplat)
 
             if interactive:
                 self.interactive_filter()
@@ -102,10 +105,181 @@ class Scan(Table):
             if not nosave:
                 self.save()
 
+    def interpret_frequency_range(self, freqsplat, bandwidth, nbin):
+        """Interpret the frequency range specified in freqsplat."""
+        try:
+            freqmin, freqmax = \
+                [float(f) for f in freqsplat.split(':')]
+        except:
+            freqsplat = ":"
+
+        if freqsplat == ":" or freqsplat == "all" or freqsplat is None:
+            freqmin = 0
+            freqmax = bandwidth
+
+        binmin = int(nbin * freqmin / bandwidth)
+        binmax = int(nbin * freqmax / bandwidth)
+
+        return freqmin, freqmax, binmin, binmax
+
+    def make_single_channel(self, freqsplat, masks=None):
+        """Transform a spectrum into a single-channel count rate."""
+        for ic, ch in enumerate(self.chan_columns()):
+            if len(self[ch].shape) == 1:
+                continue
+
+            _, nbin = self[ch].shape
+
+            freqmin, freqmax, binmin, binmax = \
+                self.interpret_frequency_range(freqsplat,
+                                               self[ch].meta['bandwidth'],
+                                               nbin)
+
+            if masks is not None:
+                self[ch][:, np.logical_not(masks[ch])] = 0
+
+            self[ch + 'TEMP'] = \
+                Column(np.sum(self[ch][:, binmin:binmax], axis=1))
+
+            self[ch + 'TEMP'].meta.update(self[ch].meta)
+            self.remove_column(ch)
+            self[ch + 'TEMP'].name = ch
+            self[ch].meta['bandwidth'] = freqmax - freqmin
+
     def chan_columns(self):
         """List columns containing samples."""
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
+
+    def clean_and_splat(self, good_mask=None, freqsplat=None, debug=True,
+                        save_spectrum=False):
+        """Clean from RFI.
+
+        Very rough now, it will become complicated eventually.
+
+        Parameters
+        ----------
+        good_mask : boolean array
+            this mask specifies intervals that should never be discarded as
+            RFI, for example because they contain spectral lines
+        freqsplat : str
+            Specification of frequency interval to merge into a single channel
+
+        Returns
+        -------
+        masks : dictionary of boolean arrays
+            this dictionary contains, for each detector/polarization, True
+            values for good spectral channels, and False for bad channels.
+
+        Other parameters
+        ----------------
+        save_spectrum : bool, default False
+            Save the spectrum into a 'ChX_spec' column
+        debug : bool, default True
+            Save images with quicklook information on single scans
+        """
+        if self.meta['filtering_factor'] > 0.5:
+            warnings.warn("Don't use filtering factors > 0.5. Skipping.")
+            return
+
+        chans = self.chan_columns()
+        for ic, ch in enumerate(chans):
+            if len(self[ch].shape) == 1:
+                break
+            _, nbin = self[ch].shape
+
+            lc = np.sum(self[ch], axis=1)
+            lc = baseline_als(self['time'], lc)
+            lcbins = np.arange(len(lc))
+            total_spec = np.sum(self[ch], axis=0) / len(self[ch])
+            spectral_var = \
+                np.sqrt(np.sum((self[ch] - total_spec) ** 2 / total_spec ** 2,
+                        axis=0))
+
+            allbins = np.arange(len(total_spec))
+
+            freqmask = np.ones(len(total_spec), dtype=bool)
+
+            freqmin, freqmax, binmin, binmax = \
+                self.interpret_frequency_range(freqsplat,
+                                               self[ch].meta['bandwidth'],
+                                               nbin)
+            freqmask[0:binmin] = False
+            freqmask[binmax:] = False
+
+            if debug:
+                fig = plt.figure("{}_{}".format(self.meta['filename'], ic))
+                gs = GridSpec(3, 2, hspace=0, height_ratios=(1.5, 3, 1.5),
+                              width_ratios=(3, 1.5))
+                ax1 = plt.subplot(gs[0, 0])
+                ax2 = plt.subplot(gs[1, 0], sharex=ax1)
+                ax3 = plt.subplot(gs[1, 1], sharey=ax2)
+                ax4 = plt.subplot(gs[2, 0], sharex=ax1)
+                ax1.plot(total_spec, label="Unfiltered")
+                ax4.plot(spectral_var, label="Spectral rms")
+
+            if good_mask is not None:
+                total_spec[good_mask] = 0
+
+            varimg = np.sqrt((self[ch] - total_spec) ** 2 / total_spec ** 2)
+            mean_varimg = np.mean(varimg[:, freqmask])
+            std_varimg = np.std(varimg[:, freqmask])
+
+            ref_std = np.min(
+                np.std(_rolling_window(spectral_var[freqmask],
+                       np.max([nbin // 20, 20])), 1))
+
+            np.std(spectral_var[freqmask])
+
+            _, baseline = baseline_als(np.arange(len(spectral_var)),
+                                       spectral_var, return_baseline=True,
+                                       lam=1000, p=0.001)
+            threshold = baseline + 5 * ref_std
+
+            mask = spectral_var < threshold
+
+            wholemask = freqmask & mask
+            lc_corr = np.sum(self[ch][:, wholemask], axis=1)
+            lc_corr = baseline_als(self['time'], lc_corr)
+
+            if debug:
+                ax1.plot(total_spec, label="Whitelist applied")
+                ax1.axvline(binmin)
+                ax1.axvline(binmax)
+                ax1.plot(allbins[mask], total_spec[mask],
+                         label="Final mask")
+                ax1.legend()
+
+                ax2.imshow(varimg, origin="lower", aspect='auto',
+                           cmap=plt.get_cmap("magma"),
+                           vmin=mean_varimg - 5 * std_varimg,
+                           vmax=mean_varimg + 5 * std_varimg)
+
+                ax2.axvline(binmin)
+                ax2.axvline(binmax)
+
+                ax3.plot(lc, lcbins)
+                ax3.plot(lc_corr, lcbins)
+                ax3.set_xlim([np.min(lc), max(lc)])
+                ax3.axvline(binmin)
+                ax3.axvline(binmax)
+                ax4.plot(allbins[mask], spectral_var[mask])
+                ax4.plot(allbins, baseline)
+
+                plt.savefig(
+                    "{}_{}.pdf".format(
+                        root_name(self.meta['filename']), ic))
+                plt.close(fig)
+
+            self[ch + 'TEMP'] = Column(lc_corr)
+
+            self[ch + 'TEMP'].meta.update(self[ch].meta)
+            if save_spectrum:
+                self[ch].name = ch + "_spec"
+            else:
+                self.remove_column(ch)
+            self[ch + 'TEMP'].name = ch
+            self[ch].meta['bandwidth'] = freqmax - freqmin
 
     def baseline_subtract(self, kind='als'):
         """Subtract the baseline."""
@@ -279,8 +453,10 @@ class ScanSet(Table):
                 s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
                          **kwargs)
                 yield i, s
-            except:
-                warnings.warn("Error while processing {}".format(f))
+            except Exception as e:
+                traceback.print_exc()
+                warnings.warn("Error while processing {}: {}".format(f,
+                                                                     str(e)))
 
     def get_coordinates(self, altaz=False):
         """Give the coordinates as pairs of RA, DEC."""
@@ -454,7 +630,6 @@ class ScanSet(Table):
     def interactive_display(self, ch=None, recreate=False):
         """Modify original scans from the image display."""
         from .interactive_filter import ImageSelector
-        from matplotlib.gridspec import GridSpec
 
         if not hasattr(self, 'images') or recreate:
             self.calculate_images()
@@ -463,6 +638,7 @@ class ScanSet(Table):
             chs = self.chan_columns
         else:
             chs = [ch]
+
         for ch in chs:
             fig = plt.figure('Imageactive Display')
             gs = GridSpec(1, 2, width_ratios=(3, 2))
@@ -476,7 +652,6 @@ class ScanSet(Table):
             img = self.images['{}-Sdev'.format(ch)]
             self.current = ch
             ImageSelector(img, ax, fun=self.rerun_scan_analysis)
-
 
     def rerun_scan_analysis(self, x, y, key):
         """Rerun the analysis of single scans."""
@@ -668,6 +843,10 @@ def main_imager(args=None):
                         action='store_true',
                         help='Re-run the scan filtering')
 
+    parser.add_argument("--interactive", default=False,
+                        action='store_true',
+                        help='Open the interactive display')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -694,5 +873,7 @@ def main_imager(args=None):
                       freqsplat=args.splat)
 
     scanset.calculate_images()
-    scanset.interactive_display()
+
+    if args.interactive:
+        scanset.interactive_display()
     scanset.save_ds9_images(save_sdev=True)
