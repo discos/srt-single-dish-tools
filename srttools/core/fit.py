@@ -1,3 +1,4 @@
+"""Useful fitting functions."""
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 from scipy.optimize import curve_fit
@@ -19,9 +20,8 @@ def linear_fit(time, lc, start_pars, return_err=False):
         return par
 
 
-def baseline_rough(time, lc, start_pars=None):
+def baseline_rough(time, lc, start_pars=None, return_baseline=True):
     """Rough function to subtract the baseline."""
-
     if start_pars is None:
         m0 = 0
         q0 = min(lc)
@@ -30,7 +30,8 @@ def baseline_rough(time, lc, start_pars=None):
     # only consider start and end quarters of image
     nbin = len(time)
     #    bins = np.arange(nbin, dtype=int)
-
+    lc = lc.copy()
+    total_trend = 0
     for percentage in [0.8, 0.15]:
         sorted_els = np.argsort(lc)
         # Select the lowest half elements
@@ -46,20 +47,25 @@ def baseline_rough(time, lc, start_pars=None):
         par = linear_fit(time_filt, lc_filt, start_pars)
 
         lc -= linear_fun(time, *par)
+        total_trend += linear_fun(time, *par)
 
-    return lc
+    if return_baseline:
+        return lc, total_trend
+    else:
+        return lc
 
 
-def baseline_als(x, y, lam=None, p=None, niter=10):
+def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
-    From Eilers & Boelens 2005, https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
-    Found at http://stackoverflow.com/questions/29156532/python-baseline-correction-library
-
+    Modifications to the routine from Eilers & Boelens 2005
+    https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
+    The Python translation is partly from
+    http://stackoverflow.com/questions/29156532/python-baseline-correction-library
     """
     from scipy import sparse
     if lam is None:
-        lam = 1e10
+        lam = 1e9
     if p is None:
         p = 0.001
     L = len(y)
@@ -70,13 +76,22 @@ def baseline_als(x, y, lam=None, p=None, niter=10):
         Z = W + lam * D.dot(D.transpose())
         z = sparse.linalg.spsolve(Z, w*y)
         w = p * (y > z) + (1-p) * (y < z)
-    return y - z
+
+    _, z2 = baseline_rough(x, y - z, return_baseline=True)
+    z += z2
+
+    if return_baseline:
+        return y - z, z
+    else:
+        return y - z
 
 
 def minimize_align(xs, ys, params):
-    """Calculate the total variance of a series of scans, after subtracting
-    a linear function from each of them (excluding the first one)"""
+    """Calculate the total variance of a series of scans.
 
+    This functions subtracts a linear function from each of the scans
+    (excluding the first one) and calculates the total variance.
+    """
     params = np.array(params).flatten()
     qs = params[:len(xs) - 1]
     ms = params[len(xs) - 1:]
@@ -169,6 +184,7 @@ def _test_shape(x):
 
 
 def test_fit_baseline_plus_bell():
+    """Test that the fit procedure works."""
     import matplotlib.pyplot as plt
 
     x = np.arange(0, 100, 0.1)
@@ -188,6 +204,7 @@ def test_fit_baseline_plus_bell():
 
 
 def test_minimize_align():
+    """Test that the minimization of the alignment works."""
     import matplotlib.pyplot as plt
 
     x1 = np.arange(0, 100, 0.1)

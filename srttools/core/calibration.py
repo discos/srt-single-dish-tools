@@ -1,8 +1,9 @@
 """
+Produce calibrated light curves.
+
 ``SDTlcurve`` is a script that, given a list of cross scans from different
 sources, is able to recognize calibrators and use them to convert the observed
 counts into a density flux value in Jy.
-
 """
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
@@ -32,7 +33,12 @@ except ImportError:
 
 CALIBRATOR_CONFIG = None
 
+
 def decide_symbol(values):
+    """Decide symbols for plotting.
+
+    Assigns different symbols to RA scans, Dec scans, backward and forward.
+    """
     raplus = values == "RA>"
     ramin = values == "RA<"
     decplus = values == "Dec>"
@@ -86,6 +92,7 @@ def read_calibrator_config():
 
 
 def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
+    """Flux function from Perley & Butler ApJS 204, 19 (2013)."""
     a0, a1, a2, a3 = coeffs
     a0e, a1e, a2e, a3e = ecoeffs
     f0 = start_frequency
@@ -102,7 +109,11 @@ def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     return (np.sum(S) * df)
 
 
-def calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
+def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
+    """Return the flux of a calibrator at a given frequency.
+
+    Uses Perley & Butler ApJS 204, 19 (2013).
+    """
     import io
     coefftable = conf["CoeffTable"]["coeffs"]
     fobj = io.BytesIO(coefftable.encode())
@@ -121,7 +132,7 @@ def calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     return flux_function(frequency, bandwidth, coeffs, ecoeffs), 0
 
 
-def get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
+def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
     global CALIBRATOR_CONFIG
 
     if CALIBRATOR_CONFIG is None:
@@ -143,7 +154,7 @@ def get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         return conf["Fluxes"][idx] * bandwidth, \
             conf["Flux Errors"][idx] * bandwidth
     elif conf["Kind"] == "CoeffTable":
-        return calc_flux_from_coeffs(conf, frequency, bandwidth, time)
+        return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
 
 calist = ['3C147', '3C48', '3C123', '3C295', '3C286', 'NGC7027']
@@ -211,8 +222,8 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
 
         # Note: Formulas are in GHz here.
         flux, eflux = \
-            get_calibrator_flux(source, frequency / 1000,
-                                bandwidth / 1000, time=time)
+            _get_calibrator_flux(source, frequency / 1000,
+                                 bandwidth / 1000, time=time)
 
         if flux is None:
             flux_density = 1 / bandwidth
@@ -494,6 +505,7 @@ def show_calibration(full_table, feed=0, plotall=False):
 
 
 def test_calibration_tp():
+    """Test that the calibration executes completely."""
     import pickle
     curdir = os.path.abspath(os.path.dirname(__file__))
     config_file = \
@@ -509,6 +521,7 @@ def test_calibration_tp():
 
 
 def test_calibration_roach():
+    """Test that the calibration executes completely, ROACH version."""
     curdir = os.path.abspath(os.path.dirname(__file__))
     config_file = \
         os.path.abspath(os.path.join(curdir, '..', '..',
@@ -543,8 +556,8 @@ def main_lc_calibrator(args=None):
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
-                              "range, starting from the frequency of the first "
-                              "bin. E.g. '0:1000' indicates 'from the first "
+                              "range, starting from the frequency of the first"
+                              " bin. E.g. '0:1000' indicates 'from the first "
                               "bin of the spectrum up to 1000 MHz above'. ':' "
                               "or 'all' for all the channels."))
 

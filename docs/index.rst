@@ -58,6 +58,198 @@ To update the code, simply run ``git pull`` and reinstall::
     (py35) $ git pull
     (py35) $ python setup.py install
 
+Quick introduction
+------------------
+Calibrated light curves
+~~~~~~~~~~~~~~~~~~~~~~~
+Go to a directory close to your data set. For example::
+
+    (py35) $ ls
+    observation1/
+    observation2/
+    calibrator1/
+    calibrator2/
+    observation3/
+    calibrator3/
+    calibrator4/
+    (....)
+
+It is not required that scan files are directly inside ``observation1`` etc.,
+they might be inside subdirectories. The important thing is to correctly point
+to them in the configuration file as explained below.
+
+Produce a dummy calibration file, to be modified, with::
+
+    (py35) $ SDTlcurve --sample-config
+
+This produces a boilerplate configuration file, that we modify to point to our
+observations, and give the correct information to our program::
+
+    (py35) $ mv sample_config_file.ini MySource.ini  # give a meaningful name!
+    (py35) $ emacs MySource.ini
+
+    (... modify file...)
+
+    (py35) $ cat sample_config_file.ini
+    [local]
+    ; the directory where the analysis will be executed.
+        workdir : .
+    ; the root directory of the data repository.
+        datadir : .
+
+    [analysis]
+        projection : ARC
+        interpolation : spline
+        prefix : test_
+        list_of_directories :
+            observation1/
+            observation2/
+            calibrator1/
+            calibrator2/
+            observation3/
+            calibrator3/
+            calibrator4/
+    ;; Channels to save from RFI filtering. It might indicate known strong spectral
+    ;; lines
+        goodchans :
+
+Finally, execute the light curve creation. If data were taken with a Total
+Power-like instrument and they do not contain spectral information, it is
+sufficient to run::
+
+    (py35) $ SDTlcurve -c MySource.ini
+
+Otherwise, specify the minimum and maximum frequency to select in the spectrum,
+with the ``--splat`` option::
+
+    (py35) $ SDTlcurve -c MySource.ini --splat <freqmin>:<freqmax>
+
+where ``freqmin``, ``freqmax`` are in MHz referred to the *minimum* frequency
+of the interval. E.g. if our local oscillator is at 6900 MHz and we want to cut
+from 7000 to 7500, ``freqmin`` and ``freqmax`` will be 100 and 600 resp.
+The above command will:
+
++ Run through all the scans in the directories specified in the config file
+
++ Clean them up with a rough but functional algorithm for RFI removal that makes use of the spectral information
+
++ Diplay the following products:
+
+  1.  The calibrated light curve with statistical error bars arising from the fit + a grey band indicating the systematic error that might arise from the normalization of the tabulated calibrator fluxes.
+
+  2. Plots of counts-to-Jansky conversion versus elevation: there will often be a linear trend here.
+
+  3. Plots of source misalignment w.r.t. elevation: this will often be surprisingly high
+
+  4. All fitted scans, on a per-source basis.
+
+The light curve will also be saved in a text file.
+
+Images from OTF maps
+~~~~~~~~~~~~~~~~~~~~
+The procedure is mostly the same as for light curves.
+Go to a directory close to your data set. For example::
+
+    (py35) $ ls
+    observation1/
+    observation2/
+    observation3/
+    (....)
+
+It is not required that scan files are directly inside ``observation1`` etc.,
+they might be inside subdirectories. The important thing is to correctly point
+to them in the configuration file as explained below.
+
+Produce a dummy calibration file, to be modified, with::
+
+    (py35) $ SDTimage --sample-config
+
+This produces a boilerplate configuration file. Give it a meaningful name::
+
+    (py35) $ mv sample_config_file.ini MySource.ini
+
+Modify the file point to our observations, and give the correct information to
+our program. Follow the same indentation as in the examples. Comments are done
+with a semicolon::
+
+    (py35) $ emacs MySource.ini
+
+    (... modify file...)
+
+    (py35) $ cat MySource.ini
+    [local]
+    ; the directory where the analysis will be executed.
+        workdir : .
+    ; the root directory of the data repository.
+        datadir : .
+
+    [analysis]
+        projection : ARC
+        interpolation : spline
+        prefix : test_
+        list_of_directories :
+            observation1/
+            observation2/
+            observation3/
+
+    ;; Number of pixels, specified as pair x y
+
+        npix : 64 64
+
+    ;; Channels to save from RFI filtering. It might indicate known strong spectral
+    ;; lines
+        goodchans :
+
+Pay particular attention to the number of pixels of the final image.
+
+Finally, execute the map calculation. If data were taken with a Total
+Power-like instrument and they do not contain spectral information, it is
+sufficient to run::
+
+    (py35) $ SDTimage -c MySource.ini
+
+Otherwise, specify the minimum and maximum frequency to select in the spectrum,
+with the ``--splat`` option::
+
+    (py35) $ SDTimage -c MySource.ini --splat <freqmin>:<freqmax>
+
+where ``freqmin``, ``freqmax`` are in MHz referred to the *minimum* frequency
+of the interval. E.g. if our local oscillator is at 6900 MHz and we want to cut
+from 7000 to 7500, ``freqmin`` and ``freqmax`` will be 100 and 600 resp.
+The above command will:
+
++ Run through all the scans in the directories specified in the config file
+
++ Clean them up with a rough but functional algorithm for RFI removal that makes use of the spectral information
+
++ Create a single frequency channel per polarization by summing the contributions between ``freqmin`` and ``freqmax``, and discarding the rest;
+
++ Create the map in FITS format readable by DS9. The FITS extensions IMGCH0, IMGCH1, etc. contain an image for each polarization channel.
+
+Advanced imaging (TBC)
+~~~~~~~~~~~~~~~~~~~~~~
+The automatic RFI removal procedure is often unable to clean all the data.
+The map might have some residual "stripes" due to bad scans. No worries! Launch
+the above command with the ``--interactive`` option::
+
+    (py35) $ SDTimage -c MySource.ini --splat <freqmin>:<freqmax> --interactive
+
+This will open a screen like this:
+
+    <placeholder>
+
+where on the righ you have the current status of the image, and on the left,
+larger, an image of the *standard deviation* of the pixels. Pixels with higher
+standard deviation might be due to a real source with high variability or high
+flux gradients, or to interferences. On this standard deviation image, you can
+point with the mouse and press 'A' on the keyboard to load all scans passing
+through that pixel. A second window will appear with a bunch of scans.
+
+    <placeholder>
+
+Click on a bad scan and filter it according to the instructions printed in the
+terminal.
+
 Command line interface
 ----------------------
 
