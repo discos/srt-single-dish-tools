@@ -6,7 +6,8 @@ SDTimage
 
 ::
 
-    usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--splat SPLAT]
+    usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--interactive]
+                    [--splat SPLAT]
 
     Load a series of scans from a config file and produce a map.
 
@@ -16,6 +17,7 @@ SDTimage
       -c CONFIG, --config CONFIG
                             Config file
       --refilt              Re-run the scan filtering
+      --interactive         Open the interactive display
       --splat SPLAT         Spectral scans will be scrunched into a single channel
                             containing data in the given frequency range, starting
                             from the frequency of the first bin. E.g. '0:1000'
