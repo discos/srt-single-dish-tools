@@ -308,9 +308,20 @@ class ScanSet(Table):
         caltable.from_scans(scan_list, freqsplat=self.freqsplat)
         caltable.update()
         Jy_over_counts = caltable.Jy_over_counts()[0]
+        Jy_over_counts_err = caltable.Jy_over_counts()[1]
 
-        for ch in self.images.keys():
-            self.images[ch] *= Jy_over_counts
+        for ch in self.chan_columns():
+            A = self.images[ch]
+            B = Jy_over_counts
+            C = self.images[ch] * Jy_over_counts
+
+            self.images[ch] = C
+
+            eA = self.images['{}-Sdev'.format(ch)]
+            eB = Jy_over_counts_err
+            eC = C * (eA / A + eB / B)
+
+            self.images['{}-Sdev'.format(ch)] = eC
 
     def interactive_display(self, ch=None, recreate=False):
         """Modify original scans from the image display."""
