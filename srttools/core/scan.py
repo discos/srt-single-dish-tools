@@ -20,6 +20,8 @@ from matplotlib.gridspec import GridSpec
 
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
+from .calibration import CalibratorTable
+
 import re
 import sys
 import warnings
@@ -389,6 +391,7 @@ class ScanSet(Table):
         else:  # data is a config file
             config_file = data
             config = read_config(config_file)
+
             scan_list = \
                 self.list_scans(config['datadir'],
                                 config['list_of_directories'])
@@ -413,6 +416,7 @@ class ScanSet(Table):
             self.meta['scan_list'] = scan_list
             self.meta.update(config)
             self.meta['config_file'] = get_config_file()
+            self.freqsplat = freqsplat
 
             self.meta['scan_list'] = np.array(self.meta['scan_list'],
                                               dtype='S')
@@ -549,7 +553,8 @@ class ScanSet(Table):
             self['x'][:, f] = pixcrd[:, 0]
             self['y'][:, f] = pixcrd[:, 1]
 
-    def calculate_images(self, scrunch=False, no_offsets=False, altaz=False):
+    def calculate_images(self, scrunch=False, no_offsets=False, altaz=False,
+                         calibrated=True):
         """Obtain image from all scans.
 
         scrunch:         sum all channels
@@ -613,6 +618,9 @@ class ScanSet(Table):
             total_expo += expomap.T
 
         self.images = images
+        if calibrated:
+            self.calibrate_images()
+
         if scrunch:
             # Filter the part of the image whose value of exposure is higher
             # than the 10% percentile (avoid underexposed parts)
@@ -629,6 +637,27 @@ class ScanSet(Table):
                       '{}-EXPO'.format(self.chan_columns[0]): total_expo}
 
         return images
+
+    def calibrate_images(self):
+        """Calibrate the images."""
+        if not hasattr(self, 'images'):
+            self.calculate_images()
+
+        calibrator_dirs = self.meta['calibrator_directories']
+        if calibrator_dirs is None:
+            warnings.warn("No calibrators specified in config file")
+            return
+        scan_list = \
+            list_scans(self.meta['datadir'], calibrator_dirs)
+        scan_list.sort()
+
+        caltable = CalibratorTable().from_scans(scan_list,
+                                                freqsplat=self.freqsplat)
+        caltable.update()
+        Jy_over_counts = caltable.Jy_over_counts()
+
+        for ch in self.images.keys():
+            self.images[ch] *= Jy_over_counts()
 
     def interactive_display(self, ch=None, recreate=False):
         """Modify original scans from the image display."""
