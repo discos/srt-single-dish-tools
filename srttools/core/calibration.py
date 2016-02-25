@@ -160,9 +160,6 @@ class SourceTable(Table):
             config = read_config(config_file)
             scan_list = \
                 list_scans(config['datadir'], config['list_of_directories'])
-            calib_list = \
-                list_scans(config['datadir'], config['calibrator_directories'])
-            scan_list.extend(calib_list)
             scan_list.sort()
         nscan = len(scan_list)
 
@@ -361,6 +358,9 @@ def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     """Flux function from Perley & Butler ApJS 204, 19 (2013)."""
     a0, a1, a2, a3 = coeffs
     a0e, a1e, a2e, a3e = ecoeffs
+    if np.all(ecoeffs < 1e10):
+        # assume 5% error on calibration parameters!
+        ecoeffs = coeffs * 0.05
     f0 = start_frequency
     f1 = start_frequency + bandwidth
 
@@ -369,10 +369,13 @@ def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
 
     logf = np.log10(fs)
     logS = a0 + a1 * logf + a2 * logf**2 + a3 * logf**3
+    elogS = a0e + a1e * logf + a2e * logf**2 + a3e * logf**3
 
     S = 10 ** logS
+    eS = S * elogS
 
-    return (np.sum(S) * df)
+    # Error is not random, should add linearly
+    return np.sum(S) * df, np.sum(eS) * df
 
 
 def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
@@ -395,7 +398,7 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
 
     ecoeffs = np.array([a0e, a1e, a2e, a3e])
 
-    return flux_function(frequency, bandwidth, coeffs, ecoeffs), 0
+    return flux_function(frequency, bandwidth, coeffs, ecoeffs)
 
 
 calist = ['3C147', '3C48', '3C123', '3C295', '3C286', 'NGC7027']
