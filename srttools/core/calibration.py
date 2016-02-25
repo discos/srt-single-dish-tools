@@ -9,7 +9,7 @@ from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
 from .scan import Scan, list_scans
-from .read_config import read_config, sample_config_file
+from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 import os
 import sys
@@ -151,12 +151,19 @@ class SourceTable(Table):
             if n not in self.keys():
                 self.add_column(Column(name=n, dtype=d))
 
-    def from_scans(self, config_file, verbose=False, freqsplat=None):
+    def from_scans(self, scan_list=None, verbose=False, freqsplat=None,
+                   config_file=None):
         """Load source table from a list of scans."""
-        config = read_config(config_file)
-        scan_list = \
-            list_scans(config['datadir'], config['list_of_directories'])
-        scan_list.sort()
+        if scan_list is None:
+            if config_file is None:
+                config_file = get_config_file()
+            config = read_config(config_file)
+            scan_list = \
+                list_scans(config['datadir'], config['list_of_directories'])
+            calib_list = \
+                list_scans(config['datadir'], config['calibrator_directories'])
+            scan_list.extend(calib_list)
+            scan_list.sort()
         nscan = len(scan_list)
 
         for i_s, s in enumerate(scan_list):
@@ -249,6 +256,7 @@ class CalibratorTable(SourceTable):
         if len(self["Flux/Counts"]) == 0:
             warnings.warn("The calibrator table is empty!")
             return False
+        return True
 
     def check_up_to_date(self):
         """Check that the calibration information is up to date.
@@ -287,8 +295,8 @@ class CalibratorTable(SourceTable):
             flux, eflux = \
                 _get_calibrator_flux(source, frequency, bandwidth, time=t)
 
-            self['Flux'][it] = flux
-            self['Flux Err'][it] = eflux
+            self['Flux Density'][it] = flux
+            self['Flux Density Err'][it] = eflux
             print(flux, eflux)
 
     def calibrate(self):
