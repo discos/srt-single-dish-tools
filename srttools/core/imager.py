@@ -7,7 +7,7 @@ cleaning the data.
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
-from .scan import Scan
+from .scan import Scan, chan_re, list_scans
 from .read_config import read_config, get_config_file, sample_config_file
 import numpy as np
 from astropy import wcs
