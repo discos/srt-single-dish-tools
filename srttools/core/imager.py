@@ -33,6 +33,8 @@ class ScanSet(Table):
                  freqsplat=None, **kwargs):
         """Initialize a ScanSet object."""
         self.norefilt = norefilt
+        self.freqsplat = freqsplat
+
         if isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
             if config_file is not None:
@@ -68,7 +70,6 @@ class ScanSet(Table):
             self.meta['scan_list'] = scan_list
             self.meta.update(config)
             self.meta['config_file'] = get_config_file()
-            self.freqsplat = freqsplat
 
             self.meta['scan_list'] = np.array(self.meta['scan_list'],
                                               dtype='S')
@@ -303,13 +304,13 @@ class ScanSet(Table):
             list_scans(self.meta['datadir'], calibrator_dirs)
         scan_list.sort()
 
-        caltable = CalibratorTable().from_scans(scan_list,
-                                                freqsplat=self.freqsplat)
+        caltable = CalibratorTable()
+        caltable.from_scans(scan_list, freqsplat=self.freqsplat)
         caltable.update()
-        Jy_over_counts = caltable.Jy_over_counts()
+        Jy_over_counts = caltable.Jy_over_counts()[0]
 
         for ch in self.images.keys():
-            self.images[ch] *= Jy_over_counts()
+            self.images[ch] *= Jy_over_counts
 
     def interactive_display(self, ch=None, recreate=False):
         """Modify original scans from the image display."""
