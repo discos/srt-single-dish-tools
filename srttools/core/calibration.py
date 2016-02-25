@@ -24,7 +24,7 @@ except:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, Column
 # For Python 2 and 3 compatibility
 try:
     import configparser
@@ -34,21 +34,23 @@ except ImportError:
 CALIBRATOR_CONFIG = None
 
 
-def decide_symbol(values):
-    """Decide symbols for plotting.
+def _scantype(ras, decs):
+    """Get if scan is along RA or Dec, and if forward or backward."""
+    ravar = np.max(ras) - np.min(ras)
+    decvar = np.max(decs) - np.min(decs)
+    if ravar > decvar:
+        x = ras
+        xvariab = 'RA'
+    else:
+        x = decs
+        xvariab = 'Dec'
 
-    Assigns different symbols to RA scans, Dec scans, backward and forward.
-    """
-    raplus = values == "RA>"
-    ramin = values == "RA<"
-    decplus = values == "Dec>"
-    decmin = values == "Dec<"
-    symbols = np.array(['a' for i in values])
-    symbols[raplus] = u"+"
-    symbols[ramin] = u"s"
-    symbols[decplus] = u"^"
-    symbols[decmin] = u"v"
-    return symbols
+    if x[-1] > x[0]:
+        scan_direction = '>'
+    else:
+        scan_direction = '<'
+
+    return x, xvariab + scan_direction
 
 
 def read_calibrator_config():
@@ -91,6 +93,262 @@ def read_calibrator_config():
     return configs
 
 
+def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
+    global CALIBRATOR_CONFIG
+
+    if CALIBRATOR_CONFIG is None:
+        CALIBRATOR_CONFIG = read_calibrator_config()
+
+    calibrators = CALIBRATOR_CONFIG.keys()
+
+    for cal in calibrators:
+        if cal in calibrator:
+            calibrator = cal
+            break
+    else:
+        return None, None
+
+    conf = CALIBRATOR_CONFIG[calibrator]
+    # find closest value among frequencies
+    if conf["Kind"] == "FreqList":
+        idx = (np.abs(np.array(conf["Frequencies"]) - frequency)).argmin()
+        return conf["Fluxes"][idx] * bandwidth, \
+            conf["Flux Errors"][idx] * bandwidth
+    elif conf["Kind"] == "CoeffTable":
+        return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
+
+
+class SourceTable(Table):
+    """Class containing all information and functions about sources."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the object."""
+        Table.__init__(self, *args, **kwargs)
+
+        names = ["Dir", "File", "Scan Type", "Source",
+                 "Chan", "Feed", "Time",
+                 "Frequency", "Bandwidth",
+                 "Counts", "Counts Err",
+                 "Width",
+                 "Flux Density", "Flux Density Err",
+                 "Elevation",
+                 "Flux/Counts", "Flux/Counts Err",
+                 "RA", "Dec",
+                 "Fit RA", "Fit Dec"]
+
+        dtype = ['U200', 'U200', 'U200', 'U200',
+                 'U200', np.int, np.longdouble,
+                 np.float, np.float,
+                 np.float, np.float,
+                 np.float,
+                 np.float, np.float,
+                 np.float,
+                 np.float, np.float,
+                 np.float, np.float,
+                 np.float, np.float]
+
+        for n, d in zip(names, dtype):
+            if n not in self.keys():
+                self.add_column(Column(name=n, dtype=d))
+
+    def from_scans(self, config_file, verbose=False, freqsplat=None):
+        """Load source table from a list of scans."""
+        config = read_config(config_file)
+        scan_list = \
+            list_scans(config['datadir'], config['list_of_directories'])
+        scan_list.sort()
+        nscan = len(scan_list)
+
+        for i_s, s in enumerate(scan_list):
+            print('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
+            scandir, sname = os.path.split(s)
+            try:
+                # For now, use nosave. HDF5 doesn't store meta, essential for
+                # this
+                # TODO: experiment with serialize_meta!
+                scan = Scan(s, norefilt=True, nosave=True, verbose=verbose,
+                            freqsplat=freqsplat)
+            except:
+                warnings.warn('{} is an invalid file'.format(s))
+                continue
+
+            feeds = np.arange(scan['ra'].shape[1])
+            chans = scan.chan_columns()
+
+            chan_nums = np.arange(len(chans))
+            F, N = np.meshgrid(feeds, chan_nums)
+            F = F.flatten()
+            N = N.flatten()
+            for feed, nch in zip(F, N):
+                channel = chans[nch]
+                ras = np.degrees(scan['ra'][:, feed])
+                decs = np.degrees(scan['dec'][:, feed])
+                time = np.mean(scan['time'][:])
+                el = np.degrees(np.mean(scan['el'][:, feed]))
+                source = scan.meta['SOURCE']
+                pnt_ra = np.degrees(scan.meta['RA'])
+                pnt_dec = np.degrees(scan.meta['Dec'])
+                frequency = scan[channel].meta['frequency']
+                bandwidth = scan[channel].meta['bandwidth']
+                flux_density, flux_density_err = 0, 0
+                flux_over_counts, flux_over_counts_err = 0, 0
+
+                y = scan[channel]
+
+                x, scan_type = _scantype(ras, decs)
+
+                model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
+
+                try:
+                    uncert = fit_info['param_cov'].diagonal() ** 0.5
+                except:
+                    warnings.warn("Fit failed in scan {s}".format(s=s))
+                    continue
+
+                bell = model['Bell']
+                # pars = model.parameters
+                pnames = model.param_names
+                counts = model.amplitude_1.value
+
+                if scan_type.startswith("RA"):
+                    fit_ra = bell.mean
+                    fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
+                    fit_dec = None
+                elif scan_type.startswith("Dec"):
+                    fit_ra = None
+                    fit_dec = bell.mean
+                    fit_width = bell.stddev
+
+                index = pnames.index("amplitude_1")
+
+                counts_err = uncert[index]
+
+                self.add_row([scandir, sname, scan_type, source, channel, feed,
+                              time, frequency, bandwidth, counts, counts_err,
+                              fit_width,
+                              flux_density, flux_density_err, el,
+                              flux_over_counts, flux_over_counts_err,
+                              pnt_ra, pnt_dec, fit_ra, fit_dec])
+
+
+class CalibratorTable(SourceTable):
+    """Class containing all information and functions about calibrators."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the object."""
+        SourceTable.__init__(self, *args, **kwargs)
+
+    def check_not_empty(self):
+        """Check that table is not empty.
+
+        Returns
+        -------
+        good : bool
+            True if all checks pass, False otherwise.
+        """
+        if len(self["Flux/Counts"]) == 0:
+            warnings.warn("The calibrator table is empty!")
+            return False
+
+    def check_up_to_date(self):
+        """Check that the calibration information is up to date.
+
+        Returns
+        -------
+        good : bool
+            True if all checks pass, False otherwise.
+        """
+        if not self.check_not_empty():
+            return False
+
+        if np.any(self["Flux/Counts"] == 0):
+            warnings.warn("The calibrator table needs an update!")
+            self.update()
+
+        return True
+
+    def update(self):
+        """Update the calibration information."""
+        if not self.check_not_empty():
+            return
+
+        self.get_fluxes()
+        self.calibrate()
+
+    def get_fluxes(self):
+        """Get the tabulated flux of the calibrator."""
+        if not self.check_not_empty():
+            return
+
+        for it, t in enumerate(self['Time']):
+            source = self['Source'][it]
+            frequency = self['Frequency'][it] / 1000
+            bandwidth = self['Bandwidth'][it] / 1000
+            flux, eflux = \
+                _get_calibrator_flux(source, frequency, bandwidth, time=t)
+
+            self['Flux'][it] = flux
+            self['Flux Err'][it] = eflux
+            print(flux, eflux)
+
+    def calibrate(self):
+        """Calculate the calibration constants."""
+        if not self.check_not_empty():
+            return
+
+        flux = self['Flux Density']
+        eflux = self['Flux Density Err']
+        counts = self['Counts']
+        ecounts = self['Counts Err']
+
+        flux_over_counts = flux / counts
+        flux_over_counts_err = \
+            (ecounts / counts + eflux / flux) * flux_over_counts
+
+        self['Flux/Counts'][:] = flux_over_counts
+        self['Flux/Counts Err'][:] = flux_over_counts_err
+        print(flux_over_counts, flux_over_counts_err)
+
+    def Jy_over_counts(self):
+        """Get the conversion from counts to Jy."""
+        self.check_up_to_date()
+
+        f_c_ratio = self["Flux/Counts"]
+        good = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
+        fc = np.mean(f_c_ratio[good])
+        f_c_ratio_err = self["Flux/Counts Err"]
+        good = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err > 0)
+        fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
+            / len(self["Time"])
+
+        return fc, fce
+
+    def counts_over_Jy(self):
+        """Get the conversion from Jy to counts."""
+        self.check_up_to_date()
+
+        fc, fce = self.Jy_over_counts()
+        cf = 1 / fc
+        return cf, fce / fc * cf
+
+
+def decide_symbol(values):
+    """Decide symbols for plotting.
+
+    Assigns different symbols to RA scans, Dec scans, backward and forward.
+    """
+    raplus = values == "RA>"
+    ramin = values == "RA<"
+    decplus = values == "Dec>"
+    decmin = values == "Dec<"
+    symbols = np.array(['a' for i in values])
+    symbols[raplus] = u"+"
+    symbols[ramin] = u"s"
+    symbols[decplus] = u"^"
+    symbols[decmin] = u"v"
+    return symbols
+
+
 def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     """Flux function from Perley & Butler ApJS 204, 19 (2013)."""
     a0, a1, a2, a3 = coeffs
@@ -130,31 +388,6 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     ecoeffs = np.array([a0e, a1e, a2e, a3e])
 
     return flux_function(frequency, bandwidth, coeffs, ecoeffs), 0
-
-
-def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
-    global CALIBRATOR_CONFIG
-
-    if CALIBRATOR_CONFIG is None:
-        CALIBRATOR_CONFIG = read_calibrator_config()
-
-    calibrators = CALIBRATOR_CONFIG.keys()
-
-    for cal in calibrators:
-        if cal in calibrator:
-            calibrator = cal
-            break
-    else:
-        return None, None
-
-    conf = CALIBRATOR_CONFIG[calibrator]
-    # find closest value among frequencies
-    if conf["Kind"] == "FreqList":
-        idx = (np.abs(np.array(conf["Frequencies"]) - frequency)).argmin()
-        return conf["Fluxes"][idx] * bandwidth, \
-            conf["Flux Errors"][idx] * bandwidth
-    elif conf["Kind"] == "CoeffTable":
-        return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
 
 calist = ['3C147', '3C48', '3C123', '3C295', '3C286', 'NGC7027']
@@ -441,7 +674,7 @@ def show_calibration(full_table, feed=0, plotall=False):
 
     good = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
     fc = np.mean(f_c_ratio[good])
-    f_c_ratio_err = calibrator_table["Flux/Counts"]
+    f_c_ratio_err = calibrator_table["Flux/Counts Err"]
     good = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err > 0)
     fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
         / len(calibrator_table)
