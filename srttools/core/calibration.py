@@ -314,25 +314,29 @@ class CalibratorTable(SourceTable):
         self['Flux/Counts Err'][:] = flux_over_counts_err
         print(flux_over_counts, flux_over_counts_err)
 
-    def Jy_over_counts(self):
+    def Jy_over_counts(self, channel=None):
         """Get the conversion from counts to Jy."""
         self.check_up_to_date()
 
-        f_c_ratio = self["Flux/Counts"]
+        good = np.ones(len(self["Time"]), dtype=bool)
+        if channel is not None:
+            good = self["Chan"] == channel
+
+        f_c_ratio = self["Flux/Counts"][good]
         good = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
         fc = np.mean(f_c_ratio[good])
-        f_c_ratio_err = self["Flux/Counts Err"]
+        f_c_ratio_err = self["Flux/Counts Err"][good]
         good = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err > 0)
         fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
-            / len(self["Time"])
+            / len(self["Time"][good])
 
         return fc, fce
 
-    def counts_over_Jy(self):
+    def counts_over_Jy(self, channel=None):
         """Get the conversion from Jy to counts."""
         self.check_up_to_date()
 
-        fc, fce = self.Jy_over_counts()
+        fc, fce = self.Jy_over_counts(channel=channel)
         cf = 1 / fc
         return cf, fce / fc * cf
 
