@@ -354,8 +354,10 @@ class ScanSet(Table):
                        vmin=np.percentile(img, 20), cmap="gnuplot2",
                        interpolation="nearest")
 
-            img = self.images['{}-Sdev'.format(ch)]
+            img = self.images['{}-Sdev'.format(ch)].copy()
             self.current = ch
+            bad = np.logical_or(img == 0, img != img)
+            img[bad] = np.mean(img[np.logical_not(bad)])
             ImageSelector(img, ax, fun=self.rerun_scan_analysis)
 
     def rerun_scan_analysis(self, x, y, key):
