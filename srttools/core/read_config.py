@@ -117,6 +117,10 @@ def read_config(fname=None):
         [s for s in analysis_params['list_of_directories'].splitlines()
          if s.strip()]  # This last instruction eliminates blank lines
 
+    config_output['calibrator_directories'] = \
+        [s for s in analysis_params['calibrator_directories'].splitlines()
+         if s.strip()]  # This last instruction eliminates blank lines
+
     # If the list of directories is not specified, or if a '*' symbol is used,
     # use glob in the datadir to determine the list
 
