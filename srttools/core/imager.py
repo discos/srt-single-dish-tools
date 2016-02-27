@@ -105,7 +105,9 @@ class ScanSet(Table):
 
     def load_scans(self, scan_list, freqsplat=None, **kwargs):
         """Load the scans in the list one by ones."""
+        nscan = len(scan_list)
         for i, f in enumerate(scan_list):
+            print("{}/{}".format(i + 1, nscan), end="\r")
             try:
                 s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
                          **kwargs)
@@ -309,8 +311,12 @@ class ScanSet(Table):
         caltable.update()
         Jy_over_counts = caltable.Jy_over_counts()[0]
         Jy_over_counts_err = caltable.Jy_over_counts()[1]
+        if np.isnan(Jy_over_counts):
+            warnings.warn("The Jy/counts factor is nan")
+            Jy_over_counts = 1
+            Jy_over_counts_err = 0
 
-        for ch in self.chan_columns():
+        for ch in self.chan_columns:
             A = self.images[ch]
             B = Jy_over_counts
             C = self.images[ch] * Jy_over_counts
@@ -319,6 +325,9 @@ class ScanSet(Table):
 
             eA = self.images['{}-Sdev'.format(ch)]
             eB = Jy_over_counts_err
+
+            print(eA, A, eB, B, C)
+
             eC = C * (eA / A + eB / B)
 
             self.images['{}-Sdev'.format(ch)] = eC
@@ -562,11 +571,11 @@ def main_imager(args=None):
     scanset = ScanSet(args.config, norefilt=not args.refilt,
                       freqsplat=args.splat)
 
-    scanset.write('test.hdf5', overwrite=True)
-
-    scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                      config_file=args.config,
-                      freqsplat=args.splat)
+    # scanset.write('test.hdf5', overwrite=True)
+    #
+    # scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+    #                   config_file=args.config,
+    #                   freqsplat=args.splat)
 
     scanset.calculate_images()
 

@@ -318,17 +318,22 @@ class CalibratorTable(SourceTable):
         """Get the conversion from counts to Jy."""
         self.check_up_to_date()
 
-        good = np.ones(len(self["Time"]), dtype=bool)
+        good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:
-            good = self["Chan"] == channel
+            good_chans = self["Chan"] == channel
 
-        f_c_ratio = self["Flux/Counts"][good]
-        good = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
+        f_c_ratio = self["Flux/Counts"][good_chans]
+        f_c_ratio_err = self["Flux/Counts Err"][good_chans]
+
+        good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
+        good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
+
+        good = good_fc & good_fce
+
         fc = np.mean(f_c_ratio[good])
-        f_c_ratio_err = self["Flux/Counts Err"][good]
-        good = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err > 0)
+
         fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
-            / len(self["Time"][good])
+            / len(f_c_ratio_err[good])
 
         return fc, fce
 
