@@ -16,6 +16,7 @@ import sys
 import glob
 import re
 import warnings
+import traceback
 
 try:
     import pickle
@@ -154,6 +155,7 @@ class SourceTable(Table):
     def from_scans(self, scan_list=None, verbose=False, freqsplat=None,
                    config_file=None):
         """Load source table from a list of scans."""
+        print(scan_list)
         if scan_list is None:
             if config_file is None:
                 config_file = get_config_file()
@@ -172,9 +174,13 @@ class SourceTable(Table):
                 # TODO: experiment with serialize_meta!
                 scan = Scan(s, norefilt=True, nosave=True, verbose=verbose,
                             freqsplat=freqsplat)
-            except:
-                warnings.warn('{} is an invalid file'.format(s))
-                continue
+            except KeyError as e:
+                warnings.warn("Error while processing {}: {}".format(s,
+                                                                     str(e)))
+            except Exception as e:
+                traceback.print_exc()
+                warnings.warn("Error while processing {}: {}".format(s,
+                                                                     str(e)))
 
             feeds = np.arange(scan['ra'].shape[1])
             chans = scan.chan_columns()
