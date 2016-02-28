@@ -299,6 +299,7 @@ class ScanSet(Table):
             self.calculate_images()
 
         calibrator_dirs = self.meta['calibrator_directories']
+        print(calibrator_dirs)
         if calibrator_dirs is None:
             warnings.warn("No calibrators specified in config file")
             return
@@ -309,22 +310,35 @@ class ScanSet(Table):
         caltable = CalibratorTable()
         caltable.from_scans(scan_list, freqsplat=self.freqsplat)
         caltable.update()
-        Jy_over_counts = caltable.Jy_over_counts()[0]
-        Jy_over_counts_err = caltable.Jy_over_counts()[1]
-        if np.isnan(Jy_over_counts):
-            warnings.warn("The Jy/counts factor is nan")
-            Jy_over_counts = 1
-            Jy_over_counts_err = 0
 
         for ch in self.chan_columns:
-            A = self.images[ch]
+            Jy_over_counts, Jy_over_counts_err = \
+                caltable.Jy_over_counts(channel=ch)
+
+            if np.isnan(Jy_over_counts):
+                warnings.warn("The Jy/counts factor is nan")
+                continue
+            A = self.images[ch].copy()
+            eA = self.images['{}-Sdev'.format(ch)].copy()
+
+            self.images['{}-RAW'.format(ch)] = \
+                self.images['{}'.format(ch)].copy()
+            self.images['{}-Sdev-RAW'.format(ch)] = \
+                self.images['{}-Sdev'.format(ch)].copy()
+            bad = eA != eA
+            A[bad] = 1
+            eA[bad] = 0
+
+            bad = np.logical_or(A == 0, A != A)
+            A[bad] = 1
+            eA[bad] = 0
+
             B = Jy_over_counts
-            C = self.images[ch] * Jy_over_counts
+            eB = Jy_over_counts_err
+
+            C = A * Jy_over_counts
 
             self.images[ch] = C
-
-            eA = self.images['{}-Sdev'.format(ch)]
-            eB = Jy_over_counts_err
 
             print(eA, A, eB, B, C)
 
