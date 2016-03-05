@@ -299,7 +299,6 @@ class CalibratorTable(SourceTable):
 
             self['Flux Density'][it] = flux
             self['Flux Density Err'][it] = eflux
-            print(flux, eflux)
 
     def calibrate(self):
         """Calculate the calibration constants."""
@@ -895,5 +894,3 @@ def main_calibrator(args=None):
     caltable.update()
 
     caltable.write(outfile, path="config", overwrite=True)
-
-    print(caltable)
