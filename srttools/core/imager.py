@@ -304,7 +304,6 @@ class ScanSet(Table):
         for ch in self.chan_columns:
             Jy_over_counts, Jy_over_counts_err = \
                 caltable.Jy_over_counts(channel=ch)
-
             if np.isnan(Jy_over_counts):
                 warnings.warn("The Jy/counts factor is nan")
                 continue
@@ -510,12 +509,12 @@ class ScanSet(Table):
         t.write(fname, path='scanset', **kwargs)
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
-                        no_offsets=False, altaz=False):
+                        no_offsets=False, altaz=False, calibration=None):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             fname = self.meta['config_file'].replace('ini','fits')
         images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
-                                       altaz=altaz)
+                                       altaz=altaz, calibration=calibration)
         self.create_wcs(altaz)
 
         hdulist = fits.HDUList()
@@ -583,9 +582,6 @@ def main_imager(args=None):
     scanset = ScanSet(args.config, norefilt=not args.refilt,
                       freqsplat=args.splat)
 
-
-    scanset.calculate_images(calibration=args.calibrate)
-
     if args.interactive:
         scanset.interactive_display()
-    scanset.save_ds9_images(save_sdev=True)
+    scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate)
