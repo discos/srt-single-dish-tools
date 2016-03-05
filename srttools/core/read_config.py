@@ -4,6 +4,7 @@ from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 import os
 import glob
+import warnings
 # For Python 2 and 3 compatibility
 try:
     import configparser
@@ -34,6 +35,9 @@ def sample_config_file(fname='sample_config_file.ini'):
 ;        dir2
 ;; or a star symbol for all directories
 ;         *
+    calibrator_directories :
+; if left empty, calibrator scans are taken from list_of_directories when
+; calculating light curves, and ignored when calculating images
 
 ;; Coordinates have to be specified in decimal degrees. ONLY use if different
 ;; from target coordinates!
@@ -92,6 +96,7 @@ def read_config(fname=None):
     config_output['workdir'] = './'
     config_output['datadir'] = './'
     config_output['list_of_directories'] = '*'
+    config_output['calibrator_directories'] = []
     config_output['npix'] = '32 32'
     config_output['goodchans'] = None
     config_output['filtering_factor'] = '0'
@@ -109,9 +114,19 @@ def read_config(fname=None):
 
     config_output.update(analysis_params)
 
-    config_output['list_of_directories'] = \
-        [s for s in analysis_params['list_of_directories'].splitlines()
-         if s.strip()]  # This last instruction eliminates blank lines
+    try:
+        config_output['list_of_directories'] = \
+            [s for s in analysis_params['list_of_directories'].splitlines()
+             if s.strip()]  # This last instruction eliminates blank lines
+    except:
+        warnings.warn("Invalid list_of_directories in config file")
+
+    try:
+        config_output['calibrator_directories'] = \
+            [s for s in analysis_params['calibrator_directories'].splitlines()
+             if s.strip()]  # This last instruction eliminates blank lines
+    except:
+        warnings.warn("Invalid list_of_directories in config file")
 
     # If the list of directories is not specified, or if a '*' symbol is used,
     # use glob in the datadir to determine the list
