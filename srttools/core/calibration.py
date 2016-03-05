@@ -9,13 +9,14 @@ from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 
 from .scan import Scan, list_scans
-from .read_config import read_config, sample_config_file
+from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 import os
 import sys
 import glob
 import re
 import warnings
+import traceback
 
 try:
     import pickle
@@ -24,7 +25,7 @@ except:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, Column
 # For Python 2 and 3 compatibility
 try:
     import configparser
@@ -34,21 +35,23 @@ except ImportError:
 CALIBRATOR_CONFIG = None
 
 
-def decide_symbol(values):
-    """Decide symbols for plotting.
+def _scantype(ras, decs):
+    """Get if scan is along RA or Dec, and if forward or backward."""
+    ravar = np.max(ras) - np.min(ras)
+    decvar = np.max(decs) - np.min(decs)
+    if ravar > decvar:
+        x = ras
+        xvariab = 'RA'
+    else:
+        x = decs
+        xvariab = 'Dec'
 
-    Assigns different symbols to RA scans, Dec scans, backward and forward.
-    """
-    raplus = values == "RA>"
-    ramin = values == "RA<"
-    decplus = values == "Dec>"
-    decmin = values == "Dec<"
-    symbols = np.array(['a' for i in values])
-    symbols[raplus] = u"+"
-    symbols[ramin] = u"s"
-    symbols[decplus] = u"^"
-    symbols[decmin] = u"v"
-    return symbols
+    if x[-1] > x[0]:
+        scan_direction = '>'
+    else:
+        scan_direction = '<'
+
+    return x, xvariab + scan_direction
 
 
 def read_calibrator_config():
@@ -58,7 +61,6 @@ def read_calibrator_config():
     calibdir = os.path.join(curdir, '..', 'data', 'calibrators')
     calibrator_file_list = glob.glob(os.path.join(calibdir, '*.ini'))
     print("Reading calibrator files ")
-    print(curdir, calibrator_file_list)
 
     configs = {}
     for cfile in calibrator_file_list:
@@ -91,47 +93,6 @@ def read_calibrator_config():
     return configs
 
 
-def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
-    """Flux function from Perley & Butler ApJS 204, 19 (2013)."""
-    a0, a1, a2, a3 = coeffs
-    a0e, a1e, a2e, a3e = ecoeffs
-    f0 = start_frequency
-    f1 = start_frequency + bandwidth
-
-    fs = np.linspace(f0, f1, 21)
-    df = np.diff(fs)[0]
-
-    logf = np.log10(fs)
-    logS = a0 + a1 * logf + a2 * logf**2 + a3 * logf**3
-
-    S = 10 ** logS
-
-    return (np.sum(S) * df)
-
-
-def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
-    """Return the flux of a calibrator at a given frequency.
-
-    Uses Perley & Butler ApJS 204, 19 (2013).
-    """
-    import io
-    coefftable = conf["CoeffTable"]["coeffs"]
-    fobj = io.BytesIO(coefftable.encode())
-    table = Table.read(fobj, format='ascii.csv')
-
-    idx = np.argmin(np.abs(table["time"] - time))
-
-    a0, a0e = table['a0', 'a0e'][idx]
-    a1, a1e = table['a1', 'a1e'][idx]
-    a2, a2e = table['a2', 'a2e'][idx]
-    a3, a3e = table['a3', 'a3e'][idx]
-    coeffs = np.array([a0, a1, a2, a3])
-
-    ecoeffs = np.array([a0e, a1e, a2e, a3e])
-
-    return flux_function(frequency, bandwidth, coeffs, ecoeffs), 0
-
-
 def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
     global CALIBRATOR_CONFIG
 
@@ -155,6 +116,302 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
             conf["Flux Errors"][idx] * bandwidth
     elif conf["Kind"] == "CoeffTable":
         return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
+
+
+class SourceTable(Table):
+    """Class containing all information and functions about sources."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the object."""
+        Table.__init__(self, *args, **kwargs)
+
+        names = ["Dir", "File", "Scan Type", "Source",
+                 "Chan", "Feed", "Time",
+                 "Frequency", "Bandwidth",
+                 "Counts", "Counts Err",
+                 "Width",
+                 "Flux Density", "Flux Density Err",
+                 "Elevation",
+                 "Flux/Counts", "Flux/Counts Err",
+                 "RA", "Dec",
+                 "Fit RA", "Fit Dec"]
+
+        dtype = ['S200', 'S200', 'S200', 'S200',
+                 'S200', np.int, np.double,
+                 np.float, np.float,
+                 np.float, np.float,
+                 np.float,
+                 np.float, np.float,
+                 np.float,
+                 np.float, np.float,
+                 np.float, np.float,
+                 np.float, np.float]
+
+        for n, d in zip(names, dtype):
+            if n not in self.keys():
+                self.add_column(Column(name=n, dtype=d))
+
+    def from_scans(self, scan_list=None, verbose=False, freqsplat=None,
+                   config_file=None):
+        """Load source table from a list of scans."""
+
+        if scan_list is None:
+            if config_file is None:
+                config_file = get_config_file()
+            config = read_config(config_file)
+            scan_list = \
+                list_scans(config['datadir'], config['list_of_directories'])
+            scan_list.sort()
+        nscan = len(scan_list)
+
+        for i_s, s in enumerate(scan_list):
+            print('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
+            scandir, sname = os.path.split(s)
+            try:
+                # For now, use nosave. HDF5 doesn't store meta, essential for
+                # this
+                # TODO: experiment with serialize_meta!
+                scan = Scan(s, norefilt=True, nosave=True, verbose=verbose,
+                            freqsplat=freqsplat)
+            except KeyError as e:
+                warnings.warn("Error while processing {}: {}".format(s,
+                                                                     str(e)))
+            except Exception as e:
+                traceback.print_exc()
+                warnings.warn("Error while processing {}: {}".format(s,
+                                                                     str(e)))
+
+            feeds = np.arange(scan['ra'].shape[1])
+            chans = scan.chan_columns()
+
+            chan_nums = np.arange(len(chans))
+            F, N = np.meshgrid(feeds, chan_nums)
+            F = F.flatten()
+            N = N.flatten()
+            for feed, nch in zip(F, N):
+                channel = chans[nch]
+                ras = np.degrees(scan['ra'][:, feed])
+                decs = np.degrees(scan['dec'][:, feed])
+                time = np.mean(scan['time'][:])
+                el = np.degrees(np.mean(scan['el'][:, feed]))
+                source = scan.meta['SOURCE']
+                pnt_ra = np.degrees(scan.meta['RA'])
+                pnt_dec = np.degrees(scan.meta['Dec'])
+                frequency = scan[channel].meta['frequency']
+                bandwidth = scan[channel].meta['bandwidth']
+                flux_density, flux_density_err = 0, 0
+                flux_over_counts, flux_over_counts_err = 0, 0
+
+                y = scan[channel]
+
+                x, scan_type = _scantype(ras, decs)
+
+                model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
+
+                try:
+                    uncert = fit_info['param_cov'].diagonal() ** 0.5
+                except:
+                    warnings.warn("Fit failed in scan {s}".format(s=s))
+                    continue
+
+                bell = model['Bell']
+                # pars = model.parameters
+                pnames = model.param_names
+                counts = model.amplitude_1.value
+
+                if scan_type.startswith("RA"):
+                    fit_ra = bell.mean
+                    fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
+                    fit_dec = None
+                elif scan_type.startswith("Dec"):
+                    fit_ra = None
+                    fit_dec = bell.mean
+                    fit_width = bell.stddev
+
+                index = pnames.index("amplitude_1")
+
+                counts_err = uncert[index]
+
+                self.add_row([scandir, sname, scan_type, source, channel, feed,
+                              time, frequency, bandwidth, counts, counts_err,
+                              fit_width,
+                              flux_density, flux_density_err, el,
+                              flux_over_counts, flux_over_counts_err,
+                              pnt_ra, pnt_dec, fit_ra, fit_dec])
+
+
+class CalibratorTable(SourceTable):
+    """Class containing all information and functions about calibrators."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the object."""
+        SourceTable.__init__(self, *args, **kwargs)
+
+    def check_not_empty(self):
+        """Check that table is not empty.
+
+        Returns
+        -------
+        good : bool
+            True if all checks pass, False otherwise.
+        """
+        if len(self["Flux/Counts"]) == 0:
+            warnings.warn("The calibrator table is empty!")
+            return False
+        return True
+
+    def check_up_to_date(self):
+        """Check that the calibration information is up to date.
+
+        Returns
+        -------
+        good : bool
+            True if all checks pass, False otherwise.
+        """
+        if not self.check_not_empty():
+            return False
+
+        if np.any(self["Flux/Counts"] == 0):
+            warnings.warn("The calibrator table needs an update!")
+            self.update()
+
+        return True
+
+    def update(self):
+        """Update the calibration information."""
+        if not self.check_not_empty():
+            return
+
+        self.get_fluxes()
+        self.calibrate()
+
+    def get_fluxes(self):
+        """Get the tabulated flux of the calibrator."""
+        if not self.check_not_empty():
+            return
+
+        for it, t in enumerate(self['Time']):
+            source = self['Source'][it].decode("utf-8")
+            frequency = self['Frequency'][it] / 1000
+            bandwidth = self['Bandwidth'][it] / 1000
+            flux, eflux = \
+                _get_calibrator_flux(source, frequency, bandwidth, time=t)
+
+            self['Flux Density'][it] = flux
+            self['Flux Density Err'][it] = eflux
+
+    def calibrate(self):
+        """Calculate the calibration constants."""
+        if not self.check_not_empty():
+            return
+
+        flux = self['Flux Density']
+        eflux = self['Flux Density Err']
+        counts = self['Counts']
+        ecounts = self['Counts Err']
+
+        flux_over_counts = flux / counts
+        flux_over_counts_err = \
+            (ecounts / counts + eflux / flux) * flux_over_counts
+
+        self['Flux/Counts'][:] = flux_over_counts
+        self['Flux/Counts Err'][:] = flux_over_counts_err
+
+    def Jy_over_counts(self, channel=None):
+        """Get the conversion from counts to Jy."""
+        self.check_up_to_date()
+
+        good_chans = np.ones(len(self["Time"]), dtype=bool)
+        if channel is not None:
+            good_chans = self["Chan"] == channel
+
+        f_c_ratio = self["Flux/Counts"][good_chans]
+        f_c_ratio_err = self["Flux/Counts Err"][good_chans]
+
+        good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
+        good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
+
+        good = good_fc & good_fce
+
+        fc = np.mean(f_c_ratio[good])
+
+        fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
+            / len(f_c_ratio_err[good])
+
+        return fc, fce
+
+    def counts_over_Jy(self, channel=None):
+        """Get the conversion from Jy to counts."""
+        self.check_up_to_date()
+
+        fc, fce = self.Jy_over_counts(channel=channel)
+        cf = 1 / fc
+        return cf, fce / fc * cf
+
+
+def decide_symbol(values):
+    """Decide symbols for plotting.
+
+    Assigns different symbols to RA scans, Dec scans, backward and forward.
+    """
+    raplus = values == "RA>"
+    ramin = values == "RA<"
+    decplus = values == "Dec>"
+    decmin = values == "Dec<"
+    symbols = np.array(['a' for i in values])
+    symbols[raplus] = u"+"
+    symbols[ramin] = u"s"
+    symbols[decplus] = u"^"
+    symbols[decmin] = u"v"
+    return symbols
+
+
+def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
+    """Flux function from Perley & Butler ApJS 204, 19 (2013)."""
+    a0, a1, a2, a3 = coeffs
+
+    if np.all(ecoeffs < 1e10):
+        # assume 5% error on calibration parameters!
+        ecoeffs = coeffs * 0.05
+    a0e, a1e, a2e, a3e = ecoeffs
+    f0 = start_frequency
+    f1 = start_frequency + bandwidth
+
+    fs = np.linspace(f0, f1, 21)
+    df = np.diff(fs)[0]
+
+    logf = np.log10(fs)
+    logS = a0 + a1 * logf + a2 * logf**2 + a3 * logf**3
+    elogS = a0e + a1e * logf + a2e * logf**2 + a3e * logf**3
+
+    S = 10 ** logS
+    eS = S * elogS
+
+    # Error is not random, should add linearly
+    return np.sum(S) * df, np.sum(eS) * df
+
+
+def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
+    """Return the flux of a calibrator at a given frequency.
+
+    Uses Perley & Butler ApJS 204, 19 (2013).
+    """
+    import io
+    coefftable = conf["CoeffTable"]["coeffs"]
+    fobj = io.BytesIO(coefftable.encode())
+    table = Table.read(fobj, format='ascii.csv')
+
+    idx = np.argmin(np.abs(np.longdouble(table["time"]) - time))
+
+    a0, a0e = table['a0', 'a0e'][idx]
+    a1, a1e = table['a1', 'a1e'][idx]
+    a2, a2e = table['a2', 'a2e'][idx]
+    a3, a3e = table['a3', 'a3e'][idx]
+    coeffs = np.array([a0, a1, a2, a3], dtype=float)
+
+    ecoeffs = np.array([a0e, a1e, a2e, a3e], dtype=float)
+
+    return flux_function(frequency, bandwidth, coeffs, ecoeffs)
 
 
 calist = ['3C147', '3C48', '3C123', '3C295', '3C286', 'NGC7027']
@@ -441,7 +698,7 @@ def show_calibration(full_table, feed=0, plotall=False):
 
     good = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
     fc = np.mean(f_c_ratio[good])
-    f_c_ratio_err = calibrator_table["Flux/Counts"]
+    f_c_ratio_err = calibrator_table["Flux/Counts Err"]
     good = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err > 0)
     fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
         / len(calibrator_table)
@@ -459,8 +716,7 @@ def show_calibration(full_table, feed=0, plotall=False):
     for i_s, s in enumerate(sources):
         c = source_colors[i_s % len(sources)]
         filtered = source_table[source_table["Source"] == s]
-        print(filtered[("Source", "Time", "Flux Density", "Flux Density Err",
-                        "Counts", "Counts Err", "Kind")])
+
         if len(filtered) > 20:
             plt.figure(s)
             from astropy.visualization import hist
@@ -582,3 +838,59 @@ def main_lc_calibrator(args=None):
         full_table = pickle.load(f)
         full_table.sort('Time')
     show_calibration(full_table)
+
+
+def main_calibrator(args=None):
+    """Main function."""
+    import argparse
+    import os
+
+    description = ('Load a series of scans from a config file '
+                   'and produce a map.')
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument("--sample-config", action='store_true', default=False,
+                        help='Produce sample config file')
+
+    parser.add_argument("-c", "--config", type=str, default=None,
+                        help='Config file')
+
+    parser.add_argument("--splat", type=str, default=None,
+                        help=("Spectral scans will be scrunched into a single "
+                              "channel containing data in the given frequency "
+                              "range, starting from the frequency of the first"
+                              " bin. E.g. '0:1000' indicates 'from the first "
+                              "bin of the spectrum up to 1000 MHz above'. ':' "
+                              "or 'all' for all the channels."))
+
+    parser.add_argument("-o", "--output", type=str, default=None,
+                        help='Output file containing the calibration')
+
+    args = parser.parse_args(args)
+
+    if args.sample_config:
+        sample_config_file()
+        sys.exit()
+
+    assert args.config is not None, "Please specify the config file!"
+
+    config = read_config(args.config)
+
+    calibrator_dirs = config['calibrator_directories']
+    if calibrator_dirs is None:
+        warnings.warn("No calibrators specified in config file")
+        return
+    scan_list = \
+        list_scans(config['datadir'],
+                   config['calibrator_directories'])
+
+    scan_list.sort()
+
+    outfile = args.output
+    if outfile is None:
+        outfile = args.config.replace("ini", "hdf5")
+    caltable = CalibratorTable()
+    caltable.from_scans(scan_list, freqsplat=args.splat)
+    caltable.update()
+
+    caltable.write(outfile, path="config", overwrite=True)
