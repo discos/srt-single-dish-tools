@@ -1,13 +1,38 @@
 Command line interface
 ======================
 
+SDTcal
+------
+
+::
+
+    usage: SDTcal [-h] [--sample-config] [-c CONFIG] [--splat SPLAT] [-o OUTPUT]
+
+    Load a series of scans from a config file and produce a map.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --sample-config       Produce sample config file
+      -c CONFIG, --config CONFIG
+                            Config file
+      --splat SPLAT         Spectral scans will be scrunched into a single channel
+                            containing data in the given frequency range, starting
+                            from the frequency of the first bin. E.g. '0:1000'
+                            indicates 'from the first bin of the spectrum up to
+                            1000 MHz above'. ':' or 'all' for all the channels.
+      -o OUTPUT, --output OUTPUT
+                            Output file containing the calibration
+
+
+.. automodule:: srttools.core.calibration
+
 SDTimage
 --------
 
 ::
 
     usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--interactive]
-                    [--splat SPLAT]
+                    [--calibrate CALIBRATE] [--splat SPLAT]
 
     Load a series of scans from a config file and produce a map.
 
@@ -18,6 +43,8 @@ SDTimage
                             Config file
       --refilt              Re-run the scan filtering
       --interactive         Open the interactive display
+      --calibrate CALIBRATE
+                            Calibration file
       --splat SPLAT         Spectral scans will be scrunched into a single channel
                             containing data in the given frequency range, starting
                             from the frequency of the first bin. E.g. '0:1000'
@@ -25,7 +52,7 @@ SDTimage
                             1000 MHz above'. ':' or 'all' for all the channels.
 
 
-.. automodule:: srttools.core.scan
+.. automodule:: srttools.core.imager
 
 SDTlcurve
 ---------

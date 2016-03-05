@@ -250,6 +250,31 @@ through that pixel. A second window will appear with a bunch of scans.
 Click on a bad scan and filter it according to the instructions printed in the
 terminal.
 
+Calibration of images
+~~~~~~~~~~~~~~~~~~~~~
+First of all, call::
+
+    (py35) $ SDTcal  --sample-config
+
+Modify the configuration file adding calibrator directories below `calibrator_directories`::
+
+   calibrator_directories :
+      datestring1-3C295/
+      datestring2-3C295/
+
+Then, call again ``SDTcal`` with the ``--splat`` option, using **the same frequency range**
+of the sources.::
+
+    (py35) $ SDTcal -c MyCalibrators.ini --splat <freqmin>:<freqmax> -o calibration.hdf5
+
+Then, call ``SDTimage`` with the ``--calibrate`` option, as follows::
+
+    (py35) $ SDTimage --calibrate calibration.hdf5 -c MySource.ini --splat <freqmin>:<freqmax> --interactive
+
+... and that's it!
+
+
+
 Command line interface
 ----------------------
 
