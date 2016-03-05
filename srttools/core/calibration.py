@@ -408,9 +408,9 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     a1, a1e = table['a1', 'a1e'][idx]
     a2, a2e = table['a2', 'a2e'][idx]
     a3, a3e = table['a3', 'a3e'][idx]
-    coeffs = np.array([a0, a1, a2, a3])
+    coeffs = np.array([a0, a1, a2, a3], dtype=float)
 
-    ecoeffs = np.array([a0e, a1e, a2e, a3e])
+    ecoeffs = np.array([a0e, a1e, a2e, a3e], dtype=float)
 
     return flux_function(frequency, bandwidth, coeffs, ecoeffs)
 
