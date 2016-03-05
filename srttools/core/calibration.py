@@ -136,8 +136,8 @@ class SourceTable(Table):
                  "RA", "Dec",
                  "Fit RA", "Fit Dec"]
 
-        dtype = ['U200', 'U200', 'U200', 'U200',
-                 'U200', np.int, np.longdouble,
+        dtype = ['S200', 'S200', 'S200', 'S200',
+                 'S200', np.int, np.double,
                  np.float, np.float,
                  np.float, np.float,
                  np.float,
@@ -291,7 +291,7 @@ class CalibratorTable(SourceTable):
             return
 
         for it, t in enumerate(self['Time']):
-            source = self['Source'][it]
+            source = self['Source'][it].decode("utf-8")
             frequency = self['Frequency'][it] / 1000
             bandwidth = self['Bandwidth'][it] / 1000
             flux, eflux = \
@@ -839,3 +839,61 @@ def main_lc_calibrator(args=None):
         full_table = pickle.load(f)
         full_table.sort('Time')
     show_calibration(full_table)
+
+
+def main_calibrator(args=None):
+    """Main function."""
+    import argparse
+    import os
+
+    description = ('Load a series of scans from a config file '
+                   'and produce a map.')
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument("--sample-config", action='store_true', default=False,
+                        help='Produce sample config file')
+
+    parser.add_argument("-c", "--config", type=str, default=None,
+                        help='Config file')
+
+    parser.add_argument("--splat", type=str, default=None,
+                        help=("Spectral scans will be scrunched into a single "
+                              "channel containing data in the given frequency "
+                              "range, starting from the frequency of the first"
+                              " bin. E.g. '0:1000' indicates 'from the first "
+                              "bin of the spectrum up to 1000 MHz above'. ':' "
+                              "or 'all' for all the channels."))
+
+    parser.add_argument("-o", "--output", type=str, default=None,
+                        help='Output file containing the calibration')
+
+    args = parser.parse_args(args)
+
+    if args.sample_config:
+        sample_config_file()
+        sys.exit()
+
+    assert args.config is not None, "Please specify the config file!"
+
+    config = read_config(args.config)
+
+    calibrator_dirs = config['calibrator_directories']
+    if calibrator_dirs is None:
+        warnings.warn("No calibrators specified in config file")
+        return
+    scan_list = \
+        list_scans(config['datadir'],
+                   config['calibrator_directories'])
+
+    scan_list.sort()
+
+    outfile = args.output
+    if outfile is None:
+        outfile = args.config.replace("ini", "hdf5")
+    caltable = CalibratorTable()
+    caltable.from_scans(scan_list, freqsplat=args.splat)
+    caltable.update()
+
+    caltable.write(outfile, path="config", overwrite=True)
+
+    print(caltable)
