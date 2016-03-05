@@ -299,7 +299,6 @@ class ScanSet(Table):
             self.calculate_images()
 
         calibrator_dirs = self.meta['calibrator_directories']
-        print(calibrator_dirs)
         if calibrator_dirs is None:
             warnings.warn("No calibrators specified in config file")
             return
@@ -339,8 +338,6 @@ class ScanSet(Table):
             C = A * Jy_over_counts
 
             self.images[ch] = C
-
-            print(eA, A, eB, B, C)
 
             eC = C * (eA / A + eB / B)
 
