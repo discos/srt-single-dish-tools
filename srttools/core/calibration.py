@@ -370,7 +370,7 @@ def decide_symbol(values):
 def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     """Flux function from Perley & Butler ApJS 204, 19 (2013)."""
     a0, a1, a2, a3 = coeffs
-    print(coeffs,ecoeffs)
+
     if np.all(ecoeffs < 1e10):
         # assume 5% error on calibration parameters!
         ecoeffs = coeffs * 0.05
@@ -402,7 +402,7 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     fobj = io.BytesIO(coefftable.encode())
     table = Table.read(fobj, format='ascii.csv')
 
-    idx = np.argmin(np.abs(table["time"] - time))
+    idx = np.argmin(np.abs(np.longdouble(table["time"]) - time))
 
     a0, a0e = table['a0', 'a0e'][idx]
     a1, a1e = table['a1', 'a1e'][idx]
