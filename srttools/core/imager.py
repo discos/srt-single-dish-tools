@@ -570,6 +570,10 @@ def main_imager(args=None):
                         action='store_true',
                         help='Open the interactive display')
 
+    parser.add_argument("--calibrate", default=False,
+                        action='store_true',
+                        help='Open the interactive display')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -589,13 +593,8 @@ def main_imager(args=None):
     scanset = ScanSet(args.config, norefilt=not args.refilt,
                       freqsplat=args.splat)
 
-    # scanset.write('test.hdf5', overwrite=True)
-    #
-    # scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-    #                   config_file=args.config,
-    #                   freqsplat=args.splat)
 
-    scanset.calculate_images()
+    scanset.calculate_images(calibrated=args.calibrate)
 
     if args.interactive:
         scanset.interactive_display()
