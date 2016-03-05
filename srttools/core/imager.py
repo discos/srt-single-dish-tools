@@ -522,7 +522,7 @@ class ScanSet(Table):
                         no_offsets=False, altaz=False):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
-            fname = 'img.fits'
+            fname = self.meta['config_file'].replace('ini','fits')
         images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
                                        altaz=altaz)
         self.create_wcs(altaz)
