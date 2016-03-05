@@ -647,13 +647,20 @@ class ScanSet(Table):
             gs = GridSpec(1, 2, width_ratios=(3, 2))
             ax = fig.add_subplot(gs[0])
             ax2 = fig.add_subplot(gs[1])
-            img = self.images[ch]
+            imgch = ch
+            sdevch = '{}-Sdev'.format(ch)
+            if '{}-RAW'.format(ch) in self.images.keys():
+                imgch = '{}-RAW'.format(ch)
+                sdevch = '{}-Sdev-RAW'.format(ch)
+            img = self.images[imgch]
             ax2.imshow(img, origin='lower',
                        vmin=np.percentile(img, 20), cmap="gnuplot2",
                        interpolation="nearest")
 
-            img = self.images['{}-Sdev'.format(ch)]
+            img = self.images[sdevch].copy()
             self.current = ch
+            bad = np.logical_or(img == 0, img != img)
+            img[bad] = np.mean(img[np.logical_not(bad)])
             ImageSelector(img, ax, fun=self.rerun_scan_analysis)
 
     def rerun_scan_analysis(self, x, y, key):
