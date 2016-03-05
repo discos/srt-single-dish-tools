@@ -20,6 +20,43 @@ import logging
 import traceback
 
 
+def contiguous_regions(condition):
+    """Find contiguous True regions of the boolean array "condition".
+
+    Return a 2D array where the first column is the start index of the region
+    and the second column is the end index.
+
+    Parameters
+    ----------
+    condition : boolean array
+
+    Returns
+    -------
+    idx : [[i0_0, i0_1], [i1_0, i1_1], ...]
+        A list of integer couples, with the start and end of each True blocks
+        in the original array
+
+    Notes
+    -----
+    From http://stackoverflow.com/questions/4494404/find-large-number-of-consecutive-values-fulfilling-condition-in-a-numpy-array
+    """  # NOQA
+    # Find the indicies of changes in "condition"
+    diff = np.diff(condition)
+    idx, = diff.nonzero()
+    # We need to start things after the change in "condition". Therefore,
+    # we'll shift the index by 1 to the right.
+    idx += 1
+    if condition[0]:
+        # If the start of condition is True prepend a 0
+        idx = np.r_[0, idx]
+    if condition[-1]:
+        # If the end of condition is True, append the length of the array
+        idx = np.r_[idx, condition.size]
+    # Reshape the result into two columns
+    idx.shape = (-1, 2)
+    return idx
+
+
 def _rolling_window(a, window):
     """A smart rolling window.
 
@@ -108,7 +145,7 @@ class Scan(Table):
             freqmax = bandwidth
 
         binmin = int(nbin * freqmin / bandwidth)
-        binmax = int(nbin * freqmax / bandwidth)
+        binmax = int(nbin * freqmax / bandwidth) - 1
 
         return freqmin, freqmax, binmin, binmax
 
@@ -219,10 +256,13 @@ class Scan(Table):
                 np.std(_rolling_window(spectral_var[freqmask],
                        np.max([nbin // 20, 20])), 1))
 
-            np.std(spectral_var[freqmask])
+            mod_spectral_var = spectral_var.copy()
+            mod_spectral_var[0:binmin] = spectral_var[binmin]
+            mod_spectral_var[binmax:] = spectral_var[binmax]
+
 
             _, baseline = baseline_als(np.arange(len(spectral_var)),
-                                       spectral_var, return_baseline=True,
+                                       mod_spectral_var, return_baseline=True,
                                        lam=1000, p=0.001)
             threshold = baseline + 5 * ref_std
 
@@ -238,7 +278,16 @@ class Scan(Table):
                 ax1.axvline(binmax)
                 ax1.plot(allbins[mask], total_spec[mask],
                          label="Final mask")
-                ax1.legend()
+                # ax1.legend()
+
+                bad_intervals = contiguous_regions(np.logical_not(wholemask))
+                for b in bad_intervals:
+                    ax2.axvline(b[0], color='k')
+                    ax2.axvline(b[1], color='k')
+                    ax1.axvline(b[0], color='k')
+                    ax1.axvline(b[1], color='k')
+                    ax4.axvline(b[0], color='k')
+                    ax4.axvline(b[1], color='k')
 
                 ax2.imshow(varimg, origin="lower", aspect='auto',
                            cmap=plt.get_cmap("magma"),
@@ -251,8 +300,8 @@ class Scan(Table):
                 ax3.plot(lc, lcbins)
                 ax3.plot(lc_corr, lcbins)
                 ax3.set_xlim([np.min(lc), max(lc)])
-                ax3.axvline(binmin)
-                ax3.axvline(binmax)
+                ax4.axvline(binmin)
+                ax4.axvline(binmax)
                 ax4.plot(allbins[mask], spectral_var[mask])
                 ax4.plot(allbins, baseline)
 
