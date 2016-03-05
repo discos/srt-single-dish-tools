@@ -30,9 +30,6 @@ def _rolling_window(a, window):
         strides = a.strides + (a.strides[-1],)
         return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
     except Exception:
-        print(a.shape)
-        print(a)
-        print(window)
         traceback.print_exc()
         raise
 
