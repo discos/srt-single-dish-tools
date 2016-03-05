@@ -209,7 +209,7 @@ class ScanSet(Table):
             self['y'][:, f] = pixcrd[:, 1]
 
     def calculate_images(self, scrunch=False, no_offsets=False, altaz=False,
-                         calibrated=True):
+                         calibration=None):
         """Obtain image from all scans.
 
         scrunch:         sum all channels
@@ -273,8 +273,8 @@ class ScanSet(Table):
             total_expo += expomap.T
 
         self.images = images
-        if calibrated:
-            self.calibrate_images()
+        if calibration is not None:
+            self.calibrate_images(calibration)
 
         if scrunch:
             # Filter the part of the image whose value of exposure is higher
@@ -293,21 +293,12 @@ class ScanSet(Table):
 
         return images
 
-    def calibrate_images(self):
+    def calibrate_images(self, calibration):
         """Calibrate the images."""
         if not hasattr(self, 'images'):
             self.calculate_images()
 
-        calibrator_dirs = self.meta['calibrator_directories']
-        if calibrator_dirs is None:
-            warnings.warn("No calibrators specified in config file")
-            return
-        scan_list = \
-            list_scans(self.meta['datadir'], calibrator_dirs)
-        scan_list.sort()
-
-        caltable = CalibratorTable()
-        caltable.from_scans(scan_list, freqsplat=self.freqsplat)
+        caltable = CalibratorTable().read(calibration)
         caltable.update()
 
         for ch in self.chan_columns:
@@ -570,9 +561,8 @@ def main_imager(args=None):
                         action='store_true',
                         help='Open the interactive display')
 
-    parser.add_argument("--calibrate", default=False,
-                        action='store_true',
-                        help='Open the interactive display')
+    parser.add_argument("--calibrate", type=str, default=None,
+                        help='Calibration file')
 
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
@@ -594,7 +584,7 @@ def main_imager(args=None):
                       freqsplat=args.splat)
 
 
-    scanset.calculate_images(calibrated=args.calibrate)
+    scanset.calculate_images(calibration=args.calibrate)
 
     if args.interactive:
         scanset.interactive_display()
