@@ -370,10 +370,10 @@ def decide_symbol(values):
 def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     """Flux function from Perley & Butler ApJS 204, 19 (2013)."""
     a0, a1, a2, a3 = coeffs
-    a0e, a1e, a2e, a3e = ecoeffs
     if np.all(ecoeffs < 1e10):
         # assume 5% error on calibration parameters!
         ecoeffs = coeffs * 0.05
+    a0e, a1e, a2e, a3e = ecoeffs
     f0 = start_frequency
     f1 = start_frequency + bandwidth
 
