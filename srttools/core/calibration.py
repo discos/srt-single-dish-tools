@@ -61,7 +61,6 @@ def read_calibrator_config():
     calibdir = os.path.join(curdir, '..', 'data', 'calibrators')
     calibrator_file_list = glob.glob(os.path.join(calibdir, '*.ini'))
     print("Reading calibrator files ")
-    print(curdir, calibrator_file_list)
 
     configs = {}
     for cfile in calibrator_file_list:
@@ -155,7 +154,7 @@ class SourceTable(Table):
     def from_scans(self, scan_list=None, verbose=False, freqsplat=None,
                    config_file=None):
         """Load source table from a list of scans."""
-        print(scan_list)
+
         if scan_list is None:
             if config_file is None:
                 config_file = get_config_file()
@@ -318,7 +317,6 @@ class CalibratorTable(SourceTable):
 
         self['Flux/Counts'][:] = flux_over_counts
         self['Flux/Counts Err'][:] = flux_over_counts_err
-        print(flux_over_counts, flux_over_counts_err)
 
     def Jy_over_counts(self, channel=None):
         """Get the conversion from counts to Jy."""
@@ -718,8 +716,7 @@ def show_calibration(full_table, feed=0, plotall=False):
     for i_s, s in enumerate(sources):
         c = source_colors[i_s % len(sources)]
         filtered = source_table[source_table["Source"] == s]
-        print(filtered[("Source", "Time", "Flux Density", "Flux Density Err",
-                        "Counts", "Counts Err", "Kind")])
+
         if len(filtered) > 20:
             plt.figure(s)
             from astropy.visualization import hist
