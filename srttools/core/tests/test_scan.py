@@ -2,13 +2,13 @@
 
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
-from .io import DEBUG_MODE
-from .read_config import read_config
+from ..io import DEBUG_MODE
+from ..read_config import read_config
 import numpy as np
 import matplotlib.pyplot as plt
 import unittest
 from astropy.table import Table
-from .scan import Scan, ScanSet
+from ..scan import Scan, ScanSet
 
 
 # class Test1_Scan(unittest.TestCase):
