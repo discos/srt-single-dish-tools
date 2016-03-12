@@ -5,7 +5,7 @@ from __future__ import (absolute_import, unicode_literals, division,
 
 from matplotlib import pyplot as plt
 import numpy as np
-from .interactive_filter import select_data, ImageSelector
+from ..interactive_filter import select_data, ImageSelector
 
 
 def test_select_data():
