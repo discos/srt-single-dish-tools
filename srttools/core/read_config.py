@@ -126,7 +126,7 @@ def read_config(fname=None):
             [s for s in analysis_params['calibrator_directories'].splitlines()
              if s.strip()]  # This last instruction eliminates blank lines
     except:
-        warnings.warn("Invalid list_of_directories in config file")
+        warnings.warn("Invalid calibrator_directories in config file")
 
     # If the list of directories is not specified, or if a '*' symbol is used,
     # use glob in the datadir to determine the list
@@ -147,33 +147,3 @@ def read_config(fname=None):
 
     SRT_tools_config = config_output
     return config_output
-
-
-def test_read_config():
-    """Test that config file are read."""
-    import os
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
-
-    fname = os.path.join(datadir, 'test_config.ini')
-
-    config = read_config(fname)
-
-    print('\n --- Test config file ---')
-    for k in config.keys():
-        print("{}: {}".format(k, config[k]))
-
-
-def test_read_incomplete_config():
-    """Test that config file are read."""
-    import os
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
-
-    fname = os.path.join(datadir, 'test_config_incomplete.ini')
-
-    config = read_config(fname)
-
-    print('\n --- Test incomplete config file ---')
-    for k in config.keys():
-        print("{}: {}".format(k, config[k]))
