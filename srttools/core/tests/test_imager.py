@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import unittest
 from astropy.table import Table
-from ..scan import Scan, ScanSet
+from ..imager import ScanSet
 
 
 class Test2_ScanSet(unittest.TestCase):
@@ -18,17 +18,10 @@ class Test2_ScanSet(unittest.TestCase):
         DEBUG_MODE = True
 
         klass.curdir = os.path.dirname(__file__)
-        klass.datadir = os.path.join(klass.curdir, '..', '..', 'TEST_DATASET')
-
-        klass.fname = \
-            os.path.abspath(
-                os.path.join(klass.datadir, '20140603-103246-scicom-3C157',
-                             '20140603-103246-scicom-3C157_003_003.fits'))
+        klass.datadir = os.path.join(klass.curdir, 'data')
 
         klass.config = \
-            os.path.abspath(os.path.join(klass.curdir, '..', '..',
-                                         'TEST_DATASET',
-                                         'test_config.ini'))
+            os.path.abspath(os.path.join(klass.datadir, 'test_config.ini'))
 
         read_config(klass.config)
 
@@ -37,7 +30,7 @@ class Test2_ScanSet(unittest.TestCase):
         plt.ioff()
 
         scanset = ScanSet(self.config, norefilt=False)
-        print(scanset)
+
 
         scanset.write('test.hdf5', overwrite=True)
 
@@ -51,10 +44,11 @@ class Test2_ScanSet(unittest.TestCase):
 
         img = images['Ch0']
 
-        plt.figure('img')
+        fig = plt.figure('img')
         plt.imshow(img, origin='lower')
         plt.colorbar()
-        plt.show()
+        plt.savefig('img.png')
+        plt.close(fig)
 
     def step_3_rough_image_altaz(self):
         '''Test image production.'''
@@ -66,10 +60,11 @@ class Test2_ScanSet(unittest.TestCase):
 
         img = images['Ch0']
 
-        plt.figure('img_altaz')
+        fig = plt.figure('img_altaz')
         plt.imshow(img, origin='lower')
         plt.colorbar()
-        plt.show()
+        plt.savefig('img_altax.png')
+        plt.close(fig)
 
     def step_4_image_stdev(self):
         '''Test image production.'''
@@ -81,11 +76,12 @@ class Test2_ScanSet(unittest.TestCase):
 
         img = images['Ch0-Sdev']
 
-        plt.figure('log(img-Sdev)')
+        fig = plt.figure('log(img-Sdev)')
         plt.imshow(np.log10(img), origin='lower')
         plt.colorbar()
         plt.ioff()
-        plt.show()
+        plt.savefig('img_sdev.png')
+        plt.close(fig)
 
     def step_5_image_scrunch(self):
         '''Test image production.'''
@@ -97,25 +93,28 @@ class Test2_ScanSet(unittest.TestCase):
 
         img = images['Ch0']
 
-        plt.figure('img - scrunched')
+        fig = plt.figure('img - scrunched')
         plt.imshow(img, origin='lower')
         plt.colorbar()
         img = images['Ch0-Sdev']
+        plt.savefig('img_scrunch.png')
+        plt.close(fig)
 
-        plt.figure('img - scrunched - sdev')
+        fig = plt.figure('img - scrunched - sdev')
         plt.imshow(img, origin='lower')
         plt.colorbar()
         plt.ioff()
-        plt.show()
-
-    def step_6_interactive_image(self):
-        '''Test image production.'''
-
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
-
-        scanset.calculate_images()
-        scanset.interactive_display()
+        plt.savefig('img_scrunch_sdev.png')
+        plt.close(fig)
+    #
+    # def step_6_interactive_image(self):
+    #     '''Test image production.'''
+    #
+    #     scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+    #                       config_file=self.config)
+    #
+    #     scanset.calculate_images()
+    #     scanset.interactive_display()
 
     def step_7_ds9_image(self):
         '''Test image production.'''
@@ -127,13 +126,12 @@ class Test2_ScanSet(unittest.TestCase):
 
     def test_all(self):
         self.step_1_scanset()
-        plt.ion()
+
         self.step_2_rough_image()
-        # self.step_3_rough_image_altaz()
-        # self.step_4_image_stdev()
+        self.step_3_rough_image_altaz()
+        self.step_4_image_stdev()
         self.step_5_image_scrunch()
-        plt.ioff()
-        self.step_6_interactive_image()
+        # self.step_6_interactive_image()
         self.step_7_ds9_image()
 
 #
