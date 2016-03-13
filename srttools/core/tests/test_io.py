@@ -8,7 +8,7 @@ import os
 from astropy.time import Time
 import matplotlib.pyplot as plt
 import unittest
-from .io import print_obs_info_fitszilla, read_data, locations
+from ..io import print_obs_info_fitszilla, read_data, locations
 
 
 def test_open_data_fitszilla():

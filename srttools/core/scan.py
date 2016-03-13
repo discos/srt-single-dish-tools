@@ -112,6 +112,7 @@ class Scan(Table):
             table = read_data(data)
             Table.__init__(self, table, masked=True, **kwargs)
             self.meta['filename'] = os.path.abspath(data)
+
             self.meta['config_file'] = config_file
 
             self.meta.update(read_config(self.meta['config_file']))
