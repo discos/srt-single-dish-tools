@@ -53,7 +53,8 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None)
     filename : str
         Output file name
     """
-    template = os.path.abspath(os.path.join(os.getcwd(), '..', 'data', 'scan_template.fits'))
+    curdir = os.path.abspath(os.path.dirname(__file__))
+    template = os.path.abspath(os.path.join(curdir, '..', 'data', 'scan_template.fits'))
     lchdulist = fits.open(template)
     datahdu = lchdulist['DATA TABLE']
     data_table_data = Table(datahdu.data)
