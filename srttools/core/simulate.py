@@ -129,12 +129,3 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
         save_scan(times, np.zeros_like(position_dec) + start_ra, position_dec, {'Ch0': counts, 'Ch1': counts},
                   filename=os.path.join(outdir, 'Dec{}.fits'.format(i_r)))
     print(i_r)
-
-
-def test_sim_scan():
-    times, position, shape = simulate_scan()
-    save_scan(times, position, np.zeros_like(position), {'Ch0': shape, 'Ch1': shape}, 'output.fits')
-    s = Scan('output.fits')
-
-def test_sim_map():
-    simulate_map(width_ra=5, width_dec=6.)
