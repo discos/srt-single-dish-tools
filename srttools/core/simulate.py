@@ -8,6 +8,7 @@ from astropy.table import Table, vstack
 from .scan import Scan
 from .io import mkdir_p
 
+
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1.):
     """Simulate a scan.
 
@@ -82,6 +83,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None)
 
 def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5, count_map=None, noise_amplitude=1.,
                  width_ra=None, width_dec=None, outdir='sim/'):
+
     """Simulate a map.
 
     Parameters
