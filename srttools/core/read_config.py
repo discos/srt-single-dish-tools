@@ -58,6 +58,7 @@ def sample_config_file(fname='sample_config_file.ini'):
     """
     with open(fname, 'w') as fobj:
         print(string, file=fobj)
+    return fname
 
 
 def get_config_file():
@@ -84,7 +85,7 @@ def read_config(fname=None):
     Config = configparser.ConfigParser()
 
     if fname is None:
-        fname = 'config.ini'
+        fname = sample_config_file()
 
     SRT_tools_config_file = fname
     Config.read(fname)
