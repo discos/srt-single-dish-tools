@@ -16,6 +16,30 @@ locations = {'SRT': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
              'Greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
 
 
+def mkdir_p(path):  # pragma: no cover
+    """Safe mkdir function.
+
+    Parameters
+    ----------
+    path : str
+        Name of the directory/ies to create
+
+    Notes
+    -----
+    Found at
+    http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+    """
+    import os
+    import errno
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
 def _standard_offsets():
     # Case with fake multibeam data in files. Damn it
     radius = 0.0006671036
