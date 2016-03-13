@@ -2,12 +2,14 @@
 
 from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
-from ..read_config import read_config
+from ..read_config import read_config, SRT_tools_config
 import numpy as np
 import matplotlib.pyplot as plt
 import unittest
 from astropy.table import Table
 from ..imager import ScanSet
+import os
+import glob
 
 
 class Test2_ScanSet(unittest.TestCase):
@@ -20,17 +22,16 @@ class Test2_ScanSet(unittest.TestCase):
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, 'data')
 
-        klass.config = \
+        klass.config_file = \
             os.path.abspath(os.path.join(klass.datadir, 'test_config.ini'))
 
-        read_config(klass.config)
+        klass.config = read_config(klass.config_file)
 
     def step_1_scanset(self):
         '''Test that sets of data are read.'''
         plt.ioff()
 
-        scanset = ScanSet(self.config, norefilt=False)
-
+        scanset = ScanSet(self.config_file, norefilt=False)
 
         scanset.write('test.hdf5', overwrite=True)
 
@@ -38,7 +39,7 @@ class Test2_ScanSet(unittest.TestCase):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
+                          config_file=self.config_file)
 
         images = scanset.calculate_images()
 
@@ -54,7 +55,7 @@ class Test2_ScanSet(unittest.TestCase):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
+                          config_file=self.config_file)
 
         images = scanset.calculate_images(altaz=True)
 
@@ -70,7 +71,7 @@ class Test2_ScanSet(unittest.TestCase):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
+                          config_file=self.config_file)
 
         images = scanset.calculate_images()
 
@@ -87,7 +88,7 @@ class Test2_ScanSet(unittest.TestCase):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
+                          config_file=self.config_file)
 
         images = scanset.calculate_images(scrunch=True)
 
@@ -120,9 +121,23 @@ class Test2_ScanSet(unittest.TestCase):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-                          config_file=self.config)
+                          config_file=self.config_file)
 
         scanset.save_ds9_images(save_sdev=True)
+
+    def step_999_cleanup(self):
+        """Clean up the mess."""
+        os.unlink('img.png')
+        os.unlink('img_altax.png')
+        os.unlink('img_scrunch.png')
+        os.unlink('img_scrunch_sdev.png')
+        os.unlink('img_sdev.png')
+        os.unlink('test.hdf5')
+        for d in self.config['list_of_directories']:
+            hfiles = glob.glob(os.path.join(self.config['datadir'], d, '*.hdf5'))
+            print(hfiles)
+            for h in hfiles:
+                os.unlink(h)
 
     def test_all(self):
         self.step_1_scanset()
@@ -133,6 +148,7 @@ class Test2_ScanSet(unittest.TestCase):
         self.step_5_image_scrunch()
         # self.step_6_interactive_image()
         self.step_7_ds9_image()
+        self.step_999_cleanup()
 
 #
 # class Test3_MultiFeed(unittest.TestCase):
