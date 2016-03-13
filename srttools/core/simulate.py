@@ -6,6 +6,7 @@ import os
 from astropy.io import fits
 from astropy.table import Table, vstack
 from .scan import Scan
+from .io import mkdir_p
 
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1.):
     """Simulate a scan.
@@ -79,7 +80,8 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None)
     lchdulist.writeto(filename, clobber=True)
 
 
-def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5, shape=None, noise_amplitude=1.):
+def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5, count_map=None, noise_amplitude=1.,
+                 width_ra=None, width_dec=None, outdir='sim/'):
     """Simulate a map.
 
     Parameters
@@ -97,17 +99,42 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
     noise_amplitude : float
         Noise level in counts
     """
-    if shape is None:
-        shape = lambda x : 100
 
-    ra_scans = {}
-    dec_scans = {}
-    for start_dec in np.arange(0, length_dec + spacing, spacing):
-        ra_scans[start_dec]
+    mkdir_p(outdir)
+    if count_map is None:
+        count_map = lambda x, y : 100
+
+    nbins_ra = np.rint(length_ra / speed / dt)
+    nbins_dec = np.rint(length_dec / speed / dt)
+
+    times = np.arange(nbins_ra) * dt
+    position_ra = np.arange(-nbins_ra / 2, nbins_ra / 2) / nbins_ra * length_ra / 60  # In degrees!
+    position_dec = np.arange(-nbins_dec / 2, nbins_dec / 2) / nbins_dec * length_dec / 60  # In degrees!
+
+    if width_dec is None:
+        width_dec = length_ra
+    if width_ra is None:
+        width_ra = length_dec
+    # Dec scans
+    print(nbins_ra, nbins_dec)
+    for i_d, start_dec in enumerate(np.arange(-width_dec / 2 , width_dec / 2 + spacing, spacing) / 60):
+        counts = count_map(position_ra, start_dec) + ra.normal(0, noise_amplitude, position_ra.shape)
+        save_scan(times, position_ra, np.zeros_like(position_ra) + start_dec, {'Ch0': counts, 'Ch1': counts},
+                  filename=os.path.join(outdir, 'Ra{}.fits'.format(i_d)))
+
+    print(i_d)
+    # RA scans
+    for i_r, start_ra in enumerate(np.arange(-width_ra / 2 , width_ra / 2 + spacing, spacing) / 60):
+        counts = count_map(start_ra, position_dec) + ra.normal(0, noise_amplitude, position_dec.shape)
+        save_scan(times, np.zeros_like(position_dec) + start_ra, position_dec, {'Ch0': counts, 'Ch1': counts},
+                  filename=os.path.join(outdir, 'Dec{}.fits'.format(i_r)))
+    print(i_r)
 
 
-def test_save_scan():
+def test_sim_scan():
     times, position, shape = simulate_scan()
     save_scan(times, position, np.zeros_like(position), {'Ch0': shape, 'Ch1': shape}, 'output.fits')
     s = Scan('output.fits')
-    print(s)
+
+def test_sim_map():
+    simulate_map(width_ra=5, width_dec=6.)
