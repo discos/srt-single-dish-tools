@@ -5,10 +5,10 @@ from __future__ import (absolute_import, unicode_literals, division,
 
 from ..read_config import read_config
 
-import matplotlib.pyplot as plt
 import unittest
 
-from ..scan import Scan, ScanSet
+from ..scan import Scan
+import os
 
 
 class Test1_Scan(unittest.TestCase):
@@ -19,17 +19,16 @@ class Test1_Scan(unittest.TestCase):
         DEBUG_MODE = True
 
         klass.curdir = os.path.dirname(__file__)
-        klass.datadir = os.path.join(klass.curdir, '..', '..', 'TEST_DATASET')
+        klass.datadir = os.path.join(klass.curdir, 'data')
 
         klass.fname = \
             os.path.abspath(
-                os.path.join(klass.datadir, '20140603-103246-scicom-3C157',
-                             '20140603-103246-scicom-3C157_003_003.fits'))
+                os.path.join(klass.datadir, 'gauss',
+                             'Dec0.fits'))
 
         klass.config_file = \
-            os.path.abspath(os.path.join(klass.curdir, '..', '..',
-                                         'TEST_DATASET',
-                                         'test_config.ini'))
+            os.path.abspath(os.path.join(klass.datadir, 'test_config.ini'))
+        print(klass.config_file)
 
         read_config(klass.config_file)
 
@@ -40,16 +39,10 @@ class Test1_Scan(unittest.TestCase):
 
         scan.write('scan.hdf5', overwrite=True)
 
-    def step_2_read_scan(self):
-        scan = Scan('scan.hdf5')
-        plt.ion()
-        for col in scan.chan_columns():
-            plt.plot(scan['time'], scan[col])
-        plt.ioff()
-        plt.show()
-
-        return scan
+    def cleanup(self):
+        """Cleanup."""
+        os.unlink('scan.hdf5')
 
     def test_all(self):
         self.step_1_scan()
-        self.step_2_read_scan()
+        self.cleanup()
