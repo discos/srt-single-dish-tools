@@ -104,8 +104,8 @@ matrix:
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
 
 before_install:
-    - sudo apt-get update
-    - sudo apt-get install xvfb
+    - sudo wget https://gist.githubusercontent.com/dmitriy-kiriyenko/974392/raw/337a72368029046f28f0391c914c02d0ef3ad9d7/xvfb -O /etc/init.d
+    - sudo chmod a+x /etc/init.d/xvfb
     - git clone git://github.com/astropy/ci-helpers.git
     - source ci-helpers/travis/setup_conda_$TRAVIS_OS_NAME.sh
 
@@ -121,8 +121,6 @@ install:
     - if [[ $SETUP_CMD != egg_info ]]; then python setup.py install; fi
 
 script:
-    - export DISPLAY=:99.0
-    - sh -e /etc/init.d/xvfb start
     - $MAIN_CMD $SETUP_CMD
 
 after_success:
