@@ -80,7 +80,10 @@ package_info = get_package_info()
 
 # Add the project-global data
 package_info['package_data'].setdefault(PACKAGENAME, [])
-# package_info['package_data'][PACKAGENAME].append('data/*/*/*')
+# package_info['package_data'][PACKAGENAME].append('tests/data/*')
+# package_info['package_data'][PACKAGENAME].append('tests/data/*/*/*.fits')
+# # package_info['package_data'][PACKAGENAME].append('data/*/*')
+# package_info['package_data'][PACKAGENAME].append('data/*.fits')
 # package_info['package_data'][PACKAGENAME].extend(glob.glob('data/*/*.ini'))
 
 # Define entry points for command-line scripts
@@ -97,7 +100,7 @@ for entry_point in entry_point_list:
 c_files = []
 for root, dirs, files in os.walk(PACKAGENAME):
     for filename in files:
-        if filename.endswith('.c') or filename.endswith('.ini'):
+        if filename.endswith('.c') or filename.endswith('.ini') or filename.endswith('.fits'):
             c_files.append(
                 os.path.join(
                     os.path.relpath(root, PACKAGENAME), filename))
