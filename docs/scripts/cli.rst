@@ -24,7 +24,6 @@ SDTcal
                             Output file containing the calibration
 
 
-.. automodule:: srttools.core.calibration
 
 SDTimage
 --------
@@ -52,7 +51,6 @@ SDTimage
                             1000 MHz above'. ':' or 'all' for all the channels.
 
 
-.. automodule:: srttools.core.imager
 
 SDTlcurve
 ---------
@@ -79,5 +77,4 @@ SDTlcurve
       --refilt              Re-run the scan filtering
 
 
-.. automodule:: srttools.core.calibration
 
