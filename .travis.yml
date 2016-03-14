@@ -107,11 +107,16 @@ install:
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_NUMBA == yes ]]; then $CONDA_INSTALL numba; fi
     - if [[ $SETUP_CMD != egg_info ]]; then python setup.py install; fi
 
+before_script:
+    - mkdir -p shippable/testresults
+#    - if [[ $SETUP_CMD == 'test --coverage' ]]; then mkdir -p shippable/codecoverage; fi
 script:
     - $MAIN_CMD $SETUP_CMD
+after_script:
+    - mv results.xml shippable/testresults/
 
-after_success:
-    # If coveralls.io is set up for this package, uncomment the line
-    # below and replace "packagename" with the name of your package.
-    # The coveragerc file may be customized as needed for your package.
-    - if [[ $SETUP_CMD == 'test --coverage' ]]; then coveralls --rcfile='maltpynt/tests/coveragerc'; fi
+#after_success:
+#    # If coveralls.io is set up for this package, uncomment the line
+#    # below and replace "packagename" with the name of your package.
+#    # The coveragerc file may be customized as needed for your package.
+#    - if [[ $SETUP_CMD == 'test --coverage' ]]; then coveralls --rcfile='maltpynt/tests/coveragerc'; fi
