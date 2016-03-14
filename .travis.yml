@@ -33,6 +33,7 @@ env:
         - PIP_DEPENDENCIES=''
         - MAIN_CMD='python setup.py'
         - USE_NETCDF=yes
+        - SETUP_XVFB=True
     matrix:
         # Make sure that egg_info works without dependencies
         - SETUP_CMD='egg_info'
