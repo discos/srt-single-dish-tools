@@ -104,12 +104,10 @@ matrix:
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
 
 before_install:
-    - sudo apt-get update
-    - sudo apt-get install xvfb
     - git clone git://github.com/astropy/ci-helpers.git
     - source ci-helpers/travis/setup_conda_$TRAVIS_OS_NAME.sh
     - export DISPLAY=:99.0
-    - sh -e /etc/init.d/xvfb start
+    - "/etc/init.d/xvfb start"
 
 install:
     # OPTIONAL DEPENDENCIES
