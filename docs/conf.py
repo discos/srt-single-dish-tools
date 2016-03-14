@@ -82,8 +82,8 @@ if not on_rtd:
                 else:
                     print('    ' + l, file=fobj)
             print(file=fobj)
-            print(".. automodule:: {}".format(scripts[cl].split(":")[0]),
-                  file=fobj)
+            # print(".. automodule:: {}".format(scripts[cl].split(":")[0]),
+            #       file=fobj)
             print(file=fobj)
 
 # -- General configuration ----------------------------------------------------
