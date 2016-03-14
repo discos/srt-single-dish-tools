@@ -21,6 +21,7 @@ addons:
             - graphviz
             - texlive-latex-extra
             - dvipng
+            - xvfb
 
 env:
     global:
