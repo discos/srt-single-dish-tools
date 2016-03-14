@@ -11,22 +11,6 @@ import unittest
 from ..io import print_obs_info_fitszilla, read_data, locations
 
 
-def test_open_data_fitszilla():
-    '''Test that data are read.'''
-    import os
-    import matplotlib.pyplot as plt
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
-
-    fname = os.path.join(datadir, '20140603-103246-scicom-3C157',
-                         '20140603-103246-scicom-3C157_003_003.fits')
-    print_obs_info_fitszilla(fname)
-    table = read_data(fname)
-    for i in range(2):
-        plt.plot(table.field('time'), table.field('Ch{}'.format(i))[:])
-    plt.show()
-
-
 class TestCoords(unittest.TestCase):
     @classmethod
     def setup_class(klass):
