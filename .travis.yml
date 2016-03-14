@@ -29,10 +29,9 @@ env:
         # to repeat them for all configurations.
         - NUMPY_VERSION=1.10
         - ASTROPY_VERSION=stable
-        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip'
+        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py'
         - PIP_DEPENDENCIES=''
         - MAIN_CMD='python setup.py'
-        - USE_NETCDF=yes
         - SETUP_XVFB=True
     matrix:
         # Make sure that egg_info works without dependencies
@@ -54,15 +53,11 @@ matrix:
         # Try all python versions with the latest numpy
         - python: 2.7
           env: SETUP_CMD='test --coverage'
-        - python: 2.7
-          env: SETUP_CMD='test --coverage' USE_NETCDF=no
         - python: 3.3
           env: SETUP_CMD='test' NUMPY_VERSION=1.9
         # Old matplotlib
         - python: 3.4
           env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
-        - python: 3.4
-          env: SETUP_CMD='test --coverage' USE_NETCDF=no
         - python: 3.4
           env: SETUP_CMD='test --coverage' USE_NUMBA=yes
         - python: 3.5
@@ -113,7 +108,6 @@ install:
     # conda for packages available through conda, or pip for any other
     # packages. You should leave the `numpy=$NUMPY_VERSION` in the `conda`
     # install since this ensures Numpy does not get automatically upgraded.
-    - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_NETCDF == yes ]]; then $CONDA_INSTALL netcdf4; fi
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_NUMBA == yes ]]; then $CONDA_INSTALL numba; fi
     - if [[ $SETUP_CMD != egg_info ]]; then python setup.py install; fi
 
