@@ -52,10 +52,3 @@ srttools.core.scan module
     :undoc-members:
     :show-inheritance:
 
-srttools.core.webint module
----------------------------
-
-.. automodule:: srttools.core.webint
-    :members:
-    :undoc-members:
-    :show-inheritance:
