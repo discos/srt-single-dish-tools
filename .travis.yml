@@ -108,12 +108,12 @@ install:
     - if [[ $SETUP_CMD != egg_info ]]; then python setup.py install; fi
 
 before_script:
-    - mkdir -p shippable/testresults
+    - if [[ $SETUP_CMD == test ]]; then mkdir -p shippable/testresults; fi
 #    - if [[ $SETUP_CMD == 'test --coverage' ]]; then mkdir -p shippable/codecoverage; fi
 script:
     - $MAIN_CMD $SETUP_CMD
 after_script:
-    - mv results.xml shippable/testresults/
+    - if [[ $SETUP_CMD == test ]]; then mv results.xml shippable/testresults/; fi
 
 #after_success:
 #    # If coveralls.io is set up for this package, uncomment the line
