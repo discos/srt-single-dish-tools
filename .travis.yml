@@ -109,8 +109,7 @@ before_install:
     - sudo chmod 755 /etc/init.d/xvfb
     - git clone git://github.com/astropy/ci-helpers.git
     - source ci-helpers/travis/setup_conda_$TRAVIS_OS_NAME.sh
-    - export DISPLAY=:99.0
-    - sh -e /etc/init.d/xvfb start
+
 
 install:
     # OPTIONAL DEPENDENCIES
@@ -123,6 +122,8 @@ install:
     - if [[ $SETUP_CMD != egg_info ]]; then python setup.py install; fi
 
 script:
+    - export DISPLAY=:99.0
+    - sh -e /etc/init.d/xvfb start
     - $MAIN_CMD $SETUP_CMD
 
 after_success:
