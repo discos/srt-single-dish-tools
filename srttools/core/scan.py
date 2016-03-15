@@ -5,13 +5,14 @@ from __future__ import (absolute_import, unicode_literals, division,
 from .io import read_data, root_name
 import glob
 from .read_config import read_config, get_config_file
+from .fit import ref_std
 import os
 import numpy as np
 from astropy.table import Table, Column
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-from .fit import baseline_rough, baseline_als, linear_fun
+from .fit import baseline_rough, baseline_als, linear_fun, _rolling_window
 from .interactive_filter import select_data
 
 import re
@@ -55,20 +56,6 @@ def contiguous_regions(condition):
     # Reshape the result into two columns
     idx.shape = (-1, 2)
     return idx
-
-
-def _rolling_window(a, window):
-    """A smart rolling window.
-
-    Found at http://www.rigtorp.se/2011/01/01/rolling-statistics-numpy.html
-    """
-    try:
-        shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
-        strides = a.strides + (a.strides[-1],)
-        return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
-    except Exception:
-        traceback.print_exc()
-        raise
 
 
 chan_re = re.compile(r'^Ch[0-9]+$')
@@ -126,7 +113,7 @@ class Scan(Table):
 
             if ('backsub' not in self.meta.keys() or
                     not self.meta['backsub']) \
-                    and not norefilt:
+                    or not norefilt:
                 logging.info('Subtracting the baseline')
                 self.baseline_subtract()
 
@@ -253,9 +240,7 @@ class Scan(Table):
             mean_varimg = np.mean(varimg[:, freqmask])
             std_varimg = np.std(varimg[:, freqmask])
 
-            ref_std = np.min(
-                np.std(_rolling_window(spectral_var[freqmask],
-                       np.max([nbin // 20, 20])), 1))
+            stdref = ref_std(spectral_var[freqmask], np.max([nbin // 20, 20]))
 
             mod_spectral_var = spectral_var.copy()
             mod_spectral_var[0:binmin] = spectral_var[binmin]
@@ -266,7 +251,7 @@ class Scan(Table):
                                        mod_spectral_var, return_baseline=True,
                                        lam=1000, p=0.001)
             if not nofilt:
-                threshold = baseline + 5 * ref_std
+                threshold = baseline + 5 * stdref
             else:
                 threshold = np.zeros_like(baseline) + 1e32
 
@@ -327,7 +312,6 @@ class Scan(Table):
     def baseline_subtract(self, kind='als'):
         """Subtract the baseline."""
         if kind == 'als':
-
             for col in self.chan_columns():
                 self[col] = baseline_als(self['time'], self[col])
         elif kind == 'rough':
