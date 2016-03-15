@@ -355,27 +355,36 @@ class CalibratorTable(SourceTable):
         cf = 1 / fc
         return cf, fce / fc * cf
 
-    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None):
+    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None, channel=None):
         """Plot the data corresponding to two given columns."""
         showit = False
         if ax is None:
             plt.figure("{} vs {}".format(xcol, ycol))
             ax = plt.gca()
             showit = True
+
         good = (self[xcol] == self[xcol]) & (self[ycol] == self[ycol])
+        mask = np.ones_like(good)
+        label = ""
+        if channel is not None:
+            mask = self['Chan'] == channel
+            label = "_{}".format(channel)
+
+        good = good & mask
         x_to_plot = self[xcol][good]
         y_to_plot = self[ycol][good]
         yerr_to_plot = None
         xerr_to_plot = None
         if xerrcol is not None:
-            xerr_to_plot = self[xerrcol]
+            xerr_to_plot = self[xerrcol][good]
         if yerrcol is not None:
-            yerr_to_plot = self[yerrcol]
+            yerr_to_plot = self[yerrcol][good]
 
         if xerrcol is None or yerrcol is None:
-            ax.errorbar(x_to_plot, y_to_plot, xerr=xerr_to_plot, yerr=yerr_to_plot, label=ycol)
+            print(xerr_to_plot, yerr_to_plot)
+            ax.errorbar(x_to_plot, y_to_plot, xerr=xerr_to_plot, yerr=yerr_to_plot, label=ycol + label)
         else:
-            ax.scatter(x_to_plot, y_to_plot, label=ycol)
+            ax.scatter(x_to_plot, y_to_plot, label=ycol + label)
         ax.set_xlabel(xcol)
         ax.set_ylabel(ycol)
         if showit:
@@ -396,14 +405,35 @@ class CalibratorTable(SourceTable):
         ax10 = plt.subplot(gs[1, 0], sharex=ax00)
         ax11 = plt.subplot(gs[1, 1], sharex=ax01, sharey=ax10)
 
-        self.plot_two_columns('Elevation', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax00)
-        self.plot_two_columns('Elevation', "RA err", ax=ax10)
-        self.plot_two_columns('Elevation', "Dec err", ax=ax10)
-        self.plot_two_columns('Azimuth', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax01)
-        self.plot_two_columns('Azimuth', "RA err", ax=ax11)
-        self.plot_two_columns('Azimuth', "Dec err", ax=ax11)
+        for channel in list(set(self['Chan'])):
+            self.plot_two_columns('Elevation', "Flux/Counts",
+                                  yerrcol="Flux/Counts Err", ax=ax00,
+                                  channel=channel)
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel)
+            ax00.axhline(jy_over_cts)
+            ax00.axhline(jy_over_cts + jy_over_cts_err)
+            ax00.axhline(jy_over_cts - jy_over_cts_err)
+            self.plot_two_columns('Elevation', "RA err", ax=ax10,
+                                  channel=channel)
+            self.plot_two_columns('Elevation', "Dec err", ax=ax10,
+                                  channel=channel)
+            self.plot_two_columns('Azimuth', "Flux/Counts",
+                                  yerrcol="Flux/Counts Err", ax=ax01,
+                                  channel=channel)
+            ax01.axhline(jy_over_cts)
+            ax01.axhline(jy_over_cts + jy_over_cts_err)
+            ax01.axhline(jy_over_cts - jy_over_cts_err)
+            self.plot_two_columns('Azimuth', "RA err", ax=ax11,
+                                  channel=channel)
+            self.plot_two_columns('Azimuth', "Dec err", ax=ax11,
+                                  channel=channel)
 
-        plt.show()
+        ax00.legend()
+        ax01.legend()
+        ax10.legend()
+        ax11.legend()
+        plt.savefig("calibration_summary.png")
+        plt.close(fig)
 
 
 def decide_symbol(values):
@@ -906,7 +936,7 @@ def main_calibrator(args=None):
                    'and produce a map.')
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("files", nargs='?', help="Input calibration file", default=None)
+    parser.add_argument("file", nargs='?', help="Input calibration file", default=None, type=str)
     parser.add_argument("--sample-config", action='store_true', default=False,
                         help='Produce sample config file')
 
@@ -936,10 +966,9 @@ def main_calibrator(args=None):
         sample_config_file()
         sys.exit()
 
-    if args.files is not None:
-        for f in args.files:
-            caltable = CalibratorTable().read(f)
-            caltable.show()
+    if args.file is not None:
+        caltable = CalibratorTable().read(args.file)
+        caltable.show()
         sys.exit()
     assert args.config is not None, "Please specify the config file!"
 
