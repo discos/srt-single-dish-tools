@@ -397,11 +397,11 @@ class CalibratorTable(SourceTable):
         ax11 = plt.subplot(gs[1, 1], sharex=ax01, sharey=ax10)
 
         self.plot_two_columns('Elevation', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax00)
-        self.plot_two_columns('Elevation', "RA err", ax10)
-        self.plot_two_columns('Elevation', "Dec err", ax10)
+        self.plot_two_columns('Elevation', "RA err", ax=ax10)
+        self.plot_two_columns('Elevation', "Dec err", ax=ax10)
         self.plot_two_columns('Azimuth', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax01)
-        self.plot_two_columns('Azimuth', "RA err", ax11)
-        self.plot_two_columns('Azimuth', "Dec err", ax11)
+        self.plot_two_columns('Azimuth', "RA err", ax=ax11)
+        self.plot_two_columns('Azimuth', "Dec err", ax=ax11)
 
         plt.show()
 
