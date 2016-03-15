@@ -17,14 +17,15 @@ import glob
 import re
 import warnings
 import traceback
+from matplotlib.gridspec import GridSpec
+import matplotlib.pyplot as plt
 
 try:
-    import pickle
-except:
     import cPickle as pickle
+except:
+    import pickle
 
 import numpy as np
-import matplotlib.pyplot as plt
 from astropy.table import Table, vstack, Column
 # For Python 2 and 3 compatibility
 try:
@@ -131,10 +132,11 @@ class SourceTable(Table):
                  "Counts", "Counts Err",
                  "Width",
                  "Flux Density", "Flux Density Err",
-                 "Elevation",
+                 "Elevation", "Azimuth",
                  "Flux/Counts", "Flux/Counts Err",
                  "RA", "Dec",
-                 "Fit RA", "Fit Dec"]
+                 "Fit RA", "Fit Dec",
+                 "RA err", "Dec err"]
 
         dtype = ['S200', 'S200', 'S200', 'S200',
                  'S200', np.int, np.double,
@@ -142,7 +144,8 @@ class SourceTable(Table):
                  np.float, np.float,
                  np.float,
                  np.float, np.float,
-                 np.float,
+                 np.float, np.float,
+                 np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
                  np.float, np.float]
@@ -194,6 +197,7 @@ class SourceTable(Table):
                 decs = np.degrees(scan['dec'][:, feed])
                 time = np.mean(scan['time'][:])
                 el = np.degrees(np.mean(scan['el'][:, feed]))
+                az = np.degrees(np.mean(scan['az'][:, feed]))
                 source = scan.meta['SOURCE']
                 pnt_ra = np.degrees(scan.meta['RA'])
                 pnt_dec = np.degrees(scan.meta['Dec'])
@@ -223,11 +227,14 @@ class SourceTable(Table):
                     fit_ra = bell.mean
                     fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
                     fit_dec = None
+                    ra_err = fit_ra - pnt_ra
+                    dec_err = None
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
                     fit_dec = bell.mean
                     fit_width = bell.stddev
-
+                    dec_err = fit_dec - pnt_dec
+                    ra_err = None
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
@@ -235,9 +242,9 @@ class SourceTable(Table):
                 self.add_row([scandir, sname, scan_type, source, channel, feed,
                               time, frequency, bandwidth, counts, counts_err,
                               fit_width,
-                              flux_density, flux_density_err, el,
+                              flux_density, flux_density_err, el, az,
                               flux_over_counts, flux_over_counts_err,
-                              pnt_ra, pnt_dec, fit_ra, fit_dec])
+                              pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err, dec_err])
 
 
 class CalibratorTable(SourceTable):
@@ -347,6 +354,56 @@ class CalibratorTable(SourceTable):
         fc, fce = self.Jy_over_counts(channel=channel)
         cf = 1 / fc
         return cf, fce / fc * cf
+
+    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None):
+        """Plot the data corresponding to two given columns."""
+        showit = False
+        if ax is None:
+            plt.figure("{} vs {}".format(xcol, ycol))
+            ax = plt.gca()
+            showit = True
+        good = (self[xcol] == self[xcol]) & (self[ycol] == self[ycol])
+        x_to_plot = self[xcol][good]
+        y_to_plot = self[ycol][good]
+        yerr_to_plot = None
+        xerr_to_plot = None
+        if xerrcol is not None:
+            xerr_to_plot = self[xerrcol]
+        if yerrcol is not None:
+            yerr_to_plot = self[yerrcol]
+
+        if xerrcol is None or yerrcol is None:
+            ax.errorbar(x_to_plot, y_to_plot, xerr=xerr_to_plot, yerr=yerr_to_plot, label=ycol)
+        else:
+            ax.scatter(x_to_plot, y_to_plot, label=ycol)
+        ax.set_xlabel(xcol)
+        ax.set_ylabel(ycol)
+        if showit:
+            plt.show()
+        return x_to_plot, y_to_plot
+
+    def show(self):
+        """Show a summary of the calibration."""
+
+        # TODO: this is meant to become interactive. I will make different
+        # panels linked to each other.
+
+        fig = plt.figure("Summary", figsize=(16, 16))
+        plt.suptitle("Summary")
+        gs = GridSpec(2, 2, hspace=0)
+        ax00 = plt.subplot(gs[0, 0])
+        ax01 = plt.subplot(gs[0, 1], sharey=ax00)
+        ax10 = plt.subplot(gs[1, 0], sharex=ax00)
+        ax11 = plt.subplot(gs[1, 1], sharex=ax01, sharey=ax10)
+
+        self.plot_two_columns('el', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax00)
+        self.plot_two_columns('el', "RA err", ax10)
+        self.plot_two_columns('el', "Dec err", ax10)
+        self.plot_two_columns('az', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax01)
+        self.plot_two_columns('az', "RA err", ax11)
+        self.plot_two_columns('az', "Dec err", ax11)
+
+        plt.show()
 
 
 def decide_symbol(values):
