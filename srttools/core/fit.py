@@ -3,6 +3,27 @@ from __future__ import (absolute_import, unicode_literals, division,
                         print_function)
 from scipy.optimize import curve_fit
 import numpy as np
+import traceback
+
+
+def _rolling_window(a, window):
+    """A smart rolling window.
+
+    Found at http://www.rigtorp.se/2011/01/01/rolling-statistics-numpy.html
+    """
+    try:
+        shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
+        strides = a.strides + (a.strides[-1],)
+        return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+    except Exception:
+        traceback.print_exc()
+        raise
+
+
+def ref_std(array, window):
+    """Minimum standard deviation along an array."""
+
+    return np.min(np.std(_rolling_window(array, window), 1))
 
 
 def linear_fun(x, q, m):
@@ -27,19 +48,31 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=True):
         q0 = min(lc)
         start_pars = [q0, m0]
 
-    # only consider start and end quarters of image
+
     nbin = len(time)
     #    bins = np.arange(nbin, dtype=int)
     lc = lc.copy()
+    time = time.copy()
+
     total_trend = 0
+
+    local_std = ref_std(lc, np.max([nbin // 20, 20]))
+
     for percentage in [0.8, 0.15]:
-        sorted_els = np.argsort(lc)
+        time_to_fit = time[1:-1]
+        lc_to_fit = lc[1:-1]
+
+        sorted_els = np.argsort(lc_to_fit)
         # Select the lowest half elements
         good = sorted_els[: int(nbin * percentage)]
         #    good = np.logical_or(bins <= nbin / 4, bins >= nbin / 4 * 3)
 
-        time_filt = time[good]
-        lc_filt = lc[good]
+        print(np.std(lc_to_fit[good]), local_std)
+        if np.std(lc_to_fit[good]) < 2 * local_std:
+            good = np.ones(len(lc_to_fit), dtype=bool)
+
+        time_filt = time_to_fit[good]
+        lc_filt = lc_to_fit[good]
         back_in_order = np.argsort(time_filt)
         lc_filt = lc_filt[back_in_order]
         time_filt = time_filt[back_in_order]
@@ -55,6 +88,14 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=True):
         return lc
 
 
+def find_outliers(y):
+    mean_diff = ref_std(y, np.max([len(y) // 20, 20]))
+    diffs = np.diff(y)
+    diffs = np.append([0], diffs)
+    outlier = np.abs(diffs) > 5 * mean_diff
+    return outlier
+
+
 def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
@@ -68,6 +109,13 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
         lam = 1e9
     if p is None:
         p = 0.001
+
+    idxs = np.arange(len(y))
+    outliers = find_outliers(y)
+    for i in idxs[outliers]:
+        print("outlier", y[i], y[i-1])
+        y[i] = y[i - 1]
+
     L = len(y)
     D = sparse.csc_matrix(np.diff(np.eye(L), 2))
     w = np.ones(L)
@@ -77,9 +125,14 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
         z = sparse.linalg.spsolve(Z, w*y)
         w = p * (y > z) + (1-p) * (y < z)
 
+    import matplotlib.pyplot as plt
+    # plt.figure("Bidule")
+    # plt.plot(x, y - z)
+
     _, z2 = baseline_rough(x, y - z, return_baseline=True)
     z += z2
-
+    # plt.plot(x, y - z)
+    # plt.show()
     if return_baseline:
         return y - z, z
     else:
