@@ -89,7 +89,7 @@ class Scan(Table):
 
     def __init__(self, data=None, config_file=None, norefilt=False,
                  interactive=False, nosave=False, verbose=True,
-                 freqsplat=None, **kwargs):
+                 freqsplat=None, nofilt=False, **kwargs):
         """Initialize a Scan object.
 
         Freqsplat is a string, freqmin:freqmax, and gives the limiting
@@ -119,7 +119,7 @@ class Scan(Table):
 
             self.check_order()
 
-            self.clean_and_splat(freqsplat=freqsplat)
+            self.clean_and_splat(freqsplat=freqsplat, nofilt=nofilt)
 
             if interactive:
                 self.interactive_filter()
@@ -180,7 +180,7 @@ class Scan(Table):
                          if chan_re.match(i)])
 
     def clean_and_splat(self, good_mask=None, freqsplat=None, debug=True,
-                        save_spectrum=False):
+                        save_spectrum=False, nofilt=False):
         """Clean from RFI.
 
         Very rough now, it will become complicated eventually.
@@ -265,7 +265,10 @@ class Scan(Table):
             _, baseline = baseline_als(np.arange(len(spectral_var)),
                                        mod_spectral_var, return_baseline=True,
                                        lam=1000, p=0.001)
-            threshold = baseline + 5 * ref_std
+            if not nofilt:
+                threshold = baseline + 5 * ref_std
+            else:
+                threshold = np.zeros_like(baseline) + 1e32
 
             mask = spectral_var < threshold
 

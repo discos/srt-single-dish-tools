@@ -152,7 +152,7 @@ class SourceTable(Table):
                 self.add_column(Column(name=n, dtype=d))
 
     def from_scans(self, scan_list=None, verbose=False, freqsplat=None,
-                   config_file=None):
+                   config_file=None, nofilt=False):
         """Load source table from a list of scans."""
 
         if scan_list is None:
@@ -172,7 +172,7 @@ class SourceTable(Table):
                 # this
                 # TODO: experiment with serialize_meta!
                 scan = Scan(s, norefilt=True, nosave=True, verbose=verbose,
-                            freqsplat=freqsplat)
+                            freqsplat=freqsplat, nofilt=nofilt)
             except KeyError as e:
                 warnings.warn("Error while processing {}: {}".format(s,
                                                                      str(e)))
@@ -852,6 +852,9 @@ def main_calibrator(args=None):
     parser.add_argument("--sample-config", action='store_true', default=False,
                         help='Produce sample config file')
 
+    parser.add_argument("--nofilt", action='store_true', default=False,
+                        help='Do not filter noisy channels')
+
     parser.add_argument("-c", "--config", type=str, default=None,
                         help='Config file')
 
@@ -890,7 +893,7 @@ def main_calibrator(args=None):
     if outfile is None:
         outfile = args.config.replace("ini", "hdf5")
     caltable = CalibratorTable()
-    caltable.from_scans(scan_list, freqsplat=args.splat)
+    caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt)
     caltable.update()
 
     caltable.write(outfile, path="config", overwrite=True)

@@ -30,7 +30,7 @@ class ScanSet(Table):
     """Class containing a set of scans."""
 
     def __init__(self, data=None, norefilt=True, config_file=None,
-                 freqsplat=None, **kwargs):
+                 freqsplat=None, nofilt=False, **kwargs):
         """Initialize a ScanSet object."""
         self.norefilt = norefilt
         self.freqsplat = freqsplat
@@ -56,7 +56,7 @@ class ScanSet(Table):
             tables = []
 
             for i_s, s in self.load_scans(scan_list,
-                                          freqsplat=freqsplat, **kwargs):
+                                          freqsplat=freqsplat, nofilt=nofilt, **kwargs):
 
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
@@ -103,13 +103,13 @@ class ScanSet(Table):
         """List all scans contained in the directory listed in config."""
         return list_scans(datadir, dirlist)
 
-    def load_scans(self, scan_list, freqsplat=None, **kwargs):
+    def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
         """Load the scans in the list one by ones."""
         nscan = len(scan_list)
         for i, f in enumerate(scan_list):
             print("{}/{}".format(i + 1, nscan), end="\r")
             try:
-                s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
+                s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat, nofilt=nofilt,
                          **kwargs)
                 yield i, s
             except KeyError as e:
@@ -302,6 +302,7 @@ class ScanSet(Table):
         caltable.update()
 
         for ch in self.chan_columns:
+            print(caltable.Jy_over_counts(channel=ch))
             Jy_over_counts, Jy_over_counts_err = \
                 caltable.Jy_over_counts(channel=ch)
             if np.isnan(Jy_over_counts):
@@ -563,6 +564,9 @@ def main_imager(args=None):
     parser.add_argument("--calibrate", type=str, default=None,
                         help='Calibration file')
 
+    parser.add_argument("--nofilt", action='store_true', default=False,
+                        help='Do not filter noisy channels')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -580,7 +584,7 @@ def main_imager(args=None):
     assert args.config is not None, "Please specify the config file!"
 
     scanset = ScanSet(args.config, norefilt=not args.refilt,
-                      freqsplat=args.splat)
+                      freqsplat=args.splat, nofilt=args.nofilt)
 
     if args.interactive:
         scanset.interactive_display()
