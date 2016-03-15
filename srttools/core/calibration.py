@@ -906,6 +906,7 @@ def main_calibrator(args=None):
                    'and produce a map.')
     parser = argparse.ArgumentParser(description=description)
 
+    parser.add_argument("files", nargs=1, "Input calibration file", default=None)
     parser.add_argument("--sample-config", action='store_true', default=False,
                         help='Produce sample config file')
 
@@ -935,6 +936,11 @@ def main_calibrator(args=None):
         sample_config_file()
         sys.exit()
 
+    if args.files is not None:
+        for f in args.files:
+            caltable = CalibratorTable().read(f)
+            caltable.show()
+        sys.exit()
     assert args.config is not None, "Please specify the config file!"
 
     config = read_config(args.config)
