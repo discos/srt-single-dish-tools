@@ -396,12 +396,12 @@ class CalibratorTable(SourceTable):
         ax10 = plt.subplot(gs[1, 0], sharex=ax00)
         ax11 = plt.subplot(gs[1, 1], sharex=ax01, sharey=ax10)
 
-        self.plot_two_columns('el', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax00)
-        self.plot_two_columns('el', "RA err", ax10)
-        self.plot_two_columns('el', "Dec err", ax10)
-        self.plot_two_columns('az', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax01)
-        self.plot_two_columns('az', "RA err", ax11)
-        self.plot_two_columns('az', "Dec err", ax11)
+        self.plot_two_columns('Elevation', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax00)
+        self.plot_two_columns('Elevation', "RA err", ax10)
+        self.plot_two_columns('Elevation', "Dec err", ax10)
+        self.plot_two_columns('Azimuth', "Flux/Counts", yerrcol="Flux/Counts Err", ax=ax01)
+        self.plot_two_columns('Azimuth', "RA err", ax11)
+        self.plot_two_columns('Azimuth', "Dec err", ax11)
 
         plt.show()
 
@@ -926,6 +926,9 @@ def main_calibrator(args=None):
     parser.add_argument("-o", "--output", type=str, default=None,
                         help='Output file containing the calibration')
 
+    parser.add_argument("--show", action='store_true', default=False,
+                        help='Show calibration summary')
+
     args = parser.parse_args(args)
 
     if args.sample_config:
@@ -952,5 +955,8 @@ def main_calibrator(args=None):
     caltable = CalibratorTable()
     caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt)
     caltable.update()
+
+    if args.show:
+        caltable.show()
 
     caltable.write(outfile, path="config", overwrite=True)
