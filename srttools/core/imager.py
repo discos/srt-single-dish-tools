@@ -135,12 +135,18 @@ class ScanSet(Table):
             hor, ver = 'az', 'el'
         else:
             hor, ver = 'ra', 'dec'
-        npix = np.array(self.meta['npix'])
+        pixel_size = self.meta['pixel_size']
         self.wcs = wcs.WCS(naxis=2)
 
-        self.wcs.wcs.crpix = npix / 2
         delta_hor = self.meta['max_' + hor] - self.meta['min_' + hor]
         delta_ver = self.meta['max_' + ver] - self.meta['min_' + ver]
+
+        npix_hor = np.ceil(delta_hor / pixel_size)
+        npix_ver = np.ceil(delta_ver / pixel_size)
+
+        self.meta['npix'] = np.array([npix_hor, npix_ver])
+
+        self.wcs.wcs.crpix = self.meta['npix'] / 2
 
         if not hasattr(self.meta, 'reference_' + hor):
             self.meta['reference_' + hor] = self.meta['mean_' + hor]
@@ -153,8 +159,7 @@ class ScanSet(Table):
                           self.meta['reference_' + ver]])
         self.wcs.wcs.crval = np.degrees(crval)
 
-        cdelt = np.array([-delta_hor / npix[0],
-                          delta_ver / npix[1]])
+        cdelt = np.array([-pixel_size, pixel_size])
         self.wcs.wcs.cdelt = np.degrees(cdelt)
 
         self.wcs.wcs.ctype = \
@@ -216,12 +221,7 @@ class ScanSet(Table):
         no_offsets:      use positions from feed 0 for all feeds.
         """
         images = {}
-        # xbins = np.linspace(np.min(self['x']),
-        #                     np.max(self['x']),
-        #                     self.meta['npix'][0] + 1)
-        # ybins = np.linspace(np.min(self['y']),
-        #                     np.max(self['y']),
-        #                     self.meta['npix'][1] + 1)
+
         xbins = np.linspace(0,
                             self.meta['npix'][0],
                             self.meta['npix'][0] + 1)
