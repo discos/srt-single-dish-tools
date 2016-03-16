@@ -4,6 +4,7 @@ from __future__ import (absolute_import, unicode_literals, division,
 from scipy.optimize import curve_fit
 import numpy as np
 import traceback
+import warnings
 
 
 def _rolling_window(a, window):
@@ -112,8 +113,8 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
 
     idxs = np.arange(len(y))
     outliers = find_outliers(y)
+    warnings.warn("Found {} outliers".format(len(idxs[outliers])))
     for i in idxs[outliers]:
-        print("outlier", y[i], y[i-1])
         y[i] = y[i - 1]
 
     L = len(y)
@@ -125,14 +126,9 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
         z = sparse.linalg.spsolve(Z, w*y)
         w = p * (y > z) + (1-p) * (y < z)
 
-    import matplotlib.pyplot as plt
-    # plt.figure("Bidule")
-    # plt.plot(x, y - z)
-
     _, z2 = baseline_rough(x, y - z, return_baseline=True)
     z += z2
-    # plt.plot(x, y - z)
-    # plt.show()
+
     if return_baseline:
         return y - z, z
     else:
