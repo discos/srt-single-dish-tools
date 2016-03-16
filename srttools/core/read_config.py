@@ -146,7 +146,7 @@ def read_config(fname=None):
              for f in glob.glob(os.path.join(config_output['datadir'], '*'))
              if os.path.isdir(f)]  # only if it's a directory
 
-    config_output['pixel_size'] = np.radians(float(config_output['pixel_size']) * 60)
+    config_output['pixel_size'] = np.radians(float(config_output['pixel_size']) / 60)
 
     if config_output['goodchans'] is not None:
         config_output['goodchans'] = \
