@@ -18,7 +18,7 @@ def test_read_config():
 
     config = read_config(fname)
 
-    assert np.all(config['npix'] == [64, 64])
+    np.testing.assert_almost_equal(config['pixel_size'], np.radians(0.5 / 60))
     assert config['interpolation'] == 'spline'
 
 
@@ -33,6 +33,6 @@ def test_read_incomplete_config():
 
     config = read_config(fname)
 
-    assert np.all(config['npix'] == [32, 32])
+    np.testing.assert_almost_equal(config['pixel_size'], np.radians(1 / 60))
     assert config['interpolation'] == 'linear'
 
