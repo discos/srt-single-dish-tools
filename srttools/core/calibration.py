@@ -17,14 +17,15 @@ import glob
 import re
 import warnings
 import traceback
+from matplotlib.gridspec import GridSpec
+import matplotlib.pyplot as plt
 
 try:
-    import pickle
-except:
     import cPickle as pickle
+except:
+    import pickle
 
 import numpy as np
-import matplotlib.pyplot as plt
 from astropy.table import Table, vstack, Column
 # For Python 2 and 3 compatibility
 try:
@@ -131,10 +132,11 @@ class SourceTable(Table):
                  "Counts", "Counts Err",
                  "Width",
                  "Flux Density", "Flux Density Err",
-                 "Elevation",
+                 "Elevation", "Azimuth",
                  "Flux/Counts", "Flux/Counts Err",
                  "RA", "Dec",
-                 "Fit RA", "Fit Dec"]
+                 "Fit RA", "Fit Dec",
+                 "RA err", "Dec err"]
 
         dtype = ['S200', 'S200', 'S200', 'S200',
                  'S200', np.int, np.double,
@@ -142,7 +144,8 @@ class SourceTable(Table):
                  np.float, np.float,
                  np.float,
                  np.float, np.float,
-                 np.float,
+                 np.float, np.float,
+                 np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
                  np.float, np.float]
@@ -194,6 +197,7 @@ class SourceTable(Table):
                 decs = np.degrees(scan['dec'][:, feed])
                 time = np.mean(scan['time'][:])
                 el = np.degrees(np.mean(scan['el'][:, feed]))
+                az = np.degrees(np.mean(scan['az'][:, feed]))
                 source = scan.meta['SOURCE']
                 pnt_ra = np.degrees(scan.meta['RA'])
                 pnt_dec = np.degrees(scan.meta['Dec'])
@@ -223,11 +227,14 @@ class SourceTable(Table):
                     fit_ra = bell.mean
                     fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
                     fit_dec = None
+                    ra_err = fit_ra - pnt_ra
+                    dec_err = None
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
                     fit_dec = bell.mean
                     fit_width = bell.stddev
-
+                    dec_err = fit_dec - pnt_dec
+                    ra_err = None
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
@@ -235,9 +242,9 @@ class SourceTable(Table):
                 self.add_row([scandir, sname, scan_type, source, channel, feed,
                               time, frequency, bandwidth, counts, counts_err,
                               fit_width,
-                              flux_density, flux_density_err, el,
+                              flux_density, flux_density_err, el, az,
                               flux_over_counts, flux_over_counts_err,
-                              pnt_ra, pnt_dec, fit_ra, fit_dec])
+                              pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err, dec_err])
 
 
 class CalibratorTable(SourceTable):
@@ -347,6 +354,86 @@ class CalibratorTable(SourceTable):
         fc, fce = self.Jy_over_counts(channel=channel)
         cf = 1 / fc
         return cf, fce / fc * cf
+
+    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None, channel=None):
+        """Plot the data corresponding to two given columns."""
+        showit = False
+        if ax is None:
+            plt.figure("{} vs {}".format(xcol, ycol))
+            ax = plt.gca()
+            showit = True
+
+        good = (self[xcol] == self[xcol]) & (self[ycol] == self[ycol])
+        mask = np.ones_like(good)
+        label = ""
+        if channel is not None:
+            mask = self['Chan'] == channel
+            label = "_{}".format(channel)
+
+        good = good & mask
+        x_to_plot = self[xcol][good]
+        y_to_plot = self[ycol][good]
+        yerr_to_plot = None
+        xerr_to_plot = None
+        if xerrcol is not None:
+            xerr_to_plot = self[xerrcol][good]
+        if yerrcol is not None:
+            yerr_to_plot = self[yerrcol][good]
+
+        if xerrcol is None or yerrcol is None:
+            print(xerr_to_plot, yerr_to_plot)
+            ax.errorbar(x_to_plot, y_to_plot, xerr=xerr_to_plot, yerr=yerr_to_plot, label=ycol + label)
+        else:
+            ax.scatter(x_to_plot, y_to_plot, label=ycol + label)
+        ax.set_xlabel(xcol)
+        ax.set_ylabel(ycol)
+        if showit:
+            plt.show()
+        return x_to_plot, y_to_plot
+
+    def show(self):
+        """Show a summary of the calibration."""
+
+        # TODO: this is meant to become interactive. I will make different
+        # panels linked to each other.
+
+        fig = plt.figure("Summary", figsize=(16, 16))
+        plt.suptitle("Summary")
+        gs = GridSpec(2, 2, hspace=0)
+        ax00 = plt.subplot(gs[0, 0])
+        ax01 = plt.subplot(gs[0, 1], sharey=ax00)
+        ax10 = plt.subplot(gs[1, 0], sharex=ax00)
+        ax11 = plt.subplot(gs[1, 1], sharex=ax01, sharey=ax10)
+
+        for channel in list(set(self['Chan'])):
+            self.plot_two_columns('Elevation', "Flux/Counts",
+                                  yerrcol="Flux/Counts Err", ax=ax00,
+                                  channel=channel)
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel)
+            ax00.axhline(jy_over_cts)
+            ax00.axhline(jy_over_cts + jy_over_cts_err)
+            ax00.axhline(jy_over_cts - jy_over_cts_err)
+            self.plot_two_columns('Elevation', "RA err", ax=ax10,
+                                  channel=channel)
+            self.plot_two_columns('Elevation', "Dec err", ax=ax10,
+                                  channel=channel)
+            self.plot_two_columns('Azimuth', "Flux/Counts",
+                                  yerrcol="Flux/Counts Err", ax=ax01,
+                                  channel=channel)
+            ax01.axhline(jy_over_cts)
+            ax01.axhline(jy_over_cts + jy_over_cts_err)
+            ax01.axhline(jy_over_cts - jy_over_cts_err)
+            self.plot_two_columns('Azimuth', "RA err", ax=ax11,
+                                  channel=channel)
+            self.plot_two_columns('Azimuth', "Dec err", ax=ax11,
+                                  channel=channel)
+
+        ax00.legend()
+        ax01.legend()
+        ax10.legend()
+        ax11.legend()
+        plt.savefig("calibration_summary.png")
+        plt.close(fig)
 
 
 def decide_symbol(values):
@@ -849,6 +936,7 @@ def main_calibrator(args=None):
                    'and produce a map.')
     parser = argparse.ArgumentParser(description=description)
 
+    parser.add_argument("file", nargs='?', help="Input calibration file", default=None, type=str)
     parser.add_argument("--sample-config", action='store_true', default=False,
                         help='Produce sample config file')
 
@@ -869,12 +957,19 @@ def main_calibrator(args=None):
     parser.add_argument("-o", "--output", type=str, default=None,
                         help='Output file containing the calibration')
 
+    parser.add_argument("--show", action='store_true', default=False,
+                        help='Show calibration summary')
+
     args = parser.parse_args(args)
 
     if args.sample_config:
         sample_config_file()
         sys.exit()
 
+    if args.file is not None:
+        caltable = CalibratorTable().read(args.file)
+        caltable.show()
+        sys.exit()
     assert args.config is not None, "Please specify the config file!"
 
     config = read_config(args.config)
@@ -895,5 +990,8 @@ def main_calibrator(args=None):
     caltable = CalibratorTable()
     caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt)
     caltable.update()
+
+    if args.show:
+        caltable.show()
 
     caltable.write(outfile, path="config", overwrite=True)
