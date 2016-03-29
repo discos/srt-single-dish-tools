@@ -23,7 +23,7 @@ class Test1_Scan(unittest.TestCase):
 
         klass.fname = \
             os.path.abspath(
-                os.path.join(klass.datadir, 'gauss',
+                os.path.join(klass.datadir, 'gauss_dec',
                              'Dec0.fits'))
 
         klass.config_file = \
