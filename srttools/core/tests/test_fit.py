@@ -15,7 +15,7 @@ def _test_shape(x):
     return 1000 * np.exp(-(x - 50) ** 2 / 3)
 
 
-def test_outliers():
+def test_outliers1():
     """Test that outlier detection works."""
     series = np.random.normal(0, 0.1, 100)
     series[10] = 2
@@ -23,6 +23,24 @@ def test_outliers():
     assert np.all(series2[:10] == series[:10])
     assert np.all(series2[11:] == series[11:])
     np.testing.assert_almost_equal(series2[10], (series[9] + series[11]) / 2)
+
+def test_outliers2():
+    """Test that outlier detection works."""
+    series = np.random.normal(0, 0.1, 100)
+    series[10] = -2
+    series2 = purge_outliers(series)
+    assert np.all(series2[:10] == series[:10])
+    assert np.all(series2[11:] == series[11:])
+    np.testing.assert_almost_equal(series2[10], (series[9] + series[11]) / 2)
+
+def test_outliers3():
+    """Test that outlier detection works."""
+    series = np.random.normal(0, 0.1, 100)
+    series[10] = 2
+    series[11] = 4
+    series[12] = 2
+    series2 = purge_outliers(series)
+    assert np.all(series2 == series)
 
 # def test_fit_baseline_plus_bell():
 #     """Test that the fit procedure works."""

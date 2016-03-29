@@ -95,7 +95,12 @@ def purge_outliers(y):
     mean_diff = ref_std(y, np.max([len(y) // 20, 20]))
     diffs = np.diff(y)
     diffs = np.append([0], diffs)
-    outliers = (np.abs(np.array(diffs)[:-1]) > 5 * mean_diff) & (np.abs(np.array(diffs)[1:]) > 5 * mean_diff)
+    diffs_before = np.array(diffs)[:-1]
+    diffs_after = np.array(diffs)[1:]
+    sign_rule = np.sign(diffs_before) != np.sign(diffs_after)
+    outliers = (np.abs(diffs_before) > 5 * mean_diff) & \
+               (np.abs(diffs_after) > 5 * mean_diff) & \
+               sign_rule
 
     for i in idxs[outliers]:
         y[i] = (y[i - 1] + y[i + 1]) / 2
