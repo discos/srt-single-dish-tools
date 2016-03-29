@@ -42,7 +42,7 @@ def linear_fit(time, lc, start_pars, return_err=False):
         return par
 
 
-def baseline_rough(time, lc, start_pars=None, return_baseline=True):
+def baseline_rough(time, lc, start_pars=None, return_baseline=False):
     """Rough function to subtract the baseline."""
     if start_pars is None:
         m0 = 0
@@ -89,15 +89,23 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=True):
         return lc
 
 
-def find_outliers(y):
+def purge_outliers(y):
+    idxs = np.arange(len(y))
+
     mean_diff = ref_std(y, np.max([len(y) // 20, 20]))
     diffs = np.diff(y)
     diffs = np.append([0], diffs)
-    outlier = np.abs(diffs) > 5 * mean_diff
-    return outlier
+    outliers = (np.abs(np.array(diffs)[:-1]) > 5 * mean_diff) & (np.abs(np.array(diffs)[1:]) > 5 * mean_diff)
+
+    for i in idxs[outliers]:
+        y[i] = (y[i - 1] + y[i + 1]) / 2
+
+    warnings.warn("Found {} outliers".format(len(idxs[outliers])))
+
+    return y
 
 
-def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
+def _als(y, lam, p, niter=10):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
     Modifications to the routine from Eilers & Boelens 2005
@@ -106,17 +114,6 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
     http://stackoverflow.com/questions/29156532/python-baseline-correction-library
     """
     from scipy import sparse
-    if lam is None:
-        lam = 1e9
-    if p is None:
-        p = 0.001
-
-    idxs = np.arange(len(y))
-    outliers = find_outliers(y)
-    warnings.warn("Found {} outliers".format(len(idxs[outliers])))
-    for i in idxs[outliers]:
-        y[i] = y[i - 1]
-
     L = len(y)
     D = sparse.csc_matrix(np.diff(np.eye(L), 2))
     w = np.ones(L)
@@ -125,6 +122,20 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
         Z = W + lam * D.dot(D.transpose())
         z = sparse.linalg.spsolve(Z, w*y)
         w = p * (y > z) + (1-p) * (y < z)
+    return z
+
+
+def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
+    """Baseline Correction with Asymmetric Least Squares Smoothing."""
+
+    if lam is None:
+        lam = 1e9
+    if p is None:
+        p = 0.001
+
+    y = purge_outliers(y)
+
+    z = _als(y, lam, p, niter=niter)
 
     _, z2 = baseline_rough(x, y - z, return_baseline=True)
     z += z2
