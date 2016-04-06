@@ -42,6 +42,21 @@ def linear_fit(time, lc, start_pars, return_err=False):
         return par
 
 
+def offset(x, off):
+    """An offset."""
+    return off
+
+
+def offset_fit(time, lc, offset_start=0, return_err=False):
+    """A linear fit with any set of data. Return the parameters."""
+    par, pcov = curve_fit(offset, time, lc, [offset_start],
+                          maxfev=6000)
+    if return_err:
+        pass
+    else:
+        return par[0]
+
+
 def baseline_rough(time, lc, start_pars=None, return_baseline=False):
     """Rough function to subtract the baseline."""
     if start_pars is None:
@@ -142,13 +157,19 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
 
     z = _als(y, lam, p, niter=niter)
 
-    _, z2 = baseline_rough(x, y - z, return_baseline=True)
-    z += z2
+    # _, z2 = baseline_rough(x, y - z, return_baseline=True)
+    # z += z2
+    ysub = y - z
+    std = ref_std(ysub, np.max([len(y) // 20, 20]))
+
+    good = np.abs(ysub) < 6 * std
+
+    offset = offset_fit(x[good], ysub[good], 0)
 
     if return_baseline:
-        return y - z, z
+        return ysub - offset, z + offset
     else:
-        return y - z
+        return ysub - offset
 
 
 def minimize_align(xs, ys, params):
