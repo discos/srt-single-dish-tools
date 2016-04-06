@@ -101,6 +101,8 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
         *center* of it
     noise_amplitude : float
         Noise level in counts
+    spacing : float
+        Spacing between scans, in arcminutes
     """
 
     mkdir_p(outdir)
