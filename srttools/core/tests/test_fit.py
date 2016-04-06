@@ -11,9 +11,7 @@ from ..imager import ScanSet
 import os
 import glob
 
-def _test_shape(x):
-    return 1000 * np.exp(-(x - 50) ** 2 / 3)
-
+np.random.seed(1231636)
 
 def test_outliers1():
     """Test that outlier detection works."""
@@ -42,26 +40,21 @@ def test_outliers3():
     series2 = purge_outliers(series)
     assert np.all(series2 == series)
 
-# def test_fit_baseline_plus_bell():
-#     """Test that the fit procedure works."""
-#     import matplotlib.pyplot as plt
-#
-#     x = np.arange(0, 100, 0.1)
-#     y = np.random.poisson(1000, len(x)) + _test_shape(x) + x * 6 + 20
-#
-#     model, _ = fit_baseline_plus_bell(x, y, ye=10, kind='gauss')
-#
-#     plt.figure('After fit')
-#     plt.errorbar(x, y, yerr=10)
-#
-#     plt.plot(x, model(x))
-#
-#     print('Amplitude: {}'.format(model.amplitude_1.value))
-#     print('Stddev: {}'.format(model.stddev_1.value))
-#     print('Mean: {}'.format(model.mean_1.value))
-#     plt.show()
-#
-#
+def _test_shape(x):
+    return 1000 * np.exp(-(x - 50) ** 2 / 3)
+
+def test_fit_baseline_plus_bell():
+    """Test that the fit procedure works."""
+
+    x = np.arange(0, 100, 0.1)
+    y = np.random.poisson(1000, len(x)) + _test_shape(x) + x * 6 + 20
+
+    model, _ = fit_baseline_plus_bell(x, y, ye=10, kind='gauss')
+
+    np.testing.assert_almost_equal(model.mean_1, 50., 1)
+    np.testing.assert_almost_equal(model.slope_0, 6., 1)
+    np.testing.assert_almost_equal(model.intercept_0, 1020., 1)
+
 # def test_minimize_align():
 #     """Test that the minimization of the alignment works."""
 #
