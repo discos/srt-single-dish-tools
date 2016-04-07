@@ -53,7 +53,7 @@ def test_fit_baseline_plus_bell():
 
     np.testing.assert_almost_equal(model.mean_1, 50., 1)
     np.testing.assert_almost_equal(model.slope_0, 6., 1)
-    np.testing.assert_almost_equal(model.intercept_0, 1020., 1)
+    assert np.abs(model.intercept_0 - 1020.) < 1
 
 # def test_minimize_align():
 #     """Test that the minimization of the alignment works."""
