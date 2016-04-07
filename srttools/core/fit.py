@@ -145,7 +145,8 @@ def _als(y, lam, p, niter=10):
     return z
 
 
-def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
+def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False, offset_correction=True,
+                 outlier_purging=True):
     """Baseline Correction with Asymmetric Least Squares Smoothing."""
 
     if lam is None:
@@ -153,18 +154,22 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False):
     if p is None:
         p = 0.001
 
-    y = purge_outliers(y)
+    if outlier_purging:
+        y = purge_outliers(y)
 
     z = _als(y, lam, p, niter=niter)
 
     # _, z2 = baseline_rough(x, y - z, return_baseline=True)
     # z += z2
+
     ysub = y - z
-    std = ref_std(ysub, np.max([len(y) // 20, 20]))
+    offset = 0
+    if offset_correction:
+        std = ref_std(ysub, np.max([len(y) // 20, 20]))
 
-    good = np.abs(ysub) < 6 * std
+        good = np.abs(ysub) < 10 * std
 
-    offset = offset_fit(x[good], ysub[good], 0)
+        offset = offset_fit(x[good], ysub[good], 0)
 
     if return_baseline:
         return ysub - offset, z + offset
