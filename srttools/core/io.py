@@ -132,17 +132,20 @@ def read_data_fitszilla(fname):
     # -------------- Read data!-----------------------------------------
     datahdu = lchdulist['DATA TABLE']
     data_table_data = Table(datahdu.data)
+    for col in data_table_data.colnames:
+        data_table_data.rename_column(col, col.lower())
+
     is_spectrum = 'SPECTRUM' in list(datahdu.header.values())
     if is_spectrum:
         nchan = len(chan_ids)
 
-        nrows, nbins = data_table_data['SPECTRUM'].shape
+        nrows, nbins = data_table_data['spectrum'].shape
         nbin_per_chan = nbins // nchan
         assert nbin_per_chan * nchan == nbins, \
             'Something wrong with channel subdivision'
         for ic, ch in enumerate(chan_ids):
-            data_table_data['Ch{}'.format(ch)] = \
-                data_table_data['SPECTRUM'][:, ic * nbin_per_chan:
+            data_table_data['Ch{}'.format(ch).lower()] = \
+                data_table_data['spectrum'][:, ic * nbin_per_chan:
                                             (ic + 1) * nbin_per_chan]
 
     info_to_retrieve = ['time', 'derot_angle']
@@ -211,10 +214,10 @@ def read_data_fitszilla(fname):
             frequencies[ic] -= bandwidths[ic]
             bandwidths[ic] *= -1
             for i in range(data_table_data['Ch{}'.format(ch)].shape[0]):
-                data_table_data['Ch{}'.format(ch)][i, :] = \
-                    data_table_data['Ch{}'.format(ch)][i, ::-1]
+                data_table_data['Ch{}'.format(ch).lower()][i, :] = \
+                    data_table_data['Ch{}'.format(ch).lower()][i, ::-1]
         new_table['Ch{}'.format(ch)] = \
-            data_table_data['Ch{}'.format(ch)] * relpowers[feeds[ic]]
+            data_table_data['Ch{}'.format(ch).lower()] * relpowers[feeds[ic]]
 
         new_table['Ch{}'.format(ch)].meta = {'polarization': polarizations[ic],
                                              'feed': feeds[ic],
@@ -229,7 +232,7 @@ def read_data_fitszilla(fname):
             np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
 
         new_table['Ch{}-filt'.format(ch)] = \
-            np.ones(len(data_table_data['Ch{}'.format(ch)]), dtype=bool)
+            np.ones(len(data_table_data['Ch{}'.format(ch).lower()]), dtype=bool)
     lchdulist.close()
     return new_table
 
