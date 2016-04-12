@@ -24,6 +24,7 @@ import sys
 import warnings
 import logging
 import traceback
+from .global_fit import fit_full_image
 
 
 class ScanSet(Table):
@@ -293,6 +294,26 @@ class ScanSet(Table):
                       '{}-EXPO'.format(self.chan_columns[0]): total_expo}
 
         return images
+
+    def fit_full_images(self, fname=None, save_sdev=False, scrunch=False,
+                        no_offsets=False, altaz=False, calibration=None, excluded=None, par=None):
+        """Fit a linear trend to each scan to minimize the scatter in the image."""
+
+        if not hasattr(self, 'images'):
+            self.calculate_images()
+
+        for ch in self.chan_columns:
+            print("Fitting channel {}".format(ch))
+            feeds = self[ch + '_feed']
+            allfeeds = list(set(feeds))
+            assert len(allfeeds) == 1, 'Feeds are mixed up in channels'
+            if no_offsets:
+                feed = 0
+            else:
+                feed = feeds[0]
+            self[ch] = fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par)
+
+        self.calculate_images()
 
     def calibrate_images(self, calibration):
         """Calibrate the images."""
