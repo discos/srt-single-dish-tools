@@ -176,7 +176,7 @@ def _get_data_idx(par, idx):
     return data_idx
 
 
-def fit_full_image(scanset, chan=0, excluded=None, par=None):
+def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     """Get a clean image by subtracting linear trends from the initial scans.
 
     Parameters
@@ -186,8 +186,10 @@ def fit_full_image(scanset, chan=0, excluded=None, par=None):
 
     Other parameters
     ----------------
-    chan : int
-        channel of the scanset to be fit. Defaults to 0
+    chan : str
+        channel of the scanset to be fit. Defaults to ``"Ch0"``
+    feed : int
+        feed of the scanset to be fit. Defaults to 0
     excluded : [[centerx0, centery0, radius0]]
         List of circular regions to exclude from fitting (e.g. strong sources
         that might alter the total rms)
@@ -202,17 +204,19 @@ def fit_full_image(scanset, chan=0, excluded=None, par=None):
     XBUFFER = None
     YBUFFER = None
 
-    X = np.array(scanset['x'][:, 0])
-    Y = np.array(scanset['y'][:, 0])
+    X = np.array(scanset['x'][:, feed], dtype=np.float64)
+    Y = np.array(scanset['y'][:, feed], dtype=np.float64)
+    counts = np.array(scanset['Ch0'], dtype=np.float64)
 
     times = np.array(scanset['time'], dtype=np.float64)
     times -= times[0]
 
-    data_to_fit = [times,
-                   np.array(scanset['Scan_id'], dtype=int),
-                   np.array(X, dtype=np.float64),
-                   np.array(Y, dtype=np.float64),
-                   np.array(scanset['Ch0'], dtype=np.float64)]
+    idxs = np.array(scanset['Scan_id'], dtype=int)
+
+    if par is None:
+        par = np.zeros(len(list(set(idxs))) * 2)
+
+    data_to_fit = [times, idxs,  X, Y, counts]
 
     data, bx, by = _resample_scans(data_to_fit)
 
@@ -223,4 +227,12 @@ def fit_full_image(scanset, chan=0, excluded=None, par=None):
     res = minimize(_obj_fun, par, args=(data, data_idx, excluded, bx, by),
                    method="SLSQP")
 
-    return res
+    for i_p, p in enumerate(list(zip(res.x[:-1:2], res.x[1::2]))):
+        good = idxs == i_p
+        filt_t = times[good]
+        if len(filt_t) == 0:
+            continue
+        filt_t -= filt_t[0]
+        times[good] = filt_t
+    new_counts = _align_all(times, counts, data_idx, res.x)
+    return new_counts
