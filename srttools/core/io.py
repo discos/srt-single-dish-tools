@@ -133,6 +133,8 @@ def read_data_fitszilla(fname):
     datahdu = lchdulist['DATA TABLE']
     data_table_data = Table(datahdu.data)
     for col in data_table_data.colnames:
+        if col == col.lower():
+            continue
         data_table_data.rename_column(col, col.lower())
 
     is_spectrum = 'SPECTRUM' in list(datahdu.header.values())
