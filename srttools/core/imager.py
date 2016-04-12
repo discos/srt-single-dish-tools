@@ -113,8 +113,9 @@ class ScanSet(Table):
                          **kwargs)
                 yield i, s
             except KeyError as e:
-                warnings.warn("Error while processing {}: {}".format(f,
-                                                                     str(e)))
+                traceback.print_exc()
+                warnings.warn("Error while processing {}: Missing key: {}".format(f,
+                                                                                  str(e)))
             except Exception as e:
                 traceback.print_exc()
                 warnings.warn("Error while processing {}: {}".format(f,
