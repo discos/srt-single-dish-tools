@@ -31,7 +31,7 @@ class ScanSet(Table):
     """Class containing a set of scans."""
 
     def __init__(self, data=None, norefilt=True, config_file=None,
-                 freqsplat=None, nofilt=False, **kwargs):
+                 freqsplat=None, nofilt=False, nosub=False, **kwargs):
         """Initialize a ScanSet object."""
         self.norefilt = norefilt
         self.freqsplat = freqsplat
@@ -57,7 +57,8 @@ class ScanSet(Table):
             tables = []
 
             for i_s, s in self.load_scans(scan_list,
-                                          freqsplat=freqsplat, nofilt=nofilt, **kwargs):
+                                          freqsplat=freqsplat, nofilt=nofilt,
+                                          nosub=nosub, **kwargs):
 
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
@@ -574,6 +575,10 @@ def main_imager(args=None):
                    'and produce a map.')
     parser = argparse.ArgumentParser(description=description)
 
+    parser.add_argument("file", nargs='?',
+                        help="Load intermediate scanset from this file",
+                        default=None, type=str)
+
     parser.add_argument("--sample-config", action='store_true', default=False,
                         help='Produce sample config file')
 
@@ -583,6 +588,10 @@ def main_imager(args=None):
     parser.add_argument("--refilt", default=False,
                         action='store_true',
                         help='Re-run the scan filtering')
+
+    parser.add_argument("--sub", default=False,
+                        action='store_true',
+                        help='Subtract the baseline from single scans')
 
     parser.add_argument("--interactive", default=False,
                         action='store_true',
@@ -604,9 +613,6 @@ def main_imager(args=None):
                         help=('Comma-separated hannels to include in global fitting '
                               '(Ch0, Ch1, ...)'))
 
-    parser.add_argument("-i", "--input", type=str, default=None,
-                        help='Load intermediate scanset from this file.')
-
     parser.add_argument("-o", "--outfile", type=str, default="scanset.hdf5",
                         help='Save intermediate scanset to this file.')
 
@@ -624,14 +630,15 @@ def main_imager(args=None):
         sample_config_file()
         sys.exit()
 
-    if args.input is not None:
-        scanset = ScanSet.read(args.input)
+    if args.file is not None:
+        scanset = ScanSet.read(args.file)
     else:
         assert args.config is not None, "Please specify the config file!"
         scanset = ScanSet(args.config, norefilt=not args.refilt,
-                          freqsplat=args.splat, nofilt=args.nofilt)
+                          freqsplat=args.splat, nosub=not args.sub,
+                          nofilt=args.nofilt)
 
-    scanset.write(args.outfile)
+    scanset.write(args.outfile, overwrite=True)
 
     if args.interactive:
         scanset.interactive_display()
@@ -646,4 +653,6 @@ def main_imager(args=None):
             excluded = np.array([np.float(e) for e in args.exclude]).reshape((nexc / 3, 3))
 
         scanset.fit_full_images(excluded=excluded, chans=args.chans)
+        scanset.write(args.outfile.replace('.hdf5', '_baselinesub.hdf5'), overwrite=True)
+
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate)

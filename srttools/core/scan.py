@@ -76,7 +76,7 @@ class Scan(Table):
 
     def __init__(self, data=None, config_file=None, norefilt=False,
                  interactive=False, nosave=False, verbose=True,
-                 freqsplat=None, nofilt=False, **kwargs):
+                 freqsplat=None, nofilt=False, nosub=False, **kwargs):
         """Initialize a Scan object.
 
         Freqsplat is a string, freqmin:freqmax, and gives the limiting
@@ -111,9 +111,9 @@ class Scan(Table):
             if interactive:
                 self.interactive_filter()
 
-            if ('backsub' not in self.meta.keys() or
+            if (('backsub' not in self.meta.keys() or
                     not self.meta['backsub']) \
-                    or not norefilt:
+                    or not norefilt) and not nosub:
                 logging.info('Subtracting the baseline')
                 self.baseline_subtract()
 
