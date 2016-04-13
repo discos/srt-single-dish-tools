@@ -116,11 +116,12 @@ def purge_outliers(y):
     outliers = (np.abs(diffs_before) > 5 * min_diff) & \
                (np.abs(diffs_after) > 5 * min_diff) & \
                sign_rule
-
-    for i in idxs[:-1][outliers]:
+    outlier_idxs = idxs[:-1][outliers]
+    for i in outlier_idxs:
         y[i] = (y[i - 1] + y[i + 1]) / 2
 
-    warnings.warn("Found {} outliers".format(len(idxs[outliers])))
+    if len(outlier_idxs) > 0:
+        warnings.warn("Found {} outliers".format(len(outlier_idxs)))
 
     return y
 
