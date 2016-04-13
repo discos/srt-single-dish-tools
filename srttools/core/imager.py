@@ -301,7 +301,8 @@ class ScanSet(Table):
         """Fit a linear trend to each scan to minimize the scatter in the image."""
 
         if not hasattr(self, 'images'):
-            self.calculate_images()
+            self.calculate_images(fname=fname, save_sdev=save_sdev, scrunch=scrunch, no_offsets=no_offsets, altaz=altaz,
+                                  calibration=calibration)
 
         if chans is not None:
             chans = chans.split(',')
@@ -319,7 +320,8 @@ class ScanSet(Table):
                 feed = feeds[0]
             self[ch] = fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par)
 
-        self.calculate_images()
+        self.calculate_images(fname=fname, save_sdev=save_sdev, scrunch=scrunch, no_offsets=no_offsets, altaz=altaz,
+                              calibration=calibration)
 
     def calibrate_images(self, calibration):
         """Calibrate the images."""
