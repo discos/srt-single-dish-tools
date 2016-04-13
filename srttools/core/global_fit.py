@@ -206,7 +206,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
     X = np.array(scanset['x'][:, feed], dtype=np.float64)
     Y = np.array(scanset['y'][:, feed], dtype=np.float64)
-    counts = np.array(scanset['Ch0'], dtype=np.float64)
+    counts = np.array(scanset[chan], dtype=np.float64)
 
     times = np.array(scanset['time'], dtype=np.float64)
     times -= times[0]
@@ -216,7 +216,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     if par is None:
         par = np.zeros(len(list(set(idxs))) * 2)
 
-    data_to_fit = [times, idxs,  X, Y, counts]
+    data_to_fit = [times, idxs, X, Y, counts]
 
     data, bx, by = _resample_scans(data_to_fit)
 
