@@ -295,14 +295,19 @@ class ScanSet(Table):
 
         return images
 
-    def fit_full_images(self, fname=None, save_sdev=False, scrunch=False,
+    def fit_full_images(self, chans=None, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None, excluded=None, par=None):
         """Fit a linear trend to each scan to minimize the scatter in the image."""
 
         if not hasattr(self, 'images'):
             self.calculate_images()
 
-        for ch in self.chan_columns:
+        if chans is not None:
+            chans = chans.split(',')
+        else:
+            chans = self.chan_columns
+
+        for ch in chans:
             print("Fitting channel {}".format(ch))
             feeds = self[ch + '_feed']
             allfeeds = list(set(feeds))
@@ -589,6 +594,22 @@ def main_imager(args=None):
     parser.add_argument("--nofilt", action='store_true', default=False,
                         help='Do not filter noisy channels')
 
+    parser.add_argument("-g", "--global-fit", action='store_true', default=False,
+                        help='Perform global fitting of baseline')
+
+    parser.add_argument("-e", "--exclude", nargs='+', default=None,
+                        help='Exclude region from global fitting of baseline')
+
+    parser.add_argument("--chans", type=str, default=None,
+                        help=('Comma-separated hannels to include in global fitting '
+                              '(Ch0, Ch1, ...)'))
+
+    parser.add_argument("-i", "--input", type=str, default=None,
+                        help='Load intermediate scanset from this file.')
+
+    parser.add_argument("-o", "--outfile", type=str, default="scanset.hdf5",
+                        help='Save intermediate scanset to this file.')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -603,11 +624,26 @@ def main_imager(args=None):
         sample_config_file()
         sys.exit()
 
-    assert args.config is not None, "Please specify the config file!"
+    if args.input is not None:
+        scanset = ScanSet.read(args.input)
+    else:
+        assert args.config is not None, "Please specify the config file!"
+        scanset = ScanSet(args.config, norefilt=not args.refilt,
+                          freqsplat=args.splat, nofilt=args.nofilt)
 
-    scanset = ScanSet(args.config, norefilt=not args.refilt,
-                      freqsplat=args.splat, nofilt=args.nofilt)
+    scanset.write(args.outfile)
 
     if args.interactive:
         scanset.interactive_display()
+
+    if args.global_fit:
+        excluded = None
+        if args.exclude is not None:
+            nexc = len(args.exclude)
+            assert nexc % 3 == 0, \
+                ("Exclusion region has to be specified as centerX0, centerY0, "
+                 "radius0, centerX1, centerY1, radius1, ... (in X,Y coordinates)")
+            excluded = np.array([np.float(e) for e in args.exclude]).reshape((nexc / 3, 3))
+
+        scanset.fit_full_images(excluded=excluded, chans=args.chans)
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate)
