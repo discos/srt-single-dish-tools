@@ -73,6 +73,29 @@ def _align_all(newd_t, newd_c, data_idx, par):
     return _align_fast(newd_t, newd_c, ms, qs)
 
 
+def counter():
+    count = 0
+    while True:
+        yield count
+        count += 1
+
+ITERATION_COUNT = counter()
+
+
+def _save_intermediate(filename, par):
+    np.savetxt(filename, par)
+
+
+def _get_saved_pars(filename):
+    return np.genfromtxt(filename)
+
+
+def _callback(par):
+    iteration = next(ITERATION_COUNT)
+    print(iteration, end="\r")
+    if iteration % 10 == 0:
+        _save_intermediate("out_iter_{}.txt".format(iteration), par)
+
 def _obj_fun(par, data, data_idx, excluded, bx, by):
     """
     This is the function we have to minimize.
@@ -216,6 +239,15 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     if par is None:
         par = np.zeros(len(list(set(idxs))) * 2)
 
+    for i_p, p in enumerate(list(zip(par[:-1:2], par[1::2]))):
+        good = idxs == i_p
+        filt_t = times[good]
+        if len(filt_t) == 0:
+            continue
+        filt_t -= filt_t[0]
+        times[good] = filt_t
+        par[i_p * 2 + 1] = counts[good][0]
+
     data_to_fit = [times, idxs, X, Y, counts]
 
     data, bx, by = _resample_scans(data_to_fit)
@@ -225,14 +257,78 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     data_idx = _get_data_idx(par, i)
 
     res = minimize(_obj_fun, par, args=(data, data_idx, excluded, bx, by),
-                   method="SLSQP")
+                   method="SLSQP", callback=_callback)
 
-    for i_p, p in enumerate(list(zip(res.x[:-1:2], res.x[1::2]))):
-        good = idxs == i_p
-        filt_t = times[good]
-        if len(filt_t) == 0:
-            continue
-        filt_t -= filt_t[0]
-        times[good] = filt_t
     new_counts = _align_all(times, counts, data_idx, res.x)
     return new_counts
+
+
+def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=None):
+    """Get a clean image by subtracting linear trends from the initial scans.
+
+    Parameters
+    ----------
+    scanset : a :class:``ScanSet`` instance
+        The scanset to be fit
+
+    Other parameters
+    ----------------
+    chan : str
+        channel of the scanset to be fit. Defaults to ``"Ch0"``
+    feed : int
+        feed of the scanset to be fit. Defaults to 0
+    excluded : [[centerx0, centery0, radius0]]
+        List of circular regions to exclude from fitting (e.g. strong sources
+        that might alter the total rms)
+    parfile : str
+        File containing the parameters, in the same format saved by _callback
+
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+
+    X = np.array(scanset['x'][:, feed], dtype=np.float64)
+    Y = np.array(scanset['y'][:, feed], dtype=np.float64)
+    counts = np.array(scanset[chan], dtype=np.float64)
+
+    times = np.array(scanset['time'], dtype=np.float64)
+    times -= times[0]
+
+    idxs = np.array(scanset['Scan_id'], dtype=int)
+
+    par = _get_saved_pars(parfile)
+
+    data_to_fit = [times, idxs, X, Y, counts]
+
+    data, bx, by = _resample_scans(data_to_fit)
+
+    newd_t, newd_i, newd_x, newd_y, newd_c, newd_e = data
+
+    data_idx = _get_data_idx(par, newd_i)
+
+    newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
+    X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by, newd_e)
+
+    good = np.ones_like(img, dtype=bool)
+    if excluded is not None:
+        for e in excluded:
+            centerx, centery, radius = e
+            filt = (X - centerx) ** 2 + (Y - centery) ** 2 < radius ** 2
+            good[filt] = 0
+
+    bad = np.logical_not(good)
+    img[bad] = 0
+    img_var[bad] = 0
+
+    fig = plt.figure("Display")
+
+    gs = GridSpec(1, 2)
+    ax0 = plt.subplot(gs[0])
+    ax1 = plt.subplot(gs[1])
+    ax0.imshow(img)
+    ax1.imshow(img_var)
+
+    fig.savefig(parfile.replace(".txt", ".png"))
+    plt.close(fig)
+
+
