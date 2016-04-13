@@ -37,10 +37,16 @@ SDTimage
 
 ::
 
-    usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--interactive]
-                    [--calibrate CALIBRATE] [--nofilt] [--splat SPLAT]
+    usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--sub]
+                    [--interactive] [--calibrate CALIBRATE] [--nofilt] [-g]
+                    [-e EXCLUDE [EXCLUDE ...]] [--chans CHANS] [-o OUTFILE]
+                    [--splat SPLAT]
+                    [file]
 
     Load a series of scans from a config file and produce a map.
+
+    positional arguments:
+      file                  Load intermediate scanset from this file
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -48,10 +54,18 @@ SDTimage
       -c CONFIG, --config CONFIG
                             Config file
       --refilt              Re-run the scan filtering
+      --sub                 Subtract the baseline from single scans
       --interactive         Open the interactive display
       --calibrate CALIBRATE
                             Calibration file
       --nofilt              Do not filter noisy channels
+      -g, --global-fit      Perform global fitting of baseline
+      -e EXCLUDE [EXCLUDE ...], --exclude EXCLUDE [EXCLUDE ...]
+                            Exclude region from global fitting of baseline
+      --chans CHANS         Comma-separated hannels to include in global fitting
+                            (Ch0, Ch1, ...)
+      -o OUTFILE, --outfile OUTFILE
+                            Save intermediate scanset to this file.
       --splat SPLAT         Spectral scans will be scrunched into a single channel
                             containing data in the given frequency range, starting
                             from the frequency of the first bin. E.g. '0:1000'
