@@ -93,7 +93,7 @@ def _get_saved_pars(filename):
 def _callback(par):
     iteration = next(ITERATION_COUNT)
     print(iteration, end="\r")
-    if iteration % 10 == 0:
+    if iteration % 2 == 0:
         _save_intermediate("out_iter_{}.txt".format(iteration), par)
 
 def _obj_fun(par, data, data_idx, excluded, bx, by):
