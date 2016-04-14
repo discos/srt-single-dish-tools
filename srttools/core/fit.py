@@ -105,16 +105,17 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=False):
 
 
 def purge_outliers(y):
+    y = y.copy()
     idxs = np.arange(len(y))
 
-    min_diff = ref_std(y, np.max([len(y) // 20, 30]))
+    min_diff = ref_std(y, np.max([len(y) // 15, 30]))
     diffs = np.diff(y)
     diffs = np.append([0], diffs)
     diffs_before = np.array(diffs)[:-1]
     diffs_after = np.array(diffs)[1:]
     sign_rule = np.sign(diffs_before) != np.sign(diffs_after)
-    outliers = (np.abs(diffs_before) > 5 * min_diff) & \
-               (np.abs(diffs_after) > 5 * min_diff) & \
+    outliers = (np.abs(diffs_before) > 10 * min_diff) & \
+               (np.abs(diffs_after) > 10 * min_diff) & \
                sign_rule
     outlier_idxs = idxs[:-1][outliers]
     for i in outlier_idxs:

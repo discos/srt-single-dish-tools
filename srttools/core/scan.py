@@ -249,7 +249,8 @@ class Scan(Table):
 
             _, baseline = baseline_als(np.arange(len(spectral_var)),
                                        mod_spectral_var, return_baseline=True,
-                                       lam=1000, p=0.001)
+                                       lam=1000, p=0.001, offset_correction=False,
+                                       outlier_purging=False)
             if not nofilt:
                 threshold = baseline + 5 * stdref
             else:
