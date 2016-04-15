@@ -1,5 +1,8 @@
 """Functions to simulate scans and maps."""
 
+from __future__ import (absolute_import, unicode_literals, division,
+                        print_function)
+
 import numpy as np
 import numpy.random as ra
 import os

@@ -1,6 +1,8 @@
 """Functions to clean up images by fitting linear trends to the initial scans."""
 
-from srttools.core.scan import contiguous_regions
+from __future__ import (absolute_import, unicode_literals, division,
+                        print_function)
+from .scan import contiguous_regions
 
 from numba import jit, vectorize
 from .histograms import histogram2d
