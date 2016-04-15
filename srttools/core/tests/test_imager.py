@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import (absolute_import, unicode_literals, division,
+from __future__ import (absolute_import, division,
                         print_function)
 from ..read_config import read_config, SRT_tools_config
 import numpy as np
