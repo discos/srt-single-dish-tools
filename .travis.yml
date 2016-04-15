@@ -37,13 +37,6 @@ env:
 
 matrix:
     include:
-        # Try Astropy development version
-        - python: 2.7
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.4
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.5
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
         - python: 2.7
@@ -74,6 +67,13 @@ matrix:
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
         - python: 3.5
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
+        # Try Astropy development version
+        - python: 2.7
+          env: ASTROPY_VERSION=development SETUP_CMD='test'
+        - python: 3.4
+          env: ASTROPY_VERSION=development SETUP_CMD='test'
+        - python: 3.5
+          env: ASTROPY_VERSION=development SETUP_CMD='test'
 
     allow_failures:
         - python: 2.7
@@ -108,12 +108,10 @@ install:
     - if [[ $SETUP_CMD != egg_info ]]; then python setup.py install; fi
 
 before_script:
-    - if [[ $SETUP_CMD == test ]]; then mkdir -p shippable/testresults; fi
-#    - if [[ $SETUP_CMD == 'test --coverage' ]]; then mkdir -p shippable/codecoverage; fi
+
 script:
     - $MAIN_CMD $SETUP_CMD
 after_script:
-    - if [[ $SETUP_CMD == test ]]; then mv results.xml shippable/testresults/; fi
 
 #after_success:
 #    # If coveralls.io is set up for this package, uncomment the line
