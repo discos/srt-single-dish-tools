@@ -19,7 +19,7 @@ resampling as there is just one set of coordinates but several data arrays (=wei
 Therefore repeated computations are prevented.
 '''
 
-from __future__ import (absolute_import, unicode_literals, division,
+from __future__ import (absolute_import, division,
                         print_function)
 
 import numpy as np

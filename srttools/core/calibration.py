@@ -5,7 +5,7 @@ Produce calibrated light curves.
 sources, is able to recognize calibrators and use them to convert the observed
 counts into a density flux value in Jy.
 """
-from __future__ import (absolute_import, unicode_literals, division,
+from __future__ import (absolute_import, division,
                         print_function)
 
 from .scan import Scan, list_scans

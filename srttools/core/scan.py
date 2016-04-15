@@ -1,5 +1,5 @@
 """Scan class."""
-from __future__ import (absolute_import, unicode_literals, division,
+from __future__ import (absolute_import, division,
                         print_function)
 
 from .io import read_data, root_name

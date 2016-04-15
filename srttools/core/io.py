@@ -1,5 +1,5 @@
 """Input/output functions."""
-from __future__ import (absolute_import, unicode_literals, division,
+from __future__ import (absolute_import, division,
                         print_function)
 import astropy.io.fits as fits
 from astropy.table import Table

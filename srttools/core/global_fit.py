@@ -1,6 +1,6 @@
 """Functions to clean up images by fitting linear trends to the initial scans."""
 
-from __future__ import (absolute_import, unicode_literals, division,
+from __future__ import (absolute_import, division,
                         print_function)
 from .scan import contiguous_regions
 
