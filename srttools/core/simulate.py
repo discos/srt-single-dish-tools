@@ -137,7 +137,8 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
     if width_ra is None:
         width_ra = length_dec
     # Dec scans
-    plt.ion()
+    fig = plt.figure()
+
     for i_d, start_dec in enumerate(np.arange(-width_dec / 2 , width_dec / 2 + spacing, spacing) / 60):
         m = ra.uniform(mmin, mmax)
         q = ra.uniform(qmin, qmax)
@@ -151,7 +152,6 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
         save_scan(times, position_ra, np.zeros_like(position_ra) + start_dec, {'Ch0': counts, 'Ch1': counts},
                   filename=os.path.join(outdir, 'Ra{}.fits'.format(i_d)))
         plt.plot(position_ra, counts)
-        plt.draw()
 
     # RA scans
     for i_r, start_ra in enumerate(np.arange(-width_ra / 2 , width_ra / 2 + spacing, spacing) / 60):
@@ -170,6 +170,6 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
 
 
         plt.plot(position_dec, counts)
-        plt.draw()
 
-    plt.ioff()
+    fig.savefig(os.path.join(outdir, "allscans.png"))
+    plt.close(fig)

@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 # from . import io
 # from . import read_config
 # from . import calibration
