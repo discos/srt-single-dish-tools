@@ -83,7 +83,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None)
 
 
 def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5, count_map=None, noise_amplitude=1.,
-                 width_ra=None, width_dec=None, outdir='sim/'):
+                 width_ra=None, width_dec=None, outdir='sim/', baseline="flat"):
 
     """Simulate a map.
 
@@ -103,11 +103,27 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
         Noise level in counts
     spacing : float
         Spacing between scans, in arcminutes
+    baseline : str
+        "flat", "slope" (linearly increasing/decreasing) or "messy" (random walk)
     """
+    import matplotlib.pyplot as plt
 
     mkdir_p(outdir)
     if count_map is None:
         count_map = lambda x, y : 100
+
+    if baseline == "flat":
+        mmin = mmax = 0
+        qmin = qmax = 0
+        stochastic_amp = 0
+    elif baseline == "slope":
+        mmin, mmax = -5, 5
+        qmin, qmax = 0, 150
+        stochastic_amp = 0
+    elif baseline == "messy":
+        mmin, mmax = 0, 0
+        qmin, qmax = 0, 0
+        stochastic_amp = 20
 
     nbins_ra = np.rint(length_ra / speed / dt)
     nbins_dec = np.rint(length_dec / speed / dt)
@@ -121,16 +137,39 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
     if width_ra is None:
         width_ra = length_dec
     # Dec scans
-    print(nbins_ra, nbins_dec)
+    fig = plt.figure()
+
     for i_d, start_dec in enumerate(np.arange(-width_dec / 2 , width_dec / 2 + spacing, spacing) / 60):
-        counts = count_map(position_ra, start_dec) + ra.normal(0, noise_amplitude, position_ra.shape)
+        m = ra.uniform(mmin, mmax)
+        q = ra.uniform(qmin, qmax)
+        print(m, q)
+        stochastic = np.cumsum(np.random.choice([-1, 1], nbins_ra)) * stochastic_amp / np.sqrt(nbins_ra)
+
+        baseline = m * position_ra + q + stochastic
+        counts = count_map(position_ra, start_dec) + ra.normal(0, noise_amplitude, position_ra.shape) + \
+            baseline
+
         save_scan(times, position_ra, np.zeros_like(position_ra) + start_dec, {'Ch0': counts, 'Ch1': counts},
                   filename=os.path.join(outdir, 'Ra{}.fits'.format(i_d)))
+        plt.plot(position_ra, counts)
 
-    print(i_d)
     # RA scans
     for i_r, start_ra in enumerate(np.arange(-width_ra / 2 , width_ra / 2 + spacing, spacing) / 60):
-        counts = count_map(start_ra, position_dec) + ra.normal(0, noise_amplitude, position_dec.shape)
+        m = ra.uniform(mmin, mmax)
+        q = ra.uniform(qmin, qmax)
+        print(m, q)
+
+        stochastic = np.cumsum(np.random.choice([-1, 1], nbins_dec)) * stochastic_amp / np.sqrt(nbins_dec)
+
+        baseline = m * position_dec + q + stochastic
+        counts = count_map(start_ra, position_dec) + ra.normal(0, noise_amplitude, position_dec.shape) + \
+                 baseline
+
         save_scan(times, np.zeros_like(position_dec) + start_ra, position_dec, {'Ch0': counts, 'Ch1': counts},
                   filename=os.path.join(outdir, 'Dec{}.fits'.format(i_r)))
-    print(i_r)
+
+
+        plt.plot(position_dec, counts)
+
+    fig.savefig(os.path.join(outdir, "allscans.png"))
+    plt.close(fig)

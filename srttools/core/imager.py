@@ -11,7 +11,7 @@ from .scan import Scan, chan_re, list_scans
 from .read_config import read_config, get_config_file, sample_config_file
 import numpy as np
 from astropy import wcs
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -24,13 +24,14 @@ import sys
 import warnings
 import logging
 import traceback
+from .global_fit import fit_full_image
 
 
 class ScanSet(Table):
     """Class containing a set of scans."""
 
     def __init__(self, data=None, norefilt=True, config_file=None,
-                 freqsplat=None, nofilt=False, **kwargs):
+                 freqsplat=None, nofilt=False, nosub=False, **kwargs):
         """Initialize a ScanSet object."""
         self.norefilt = norefilt
         self.freqsplat = freqsplat
@@ -56,7 +57,8 @@ class ScanSet(Table):
             tables = []
 
             for i_s, s in self.load_scans(scan_list,
-                                          freqsplat=freqsplat, nofilt=nofilt, **kwargs):
+                                          freqsplat=freqsplat, nofilt=nofilt,
+                                          nosub=nosub, **kwargs):
 
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     continue
@@ -67,12 +69,11 @@ class ScanSet(Table):
             scan_table = Table(vstack(tables))
 
             Table.__init__(self, scan_table)
-            self.meta['scan_list'] = scan_list
+            self.scan_list = scan_list
+            self.meta['scan_list_file'] = None
             self.meta.update(config)
             self.meta['config_file'] = get_config_file()
 
-            self.meta['scan_list'] = np.array(self.meta['scan_list'],
-                                              dtype='S')
             self.analyze_coordinates(altaz=False)
             self.analyze_coordinates(altaz=True)
 
@@ -294,6 +295,34 @@ class ScanSet(Table):
 
         return images
 
+    def fit_full_images(self, chans=None, fname=None, save_sdev=False, scrunch=False,
+                        no_offsets=False, altaz=False, calibration=None, excluded=None, par=None):
+        """Fit a linear trend to each scan to minimize the scatter in the image."""
+
+        if not hasattr(self, 'images'):
+            self.calculate_images(scrunch=scrunch, no_offsets=no_offsets, altaz=altaz,
+                                  calibration=calibration)
+
+        if chans is not None:
+            chans = chans.split(',')
+        else:
+            chans = self.chan_columns
+
+        for ch in chans:
+            print("Fitting channel {}".format(ch))
+            feeds = self[ch + '_feed']
+            allfeeds = list(set(feeds))
+            assert len(allfeeds) == 1, 'Feeds are mixed up in channels'
+            if no_offsets:
+                feed = 0
+            else:
+                feed = feeds[0]
+            self[ch + "_save"] = self[ch].copy()
+            self[ch] = Column(fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par))
+
+        self.calculate_images(scrunch=scrunch, no_offsets=no_offsets, altaz=altaz,
+                              calibration=calibration)
+
     def calibrate_images(self, calibration):
         """Calibrate the images."""
         if not hasattr(self, 'images'):
@@ -428,7 +457,7 @@ class ScanSet(Table):
         sids = list(set(self['Scan_id'][good_entries]))
 
         for sid in sids:
-            sname = self.meta['scan_list'][sid].decode()
+            sname = self.scan_list[sid]
             try:
                 s = Scan(sname)
             except:
@@ -507,8 +536,34 @@ class ScanSet(Table):
 
     def write(self, fname, **kwargs):
         """Set default path and call Table.write."""
+        import os
+        f, ext = os.path.splitext(fname)
+        txtfile = f + '_scan_list.txt'
+        self.meta['scan_list_file'] = txtfile
+        with open(txtfile, 'w') as fobj:
+            for i in self.scan_list:
+                print(i, file=fobj)
+
         t = Table(self)
         t.write(fname, path='scanset', **kwargs)
+
+    def load(self, fname, **kwargs):
+        """Set default path and call Table.read."""
+        import os
+        self.read(fname)
+
+        self.scan_list = []
+
+        try:
+            txtfile = self.meta['scan_list_file']
+
+            with open(txtfile, 'r') as fobj:
+                for i in fobj.readlines():
+                    self.scan_list.append(i.strip())
+        except:
+            self.meta['scan_list_file'] = None
+        return self
+
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None):
@@ -548,6 +603,10 @@ def main_imager(args=None):
                    'and produce a map.')
     parser = argparse.ArgumentParser(description=description)
 
+    parser.add_argument("file", nargs='?',
+                        help="Load intermediate scanset from this file",
+                        default=None, type=str)
+
     parser.add_argument("--sample-config", action='store_true', default=False,
                         help='Produce sample config file')
 
@@ -558,6 +617,10 @@ def main_imager(args=None):
                         action='store_true',
                         help='Re-run the scan filtering')
 
+    parser.add_argument("--sub", default=False,
+                        action='store_true',
+                        help='Subtract the baseline from single scans')
+
     parser.add_argument("--interactive", default=False,
                         action='store_true',
                         help='Open the interactive display')
@@ -567,6 +630,19 @@ def main_imager(args=None):
 
     parser.add_argument("--nofilt", action='store_true', default=False,
                         help='Do not filter noisy channels')
+
+    parser.add_argument("-g", "--global-fit", action='store_true', default=False,
+                        help='Perform global fitting of baseline')
+
+    parser.add_argument("-e", "--exclude", nargs='+', default=None,
+                        help='Exclude region from global fitting of baseline')
+
+    parser.add_argument("--chans", type=str, default=None,
+                        help=('Comma-separated hannels to include in global fitting '
+                              '(Ch0, Ch1, ...)'))
+
+    parser.add_argument("-o", "--outfile", type=str, default="scanset.hdf5",
+                        help='Save intermediate scanset to this file.')
 
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
@@ -582,11 +658,29 @@ def main_imager(args=None):
         sample_config_file()
         sys.exit()
 
-    assert args.config is not None, "Please specify the config file!"
+    if args.file is not None:
+        scanset = ScanSet().load(args.file)
+    else:
+        assert args.config is not None, "Please specify the config file!"
+        scanset = ScanSet(args.config, norefilt=not args.refilt,
+                          freqsplat=args.splat, nosub=not args.sub,
+                          nofilt=args.nofilt)
 
-    scanset = ScanSet(args.config, norefilt=not args.refilt,
-                      freqsplat=args.splat, nofilt=args.nofilt)
+    scanset.write(args.outfile, overwrite=True)
 
     if args.interactive:
         scanset.interactive_display()
+
+    if args.global_fit:
+        excluded = None
+        if args.exclude is not None:
+            nexc = len(args.exclude)
+            assert nexc % 3 == 0, \
+                ("Exclusion region has to be specified as centerX0, centerY0, "
+                 "radius0, centerX1, centerY1, radius1, ... (in X,Y coordinates)")
+            excluded = np.array([np.float(e) for e in args.exclude]).reshape((nexc // 3, 3))
+
+        scanset.fit_full_images(excluded=excluded, chans=args.chans)
+        scanset.write(args.outfile.replace('.hdf5', '_baselinesub.hdf5'), overwrite=True)
+
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate)

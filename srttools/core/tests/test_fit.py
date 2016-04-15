@@ -34,10 +34,10 @@ def test_outliers2():
 def test_outliers3():
     """Test that outlier detection works."""
     series = np.random.normal(0, 0.1, 100)
-    series[10] = 2
-    series[11] = 4
-    series[12] = 2
+    series[10] = 20
+    series[11] = 20
     series2 = purge_outliers(series)
+
     assert np.all(series2 == series)
 
 def _test_shape(x):
@@ -47,13 +47,13 @@ def test_fit_baseline_plus_bell():
     """Test that the fit procedure works."""
 
     x = np.arange(0, 100, 0.1)
-    y = np.random.poisson(1000, len(x)) + _test_shape(x) + x * 6 + 20
+    y = np.random.normal(0, 1, len(x)) + _test_shape(x) + x * 6 + 20
 
     model, _ = fit_baseline_plus_bell(x, y, ye=10, kind='gauss')
 
     np.testing.assert_almost_equal(model.mean_1, 50., 1)
     np.testing.assert_almost_equal(model.slope_0, 6., 1)
-    assert np.abs(model.intercept_0 - 1020.) < 1
+    assert np.abs(model.intercept_0 - 20.) < 2
 
 # def test_minimize_align():
 #     """Test that the minimization of the alignment works."""
