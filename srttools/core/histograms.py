@@ -25,6 +25,8 @@ from numpy import atleast_2d, asarray, zeros, ones, array, atleast_1d, arange,\
     isscalar, linspace, diff, empty, around, where, bincount, sort, log10,\
     searchsorted
 
+__doctest_skip__ = ['*']
+
 def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
     """
     Compute the multidimensional histogram of some data.
