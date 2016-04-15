@@ -235,10 +235,11 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     times -= times[0]
 
     idxs = np.array(scanset['Scan_id'], dtype=int)
-    data_idx = _get_data_idx(par, idx)
 
     if par is None:
         par = np.zeros(len(list(set(idxs))) * 2)
+
+    data_idx = _get_data_idx(par, idxs)
 
     for i_p, p in enumerate(list(zip(par[:-1:2], par[1::2]))):
         good = idxs == i_p
@@ -319,14 +320,16 @@ def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=Non
             good[filt] = 0
 
     bad = np.logical_not(good)
-    img[bad] = 0
+
     img_var[bad] = 0
 
     fig = plt.figure("Display")
 
     gs = GridSpec(1, 2)
     ax0 = plt.subplot(gs[0])
+    ax0.title("Image")
     ax1 = plt.subplot(gs[1])
+    ax1.title("Image variance")
     ax0.imshow(img)
     ax1.imshow(img_var)
 
