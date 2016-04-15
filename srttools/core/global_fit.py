@@ -327,9 +327,9 @@ def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=Non
 
     gs = GridSpec(1, 2)
     ax0 = plt.subplot(gs[0])
-    ax0.title("Image")
+    ax0.set_title("Image")
     ax1 = plt.subplot(gs[1])
-    ax1.title("Image variance")
+    ax1.set_title("Image variance")
     ax0.imshow(img)
     ax1.imshow(img_var)
 
