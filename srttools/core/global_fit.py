@@ -235,6 +235,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     times -= times[0]
 
     idxs = np.array(scanset['Scan_id'], dtype=int)
+    data_idx = _get_data_idx(par, idx)
 
     if par is None:
         par = np.zeros(len(list(set(idxs))) * 2)
@@ -254,12 +255,13 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
     t, i, x, y, c, expo = data
 
-    data_idx = _get_data_idx(par, i)
+    data_idx_resamp = _get_data_idx(par, i)
 
-    res = minimize(_obj_fun, par, args=(data, data_idx, excluded, bx, by),
+    res = minimize(_obj_fun, par, args=(data, data_idx_resamp, excluded, bx, by),
                    method="SLSQP", callback=_callback)
 
     new_counts = _align_all(times, counts, data_idx, res.x)
+
     return new_counts
 
 

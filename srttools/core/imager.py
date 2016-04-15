@@ -11,7 +11,7 @@ from .scan import Scan, chan_re, list_scans
 from .read_config import read_config, get_config_file, sample_config_file
 import numpy as np
 from astropy import wcs
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -318,7 +318,8 @@ class ScanSet(Table):
                 feed = 0
             else:
                 feed = feeds[0]
-            self[ch][:] = fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par)
+            self[ch + "_save"] = self[ch].copy()
+            self[ch] = Column(fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par))
 
         self.calculate_images(scrunch=scrunch, no_offsets=no_offsets, altaz=altaz,
                               calibration=calibration)
