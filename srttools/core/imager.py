@@ -69,12 +69,11 @@ class ScanSet(Table):
             scan_table = Table(vstack(tables))
 
             Table.__init__(self, scan_table)
-            self.meta['scan_list'] = scan_list
+            self.scan_list = scan_list
+            self.meta['scan_list_file'] = None
             self.meta.update(config)
             self.meta['config_file'] = get_config_file()
 
-            self.meta['scan_list'] = np.array(self.meta['scan_list'],
-                                              dtype='S')
             self.analyze_coordinates(altaz=False)
             self.analyze_coordinates(altaz=True)
 
@@ -458,7 +457,7 @@ class ScanSet(Table):
         sids = list(set(self['Scan_id'][good_entries]))
 
         for sid in sids:
-            sname = self.meta['scan_list'][sid].decode()
+            sname = self.scan_list[sid]
             try:
                 s = Scan(sname)
             except:
@@ -537,8 +536,34 @@ class ScanSet(Table):
 
     def write(self, fname, **kwargs):
         """Set default path and call Table.write."""
+        import os
+        f, ext = os.path.splitext(fname)
+        txtfile = f + '_scan_list.txt'
+        self.meta['scan_list_file'] = txtfile
+        with open(txtfile, 'w') as fobj:
+            for i in self.scan_list:
+                print(i, file=fobj)
+
         t = Table(self)
         t.write(fname, path='scanset', **kwargs)
+
+    def load(self, fname, **kwargs):
+        """Set default path and call Table.read."""
+        import os
+        self.read(fname)
+
+        self.scan_list = []
+
+        try:
+            txtfile = self.meta['scan_list_file']
+
+            with open(txtfile, 'r') as fobj:
+                for i in fobj.readlines():
+                    self.scan_list.append(i.strip())
+        except:
+            self.meta['scan_list_file'] = None
+        return self
+
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None):
@@ -634,7 +659,7 @@ def main_imager(args=None):
         sys.exit()
 
     if args.file is not None:
-        scanset = ScanSet.read(args.file)
+        scanset = ScanSet().load(args.file)
     else:
         assert args.config is not None, "Please specify the config file!"
         scanset = ScanSet(args.config, norefilt=not args.refilt,
