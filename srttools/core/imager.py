@@ -318,7 +318,7 @@ class ScanSet(Table):
                 feed = 0
             else:
                 feed = feeds[0]
-            self[ch] = fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par)
+            self[ch][:] = fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par)
 
         self.calculate_images(scrunch=scrunch, no_offsets=no_offsets, altaz=altaz,
                               calibration=calibration)
@@ -652,7 +652,7 @@ def main_imager(args=None):
             assert nexc % 3 == 0, \
                 ("Exclusion region has to be specified as centerX0, centerY0, "
                  "radius0, centerX1, centerY1, radius1, ... (in X,Y coordinates)")
-            excluded = np.array([np.float(e) for e in args.exclude]).reshape((nexc / 3, 3))
+            excluded = np.array([np.float(e) for e in args.exclude]).reshape((nexc // 3, 3))
 
         scanset.fit_full_images(excluded=excluded, chans=args.chans)
         scanset.write(args.outfile.replace('.hdf5', '_baselinesub.hdf5'), overwrite=True)
