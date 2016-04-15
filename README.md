@@ -51,4 +51,4 @@ To update the code, simply run `git pull` and reinstall:
 
 ### Contribution guidelines ###
 
-See the [Wiki](https://bitbucket.org/mbachett/srt-single-dish-tools/wiki/Home)
+See the [Wiki on Bitbucket](https://bitbucket.org/mbachett/srt-single-dish-tools/wiki/Home)
