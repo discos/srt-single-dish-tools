@@ -76,6 +76,8 @@ matrix:
           env: ASTROPY_VERSION=development SETUP_CMD='test'
 
     allow_failures:
+        - python: 3.4
+          env: NUMPY_VERSION=1.8 SETUP_CMD='test'
         - python: 2.7
           env: NUMPY_VERSION=1.7 SETUP_CMD='test'
         - python: 2.7
@@ -90,6 +92,8 @@ matrix:
           env: ASTROPY_VERSION=development SETUP_CMD='test'
         - python: 3.5
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
+        - python: 3.4
+          env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
 
 before_install:
 #    - sudo wget https://gist.githubusercontent.com/dmitriy-kiriyenko/974392/raw/337a72368029046f28f0391c914c02d0ef3ad9d7/xvfb -O /etc/init.d/xvfb
