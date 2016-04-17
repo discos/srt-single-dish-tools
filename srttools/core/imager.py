@@ -64,6 +64,7 @@ class ScanSet(Table):
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
+                s.meta['filename'] = None
                 tables.append(s)
 
             scan_table = Table(vstack(tables))
@@ -81,6 +82,8 @@ class ScanSet(Table):
 
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
+        if 'list_of_directories' in self.meta.keys():
+            del self.meta['list_of_directories']
         self.current = None
 
     def analyze_coordinates(self, altaz=False):
@@ -545,7 +548,7 @@ class ScanSet(Table):
                 print(i, file=fobj)
 
         t = Table(self)
-        t.write(fname, path='scanset', serialize_meta=True, **kwargs)
+        t.write(fname, path='scanset', **kwargs)
 
     def load(self, fname, **kwargs):
         """Set default path and call Table.read."""
