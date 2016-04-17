@@ -64,7 +64,7 @@ class ScanSet(Table):
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
-                s.meta['filename'] = None
+                del s.meta['filename']
                 tables.append(s)
 
             scan_table = Table(vstack(tables))
