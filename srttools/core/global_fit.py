@@ -92,7 +92,7 @@ def _get_saved_pars(filename):
     return np.genfromtxt(filename)
 
 
-def _callback(par):
+def _save_iteration(par):
     iteration = next(ITERATION_COUNT)
     print(iteration, end="\r")
     if iteration % 2 == 0:
@@ -233,6 +233,10 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     Y = np.array(scanset['y'][:, feed], dtype=np.float64)
     counts = np.array(scanset[chan], dtype=np.float64)
 
+    count_range = np.max(counts) - np.min(counts)
+
+    counts /= count_range
+
     times = np.array(scanset['time'], dtype=np.float64)
     times -= times[0]
 
@@ -260,15 +264,17 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
     data_idx_resamp = _get_data_idx(par, i)
 
+    _callback = lambda x : _save_iteration(x * count_range)
+
     res = minimize(_obj_fun, par, args=(data, data_idx_resamp, excluded, bx, by),
                    method="SLSQP", callback=_callback)
 
     new_counts = _align_all(times, counts, data_idx, res.x)
 
-    return new_counts
+    return new_counts * count_range
 
 
-def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=None):
+def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=None, factor=1):
     """Get a clean image by subtracting linear trends from the initial scans.
 
     Parameters
@@ -294,7 +300,7 @@ def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=Non
 
     X = np.array(scanset['x'][:, feed], dtype=np.float64)
     Y = np.array(scanset['y'][:, feed], dtype=np.float64)
-    counts = np.array(scanset[chan], dtype=np.float64)
+    counts = np.array(scanset[chan], dtype=np.float64) * factor
 
     times = np.array(scanset['time'], dtype=np.float64)
     times -= times[0]
@@ -332,8 +338,8 @@ def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=Non
     ax0.set_title("Image")
     ax1 = plt.subplot(gs[1])
     ax1.set_title("Image variance")
-    ax0.imshow(img)
-    ax1.imshow(img_var)
+    ax0.imshow(img, origin="lower")
+    ax1.imshow(img_var, origin="lower")
 
     fig.savefig(parfile.replace(".txt", ".png"))
     plt.close(fig)
