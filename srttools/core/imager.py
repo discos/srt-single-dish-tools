@@ -545,7 +545,7 @@ class ScanSet(Table):
                 print(i, file=fobj)
 
         t = Table(self)
-        t.write(fname, path='scanset', **kwargs)
+        t.write(fname, path='scanset', serialize_meta=True, **kwargs)
 
     def load(self, fname, **kwargs):
         """Set default path and call Table.read."""
