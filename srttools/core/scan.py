@@ -166,7 +166,8 @@ class Scan(Table):
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
-    def clean_and_splat(self, good_mask=None, freqsplat=None, debug=True,
+    def clean_and_splat(self, good_mask=None, freqsplat=None, noise_threshold=5,
+                        debug=True,
                         save_spectrum=False, nofilt=False):
         """Clean from RFI.
 
@@ -177,6 +178,8 @@ class Scan(Table):
         good_mask : boolean array
             this mask specifies intervals that should never be discarded as
             RFI, for example because they contain spectral lines
+        noise_threshold : float
+            The threshold, in sigmas, over which a given channel is considered noisy
         freqsplat : str
             Specification of frequency interval to merge into a single channel
 
@@ -252,7 +255,7 @@ class Scan(Table):
                                        lam=1000, p=0.001, offset_correction=False,
                                        outlier_purging=False)
             if not nofilt:
-                threshold = baseline + 5 * stdref
+                threshold = baseline + 5 * noise_threshold
             else:
                 threshold = np.zeros_like(baseline) + 1e32
 
