@@ -256,7 +256,7 @@ class Scan(Table):
                                        lam=1000, p=0.001, offset_correction=False,
                                        outlier_purging=False)
             if not nofilt:
-                threshold = baseline + 5 * noise_threshold
+                threshold = baseline + noise_threshold * stdref
             else:
                 threshold = np.zeros_like(baseline) + 1e32
 
