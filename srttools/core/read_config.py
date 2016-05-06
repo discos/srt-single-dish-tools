@@ -40,6 +40,7 @@ def sample_config_file(fname='sample_config_file.ini'):
 ; if left empty, calibrator scans are taken from list_of_directories when
 ; calculating light curves, and ignored when calculating images
 
+    noise_threshold : 5
 ;; Coordinates have to be specified in decimal degrees. ONLY use if different
 ;; from target coordinates!
 ;    reference_ra : 10.5
@@ -102,6 +103,7 @@ def read_config(fname=None):
     config_output['pixel_size'] = '1'
     config_output['goodchans'] = None
     config_output['filtering_factor'] = '0'
+    config_output['noise_threshold'] = '5'
 
     # --------------------------------------------------------------------
 
@@ -152,6 +154,7 @@ def read_config(fname=None):
         config_output['goodchans'] = \
             [int(n) for n in config_output['goodchans']]
 
+    config_output['noise_threshold'] = float(config_output['filtering_factor'])
     config_output['filtering_factor'] = \
         float(config_output['filtering_factor'])
 

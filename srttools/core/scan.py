@@ -106,7 +106,8 @@ class Scan(Table):
 
             self.check_order()
 
-            self.clean_and_splat(freqsplat=freqsplat, nofilt=nofilt)
+            self.clean_and_splat(freqsplat=freqsplat, nofilt=nofilt,
+                                 noise_threshold=self.meta['noise_threshold'])
 
             if interactive:
                 self.interactive_filter()
