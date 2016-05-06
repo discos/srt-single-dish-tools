@@ -197,6 +197,8 @@ class Scan(Table):
         debug : bool, default True
             Save images with quicklook information on single scans
         """
+        logging.debug("Noise threshold:", noise_threshold)
+
         if self.meta['filtering_factor'] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
             return
