@@ -154,7 +154,7 @@ def read_config(fname=None):
         config_output['goodchans'] = \
             [int(n) for n in config_output['goodchans']]
 
-    config_output['noise_threshold'] = float(config_output['filtering_factor'])
+    config_output['noise_threshold'] = float(config_output['noise_threshold'])
     config_output['filtering_factor'] = \
         float(config_output['filtering_factor'])
 
