@@ -217,7 +217,8 @@ class Scan(Table):
                 np.sqrt(np.sum((self[ch] - total_spec) ** 2 / total_spec ** 2,
                         axis=0))
 
-            allbins = np.arange(len(total_spec))
+            df = self[ch].meta['bandwidth'] / len(total_spec)
+            allbins = np.arange(len(total_spec)) * df
 
             freqmask = np.ones(len(total_spec), dtype=bool)
 
@@ -236,8 +237,8 @@ class Scan(Table):
                 ax2 = plt.subplot(gs[1, 0], sharex=ax1)
                 ax3 = plt.subplot(gs[1, 1], sharey=ax2)
                 ax4 = plt.subplot(gs[2, 0], sharex=ax1)
-                ax1.plot(total_spec, label="Unfiltered")
-                ax4.plot(spectral_var, label="Spectral rms")
+                ax1.plot(allbins, total_spec, label="Unfiltered")
+                ax4.plot(allbins, spectral_var, label="Spectral rms")
 
             if good_mask is not None:
                 total_spec[good_mask] = 0
@@ -269,26 +270,29 @@ class Scan(Table):
             lc_corr = baseline_als(self['time'], lc_corr)
 
             if debug:
-                ax1.plot(total_spec, label="Whitelist applied")
+                ax1.plot(allbins, total_spec, label="Whitelist applied")
                 ax1.axvline(binmin)
                 ax1.axvline(binmax)
                 ax1.plot(allbins[mask], total_spec[mask],
                          label="Final mask")
                 # ax1.legend()
 
-                bad_intervals = contiguous_regions(np.logical_not(wholemask))
-                for b in bad_intervals:
-                    ax2.axvline(b[0], color='k')
-                    ax2.axvline(b[1], color='k')
-                    ax1.axvline(b[0], color='k')
-                    ax1.axvline(b[1], color='k')
-                    ax4.axvline(b[0], color='k')
-                    ax4.axvline(b[1], color='k')
-
                 ax2.imshow(varimg, origin="lower", aspect='auto',
                            cmap=plt.get_cmap("magma"),
                            vmin=mean_varimg - 5 * std_varimg,
-                           vmax=mean_varimg + 5 * std_varimg)
+                           vmax=mean_varimg + 5 * std_varimg,
+                           extent=(0, self[ch].meta['bandwidth'],
+                                   0, varimg.shape[0]))
+
+                bad_intervals = contiguous_regions(np.logical_not(wholemask))
+                for b in bad_intervals:
+                    maxsp = np.max(total_spec)
+                    ax1.plot(b*df, [maxsp]*2, color='k')
+                    middleimg = [varimg.shape[0] / 2]
+                    ax2.plot(b*df, [middleimg]*2, color='k')
+                    maxsp = np.max(spectral_var)
+                    ax4.plot(b*df, [maxsp]*2, color='k')
+
 
                 ax2.axvline(binmin)
                 ax2.axvline(binmax)
@@ -296,8 +300,8 @@ class Scan(Table):
                 ax3.plot(lc, lcbins)
                 ax3.plot(lc_corr, lcbins)
                 ax3.set_xlim([np.min(lc), max(lc)])
-                ax4.axvline(binmin)
-                ax4.axvline(binmax)
+                ax4.axvline(freqmin)
+                ax4.axvline(freqmax)
                 ax4.plot(allbins[mask], spectral_var[mask])
                 ax4.plot(allbins, baseline)
 
