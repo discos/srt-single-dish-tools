@@ -266,13 +266,25 @@ class Scan(Table):
             mask = spectral_var < threshold
 
             wholemask = freqmask & mask
+            lc_mask = np.sum(self[ch][:, freqmask], axis=1)
+            lc_mask = baseline_als(self['time'], lc_mask)
+
             lc_corr = np.sum(self[ch][:, wholemask], axis=1)
+
+            bad_intervals = contiguous_regions(np.logical_not(wholemask))
+
+            for b in bad_intervals:
+                if b[0] == 0 or b[1] >= len(spectral_var):
+                    continue
+                fill_lc = (self[ch][:, b[0] - 1] + self[ch][:, b[1] + 1]) / 2
+                lc_corr += fill_lc * (b[1] - b[0])
+
             lc_corr = baseline_als(self['time'], lc_corr)
 
             if debug:
                 ax1.plot(allbins, total_spec, label="Whitelist applied")
-                ax1.axvline(binmin)
-                ax1.axvline(binmax)
+                ax1.axvline(freqmin)
+                ax1.axvline(freqmax)
                 ax1.plot(allbins[mask], total_spec[mask],
                          label="Final mask")
                 # ax1.legend()
@@ -284,21 +296,21 @@ class Scan(Table):
                            extent=(0, self[ch].meta['bandwidth'],
                                    0, varimg.shape[0]))
 
-                bad_intervals = contiguous_regions(np.logical_not(wholemask))
                 for b in bad_intervals:
                     maxsp = np.max(total_spec)
-                    ax1.plot(b*df, [maxsp]*2, color='k')
+                    ax1.plot(b*df, [maxsp]*2, color='k', lw=2)
                     middleimg = [varimg.shape[0] / 2]
-                    ax2.plot(b*df, [middleimg]*2, color='k')
+                    ax2.plot(b*df, [middleimg]*2, color='k', lw=2)
                     maxsp = np.max(spectral_var)
-                    ax4.plot(b*df, [maxsp]*2, color='k')
+                    ax4.plot(b*df, [maxsp]*2, color='k', lw=2)
 
 
-                ax2.axvline(binmin)
-                ax2.axvline(binmax)
+                ax2.axvline(freqmin)
+                ax2.axvline(freqmax)
 
-                ax3.plot(lc, lcbins)
-                ax3.plot(lc_corr, lcbins)
+                ax3.plot(lc, lcbins, color="grey")
+                ax3.plot(lc_mask, lcbins, color="b")
+                ax3.plot(lc_corr, lcbins, color="g")
                 ax3.set_xlim([np.min(lc), max(lc)])
                 ax4.axvline(freqmin)
                 ax4.axvline(freqmax)
