@@ -155,7 +155,7 @@ class SourceTable(Table):
                 self.add_column(Column(name=n, dtype=d))
 
     def from_scans(self, scan_list=None, verbose=False, freqsplat=None,
-                   config_file=None, nofilt=False):
+                   config_file=None, nofilt=False, plot=True):
         """Load source table from a list of scans."""
 
         if scan_list is None:
@@ -170,6 +170,8 @@ class SourceTable(Table):
         for i_s, s in enumerate(scan_list):
             print('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
             scandir, sname = os.path.split(s)
+            outdir = os.path.splitext(sname)[0] + "_scanfit"
+
             try:
                 # For now, use nosave. HDF5 doesn't store meta, essential for
                 # this
@@ -223,18 +225,30 @@ class SourceTable(Table):
                 pnames = model.param_names
                 counts = model.amplitude_1.value
 
+                if plot:
+                    fig = plt.figure()
+                    plt.plot(x, y)
+                    plt.plot(x, bell(x))
+
                 if scan_type.startswith("RA"):
                     fit_ra = bell.mean
                     fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
                     fit_dec = None
                     ra_err = fit_ra - pnt_ra
                     dec_err = None
+                    if plot:
+                        plt.axvline(fit_ra, label="RA Fit")
+                        plt.axvline(pnt_ra, label="RA Pnt")
+
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
                     fit_dec = bell.mean
                     fit_width = bell.stddev
                     dec_err = fit_dec - pnt_dec
                     ra_err = None
+                    if plot:
+                        plt.axvline(fit_ra, label="Dec Fit")
+                        plt.axvline(pnt_ra, label="Dec Pnt")
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
@@ -245,6 +259,12 @@ class SourceTable(Table):
                               flux_density, flux_density_err, el, az,
                               flux_over_counts, flux_over_counts_err,
                               pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err, dec_err])
+
+
+                if plot:
+                    plt.legend()
+                    plt.savefig(os.path.join(outdir,
+                                             "Feed{}_chan{}.png".format(feed, nch)))
 
 
 class CalibratorTable(SourceTable):
@@ -316,10 +336,15 @@ class CalibratorTable(SourceTable):
         eflux = self['Flux Density Err']
         counts = self['Counts']
         ecounts = self['Counts Err']
+        width = np.radians(self['Width'])
 
-        flux_over_counts = flux / counts
+        # Volume in a beam
+        total = 2 * np.pi * counts * width ** 2
+        etotal = 2 * np.pi * ecounts * width ** 2
+
+        flux_over_counts = flux / total
         flux_over_counts_err = \
-            (ecounts / counts + eflux / flux) * flux_over_counts
+            (etotal / total + eflux / flux) * flux_over_counts
 
         self['Flux/Counts'][:] = flux_over_counts
         self['Flux/Counts Err'][:] = flux_over_counts_err
