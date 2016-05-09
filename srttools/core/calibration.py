@@ -11,6 +11,7 @@ from __future__ import (absolute_import, division,
 from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
+from .io import mkdir_p
 import os
 import sys
 import glob
@@ -170,7 +171,10 @@ class SourceTable(Table):
         for i_s, s in enumerate(scan_list):
             print('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
             scandir, sname = os.path.split(s)
-            outdir = os.path.splitext(sname)[0] + "_scanfit"
+            if plot:
+                outdir = os.path.splitext(sname)[0] + "_scanfit"
+                outdir = os.path.join(scandir, outdir)
+                mkdir_p(outdir)
 
             try:
                 # For now, use nosave. HDF5 doesn't store meta, essential for
@@ -195,6 +199,7 @@ class SourceTable(Table):
             N = N.flatten()
             for feed, nch in zip(F, N):
                 channel = chans[nch]
+
                 ras = np.degrees(scan['ra'][:, feed])
                 decs = np.degrees(scan['dec'][:, feed])
                 time = np.mean(scan['time'][:])
@@ -227,8 +232,8 @@ class SourceTable(Table):
 
                 if plot:
                     fig = plt.figure()
-                    plt.plot(x, y)
-                    plt.plot(x, bell(x))
+                    plt.plot(x, y, label="Data")
+                    plt.plot(x, bell(x), label="Fit")
 
                 if scan_type.startswith("RA"):
                     fit_ra = bell.mean
@@ -247,8 +252,8 @@ class SourceTable(Table):
                     dec_err = fit_dec - pnt_dec
                     ra_err = None
                     if plot:
-                        plt.axvline(fit_ra, label="Dec Fit")
-                        plt.axvline(pnt_ra, label="Dec Pnt")
+                        plt.axvline(fit_dec, label="Dec Fit")
+                        plt.axvline(pnt_dec, label="Dec Pnt")
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
@@ -380,7 +385,8 @@ class CalibratorTable(SourceTable):
         cf = 1 / fc
         return cf, fce / fc * cf
 
-    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None, channel=None):
+    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None, channel=None,
+                         xfactor=1, yfactor=1):
         """Plot the data corresponding to two given columns."""
         showit = False
         if ax is None:
@@ -407,9 +413,13 @@ class CalibratorTable(SourceTable):
 
         if xerrcol is None or yerrcol is None:
             print(xerr_to_plot, yerr_to_plot)
-            ax.errorbar(x_to_plot, y_to_plot, xerr=xerr_to_plot, yerr=yerr_to_plot, label=ycol + label)
+            ax.errorbar(x_to_plot * xfactor, y_to_plot * yfactor,
+                        xerr=xerr_to_plot * xfactor,
+                        yerr=yerr_to_plot * yfactor,
+                        label=ycol + label)
         else:
-            ax.scatter(x_to_plot, y_to_plot, label=ycol + label)
+            ax.scatter(x_to_plot * xfactor,
+                       y_to_plot * yfactor, label=ycol + label)
         ax.set_xlabel(xcol)
         ax.set_ylabel(ycol)
         if showit:
