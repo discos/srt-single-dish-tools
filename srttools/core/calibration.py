@@ -449,9 +449,11 @@ class CalibratorTable(SourceTable):
             ax00.axhline(jy_over_cts + jy_over_cts_err)
             ax00.axhline(jy_over_cts - jy_over_cts_err)
             self.plot_two_columns('Elevation', "RA err", ax=ax10,
-                                  channel=channel)
+                                  channel=channel,
+                                  yfactor = 60 * 180 / np.pi)
             self.plot_two_columns('Elevation', "Dec err", ax=ax10,
-                                  channel=channel)
+                                  channel=channel,
+                                  yfactor = 60 * 180 / np.pi)
             self.plot_two_columns('Azimuth', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax01,
                                   channel=channel)
