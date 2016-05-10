@@ -60,8 +60,8 @@ To update the code, simply run ``git pull`` and reinstall::
 
 Quick introduction
 ------------------
-Calibrated light curves
-~~~~~~~~~~~~~~~~~~~~~~~
+Calibrated light curves (OUTDATED)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Go to a directory close to your data set. For example::
 
     (py35) $ ls
@@ -170,7 +170,9 @@ This produces a boilerplate configuration file. Give it a meaningful name::
 
 Modify the file point to our observations, and give the correct information to
 our program. Follow the same indentation as in the examples. Comments are done
-with a semicolon::
+with a semicolon.
+Pay particular attention to the `pixel_size` and to the `list_of_directories`,
+pointing to the directories containing scans.::
 
     (py35) $ emacs MySource.ini
 
@@ -190,17 +192,23 @@ with a semicolon::
         list_of_directories :
             observation1/
             observation2/
-            observation3/
+            morestuff/observation3/
 
-    ;; Number of pixels, specified as pair x y
+    ;; Coordinates have to be specified in decimal degrees. ONLY use if different
+    ;; from target coordinates!
+    ;    reference_ra : 10.5
+    ;    reference_dec : 5.3
 
-        npix : 64 64
+    ;; Pixel size in arcminutes
+
+        pixel_size : 1
 
     ;; Channels to save from RFI filtering. It might indicate known strong spectral
     ;; lines
         goodchans :
 
-Pay particular attention to the number of pixels of the final image.
+        noise_threshold : 10
+
 
 Finally, execute the map calculation. If data were taken with a Total
 Power-like instrument and they do not contain spectral information, it is
@@ -238,7 +246,7 @@ This will open a screen like this:
 
     <placeholder>
 
-where on the righ you have the current status of the image, and on the left,
+where on the right you have the current status of the image, and on the left,
 larger, an image of the *standard deviation* of the pixels. Pixels with higher
 standard deviation might be due to a real source with high variability or high
 flux gradients, or to interferences. On this standard deviation image, you can
