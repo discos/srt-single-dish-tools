@@ -274,7 +274,7 @@ class ScanSet(Table):
             total_sdev += img_sdev.T
             img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
 
-            images['{}-Sdev'.format(ch)] = img_sdev.T
+            images['{}-Sdev'.format(ch)] = np.sqrt(img_sdev.T)
             total_expo += expomap.T
 
         self.images = images
@@ -293,7 +293,7 @@ class ScanSet(Table):
                 total_img[good] ** 2
 
             images = {self.chan_columns[0]: total_img,
-                      '{}-Sdev'.format(self.chan_columns[0]): total_sdev,
+                      '{}-Sdev'.format(self.chan_columns[0]): np.sqrt(total_sdev),
                       '{}-EXPO'.format(self.chan_columns[0]): total_expo}
 
         return images
@@ -359,7 +359,7 @@ class ScanSet(Table):
             B = Jy_over_counts
             eB = Jy_over_counts_err
 
-            C = A * Jy_over_counts
+            C = A * self.meta['pixel_size']**2 * Jy_over_counts
 
             self.images[ch] = C
 
