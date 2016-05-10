@@ -11,6 +11,7 @@ from __future__ import (absolute_import, division,
 from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
+from .io import mkdir_p
 import os
 import sys
 import glob
@@ -155,7 +156,7 @@ class SourceTable(Table):
                 self.add_column(Column(name=n, dtype=d))
 
     def from_scans(self, scan_list=None, verbose=False, freqsplat=None,
-                   config_file=None, nofilt=False):
+                   config_file=None, nofilt=False, plot=True):
         """Load source table from a list of scans."""
 
         if scan_list is None:
@@ -170,6 +171,11 @@ class SourceTable(Table):
         for i_s, s in enumerate(scan_list):
             print('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
             scandir, sname = os.path.split(s)
+            if plot:
+                outdir = os.path.splitext(sname)[0] + "_scanfit"
+                outdir = os.path.join(scandir, outdir)
+                mkdir_p(outdir)
+
             try:
                 # For now, use nosave. HDF5 doesn't store meta, essential for
                 # this
@@ -193,6 +199,7 @@ class SourceTable(Table):
             N = N.flatten()
             for feed, nch in zip(F, N):
                 channel = chans[nch]
+
                 ras = np.degrees(scan['ra'][:, feed])
                 decs = np.degrees(scan['dec'][:, feed])
                 time = np.mean(scan['time'][:])
@@ -223,18 +230,30 @@ class SourceTable(Table):
                 pnames = model.param_names
                 counts = model.amplitude_1.value
 
+                if plot:
+                    fig = plt.figure()
+                    plt.plot(x, y, label="Data")
+                    plt.plot(x, bell(x), label="Fit")
+
                 if scan_type.startswith("RA"):
                     fit_ra = bell.mean
                     fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
                     fit_dec = None
                     ra_err = fit_ra - pnt_ra
                     dec_err = None
+                    if plot:
+                        plt.axvline(fit_ra, label="RA Fit")
+                        plt.axvline(pnt_ra, label="RA Pnt")
+
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
                     fit_dec = bell.mean
                     fit_width = bell.stddev
                     dec_err = fit_dec - pnt_dec
                     ra_err = None
+                    if plot:
+                        plt.axvline(fit_dec, label="Dec Fit")
+                        plt.axvline(pnt_dec, label="Dec Pnt")
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
@@ -245,6 +264,12 @@ class SourceTable(Table):
                               flux_density, flux_density_err, el, az,
                               flux_over_counts, flux_over_counts_err,
                               pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err, dec_err])
+
+
+                if plot:
+                    plt.legend()
+                    plt.savefig(os.path.join(outdir,
+                                             "Feed{}_chan{}.png".format(feed, nch)))
 
 
 class CalibratorTable(SourceTable):
@@ -316,10 +341,15 @@ class CalibratorTable(SourceTable):
         eflux = self['Flux Density Err']
         counts = self['Counts']
         ecounts = self['Counts Err']
+        width = np.radians(self['Width'])
 
-        flux_over_counts = flux / counts
+        # Volume in a beam
+        total = 2 * np.pi * counts * width ** 2
+        etotal = 2 * np.pi * ecounts * width ** 2
+
+        flux_over_counts = flux / total
         flux_over_counts_err = \
-            (ecounts / counts + eflux / flux) * flux_over_counts
+            (etotal / total + eflux / flux) * flux_over_counts
 
         self['Flux/Counts'][:] = flux_over_counts
         self['Flux/Counts Err'][:] = flux_over_counts_err
@@ -355,7 +385,8 @@ class CalibratorTable(SourceTable):
         cf = 1 / fc
         return cf, fce / fc * cf
 
-    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None, channel=None):
+    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None, channel=None,
+                         xfactor=1, yfactor=1, color=None):
         """Plot the data corresponding to two given columns."""
         showit = False
         if ax is None:
@@ -371,22 +402,30 @@ class CalibratorTable(SourceTable):
             label = "_{}".format(channel)
 
         good = good & mask
-        x_to_plot = self[xcol][good]
-        y_to_plot = self[ycol][good]
+        x_to_plot = np.array(self[xcol][good]) * xfactor
+        order = np.argsort(x_to_plot)
+        y_to_plot = np.array(self[ycol][good]) * yfactor
+        y_to_plot = y_to_plot[order]
         yerr_to_plot = None
         xerr_to_plot = None
         if xerrcol is not None:
-            xerr_to_plot = self[xerrcol][good]
+            xerr_to_plot = np.array(self[xerrcol][good]) * xfactor
+            xerr_to_plot = xerr_to_plot[order]
         if yerrcol is not None:
-            yerr_to_plot = self[yerrcol][good]
+            yerr_to_plot = np.array(self[yerrcol][good]) * yfactor
+            yerr_to_plot = yerr_to_plot[order]
 
-        if xerrcol is None or yerrcol is None:
-            print(xerr_to_plot, yerr_to_plot)
-            ax.errorbar(x_to_plot, y_to_plot, xerr=xerr_to_plot, yerr=yerr_to_plot, label=ycol + label)
+        if xerrcol is not None or yerrcol is not None:
+            ax.errorbar(x_to_plot, y_to_plot,
+                        xerr=xerr_to_plot,
+                        yerr=yerr_to_plot,
+                        label=ycol + label,
+                        fmt="none", color=color,
+                        ecolor=color)
         else:
-            ax.scatter(x_to_plot, y_to_plot, label=ycol + label)
-        ax.set_xlabel(xcol)
-        ax.set_ylabel(ycol)
+            ax.scatter(x_to_plot, y_to_plot, label=ycol + label,
+                       color=color)
+
         if showit:
             plt.show()
         return x_to_plot, y_to_plot
@@ -394,6 +433,7 @@ class CalibratorTable(SourceTable):
     def show(self):
         """Show a summary of the calibration."""
 
+        from matplotlib import cm
         # TODO: this is meant to become interactive. I will make different
         # panels linked to each other.
 
@@ -405,33 +445,48 @@ class CalibratorTable(SourceTable):
         ax10 = plt.subplot(gs[1, 0], sharex=ax00)
         ax11 = plt.subplot(gs[1, 1], sharex=ax01, sharey=ax10)
 
-        for channel in list(set(self['Chan'])):
+        channels = list(set(self['Chan']))
+        colors = cm.rainbow(np.linspace(0, 1, len(channels)))
+        for ic, channel in enumerate(channels):
+            color=colors[ic]
             self.plot_two_columns('Elevation', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax00,
-                                  channel=channel)
+                                  channel=channel, color=color)
             jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel)
             ax00.axhline(jy_over_cts)
             ax00.axhline(jy_over_cts + jy_over_cts_err)
             ax00.axhline(jy_over_cts - jy_over_cts_err)
             self.plot_two_columns('Elevation', "RA err", ax=ax10,
-                                  channel=channel)
+                                  channel=channel,
+                                  yfactor = 60, color=color)
             self.plot_two_columns('Elevation', "Dec err", ax=ax10,
-                                  channel=channel)
+                                  channel=channel,
+                                  yfactor = 60, color=color)
             self.plot_two_columns('Azimuth', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax01,
-                                  channel=channel)
+                                  channel=channel, color=color)
             ax01.axhline(jy_over_cts)
             ax01.axhline(jy_over_cts + jy_over_cts_err)
             ax01.axhline(jy_over_cts - jy_over_cts_err)
             self.plot_two_columns('Azimuth', "RA err", ax=ax11,
-                                  channel=channel)
+                                  channel=channel,
+                                  yfactor = 60, color=color)
             self.plot_two_columns('Azimuth', "Dec err", ax=ax11,
-                                  channel=channel)
+                                  channel=channel,
+                                  yfactor = 60, color=color)
 
+        for i in np.arange(-1, 1, 0.1):
+            # Arcmin errors
+            ax11.axhline(i, ls = "--", color="gray")
+            ax11.text(1, i, "{}".format())
         ax00.legend()
         ax01.legend()
         ax10.legend()
         ax11.legend()
+        ax10.set_xlabel("Elevation")
+        ax11.set_xlabel("Azimuth")
+        ax00.set_ylabel("Flux / Counts")
+        ax10.set_ylabel("Pointing error (arcmin)")
         plt.savefig("calibration_summary.png")
         plt.close(fig)
 
