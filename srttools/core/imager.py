@@ -644,7 +644,7 @@ def main_imager(args=None):
                         help=('Comma-separated hannels to include in global fitting '
                               '(Ch0, Ch1, ...)'))
 
-    parser.add_argument("-o", "--outfile", type=str, default="scanset.hdf5",
+    parser.add_argument("-o", "--outfile", type=str, default=None,
                         help='Save intermediate scanset to this file.')
 
     parser.add_argument("--splat", type=str, default=None,
@@ -661,15 +661,24 @@ def main_imager(args=None):
         sample_config_file()
         sys.exit()
 
+    outfile = args.outfile
+
     if args.file is not None:
         scanset = ScanSet().load(args.file)
+        infile = args.file
+        if outfile is None:
+            outfile = infile
     else:
         assert args.config is not None, "Please specify the config file!"
         scanset = ScanSet(args.config, norefilt=not args.refilt,
                           freqsplat=args.splat, nosub=not args.sub,
                           nofilt=args.nofilt)
+        infile = args.config
 
-    scanset.write(args.outfile, overwrite=True)
+        if outfile is None:
+            outfile = infile.replace('.ini', '_dump.hdf5')
+
+    scanset.write(outfile, overwrite=True)
 
     if args.interactive:
         scanset.interactive_display()
@@ -684,6 +693,6 @@ def main_imager(args=None):
             excluded = np.array([np.float(e) for e in args.exclude]).reshape((nexc // 3, 3))
 
         scanset.fit_full_images(excluded=excluded, chans=args.chans)
-        scanset.write(args.outfile.replace('.hdf5', '_baselinesub.hdf5'), overwrite=True)
+        scanset.write(outfile.replace('.hdf5', '_baselinesub.hdf5'), overwrite=True)
 
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate)
