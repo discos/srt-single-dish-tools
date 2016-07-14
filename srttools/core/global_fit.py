@@ -9,7 +9,7 @@ from .histograms import histogram2d
 import numpy as np
 
 
-@vectorize ('(float64(float64,float64,float64,float64))', nopython=True)
+@vectorize ('(float64(float64,float64,float64,float64))')
 def _align_fast(x, scan, m, q):
     """Align ``scan`` to a linear function."""
     return scan - x * m - q
@@ -59,7 +59,7 @@ def _calculate_image(x, y, counts, bx, by, nsamp):
     return X, Y, mean.T, img_var.T
 
 
-@jit(nopython=True)
+@jit
 def _align_all(newd_t, newd_c, data_idx, par):
     ms = np.zeros_like(newd_c, dtype=np.float64)
     qs = np.zeros_like(newd_c, dtype=np.float64)
@@ -119,6 +119,7 @@ def _obj_fun(par, data, data_idx, excluded, bx, by):
 
     newd_t, newd_i, newd_x, newd_y, newd_c, newd_e = data
 
+    print(type(newd_t), type(newd_c), type(data_idx), type(par))
     newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
     X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by, newd_e)
 
