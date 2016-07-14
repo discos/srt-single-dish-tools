@@ -59,7 +59,7 @@ def _calculate_image(x, y, counts, bx, by, nsamp):
     return X, Y, mean.T, img_var.T
 
 
-@jit(nopython=True)
+@jit #(nopython=True)
 def _align_all(newd_t, newd_c, data_idx, par):
     ms = np.zeros_like(newd_c, dtype=np.float64)
     qs = np.zeros_like(newd_c, dtype=np.float64)
@@ -256,7 +256,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
         times[good] = filt_t
         par[i_p * 2 + 1] = counts[good][0]
 
-    data_to_fit = [times, idxs, X, Y, counts]
+    data_to_fit = [np.array(times, dtype=np.float64), idxs, X, Y, np.array(counts, dtype=np.float64)]
 
     data, bx, by = _resample_scans(data_to_fit)
 
