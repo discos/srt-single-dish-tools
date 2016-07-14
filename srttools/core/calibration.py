@@ -20,6 +20,8 @@ import warnings
 import traceback
 from matplotlib.gridspec import GridSpec
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+import logging
 
 try:
     import cPickle as pickle
@@ -35,6 +37,10 @@ except ImportError:
     import ConfigParser as configparser
 
 CALIBRATOR_CONFIG = None
+
+
+def _constant(x, p):
+    return p
 
 
 def _scantype(ras, decs):
@@ -364,17 +370,37 @@ class CalibratorTable(SourceTable):
 
         f_c_ratio = self["Flux/Counts"][good_chans]
         f_c_ratio_err = self["Flux/Counts Err"][good_chans]
+        times = self["Time"][good_chans]
 
         good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
         good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
 
         good = good_fc & good_fce
 
-        fc = np.mean(f_c_ratio[good])
+        x_to_fit = times[good]
+        y_to_fit = f_c_ratio[good]
+        ye_to_fit = f_c_ratio_err[good]
 
-        fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
-            / len(f_c_ratio_err[good])
+        condition=True
+        p = [np.mean(y_to_fit)]
+        while 1:
+            p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p)
 
+            bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
+            
+            if not np.any(bad):
+                break
+            for b in bad:
+                logging.info("Outliers: {}, {}".format(x_to_fit[b], y_to_fit[b]))
+            good = np.logical_not(bad)
+            x_to_fit = x_to_fit[good]
+            y_to_fit = y_to_fit[good]
+            ye_to_fit = ye_to_fit[good]
+                
+        fc = p[0]
+        fce = np.sqrt(pcov[0])
+            
+            
         return fc, fce
 
     def counts_over_Jy(self, channel=None):
@@ -453,9 +479,9 @@ class CalibratorTable(SourceTable):
                                   yerrcol="Flux/Counts Err", ax=ax00,
                                   channel=channel, color=color)
             jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel)
-            ax00.axhline(jy_over_cts)
-            ax00.axhline(jy_over_cts + jy_over_cts_err)
-            ax00.axhline(jy_over_cts - jy_over_cts_err)
+            ax00.axhline(jy_over_cts, color=color)
+            ax00.axhline(jy_over_cts + jy_over_cts_err, color=color)
+            ax00.axhline(jy_over_cts - jy_over_cts_err, color=color)
             self.plot_two_columns('Elevation', "RA err", ax=ax10,
                                   channel=channel,
                                   yfactor = 60, color=color)
@@ -465,9 +491,9 @@ class CalibratorTable(SourceTable):
             self.plot_two_columns('Azimuth', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax01,
                                   channel=channel, color=color)
-            ax01.axhline(jy_over_cts)
-            ax01.axhline(jy_over_cts + jy_over_cts_err)
-            ax01.axhline(jy_over_cts - jy_over_cts_err)
+            ax01.axhline(jy_over_cts, color=color)
+            ax01.axhline(jy_over_cts + jy_over_cts_err, color=color)
+            ax01.axhline(jy_over_cts - jy_over_cts_err, color=color)
             self.plot_two_columns('Azimuth', "RA err", ax=ax11,
                                   channel=channel,
                                   yfactor = 60, color=color)
@@ -477,8 +503,9 @@ class CalibratorTable(SourceTable):
 
         for i in np.arange(-1, 1, 0.1):
             # Arcmin errors
+            ax10.axhline(i, ls = "--", color="gray")
             ax11.axhline(i, ls = "--", color="gray")
-            ax11.text(1, i, "{}".format())
+#            ax11.text(1, i, "{}".format())
         ax00.legend()
         ax01.legend()
         ax10.legend()
