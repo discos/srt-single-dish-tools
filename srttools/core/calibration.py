@@ -39,6 +39,10 @@ except ImportError:
 CALIBRATOR_CONFIG = None
 
 
+def _calibration_function(x, pars):
+    return pars[0] + pars[1] * x + pars[2] * x**2
+
+
 def _constant(x, p):
     return p
 
@@ -287,6 +291,7 @@ class CalibratorTable(SourceTable):
         SourceTable.__init__(self, *args, **kwargs)
         self.calibration_coeffs = {}
         self.calibration_uncerts = {}
+        self.calibration = {}
 
     def check_not_empty(self):
         """Check that table is not empty.
@@ -368,16 +373,17 @@ class CalibratorTable(SourceTable):
         """Compute the conversion between Jy and counts.
 
         Try to get a meaningful fit over elevation. Revert to the rough
-        function `Jy_over_counts` in case `statsmodels` is not installed.
+        function `Jy_over_counts_rough` in case `statsmodels` is not installed.
         """
         try:
             import statsmodels.api as sm
         except:
             channels = list(set(self["Chan"]))
             for channel in channels:
-                fc, fce = self.Jy_over_counts(self, channel=channel)
+                fc, fce = self.Jy_over_counts_rough(self, channel=channel)
                 self.calibration_coeffs[channel] = [fc, 0, 0]
                 self.calibration_uncerts[channel] = [fce, 0, 0]
+                self.calibration[channel] = None
             return
 
         channels = list(set(self["Chan"]))
@@ -398,7 +404,7 @@ class CalibratorTable(SourceTable):
             ye_to_fit = f_c_ratio_err[good]
 
             X = np.column_stack((x_to_fit, x_to_fit ** 2))
-            X = sm.add_constant(X)
+            X = np.c_[np.ones(len(x_to_fit)), X]
 
             model = sm.WLS(y_to_fit, X, weights=ye_to_fit)
             results = model.fit()
@@ -406,9 +412,38 @@ class CalibratorTable(SourceTable):
             self.calibration_coeffs[channel] = results.params
             self.calibration_uncerts[channel] = \
                 results.cov_params().diagonal()**0.5
+            self.calibration[channel] = results
 
 
-    def Jy_over_counts(self, channel=None):
+    def Jy_over_counts(self, channel, elevation=None):
+        try:
+            import statsmodels.api as sm
+            from statsmodels.sandbox.regression.predstd import wls_prediction_std
+        except:
+            elevation = None
+
+        if channel not in self.calibration.keys():
+            self.compute_conversion_function()
+
+        if elevation is None:
+            fc, fce = self.Jy_over_counts_rough(self, channel=channel)
+            return fc, fce
+
+        X = np.column_stack((np.array(elevation), np.array(elevation) ** 2))
+        X = np.c_[np.ones(np.array(elevation).size), X]
+
+        fc = self.calibration[channel].predict(X)
+        prstd2, iv_l2, iv_u2 = \
+            wls_prediction_std(self.calibration[channel], X)
+        fce = (iv_l2 + iv_u2) / 2 - fc
+
+        if len(fc) == 1:
+            fc, fce = fc[0], fce[0]
+
+        return fc, fce
+
+
+    def Jy_over_counts_rough(self, channel=None):
         """Get the conversion from counts to Jy.
 
         Other parameters
@@ -467,7 +502,7 @@ class CalibratorTable(SourceTable):
         """Get the conversion from Jy to counts."""
         self.check_up_to_date()
 
-        fc, fce = self.Jy_over_counts(channel=channel)
+        fc, fce = self.Jy_over_counts_rough(channel=channel)
         cf = 1 / fc
         return cf, fce / fc * cf
 
@@ -534,14 +569,22 @@ class CalibratorTable(SourceTable):
         channels = list(set(self['Chan']))
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
         for ic, channel in enumerate(channels):
+            # Ugly workaround for python 2-3 compatibility
+            if type(channel) == bytes and not type(channel) == str:
+                print("DEcoding")
+                channel_str = channel.decode()
+            else:
+                channel_str = channel
             color=colors[ic]
             self.plot_two_columns('Elevation', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax00,
                                   channel=channel, color=color)
-            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel)
-            ax00.axhline(jy_over_cts, color=color)
-            ax00.axhline(jy_over_cts + jy_over_cts_err, color=color)
-            ax00.axhline(jy_over_cts - jy_over_cts_err, color=color)
+
+            elevations = np.arange(0, np.pi / 2, 0.001)
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str, elevations)
+            ax00.plot(elevations, jy_over_cts, color=color)
+            ax00.plot(elevations, jy_over_cts + jy_over_cts_err, color=color)
+            ax00.plot(elevations, jy_over_cts - jy_over_cts_err, color=color)
             self.plot_two_columns('Elevation', "RA err", ax=ax10,
                                   channel=channel,
                                   yfactor = 60, color=color)
@@ -551,6 +594,7 @@ class CalibratorTable(SourceTable):
             self.plot_two_columns('Azimuth', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax01,
                                   channel=channel, color=color)
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str, np.pi / 8)
             ax01.axhline(jy_over_cts, color=color)
             ax01.axhline(jy_over_cts + jy_over_cts_err, color=color)
             ax01.axhline(jy_over_cts - jy_over_cts_err, color=color)
