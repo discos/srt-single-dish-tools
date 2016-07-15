@@ -229,6 +229,7 @@ class SourceTable(Table):
                     uncert = fit_info['param_cov'].diagonal() ** 0.5
                 except:
                     warnings.warn("Fit failed in scan {s}".format(s=s))
+                    print(fit_info)
                     continue
 
                 bell = model['Bell']
@@ -284,6 +285,8 @@ class CalibratorTable(SourceTable):
     def __init__(self, *args, **kwargs):
         """Initialize the object."""
         SourceTable.__init__(self, *args, **kwargs)
+        self.calibration_coeffs = {}
+        self.calibration_uncerts = {}
 
     def check_not_empty(self):
         """Check that table is not empty.
@@ -322,6 +325,7 @@ class CalibratorTable(SourceTable):
 
         self.get_fluxes()
         self.calibrate()
+        self.compute_conversion_function()
 
     def get_fluxes(self):
         """Get the tabulated flux of the calibrator."""
@@ -360,8 +364,66 @@ class CalibratorTable(SourceTable):
         self['Flux/Counts'][:] = flux_over_counts
         self['Flux/Counts Err'][:] = flux_over_counts_err
 
+    def compute_conversion_function(self):
+        """Compute the conversion between Jy and counts.
+
+        Try to get a meaningful fit over elevation. Revert to the rough
+        function `Jy_over_counts` in case `statsmodels` is not installed.
+        """
+        try:
+            import statsmodels.api as sm
+        except:
+            channels = list(set(self["Chan"]))
+            for channel in channels:
+                fc, fce = self.Jy_over_counts(self, channel=channel)
+                self.calibration_coeffs[channel] = [fc, 0, 0]
+                self.calibration_uncerts[channel] = [fce, 0, 0]
+            return
+
+        channels = list(set(self["Chan"]))
+        for channel in channels:
+            good_chans = self["Chan"] == channel
+
+            f_c_ratio = self["Flux/Counts"][good_chans]
+            f_c_ratio_err = self["Flux/Counts Err"][good_chans]
+            elvs = self["Elevation"][good_chans]
+
+            good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
+            good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
+
+            good = good_fc & good_fce
+
+            x_to_fit = elvs[good]
+            y_to_fit = f_c_ratio[good]
+            ye_to_fit = f_c_ratio_err[good]
+
+            X = np.column_stack((x_to_fit, x_to_fit ** 2))
+            X = sm.add_constant(X)
+
+            model = sm.WLS(y_to_fit, X, weights=ye_to_fit)
+            results = model.fit()
+
+            self.calibration_coeffs[channel] = results.params
+            self.calibration_uncerts[channel] = \
+                results.cov_params().diagonal()**0.5
+
+
     def Jy_over_counts(self, channel=None):
-        """Get the conversion from counts to Jy."""
+        """Get the conversion from counts to Jy.
+
+        Other parameters
+        ----------------
+        channel : str
+            Name of the data channel
+
+        Results
+        -------
+        fc : float
+            flux density /count ratio
+        fce : float
+            uncertainty on `fc`
+        """
+
         self.check_up_to_date()
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
@@ -381,7 +443,6 @@ class CalibratorTable(SourceTable):
         y_to_fit = f_c_ratio[good]
         ye_to_fit = f_c_ratio_err[good]
 
-        condition=True
         p = [np.mean(y_to_fit)]
         while 1:
             p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p)
@@ -399,8 +460,7 @@ class CalibratorTable(SourceTable):
                 
         fc = p[0]
         fce = np.sqrt(pcov[0])
-            
-            
+
         return fc, fce
 
     def counts_over_Jy(self, channel=None):
