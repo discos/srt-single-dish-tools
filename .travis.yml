@@ -27,7 +27,7 @@ env:
         # to repeat them for all configurations.
         - NUMPY_VERSION=1.10
         - ASTROPY_VERSION=stable
-        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py numba'
+        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py numba pandas'
         - PIP_DEPENDENCIES='statsmodels patsy'
         - MAIN_CMD='python setup.py'
         - SETUP_XVFB=True
