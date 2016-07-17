@@ -90,17 +90,18 @@ def read_calibrator_config():
             for section in cparser.sections():
                 if not flux_re.match(section):
                     continue
-                configs[cparser["Info"]["Name"]]["Frequencies"].append(
-                    float(cparser[section]["freq"]))
-                configs[cparser["Info"]["Name"]]["Bandwidths"].append(
-                    float(cparser[section]["bwidth"]))
-                configs[cparser["Info"]["Name"]]["Fluxes"].append(
-                    float(cparser[section]["flux"]))
-                configs[cparser["Info"]["Name"]]["Flux Errors"].append(
-                    float(cparser[section]["eflux"]))
+                configs[cparser.get("Info", "Name")]["Frequencies"].append(
+                    float(cparser.get(section, "freq")))
+                configs[cparser.get("Info", "Name")]["Bandwidths"].append(
+                    float(cparser.get(section, "bwidth")))
+                configs[cparser.get("Info", "Name")]["Fluxes"].append(
+                    float(cparser.get(section, "flux")))
+                configs[cparser.get("Info", "Name")]["Flux Errors"].append(
+                    float(cparser.get(section, "eflux")))
         else:
-            configs[cparser["Info"]["Name"]] = \
-                {"CoeffTable": cparser["CoeffTable"], "Kind": "CoeffTable"}
+            configs[cparser.get("Info", "Name")] = \
+                {"CoeffTable": dict(cparser.items("CoeffTable")),
+                 "Kind": "CoeffTable"}
 
     return configs
 
