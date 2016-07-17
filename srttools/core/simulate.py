@@ -9,7 +9,10 @@ import os
 from astropy.io import fits
 from astropy.table import Table, vstack
 from .scan import Scan
-from .io import mkdir_p
+from .io import mkdir_p, locations
+from astropy.coordinates import EarthLocation, AltAz, SkyCoord
+from astropy.time import Time
+import astropy.units as u
 
 
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1., center=0.):
@@ -37,9 +40,9 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1.
     nbins = np.rint(length / speed / dt)
 
     times = np.arange(nbins) * dt
-    position = np.arange(-nbins / 2, nbins / 2) / nbins * length / 60 + center# In degrees!
+    position = np.arange(-nbins / 2, nbins / 2) / nbins * length / 60 # In degrees!
 
-    return times, position, shape(position) + ra.normal(0, noise_amplitude, position.shape)
+    return times, position + center, shape(position) + ra.normal(0, noise_amplitude, position.shape)
 
 
 def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None):
@@ -68,7 +71,19 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None)
 
     data_table_data = Table(datahdu.data)
 
-    newtable = Table(names=['time', 'raj2000', 'decj2000'], data=[times, np.radians(ra), np.radians(dec)])
+    location = locations["SRT"]
+
+    obstimes = Time(times / 86400 * u.day, format='mjd', scale='utc')
+
+    coords = SkyCoord(ra, dec, unit=u.degree, location=locations['SRT'],
+                      obstime=obstimes)
+
+    altaz = coords.altaz
+    el = altaz.alt
+    az = altaz.az
+    newtable = Table(names=['time', 'raj2000', 'decj2000', "el", "az"],
+                     data=[times, np.radians(ra), np.radians(dec), np.radians(el), np.radians(az)])
+
     for ch in channels.keys():
         newtable[ch] = channels[ch]
     if other_columns is None:
