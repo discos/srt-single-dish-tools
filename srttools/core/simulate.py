@@ -12,7 +12,7 @@ from .scan import Scan
 from .io import mkdir_p
 
 
-def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1.):
+def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1., center=0.):
     """Simulate a scan.
 
     Parameters
@@ -29,13 +29,15 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1.
         *center* of it
     noise_amplitude : float
         Noise level in counts
+    center : float
+        Center coordinate in degrees
     """
     if shape is None:
         shape = lambda x : 100
     nbins = np.rint(length / speed / dt)
 
     times = np.arange(nbins) * dt
-    position = np.arange(-nbins / 2, nbins / 2) / nbins * length / 60  # In degrees!
+    position = np.arange(-nbins / 2, nbins / 2) / nbins * length / 60 + center# In degrees!
 
     return times, position, shape(position) + ra.normal(0, noise_amplitude, position.shape)
 
