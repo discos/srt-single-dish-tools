@@ -380,7 +380,7 @@ class CalibratorTable(SourceTable):
         except:
             channels = list(set(self["Chan"]))
             for channel in channels:
-                fc, fce = self.Jy_over_counts_rough(self, channel=channel)
+                fc, fce = self.Jy_over_counts_rough(channel=channel)
                 self.calibration_coeffs[channel] = [fc, 0, 0]
                 self.calibration_uncerts[channel] = [fce, 0, 0]
                 self.calibration[channel] = None
