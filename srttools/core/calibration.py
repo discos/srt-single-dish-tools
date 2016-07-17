@@ -233,16 +233,15 @@ class SourceTable(Table):
                 try:
                     uncert = fit_info['param_cov'].diagonal() ** 0.5
                 except:
-                    warnings.warn("Fit failed in scan {s}".format(s=s))
+                    warnings.warn("Fit failed in scan {s}: {m}".format(s=s, m=fit_info['message']))
                     continue
-
                 bell = model['Bell']
                 # pars = model.parameters
                 pnames = model.param_names
                 counts = model.amplitude_1.value
 
                 if plot:
-                    fig = plt.figure()
+                    fig = plt.figure("Fit information")
                     plt.plot(x, y, label="Data")
                     plt.plot(x, bell(x), label="Fit")
 
@@ -253,8 +252,9 @@ class SourceTable(Table):
                     ra_err = fit_ra - pnt_ra
                     dec_err = None
                     if plot:
-                        plt.axvline(fit_ra, label="RA Fit")
-                        plt.axvline(pnt_ra, label="RA Pnt")
+                        plt.axvline(fit_ra, label="RA Fit", ls="-")
+                    if plot and np.abs(ra_err) < fit_width:
+                        plt.axvline(pnt_ra, label="RA Pnt", ls="--")
 
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
@@ -263,8 +263,9 @@ class SourceTable(Table):
                     dec_err = fit_dec - pnt_dec
                     ra_err = None
                     if plot:
-                        plt.axvline(fit_dec, label="Dec Fit")
-                        plt.axvline(pnt_dec, label="Dec Pnt")
+                        plt.axvline(fit_dec, label="Dec Fit", ls="-")
+                    if plot and np.abs(dec_err) < fit_width:
+                        plt.axvline(pnt_dec, label="Dec Pnt", ls="--")
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
@@ -416,17 +417,23 @@ class CalibratorTable(SourceTable):
 
 
     def Jy_over_counts(self, channel, elevation=None):
+        rough = False
         try:
             import statsmodels.api as sm
             from statsmodels.sandbox.regression.predstd import wls_prediction_std
         except:
-            elevation = None
+            warnings.warn("Statsmodels is not installed. Reverting to rough mode.")
+            rough = True
 
         if channel not in self.calibration.keys():
             self.compute_conversion_function()
 
-        if elevation is None:
+        if elevation is None or rough is True:
+            elevation = np.array(elevation)
             fc, fce = self.Jy_over_counts_rough(channel=channel)
+            if elevation.size > 1:
+                fc = np.zeros_like(elevation) + fc
+                fce = np.zeros_like(elevation) + fce
             return fc, fce
 
         X = np.column_stack((np.array(elevation), np.array(elevation) ** 2))
