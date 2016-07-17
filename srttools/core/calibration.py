@@ -79,13 +79,13 @@ def read_calibrator_config():
         print(cfile)
         cparser = configparser.ConfigParser()
         cparser.read(cfile)
-        cparser["Info"]["Name"]
+
         if 'CoeffTable' not in list(cparser.sections()):
-            configs[cparser["Info"]["Name"]] = {"Kind": "FreqList",
-                                                "Frequencies": [],
-                                                "Bandwidths": [],
-                                                "Fluxes": [],
-                                                "Flux Errors": []}
+            configs[cparser.get("Info", "Name")] = {"Kind": "FreqList",
+                                                    "Frequencies": [],
+                                                    "Bandwidths": [],
+                                                    "Fluxes": [],
+                                                    "Flux Errors": []}
 
             for section in cparser.sections():
                 if not flux_re.match(section):
