@@ -234,7 +234,6 @@ class SourceTable(Table):
                     uncert = fit_info['param_cov'].diagonal() ** 0.5
                 except:
                     warnings.warn("Fit failed in scan {s}".format(s=s))
-                    print(fit_info)
                     continue
 
                 bell = model['Bell']
