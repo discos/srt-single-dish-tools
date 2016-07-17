@@ -427,7 +427,7 @@ class CalibratorTable(SourceTable):
             self.compute_conversion_function()
 
         if elevation is None:
-            fc, fce = self.Jy_over_counts_rough(self, channel=channel)
+            fc, fce = self.Jy_over_counts_rough(channel=channel)
             return fc, fce
 
         X = np.column_stack((np.array(elevation), np.array(elevation) ** 2))
