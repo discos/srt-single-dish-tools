@@ -49,6 +49,11 @@ matrix:
           env: SETUP_CMD='test --coverage' USE_NUMBA=yes
         - python: 3.5
           env: SETUP_CMD='test'
+        # No statsmodels
+        - python: 2.7
+          env: SETUP_CMD='test' PIP_DEPENDENCIES=''
+        - python: 3.5
+          env: SETUP_CMD='test' PIP_DEPENDENCIES=''
         # Test Astropy LTS version
         - python: 2.7
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
