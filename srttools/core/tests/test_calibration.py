@@ -8,6 +8,7 @@ from astropy.table import Table
 from ..imager import ScanSet
 import os
 import glob
+import shutil
 
 
 class Test2_Calibration(unittest.TestCase):
@@ -44,9 +45,12 @@ class Test2_Calibration(unittest.TestCase):
         os.unlink(os.path.join(self.datadir, 'calibrators.hdf5'))
         for d in self.config['list_of_directories']:
             hfiles = glob.glob(os.path.join(self.config['datadir'], d, '*.hdf5'))
-            print(hfiles)
             for h in hfiles:
                 os.unlink(h)
+
+            dirs = glob.glob(os.path.join(self.config['datadir'], d, '*_scanfit'))
+            for dirname in dirs:
+                shutil.rmtree(dirname)
 
     def test_all(self):
         self.step_1_calibrate()
