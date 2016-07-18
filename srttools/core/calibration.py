@@ -410,7 +410,7 @@ class CalibratorTable(SourceTable):
             X = np.column_stack((x_to_fit, x_to_fit ** 2))
             X = np.c_[np.ones(len(x_to_fit)), X]
 
-            model = sm.WLS(y_to_fit, X, weights=ye_to_fit)
+            model = sm.RLM(y_to_fit, X)
             results = model.fit()
 
             self.calibration_coeffs[channel] = results.params
@@ -443,9 +443,10 @@ class CalibratorTable(SourceTable):
         X = np.c_[np.ones(np.array(elevation).size), X]
 
         fc = self.calibration[channel].predict(X)
-        prstd2, iv_l2, iv_u2 = \
-            wls_prediction_std(self.calibration[channel], X)
-        fce = (iv_l2 + iv_u2) / 2 - fc
+        # prstd2, iv_l2, iv_u2 = \
+        #     wls_prediction_std(self.calibration[channel], X)
+        # fce = (iv_l2 + iv_u2) / 2 - fc
+        fce = np.mean(self["Flux/Counts Err"][self["Chan"] == channel]) + np.zeros_like(fc)
 
         if len(fc) == 1:
             fc, fce = fc[0], fce[0]
