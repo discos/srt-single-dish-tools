@@ -66,8 +66,8 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None)
     lchdulist = fits.open(template)
     datahdu = lchdulist['DATA TABLE']
     lchdulist[0].header['SOURCE'] = "Dummy"
-    lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.mean(ra)
-    lchdulist[0].header['HIERARCH DECLINATION'] = np.mean(dec)
+    lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.radians(np.mean(ra))
+    lchdulist[0].header['HIERARCH DECLINATION'] = np.radians(np.mean(dec))
 
     data_table_data = Table(datahdu.data)
 
