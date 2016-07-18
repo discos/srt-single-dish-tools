@@ -45,7 +45,7 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1.
     return times, position + center, shape(position) + ra.normal(0, noise_amplitude, position.shape)
 
 
-def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None):
+def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None, scan_type=None):
     """Save a simulated scan in fitszilla format.
 
     Parameters
@@ -68,6 +68,8 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None)
     lchdulist[0].header['SOURCE'] = "Dummy"
     lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.radians(np.mean(ra))
     lchdulist[0].header['HIERARCH DECLINATION'] = np.radians(np.mean(dec))
+    if scan_type is not None:
+        lchdulist[0].header['HIERARCH SubScanType'] = scan_type
 
     data_table_data = Table(datahdu.data)
 
