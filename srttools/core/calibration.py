@@ -407,8 +407,8 @@ class CalibratorTable(SourceTable):
             y_to_fit = f_c_ratio[good]
             ye_to_fit = f_c_ratio_err[good]
 
-            X = np.column_stack((x_to_fit, x_to_fit ** 2))
-            X = np.c_[np.ones(len(x_to_fit)), X]
+            X = np.column_stack((np.ones(len(x_to_fit)), x_to_fit))
+            # X = np.c_[np.ones(len(x_to_fit)), X]
 
             model = sm.RLM(y_to_fit, X)
             results = model.fit()
