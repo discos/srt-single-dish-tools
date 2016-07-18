@@ -439,8 +439,8 @@ class CalibratorTable(SourceTable):
                 fce = np.zeros_like(elevation) + fce
             return fc, fce
 
-        X = np.column_stack((np.array(elevation), np.array(elevation) ** 2))
-        X = np.c_[np.ones(np.array(elevation).size), X]
+        X = np.column_stack((np.ones(np.array(elevation).size), np.array(elevation)))
+        # X = np.c_[np.ones(np.array(elevation).size), X]
 
         fc = self.calibration[channel].predict(X)
         # prstd2, iv_l2, iv_u2 = \
