@@ -403,18 +403,19 @@ class CalibratorTable(SourceTable):
 
             good = good_fc & good_fce
 
-            x_to_fit = elvs[good]
-            y_to_fit = f_c_ratio[good]
-            ye_to_fit = f_c_ratio_err[good]
+            x_to_fit = np.array(elvs[good])
+            y_to_fit = np.array(f_c_ratio[good])
+            ye_to_fit = np.array(f_c_ratio_err[good])
+
+            order = np.argsort(x_to_fit)
+            x_to_fit = x_to_fit[order]
+            y_to_fit = y_to_fit[order]
+            ye_to_fit = ye_to_fit[order]
 
             X = np.column_stack((np.ones(len(x_to_fit)), x_to_fit))
             # X = np.c_[np.ones(len(x_to_fit)), X]
 
-            a = np.median(ye_to_fit)
-            b = 2 * a
-            c = 2 * b
-            print(a, b, c)
-            model = sm.RLM(y_to_fit, X, M=sm.robust.norms.Hampel(a, b, c))
+            model = sm.RLM(y_to_fit, X)
             results = model.fit()
 
             self.calibration_coeffs[channel] = results.params
@@ -498,7 +499,7 @@ class CalibratorTable(SourceTable):
             p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p)
 
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
-            
+
             if not np.any(bad):
                 break
             for b in bad:
@@ -507,7 +508,7 @@ class CalibratorTable(SourceTable):
             x_to_fit = x_to_fit[good]
             y_to_fit = y_to_fit[good]
             ye_to_fit = ye_to_fit[good]
-                
+
         fc = p[0]
         fce = np.sqrt(pcov[0])
 
