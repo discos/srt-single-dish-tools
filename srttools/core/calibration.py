@@ -410,7 +410,11 @@ class CalibratorTable(SourceTable):
             X = np.column_stack((np.ones(len(x_to_fit)), x_to_fit))
             # X = np.c_[np.ones(len(x_to_fit)), X]
 
-            model = sm.RLM(y_to_fit, X, M=sm.robust.norms.AndrewWave(np.median(ye_to_fit)))
+            a = np.median(ye_to_fit)
+            b = 2 * a
+            c = 2 * b
+            print(a, b, c)
+            model = sm.RLM(y_to_fit, X, M=sm.robust.norms.Hampel(a, b, c))
             results = model.fit()
 
             self.calibration_coeffs[channel] = results.params
@@ -591,7 +595,7 @@ class CalibratorTable(SourceTable):
                                   yerrcol="Flux/Counts Err", ax=ax00,
                                   channel=channel, color=color)
 
-            elevations = np.arange(0, 90, 0.001)
+            elevations = np.arange(np.min(self['Elevation']), np.max(self['Elevation']), 0.001)
             jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str, elevations)
             ax00.plot(elevations, jy_over_cts, color=color)
             ax00.plot(elevations, jy_over_cts + jy_over_cts_err, color=color)
