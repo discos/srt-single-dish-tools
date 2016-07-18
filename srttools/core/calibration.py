@@ -239,7 +239,6 @@ class SourceTable(Table):
                 # pars = model.parameters
                 pnames = model.param_names
                 counts = model.amplitude_1.value
-
                 if plot:
                     fig = plt.figure("Fit information")
                     plt.plot(x, y, label="Data")
@@ -253,8 +252,9 @@ class SourceTable(Table):
                     dec_err = None
                     if plot:
                         plt.axvline(fit_ra, label="RA Fit", ls="-")
-                    if plot and np.abs(ra_err) < fit_width:
+                    if plot:# and np.abs(ra_err) < fit_width:
                         plt.axvline(pnt_ra, label="RA Pnt", ls="--")
+                    plt.xlim([fit_ra - 2, fit_ra + 2])
 
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
@@ -264,8 +264,10 @@ class SourceTable(Table):
                     ra_err = None
                     if plot:
                         plt.axvline(fit_dec, label="Dec Fit", ls="-")
-                    if plot and np.abs(dec_err) < fit_width:
+                    if plot:# and np.abs(dec_err) < fit_width:
                         plt.axvline(pnt_dec, label="Dec Pnt", ls="--")
+                    plt.xlim([fit_dec - 2, fit_dec + 2])
+
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
@@ -282,6 +284,7 @@ class SourceTable(Table):
                     plt.legend()
                     plt.savefig(os.path.join(outdir,
                                              "Feed{}_chan{}.png".format(feed, nch)))
+                    plt.close(fig)
 
 
 class CalibratorTable(SourceTable):
@@ -363,9 +366,9 @@ class CalibratorTable(SourceTable):
         total = 2 * np.pi * counts * width ** 2
         etotal = 2 * np.pi * ecounts * width ** 2
 
-        flux_over_counts = flux / total
+        flux_over_counts = np.array(flux / total)
         flux_over_counts_err = \
-            (etotal / total + eflux / flux) * flux_over_counts
+            np.array((etotal / total + eflux / flux) * flux_over_counts)
 
         self['Flux/Counts'][:] = flux_over_counts
         self['Flux/Counts Err'][:] = flux_over_counts_err
