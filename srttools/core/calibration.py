@@ -410,7 +410,7 @@ class CalibratorTable(SourceTable):
             X = np.column_stack((np.ones(len(x_to_fit)), x_to_fit))
             # X = np.c_[np.ones(len(x_to_fit)), X]
 
-            model = sm.RLM(y_to_fit, X)
+            model = sm.RLM(y_to_fit, X, M=sm.robust.norms.AndrewWave())
             results = model.fit()
 
             self.calibration_coeffs[channel] = results.params
