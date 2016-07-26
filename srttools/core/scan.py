@@ -376,6 +376,8 @@ class Scan(Table):
                                               noise_threshold=noise_threshold, debug=debug, nofilt=nofilt,
                                               outfile=root_name(self.meta['filename']), label=ic)
 
+            if results is None:
+                continue
             lc_corr = results.lc
             freqmin, freqmax = results.freqmin, results.freqmax
 
