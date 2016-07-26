@@ -20,6 +20,30 @@ srttools.core.fit module
     :undoc-members:
     :show-inheritance:
 
+srttools.core.global_fit module
+-------------------------------
+
+.. automodule:: srttools.core.global_fit
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+srttools.core.histograms module
+-------------------------------
+
+.. automodule:: srttools.core.histograms
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+srttools.core.imager module
+---------------------------
+
+.. automodule:: srttools.core.imager
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 srttools.core.interactive_filter module
 ---------------------------------------
 
@@ -48,6 +72,14 @@ srttools.core.scan module
 -------------------------
 
 .. automodule:: srttools.core.scan
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+srttools.core.simulate module
+-----------------------------
+
+.. automodule:: srttools.core.simulate
     :members:
     :undoc-members:
     :show-inheritance:

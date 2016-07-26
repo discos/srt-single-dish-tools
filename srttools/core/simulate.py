@@ -9,10 +9,13 @@ import os
 from astropy.io import fits
 from astropy.table import Table, vstack
 from .scan import Scan
-from .io import mkdir_p
+from .io import mkdir_p, locations
+from astropy.coordinates import EarthLocation, AltAz, SkyCoord
+from astropy.time import Time
+import astropy.units as u
 
 
-def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1.):
+def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1., center=0.):
     """Simulate a scan.
 
     Parameters
@@ -29,18 +32,20 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None, noise_amplitude=1.
         *center* of it
     noise_amplitude : float
         Noise level in counts
+    center : float
+        Center coordinate in degrees
     """
     if shape is None:
         shape = lambda x : 100
     nbins = np.rint(length / speed / dt)
 
     times = np.arange(nbins) * dt
-    position = np.arange(-nbins / 2, nbins / 2) / nbins * length / 60  # In degrees!
+    position = np.arange(-nbins / 2, nbins / 2) / nbins * length / 60 # In degrees!
 
-    return times, position, shape(position) + ra.normal(0, noise_amplitude, position.shape)
+    return times, position + center, shape(position) + ra.normal(0, noise_amplitude, position.shape)
 
 
-def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None):
+def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None, scan_type=None):
     """Save a simulated scan in fitszilla format.
 
     Parameters
@@ -60,9 +65,27 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None)
     template = os.path.abspath(os.path.join(curdir, '..', 'data', 'scan_template.fits'))
     lchdulist = fits.open(template)
     datahdu = lchdulist['DATA TABLE']
+    lchdulist[0].header['SOURCE'] = "Dummy"
+    lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.radians(np.mean(ra))
+    lchdulist[0].header['HIERARCH DECLINATION'] = np.radians(np.mean(dec))
+    if scan_type is not None:
+        lchdulist[0].header['HIERARCH SubScanType'] = scan_type
+
     data_table_data = Table(datahdu.data)
 
-    newtable = Table(names=['time', 'raj2000', 'decj2000'], data=[times, np.radians(ra), np.radians(dec)])
+    location = locations["SRT"]
+
+    obstimes = Time(times / 86400 * u.day, format='mjd', scale='utc')
+
+    coords = SkyCoord(ra, dec, unit=u.degree, location=locations['SRT'],
+                      obstime=obstimes)
+
+    altaz = coords.altaz
+    el = altaz.alt
+    az = altaz.az
+    newtable = Table(names=['time', 'raj2000', 'decj2000', "el", "az"],
+                     data=[times, np.radians(ra), np.radians(dec), np.radians(el), np.radians(az)])
+
     for ch in channels.keys():
         newtable[ch] = channels[ch]
     if other_columns is None:
