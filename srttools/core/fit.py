@@ -252,14 +252,14 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
         bell = models.Gaussian1D(mean=np.mean(x), stddev=xrange / 20,
                                  amplitude=yrange, name='Bell')
         bell.amplitude.bounds = (0, None)
-        bell.mean.bounds = (0, None)
+        bell.mean.bounds = (None, None)
         bell.stddev.bounds = (0, None)
         # max_name = 'mean'
     elif kind == 'lorentz':
         bell = models.Lorentz1D(x_0=np.mean(x), fwhm=xrange / 20,
                                 amplitude=yrange, name='Bell')
         bell.amplitude.bounds = (0, None)
-        bell.x_0.bounds = (0, None)
+        bell.x_0.bounds = (None, None)
         bell.fwhm.bounds = (0, None)
         # max_name = 'x_0'
 

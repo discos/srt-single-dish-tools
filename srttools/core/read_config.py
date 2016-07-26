@@ -22,25 +22,25 @@ def sample_config_file(fname='sample_config_file.ini'):
     string = """
 [local]
 ; the directory where the analysis will be executed.
-    workdir : .
+workdir : .
 ; the root directory of the data repository.
-    datadir : .
+datadir : .
 
 [analysis]
-    projection : ARC
-    interpolation : spline
-    prefix : test_
-    list_of_directories :
+projection : ARC
+interpolation : spline
+prefix : test_
+list_of_directories :
 ;;Two options: either a list of directories:
 ;        dir1
 ;        dir2
 ;; or a star symbol for all directories
 ;         *
-    calibrator_directories :
+calibrator_directories :
 ; if left empty, calibrator scans are taken from list_of_directories when
 ; calculating light curves, and ignored when calculating images
 
-    noise_threshold : 5
+noise_threshold : 5
 ;; Coordinates have to be specified in decimal degrees. ONLY use if different
 ;; from target coordinates!
 ;    reference_ra : 10.5
@@ -48,15 +48,15 @@ def sample_config_file(fname='sample_config_file.ini'):
 
 ;; Pixel size in arcminutes
 
-    pixel_size : 1
+pixel_size : 1
 
 ;; Channels to save from RFI filtering. It might indicate known strong spectral
 ;; lines
-    goodchans :
+goodchans :
 
 ;; Percentage of channels to filter out for rough RFI filtering (Spectral data
 ;; only. PROBABLY OBSOLETE. AVOID IF UNSURE)
-    filtering_factor : 0.
+filtering_factor : 0.
     """
     with open(fname, 'w') as fobj:
         print(string, file=fobj)
