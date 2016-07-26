@@ -27,8 +27,8 @@ env:
         # to repeat them for all configurations.
         - NUMPY_VERSION=1.10
         - ASTROPY_VERSION=stable
-        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py numba'
-        - PIP_DEPENDENCIES=''
+        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py numba pandas'
+        - PIP_DEPENDENCIES='statsmodels patsy'
         - MAIN_CMD='python setup.py'
         - SETUP_XVFB=True
     matrix:
@@ -39,27 +39,18 @@ matrix:
     include:
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
-        - python: 2.7
-          env: SETUP_CMD='build_sphinx -w'
         # Try all python versions with the latest numpy
         - python: 2.7
           env: SETUP_CMD='test --coverage'
-        # Old matplotlib
-        - python: 3.4
-          env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
         - python: 3.4
           env: SETUP_CMD='test --coverage' USE_NUMBA=yes
         - python: 3.5
           env: SETUP_CMD='test'
-        # Try older numpy versions
-        - python: 3.4
-          env: NUMPY_VERSION=1.9 SETUP_CMD='test'
-        - python: 3.4
-          env: NUMPY_VERSION=1.8 SETUP_CMD='test'
+        # No statsmodels
         - python: 2.7
-          env: NUMPY_VERSION=1.7 SETUP_CMD='test'
-        - python: 2.7
-          env: NUMPY_VERSION=1.6 SETUP_CMD='test'
+          env: SETUP_CMD='test' PIP_DEPENDENCIES=''
+        - python: 3.5
+          env: SETUP_CMD='test' PIP_DEPENDENCIES=''
         # Test Astropy LTS version
         - python: 2.7
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
@@ -74,8 +65,24 @@ matrix:
           env: ASTROPY_VERSION=development SETUP_CMD='test'
         - python: 3.5
           env: ASTROPY_VERSION=development SETUP_CMD='test'
+        - python: 2.7
+          env: SETUP_CMD='build_sphinx -w'
+        # Old matplotlib
+        - python: 3.4
+          env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
+        # Try older numpy versions
+        - python: 3.4
+          env: NUMPY_VERSION=1.9 SETUP_CMD='test'
+        - python: 3.4
+          env: NUMPY_VERSION=1.8 SETUP_CMD='test'
+        - python: 2.7
+          env: NUMPY_VERSION=1.7 SETUP_CMD='test'
+        - python: 2.7
+          env: NUMPY_VERSION=1.6 SETUP_CMD='test'
 
     allow_failures:
+        - python: 2.7
+          env: SETUP_CMD='build_sphinx -w'
         - python: 3.4
           env: NUMPY_VERSION=1.8 SETUP_CMD='test'
         - python: 2.7
@@ -86,8 +93,6 @@ matrix:
           env: ASTROPY_VERSION=development SETUP_CMD='test'
         - python: 3.4
           env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 2.7
-          env: SETUP_CMD='build_sphinx -w'
         - python: 3.5
           env: ASTROPY_VERSION=development SETUP_CMD='test'
         - python: 3.5

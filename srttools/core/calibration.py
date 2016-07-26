@@ -20,6 +20,8 @@ import warnings
 import traceback
 from matplotlib.gridspec import GridSpec
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+import logging
 
 try:
     import cPickle as pickle
@@ -35,6 +37,14 @@ except ImportError:
     import ConfigParser as configparser
 
 CALIBRATOR_CONFIG = None
+
+
+def _calibration_function(x, pars):
+    return pars[0] + pars[1] * x + pars[2] * x**2
+
+
+def _constant(x, p):
+    return p
 
 
 def _scantype(ras, decs):
@@ -69,28 +79,29 @@ def read_calibrator_config():
         print(cfile)
         cparser = configparser.ConfigParser()
         cparser.read(cfile)
-        cparser["Info"]["Name"]
+
         if 'CoeffTable' not in list(cparser.sections()):
-            configs[cparser["Info"]["Name"]] = {"Kind": "FreqList",
-                                                "Frequencies": [],
-                                                "Bandwidths": [],
-                                                "Fluxes": [],
-                                                "Flux Errors": []}
+            configs[cparser.get("Info", "Name")] = {"Kind": "FreqList",
+                                                    "Frequencies": [],
+                                                    "Bandwidths": [],
+                                                    "Fluxes": [],
+                                                    "Flux Errors": []}
 
             for section in cparser.sections():
                 if not flux_re.match(section):
                     continue
-                configs[cparser["Info"]["Name"]]["Frequencies"].append(
-                    float(cparser[section]["freq"]))
-                configs[cparser["Info"]["Name"]]["Bandwidths"].append(
-                    float(cparser[section]["bwidth"]))
-                configs[cparser["Info"]["Name"]]["Fluxes"].append(
-                    float(cparser[section]["flux"]))
-                configs[cparser["Info"]["Name"]]["Flux Errors"].append(
-                    float(cparser[section]["eflux"]))
+                configs[cparser.get("Info", "Name")]["Frequencies"].append(
+                    float(cparser.get(section, "freq")))
+                configs[cparser.get("Info", "Name")]["Bandwidths"].append(
+                    float(cparser.get(section, "bwidth")))
+                configs[cparser.get("Info", "Name")]["Fluxes"].append(
+                    float(cparser.get(section, "flux")))
+                configs[cparser.get("Info", "Name")]["Flux Errors"].append(
+                    float(cparser.get(section, "eflux")))
         else:
-            configs[cparser["Info"]["Name"]] = \
-                {"CoeffTable": cparser["CoeffTable"], "Kind": "CoeffTable"}
+            configs[cparser.get("Info", "Name")] = \
+                {"CoeffTable": dict(cparser.items("CoeffTable")),
+                 "Kind": "CoeffTable"}
 
     return configs
 
@@ -222,16 +233,14 @@ class SourceTable(Table):
                 try:
                     uncert = fit_info['param_cov'].diagonal() ** 0.5
                 except:
-                    warnings.warn("Fit failed in scan {s}".format(s=s))
+                    warnings.warn("Fit failed in scan {s}: {m}".format(s=s, m=fit_info['message']))
                     continue
-
                 bell = model['Bell']
                 # pars = model.parameters
                 pnames = model.param_names
                 counts = model.amplitude_1.value
-
                 if plot:
-                    fig = plt.figure()
+                    fig = plt.figure("Fit information")
                     plt.plot(x, y, label="Data")
                     plt.plot(x, bell(x), label="Fit")
 
@@ -242,8 +251,10 @@ class SourceTable(Table):
                     ra_err = fit_ra - pnt_ra
                     dec_err = None
                     if plot:
-                        plt.axvline(fit_ra, label="RA Fit")
-                        plt.axvline(pnt_ra, label="RA Pnt")
+                        plt.axvline(fit_ra, label="RA Fit", ls="-")
+                    if plot:# and np.abs(ra_err) < fit_width:
+                        plt.axvline(pnt_ra, label="RA Pnt", ls="--")
+                    plt.xlim([fit_ra - 2, fit_ra + 2])
 
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
@@ -252,8 +263,11 @@ class SourceTable(Table):
                     dec_err = fit_dec - pnt_dec
                     ra_err = None
                     if plot:
-                        plt.axvline(fit_dec, label="Dec Fit")
-                        plt.axvline(pnt_dec, label="Dec Pnt")
+                        plt.axvline(fit_dec, label="Dec Fit", ls="-")
+                    if plot:# and np.abs(dec_err) < fit_width:
+                        plt.axvline(pnt_dec, label="Dec Pnt", ls="--")
+                    plt.xlim([fit_dec - 2, fit_dec + 2])
+
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
@@ -270,6 +284,7 @@ class SourceTable(Table):
                     plt.legend()
                     plt.savefig(os.path.join(outdir,
                                              "Feed{}_chan{}.png".format(feed, nch)))
+                    plt.close(fig)
 
 
 class CalibratorTable(SourceTable):
@@ -278,6 +293,9 @@ class CalibratorTable(SourceTable):
     def __init__(self, *args, **kwargs):
         """Initialize the object."""
         SourceTable.__init__(self, *args, **kwargs)
+        self.calibration_coeffs = {}
+        self.calibration_uncerts = {}
+        self.calibration = {}
 
     def check_not_empty(self):
         """Check that table is not empty.
@@ -316,6 +334,7 @@ class CalibratorTable(SourceTable):
 
         self.get_fluxes()
         self.calibrate()
+        self.compute_conversion_function()
 
     def get_fluxes(self):
         """Get the tabulated flux of the calibrator."""
@@ -347,15 +366,115 @@ class CalibratorTable(SourceTable):
         total = 2 * np.pi * counts * width ** 2
         etotal = 2 * np.pi * ecounts * width ** 2
 
-        flux_over_counts = flux / total
+        flux_over_counts = np.array(flux / total)
         flux_over_counts_err = \
-            (etotal / total + eflux / flux) * flux_over_counts
+            np.array((etotal / total + eflux / flux) * flux_over_counts)
 
         self['Flux/Counts'][:] = flux_over_counts
         self['Flux/Counts Err'][:] = flux_over_counts_err
 
-    def Jy_over_counts(self, channel=None):
-        """Get the conversion from counts to Jy."""
+    def compute_conversion_function(self):
+        """Compute the conversion between Jy and counts.
+
+        Try to get a meaningful fit over elevation. Revert to the rough
+        function `Jy_over_counts_rough` in case `statsmodels` is not installed.
+        """
+        try:
+            import statsmodels.api as sm
+        except:
+            channels = list(set(self["Chan"]))
+            for channel in channels:
+                fc, fce = self.Jy_over_counts_rough(channel=channel)
+                self.calibration_coeffs[channel] = [fc, 0, 0]
+                self.calibration_uncerts[channel] = [fce, 0, 0]
+                self.calibration[channel] = None
+            return
+
+        channels = list(set(self["Chan"]))
+        for channel in channels:
+            good_chans = self["Chan"] == channel
+
+            f_c_ratio = self["Flux/Counts"][good_chans]
+            f_c_ratio_err = self["Flux/Counts Err"][good_chans]
+            elvs = self["Elevation"][good_chans]
+
+            good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
+            good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
+
+            good = good_fc & good_fce
+
+            x_to_fit = np.array(elvs[good])
+            y_to_fit = np.array(f_c_ratio[good])
+            ye_to_fit = np.array(f_c_ratio_err[good])
+
+            order = np.argsort(x_to_fit)
+            x_to_fit = x_to_fit[order]
+            y_to_fit = y_to_fit[order]
+            ye_to_fit = ye_to_fit[order]
+
+            X = np.column_stack((np.ones(len(x_to_fit)), x_to_fit))
+            # X = np.c_[np.ones(len(x_to_fit)), X]
+
+            model = sm.RLM(y_to_fit, X)
+            results = model.fit()
+
+            self.calibration_coeffs[channel] = results.params
+            self.calibration_uncerts[channel] = \
+                results.cov_params().diagonal()**0.5
+            self.calibration[channel] = results
+
+
+    def Jy_over_counts(self, channel, elevation=None):
+        rough = False
+        try:
+            import statsmodels.api as sm
+            from statsmodels.sandbox.regression.predstd import wls_prediction_std
+        except:
+            warnings.warn("Statsmodels is not installed. Reverting to rough mode.")
+            rough = True
+
+        if channel not in self.calibration.keys():
+            self.compute_conversion_function()
+
+        if elevation is None or rough is True:
+            elevation = np.array(elevation)
+            fc, fce = self.Jy_over_counts_rough(channel=channel)
+            if elevation.size > 1:
+                fc = np.zeros_like(elevation) + fc
+                fce = np.zeros_like(elevation) + fce
+            return fc, fce
+
+        X = np.column_stack((np.ones(np.array(elevation).size), np.array(elevation)))
+        # X = np.c_[np.ones(np.array(elevation).size), X]
+
+        fc = self.calibration[channel].predict(X)
+        # prstd2, iv_l2, iv_u2 = \
+        #     wls_prediction_std(self.calibration[channel], X)
+        # fce = (iv_l2 + iv_u2) / 2 - fc
+        fce = np.mean(self["Flux/Counts Err"][self["Chan"] == channel]) + np.zeros_like(fc)
+
+        if len(fc) == 1:
+            fc, fce = fc[0], fce[0]
+
+        return fc, fce
+
+
+    def Jy_over_counts_rough(self, channel=None):
+        """Get the conversion from counts to Jy.
+
+        Other parameters
+        ----------------
+        channel : str
+            Name of the data channel
+
+        Results
+        -------
+        fc : float
+            flux density /count ratio
+        fce : float
+            uncertainty on `fc`
+        """
+
         self.check_up_to_date()
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
@@ -364,16 +483,34 @@ class CalibratorTable(SourceTable):
 
         f_c_ratio = self["Flux/Counts"][good_chans]
         f_c_ratio_err = self["Flux/Counts Err"][good_chans]
+        times = self["Time"][good_chans]
 
         good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
         good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
 
         good = good_fc & good_fce
 
-        fc = np.mean(f_c_ratio[good])
+        x_to_fit = times[good]
+        y_to_fit = f_c_ratio[good]
+        ye_to_fit = f_c_ratio_err[good]
 
-        fce = np.sqrt(np.sum(f_c_ratio_err[good] ** 2))\
-            / len(f_c_ratio_err[good])
+        p = [np.mean(y_to_fit)]
+        while 1:
+            p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p)
+
+            bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
+
+            if not np.any(bad):
+                break
+            for b in bad:
+                logging.info("Outliers: {}, {}".format(x_to_fit[b], y_to_fit[b]))
+            good = np.logical_not(bad)
+            x_to_fit = x_to_fit[good]
+            y_to_fit = y_to_fit[good]
+            ye_to_fit = ye_to_fit[good]
+
+        fc = p[0]
+        fce = np.sqrt(pcov[0])
 
         return fc, fce
 
@@ -381,7 +518,7 @@ class CalibratorTable(SourceTable):
         """Get the conversion from Jy to counts."""
         self.check_up_to_date()
 
-        fc, fce = self.Jy_over_counts(channel=channel)
+        fc, fce = self.Jy_over_counts_rough(channel=channel)
         cf = 1 / fc
         return cf, fce / fc * cf
 
@@ -448,14 +585,22 @@ class CalibratorTable(SourceTable):
         channels = list(set(self['Chan']))
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
         for ic, channel in enumerate(channels):
+            # Ugly workaround for python 2-3 compatibility
+            if type(channel) == bytes and not type(channel) == str:
+                print("DEcoding")
+                channel_str = channel.decode()
+            else:
+                channel_str = channel
             color=colors[ic]
             self.plot_two_columns('Elevation', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax00,
                                   channel=channel, color=color)
-            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel)
-            ax00.axhline(jy_over_cts)
-            ax00.axhline(jy_over_cts + jy_over_cts_err)
-            ax00.axhline(jy_over_cts - jy_over_cts_err)
+
+            elevations = np.arange(np.min(self['Elevation']), np.max(self['Elevation']), 0.001)
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str, elevations)
+            ax00.plot(elevations, jy_over_cts, color=color)
+            ax00.plot(elevations, jy_over_cts + jy_over_cts_err, color=color)
+            ax00.plot(elevations, jy_over_cts - jy_over_cts_err, color=color)
             self.plot_two_columns('Elevation', "RA err", ax=ax10,
                                   channel=channel,
                                   yfactor = 60, color=color)
@@ -465,9 +610,10 @@ class CalibratorTable(SourceTable):
             self.plot_two_columns('Azimuth', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax01,
                                   channel=channel, color=color)
-            ax01.axhline(jy_over_cts)
-            ax01.axhline(jy_over_cts + jy_over_cts_err)
-            ax01.axhline(jy_over_cts - jy_over_cts_err)
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str, 45)
+            ax01.axhline(jy_over_cts, color=color)
+            ax01.axhline(jy_over_cts + jy_over_cts_err, color=color)
+            ax01.axhline(jy_over_cts - jy_over_cts_err, color=color)
             self.plot_two_columns('Azimuth', "RA err", ax=ax11,
                                   channel=channel,
                                   yfactor = 60, color=color)
@@ -477,8 +623,9 @@ class CalibratorTable(SourceTable):
 
         for i in np.arange(-1, 1, 0.1):
             # Arcmin errors
+            ax10.axhline(i, ls = "--", color="gray")
             ax11.axhline(i, ls = "--", color="gray")
-            ax11.text(1, i, "{}".format())
+#            ax11.text(1, i, "{}".format())
         ax00.legend()
         ax01.legend()
         ax10.legend()
