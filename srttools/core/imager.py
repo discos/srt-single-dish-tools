@@ -641,7 +641,7 @@ def main_imager(args=None):
                         help='Exclude region from global fitting of baseline')
 
     parser.add_argument("--chans", type=str, default=None,
-                        help=('Comma-separated hannels to include in global fitting '
+                        help=('Comma-separated channels to include in global fitting '
                               '(Ch0, Ch1, ...)'))
 
     parser.add_argument("-o", "--outfile", type=str, default=None,
@@ -696,3 +696,53 @@ def main_imager(args=None):
         scanset.write(outfile.replace('.hdf5', '_baselinesub.hdf5'), overwrite=True)
 
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate)
+
+
+def main_preprocess(args=None):
+    """Preprocess the data."""
+    import argparse
+
+    description = ('Load a series of scans from a config file '
+                   'and preprocess them, or preprocess a single scan.')
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument("files", nargs='+',
+                        help="Single files to preprocess",
+                        default=None, type=str)
+
+    parser.add_argument("-c", "--config", type=str, default=None,
+                        help='Config file')
+
+    parser.add_argument("--sub", default=False,
+                        action='store_true',
+                        help='Subtract the baseline from single scans')
+
+    parser.add_argument("--interactive", default=False,
+                        action='store_true',
+                        help='Open the interactive display')
+
+    parser.add_argument("--nofilt", action='store_true', default=False,
+                        help='Do not filter noisy channels')
+
+    parser.add_argument("--splat", type=str, default=None,
+                        help=("Spectral scans will be scrunched into a single "
+                              "channel containing data in the given frequency "
+                              "range, starting from the frequency of the first"
+                              " bin. E.g. '0:1000' indicates 'from the first "
+                              "bin of the spectrum up to 1000 MHz above'. ':' "
+                              "or 'all' for all the channels."))
+
+    args = parser.parse_args(args)
+
+    if args.files is not None:
+        for f in args.files:
+            scan = Scan(f, freqsplat=args.splat,
+                        nosub=not args.sub, norefilt=False)
+    else:
+        assert args.config is not None, "Please specify the config file!"
+        scanset = ScanSet(args.config, norefilt=False,
+                          freqsplat=args.splat, nosub=not args.sub,
+                          nofilt=args.nofilt)
+
+    if args.interactive:
+        scanset.interactive_display()
