@@ -252,7 +252,7 @@ def list_scans(datadir, dirlist):
 class Scan(Table):
     """Class containing a single scan."""
 
-    def __init__(self, data=None, config_file=None, norefilt=False,
+    def __init__(self, data=None, config_file=None, norefilt=True,
                  interactive=False, nosave=False, verbose=True,
                  freqsplat=None, nofilt=False, nosub=False, **kwargs):
         """Initialize a Scan object.
@@ -270,7 +270,7 @@ class Scan(Table):
             self.meta['config_file'] = config_file
             self.meta.update(read_config(self.meta['config_file']))
         else:  # if data is a filename
-            if os.path.exists(root_name(data) + '.hdf5'):
+            if os.path.exists(root_name(data) + '.hdf5') and norefilt:
                 data = root_name(data) + '.hdf5'
             if verbose:
                 logging.info('Loading file {}'.format(data))
@@ -291,8 +291,7 @@ class Scan(Table):
                 self.interactive_filter()
 
             if (('backsub' not in self.meta.keys() or
-                    not self.meta['backsub']) \
-                    or not norefilt) and not nosub:
+                    not self.meta['backsub'])) and not nosub:
                 logging.info('Subtracting the baseline')
                 self.baseline_subtract()
 
