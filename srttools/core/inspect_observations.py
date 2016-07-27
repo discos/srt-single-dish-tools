@@ -38,8 +38,9 @@ def inspect_directories(directories):
         fits_files = glob.glob(os.path.join(d, '*.fits'))
 
         for f in fits_files:
-            print("Reading {}".format(f), end="\r")
             try:
+                print("Reading {}".format(f), end="\r")
+            
                 data = read_data(f)
                 backend = data.meta['backend']
                 receiver = data.meta['receiver']
