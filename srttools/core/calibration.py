@@ -72,11 +72,9 @@ def read_calibrator_config():
     curdir = os.path.dirname(__file__)
     calibdir = os.path.join(curdir, '..', 'data', 'calibrators')
     calibrator_file_list = glob.glob(os.path.join(calibdir, '*.ini'))
-    print("Reading calibrator files ")
 
     configs = {}
     for cfile in calibrator_file_list:
-        print(cfile)
         cparser = configparser.ConfigParser()
         cparser.read(cfile)
 
