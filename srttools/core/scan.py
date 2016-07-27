@@ -152,15 +152,19 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth, good_ma
                  label="Final mask")
         # ax_meanspec.legend()
 
+        try:
+            cmap = plt.get_cmap("magma")
+        except:
+            cmap = plt.get_cmap("gnuplot2")
         ax_dynspec.imshow(varimg, origin="lower", aspect='auto',
-                   cmap=plt.get_cmap("magma"),
+                   cmap=cmap,
                    vmin=mean_varimg - 5 * std_varimg,
                    vmax=mean_varimg + 5 * std_varimg,
                    extent=(0, bandwidth,
                            0, varimg.shape[0]), interpolation='none')
 
         ax_cleanspec.imshow(cleaned_varimg, origin="lower", aspect='auto',
-                   cmap=plt.get_cmap("magma"),
+                   cmap=cmap,
                    vmin=mean_varimg - 5 * std_varimg,
                    vmax=mean_varimg + 5 * std_varimg,
                    extent=(0, bandwidth,
