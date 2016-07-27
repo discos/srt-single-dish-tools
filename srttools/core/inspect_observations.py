@@ -163,7 +163,7 @@ def main_inspector(args=None):
     info = inspect_directories(args.directories)
     info.write('table.csv')
 
-    if args.group is not None:
+    if args.group_by is not None:
         rearranged_info = info.group_by(args.group_by)
         rearranged_info.write('rearranged_table.csv')
 
