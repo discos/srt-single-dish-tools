@@ -182,8 +182,7 @@ def read_data_fitszilla(fname):
                 (np.max(feeds) + 1, 1)).transpose()
 
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
-        new_table[info].unit = u.radian
-
+        new_table[info].unit = u.radian 
     # Coordinate correction. Will it work?
     for i in range(0, new_table['el'].shape[1]):
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
@@ -215,7 +214,7 @@ def read_data_fitszilla(fname):
         if bandwidths[ic] < 0:
             frequencies[ic] -= bandwidths[ic]
             bandwidths[ic] *= -1
-            for i in range(data_table_data['Ch{}'.format(ch)].shape[0]):
+            for i in range(data_table_data['Ch{}'.format(ch).lower()].shape[0]):
                 data_table_data['Ch{}'.format(ch).lower()][i, :] = \
                     data_table_data['Ch{}'.format(ch).lower()][i, ::-1]
         new_table['Ch{}'.format(ch)] = \
