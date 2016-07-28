@@ -153,19 +153,14 @@ def main_inspector(args=None):
                         help="Directories to inspect",
                         default=None, type=str)
     parser.add_argument("-g", "--group-by", default=None, type=str, nargs="+")
-    parser.add_argument("-s", "--split-by-source", default=False,
-                        action='store_true',
-                        help=('Split output so that it contains a list of observations '
-                              'and calibrators for each source'))
 
     args = parser.parse_args(args)
 
     info = inspect_directories(args.directories)
     info.write('table.csv')
+    split_observation_table(info)
 
     if args.group_by is not None:
         rearranged_info = info.group_by(args.group_by)
         rearranged_info.write('rearranged_table.csv')
 
-    if args.split_by_source:
-        split_by_source(info)
