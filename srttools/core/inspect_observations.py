@@ -9,7 +9,12 @@ import numpy as np
 from astropy.table import Table, Column
 from .io import read_data
 from .calibration import read_calibrator_config
+from .read_config import sample_config_file
 import sys
+try:
+    from ConfigParser import ConfigParser
+except ImportError:
+    from configparser import ConfigParser
 
 def standard_string(s):
     if sys.version_info >= (3, 0, 0):
@@ -141,6 +146,36 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
     return retval
 
 
+def dump_config_files(info):
+    observation_dict = split_observation_table(info)
+    config_files = []
+    for label in observation_dict.keys():
+        group = observation_dict[label]
+
+        for sourcelabel in group.keys():
+            source = group[sourcelabel]
+            for obslabel in source.keys():
+                obs = source[obslabel]
+                srcdata = obs["Src"]
+                caldata = obs["Cal"]
+                filename = "{}_{}_{}.ini".format(label.replace(",", "_"),
+                                                 sourcelabel,
+                                                 obslabel)
+                fname = sample_config_file()
+                config = ConfigParser()
+                config.read(fname)
+                if len(srcdata) > 0:
+                    config.set("analysis", "list_of_directories", "\n" + "\n".join(srcdata))
+
+                if len(caldata) > 0:
+                    config.set("analysis", "calibrator_directories", "\n" + "\n".join(caldata))
+
+                config.write(open(filename, "w"))
+                config_files.append(filename)
+
+    return config_files
+
+
 def main_inspector(args=None):
     import argparse
 
@@ -153,6 +188,8 @@ def main_inspector(args=None):
                         help="Directories to inspect",
                         default=None, type=str)
     parser.add_argument("-g", "--group-by", default=None, type=str, nargs="+")
+    parser.add_argument("-d", "--dump-config-files", default=None, type=str, nargs="+")
+    parser.add_argument("--config-values", default=None, type=str, nargs="+")
 
     args = parser.parse_args(args)
 
