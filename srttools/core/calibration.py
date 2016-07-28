@@ -1186,7 +1186,7 @@ def main_calibrator(args=None):
 
     outfile = args.output
     if outfile is None:
-        outfile = args.config.replace("ini", "hdf5")
+        outfile = args.config.replace(".ini", "_cal.hdf5")
     caltable = CalibratorTable()
     caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt)
     caltable.update()
