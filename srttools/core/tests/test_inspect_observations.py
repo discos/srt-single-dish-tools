@@ -79,3 +79,10 @@ class Test1_Inspect(unittest.TestCase):
         config.read("KKG_SARDARA_3C157_Obs0.ini")
         assert config.get("analysis", "list_of_directories").strip().split("\n") == \
             self.groups["KKG,SARDARA"]["3C157"]["Obs0"]["Src"]
+
+    def test_zzzzz_cleanup(self):
+        """Cleanup."""
+        import os
+        import glob
+        for ini in glob.glob('*.ini'):
+            os.unlink(ini)
