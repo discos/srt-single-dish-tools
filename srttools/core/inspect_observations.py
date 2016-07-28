@@ -188,8 +188,7 @@ def main_inspector(args=None):
                         help="Directories to inspect",
                         default=None, type=str)
     parser.add_argument("-g", "--group-by", default=None, type=str, nargs="+")
-    parser.add_argument("-d", "--dump-config-files", default=None, type=str, nargs="+")
-    parser.add_argument("--config-values", default=None, type=str, nargs="+")
+    parser.add_argument("-d", "--dump-config-files", action='store_true', default=False)
 
     args = parser.parse_args(args)
 
@@ -200,4 +199,5 @@ def main_inspector(args=None):
     if args.group_by is not None:
         rearranged_info = info.group_by(args.group_by)
         rearranged_info.write('rearranged_table.csv')
-
+    if args.dump_config_files:
+        dump_config_files(info)
