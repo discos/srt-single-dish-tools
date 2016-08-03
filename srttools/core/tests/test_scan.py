@@ -46,3 +46,40 @@ class Test1_Scan(unittest.TestCase):
     def test_all(self):
         self.step_1_scan()
         self.cleanup()
+
+
+class Test2_Scan(unittest.TestCase):
+    @classmethod
+    def setup_class(klass):
+        import os
+        global DEBUG_MODE
+        DEBUG_MODE = True
+
+        klass.curdir = os.path.dirname(__file__)
+        klass.datadir = os.path.join(klass.curdir, 'data')
+
+        klass.fname = \
+            os.path.abspath(
+                os.path.join(klass.datadir, 'spectrum',
+                             'roach_template.fits'))
+
+        klass.config_file = \
+            os.path.abspath(os.path.join(klass.datadir, 'spectrum.ini'))
+        print(klass.config_file)
+
+        read_config(klass.config_file)
+
+    def step_1_scan(self):
+        '''Test that data are read.'''
+
+        scan = Scan(self.fname)
+
+        scan.write('scan.hdf5', overwrite=True)
+
+    def cleanup(self):
+        """Cleanup."""
+        os.unlink('scan.hdf5')
+
+    def test_all(self):
+        self.step_1_scan()
+        self.cleanup()

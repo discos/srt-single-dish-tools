@@ -21,6 +21,188 @@ import logging
 import traceback
 
 
+def _interpret_frequency_range(freqsplat, bandwidth, nbin):
+    """Interpret the frequency range specified in freqsplat."""
+    try:
+        freqmin, freqmax = \
+            [float(f) for f in freqsplat.split(':')]
+    except:
+        freqsplat = ":"
+
+    if freqsplat == ":" or freqsplat == "all" or freqsplat is None:
+        freqmin = 0
+        freqmax = bandwidth
+
+    binmin = int(nbin * freqmin / bandwidth)
+    binmax = int(nbin * freqmax / bandwidth) - 1
+
+    return freqmin, freqmax, binmin, binmax
+
+
+def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth, good_mask=None, freqsplat=None,
+                                  noise_threshold=5, debug=True, nofilt=False, outfile="out", label=""):
+    if len(dynamical_spectrum.shape) == 1:
+        return None
+    _, nbin = dynamical_spectrum.shape
+
+    times = length * np.arange(dynamical_spectrum.shape[0]) / dynamical_spectrum.shape[0]
+    lc = np.sum(dynamical_spectrum, axis=1)
+    lc = baseline_als(times, lc)
+    lcbins = np.arange(len(lc))
+    meanspec = np.sum(dynamical_spectrum, axis=0) / len(dynamical_spectrum)
+    spectral_var = \
+        np.mean(np.sqrt((dynamical_spectrum - meanspec) ** 2 / meanspec ** 2), axis=0)
+
+    df = bandwidth / len(meanspec)
+    allbins = np.arange(len(meanspec)) * df
+
+    freqmask = np.ones(len(meanspec), dtype=bool)
+
+    freqmin, freqmax, binmin, binmax = \
+        _interpret_frequency_range(freqsplat, bandwidth, nbin)
+    freqmask[0:binmin] = False
+    freqmask[binmax:] = False
+
+    if debug:
+        fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+        gs = GridSpec(4, 2, hspace=0, height_ratios=(1.5, 1.5, 1.5, 1.5),
+                      width_ratios=(3, 1.5))
+        ax_meanspec = plt.subplot(gs[0, 0])
+        ax_dynspec = plt.subplot(gs[1, 0], sharex=ax_meanspec)
+        ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec)
+        ax_lc = plt.subplot(gs[1, 1], sharey=ax_dynspec)
+        ax_cleanlc = plt.subplot(gs[2, 1], sharey=ax_dynspec)
+        ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
+        ax_meanspec.plot(allbins[1:], meanspec[1:], label="Unfiltered")
+        ax_var.plot(allbins[1:], spectral_var[1:], label="Spectral rms")
+
+    if good_mask is not None:
+        meanspec[good_mask] = 0
+
+    cleaned_dynamical_spectrum = dynamical_spectrum.copy()
+    varimg = np.sqrt((dynamical_spectrum - meanspec) ** 2 / meanspec ** 2)
+    mean_varimg = np.mean(varimg[:, freqmask])
+    std_varimg = np.std(varimg[:, freqmask])
+
+    stdref = ref_std(spectral_var[freqmask], np.max([nbin // 20, 20]))
+
+    mod_spectral_var = spectral_var.copy()
+    mod_spectral_var[0:binmin] = spectral_var[binmin]
+    mod_spectral_var[binmax:] = spectral_var[binmax]
+
+    _, baseline = baseline_als(np.arange(len(spectral_var)),
+                               mod_spectral_var, return_baseline=True,
+                               lam=1000, p=0.001, offset_correction=True,
+                               outlier_purging=False)
+    if not nofilt:
+        threshold = baseline + 2 * noise_threshold * stdref
+    else:
+        threshold = np.zeros_like(baseline) + 1e32
+
+    mask = spectral_var < threshold
+
+    wholemask = freqmask & mask
+    lc_mask = np.sum(dynamical_spectrum[:, freqmask], axis=1)
+    lc_mask = baseline_als(times, lc_mask)
+
+    lc_corr = np.sum(dynamical_spectrum[:, wholemask], axis=1)
+
+    bad_intervals = contiguous_regions(np.logical_not(wholemask))
+    # if debug:
+    #     ax_lc.plot(baseline_als(times, lc_corr), lcbins, color="k", zorder=10)
+
+    total_fill_lc = 0
+    for b in bad_intervals:
+        if b[0] == 0:
+            fill_lc = np.array(dynamical_spectrum[:, b[1]])
+        elif b[1] >= len(spectral_var):
+            fill_lc = np.array(dynamical_spectrum[:, b[0]])
+        else:
+            previous = np.array(dynamical_spectrum[:, b[0] - 1])
+            next = np.array(dynamical_spectrum[:, b[1]])
+            fill_lc = (previous + next) / 2
+
+        for bsub in range(b[0], np.min([b[1], len(spectral_var)])):
+            cleaned_dynamical_spectrum[:, bsub] = fill_lc
+        if b[0] == 0 or b[1] >= len(spectral_var):
+            continue
+        total_fill_lc += fill_lc * (b[1] - b[0])
+
+    cleaned_meanspec = np.sum(cleaned_dynamical_spectrum, axis=0) / len(cleaned_dynamical_spectrum)
+    cleaned_varimg = np.sqrt((cleaned_dynamical_spectrum - cleaned_meanspec) ** 2 / cleaned_meanspec ** 2)
+    cleaned_spectral_var = \
+        np.mean(np.sqrt((dynamical_spectrum - cleaned_meanspec) ** 2 / cleaned_meanspec ** 2), axis=0)
+
+    # if debug:
+    #     ax_lc.plot(total_fill_lc, lcbins, color="k", zorder=10)
+    lc_corr += total_fill_lc
+
+    lc_corr = baseline_als(times, lc_corr)
+
+    results = type('test', (), {})() # create empty object
+    results.lc = lc_corr
+    results.freqmin = freqmin
+    results.freqmax = freqmax
+
+    if debug:
+        ax_meanspec.plot(allbins[1:], meanspec[1:], label="Whitelist applied")
+        ax_meanspec.axvline(freqmin)
+        ax_meanspec.axvline(freqmax)
+        ax_meanspec.plot(allbins[mask], meanspec[mask],
+                 label="Final mask")
+        # ax_meanspec.legend()
+
+        try:
+            cmap = plt.get_cmap("magma")
+        except:
+            cmap = plt.get_cmap("gnuplot2")
+        ax_dynspec.imshow(varimg, origin="lower", aspect='auto',
+                   cmap=cmap,
+                   vmin=mean_varimg - 5 * std_varimg,
+                   vmax=mean_varimg + 5 * std_varimg,
+                   extent=(0, bandwidth,
+                           0, varimg.shape[0]), interpolation='none')
+
+        ax_cleanspec.imshow(cleaned_varimg, origin="lower", aspect='auto',
+                   cmap=cmap,
+                   vmin=mean_varimg - 5 * std_varimg,
+                   vmax=mean_varimg + 5 * std_varimg,
+                   extent=(0, bandwidth,
+                           0, varimg.shape[0]), interpolation='none')
+
+        for b in bad_intervals:
+            maxsp = np.max(meanspec)
+            ax_meanspec.plot(b * df, [maxsp] * 2, color='k', lw=2)
+            middleimg = [varimg.shape[0] / 2]
+            ax_dynspec.plot(b * df, [middleimg] * 2, color='k', lw=2)
+            maxsp = np.max(spectral_var)
+            ax_var.plot(b * df, [maxsp] * 2, color='k', lw=2)
+
+        ax_dynspec.axvline(freqmin)
+        ax_dynspec.axvline(freqmax)
+
+        ax_lc.plot(lc, lcbins, color="grey")
+        ax_lc.plot(lc_mask, lcbins, color="b")
+        ax_lc.set_xlim([np.min(lc), max(lc)])
+        ax_cleanlc.plot(lc_mask, lcbins, color="grey")
+        ax_cleanlc.plot(lc_corr, lcbins, color="k")
+        ax_var.axvline(freqmin)
+        ax_var.axvline(freqmax)
+        ax_var.plot(allbins[mask], spectral_var[mask])
+        ax_var.plot(allbins[mask], cleaned_spectral_var[mask], zorder=10, color="k")
+        ax_var.plot(allbins[1:], baseline[1:])
+        ax_var.plot(allbins[1:], baseline[1:] + 2 * noise_threshold * stdref)
+        minb = np.min(baseline[1:])
+        ax_var.set_ylim([minb, minb + 4 * noise_threshold * stdref])
+        ax_var.semilogy()
+
+        plt.savefig(
+            "{}_{}.pdf".format(outfile, label))
+        plt.close(fig)
+
+    return results
+
+
 def contiguous_regions(condition):
     """Find contiguous True regions of the boolean array "condition".
 
@@ -74,7 +256,7 @@ def list_scans(datadir, dirlist):
 class Scan(Table):
     """Class containing a single scan."""
 
-    def __init__(self, data=None, config_file=None, norefilt=False,
+    def __init__(self, data=None, config_file=None, norefilt=True,
                  interactive=False, nosave=False, verbose=True,
                  freqsplat=None, nofilt=False, nosub=False, **kwargs):
         """Initialize a Scan object.
@@ -92,7 +274,7 @@ class Scan(Table):
             self.meta['config_file'] = config_file
             self.meta.update(read_config(self.meta['config_file']))
         else:  # if data is a filename
-            if os.path.exists(root_name(data) + '.hdf5'):
+            if os.path.exists(root_name(data) + '.hdf5') and norefilt:
                 data = root_name(data) + '.hdf5'
             if verbose:
                 logging.info('Loading file {}'.format(data))
@@ -113,8 +295,7 @@ class Scan(Table):
                 self.interactive_filter()
 
             if (('backsub' not in self.meta.keys() or
-                    not self.meta['backsub']) \
-                    or not norefilt) and not nosub:
+                    not self.meta['backsub'])) and not nosub:
                 logging.info('Subtracting the baseline')
                 self.baseline_subtract()
 
@@ -123,20 +304,7 @@ class Scan(Table):
 
     def interpret_frequency_range(self, freqsplat, bandwidth, nbin):
         """Interpret the frequency range specified in freqsplat."""
-        try:
-            freqmin, freqmax = \
-                [float(f) for f in freqsplat.split(':')]
-        except:
-            freqsplat = ":"
-
-        if freqsplat == ":" or freqsplat == "all" or freqsplat is None:
-            freqmin = 0
-            freqmax = bandwidth
-
-        binmin = int(nbin * freqmin / bandwidth)
-        binmax = int(nbin * freqmax / bandwidth) - 1
-
-        return freqmin, freqmax, binmin, binmax
+        return _interpret_frequency_range(freqsplat, bandwidth, nbin)
 
     def make_single_channel(self, freqsplat, masks=None):
         """Transform a spectrum into a single-channel count rate."""
@@ -205,122 +373,16 @@ class Scan(Table):
 
         chans = self.chan_columns()
         for ic, ch in enumerate(chans):
-            if len(self[ch].shape) == 1:
-                break
-            _, nbin = self[ch].shape
+            results = \
+                _clean_scan_using_variability(self[ch], self['time'], self[ch].meta['bandwidth'],
+                                              good_mask=good_mask, freqsplat=freqsplat,
+                                              noise_threshold=noise_threshold, debug=debug, nofilt=nofilt,
+                                              outfile=root_name(self.meta['filename']), label=ic)
 
-            lc = np.sum(self[ch], axis=1)
-            lc = baseline_als(self['time'], lc)
-            lcbins = np.arange(len(lc))
-            total_spec = np.sum(self[ch], axis=0) / len(self[ch])
-            spectral_var = \
-                np.sqrt(np.sum((self[ch] - total_spec) ** 2 / total_spec ** 2,
-                        axis=0))
-
-            df = self[ch].meta['bandwidth'] / len(total_spec)
-            allbins = np.arange(len(total_spec)) * df
-
-            freqmask = np.ones(len(total_spec), dtype=bool)
-
-            freqmin, freqmax, binmin, binmax = \
-                self.interpret_frequency_range(freqsplat,
-                                               self[ch].meta['bandwidth'],
-                                               nbin)
-            freqmask[0:binmin] = False
-            freqmask[binmax:] = False
-
-            if debug:
-                fig = plt.figure("{}_{}".format(self.meta['filename'], ic))
-                gs = GridSpec(3, 2, hspace=0, height_ratios=(1.5, 3, 1.5),
-                              width_ratios=(3, 1.5))
-                ax1 = plt.subplot(gs[0, 0])
-                ax2 = plt.subplot(gs[1, 0], sharex=ax1)
-                ax3 = plt.subplot(gs[1, 1], sharey=ax2)
-                ax4 = plt.subplot(gs[2, 0], sharex=ax1)
-                ax1.plot(allbins, total_spec, label="Unfiltered")
-                ax4.plot(allbins, spectral_var, label="Spectral rms")
-
-            if good_mask is not None:
-                total_spec[good_mask] = 0
-
-            varimg = np.sqrt((self[ch] - total_spec) ** 2 / total_spec ** 2)
-            mean_varimg = np.mean(varimg[:, freqmask])
-            std_varimg = np.std(varimg[:, freqmask])
-
-            stdref = ref_std(spectral_var[freqmask], np.max([nbin // 20, 20]))
-
-            mod_spectral_var = spectral_var.copy()
-            mod_spectral_var[0:binmin] = spectral_var[binmin]
-            mod_spectral_var[binmax:] = spectral_var[binmax]
-
-
-            _, baseline = baseline_als(np.arange(len(spectral_var)),
-                                       mod_spectral_var, return_baseline=True,
-                                       lam=1000, p=0.001, offset_correction=False,
-                                       outlier_purging=False)
-            if not nofilt:
-                threshold = baseline + noise_threshold * stdref
-            else:
-                threshold = np.zeros_like(baseline) + 1e32
-
-            mask = spectral_var < threshold
-
-            wholemask = freqmask & mask
-            lc_mask = np.sum(self[ch][:, freqmask], axis=1)
-            lc_mask = baseline_als(self['time'], lc_mask)
-
-            lc_corr = np.sum(self[ch][:, wholemask], axis=1)
-
-            bad_intervals = contiguous_regions(np.logical_not(wholemask))
-
-            for b in bad_intervals:
-                if b[0] == 0 or b[1] >= len(spectral_var):
-                    continue
-                fill_lc = (self[ch][:, b[0] - 1] + self[ch][:, b[1] + 1]) / 2
-                lc_corr += fill_lc * (b[1] - b[0])
-
-            lc_corr = baseline_als(self['time'], lc_corr)
-
-            if debug:
-                ax1.plot(allbins, total_spec, label="Whitelist applied")
-                ax1.axvline(freqmin)
-                ax1.axvline(freqmax)
-                ax1.plot(allbins[mask], total_spec[mask],
-                         label="Final mask")
-                # ax1.legend()
-
-                ax2.imshow(varimg, origin="lower", aspect='auto',
-                           cmap=plt.get_cmap("magma"),
-                           vmin=mean_varimg - 5 * std_varimg,
-                           vmax=mean_varimg + 5 * std_varimg,
-                           extent=(0, self[ch].meta['bandwidth'],
-                                   0, varimg.shape[0]))
-
-                for b in bad_intervals:
-                    maxsp = np.max(total_spec)
-                    ax1.plot(b*df, [maxsp]*2, color='k', lw=2)
-                    middleimg = [varimg.shape[0] / 2]
-                    ax2.plot(b*df, [middleimg]*2, color='k', lw=2)
-                    maxsp = np.max(spectral_var)
-                    ax4.plot(b*df, [maxsp]*2, color='k', lw=2)
-
-
-                ax2.axvline(freqmin)
-                ax2.axvline(freqmax)
-
-                ax3.plot(lc, lcbins, color="grey")
-                ax3.plot(lc_mask, lcbins, color="b")
-                ax3.plot(lc_corr, lcbins, color="g")
-                ax3.set_xlim([np.min(lc), max(lc)])
-                ax4.axvline(freqmin)
-                ax4.axvline(freqmax)
-                ax4.plot(allbins[mask], spectral_var[mask])
-                ax4.plot(allbins, baseline)
-
-                plt.savefig(
-                    "{}_{}.pdf".format(
-                        root_name(self.meta['filename']), ic))
-                plt.close(fig)
+            if results is None:
+                continue
+            lc_corr = results.lc
+            freqmin, freqmax = results.freqmin, results.freqmax
 
             self[ch + 'TEMP'] = Column(lc_corr)
 
