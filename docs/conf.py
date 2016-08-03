@@ -42,6 +42,8 @@ except ImportError:
 # Load all of the global Astropy configuration
 from astropy_helpers.sphinx.conf import *  # NOQA
 
+extensions.remove('sphinx.ext.viewcode')
+
 # Get configuration information from setup.cfg
 from distutils import config
 
