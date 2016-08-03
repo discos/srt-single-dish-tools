@@ -62,7 +62,7 @@ SDTimage
       -g, --global-fit      Perform global fitting of baseline
       -e EXCLUDE [EXCLUDE ...], --exclude EXCLUDE [EXCLUDE ...]
                             Exclude region from global fitting of baseline
-      --chans CHANS         Comma-separated hannels to include in global fitting
+      --chans CHANS         Comma-separated channels to include in global fitting
                             (Ch0, Ch1, ...)
       -o OUTFILE, --outfile OUTFILE
                             Save intermediate scanset to this file.
@@ -71,6 +71,30 @@ SDTimage
                             from the frequency of the first bin. E.g. '0:1000'
                             indicates 'from the first bin of the spectrum up to
                             1000 MHz above'. ':' or 'all' for all the channels.
+
+
+
+SDTinspect
+----------
+
+::
+
+    usage: SDTinspect [-h] [-g GROUP_BY [GROUP_BY ...]]
+                      [-d DUMP_CONFIG_FILES [DUMP_CONFIG_FILES ...]]
+                      [--config-values CONFIG_VALUES [CONFIG_VALUES ...]]
+                      directories [directories ...]
+
+    From a given list of directories, read the relevant information and link
+    observations to calibrators. A single file is read for each directory.
+
+    positional arguments:
+      directories           Directories to inspect
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -g GROUP_BY [GROUP_BY ...], --group-by GROUP_BY [GROUP_BY ...]
+      -d DUMP_CONFIG_FILES [DUMP_CONFIG_FILES ...], --dump-config-files DUMP_CONFIG_FILES [DUMP_CONFIG_FILES ...]
+      --config-values CONFIG_VALUES [CONFIG_VALUES ...]
 
 
 
@@ -97,6 +121,36 @@ SDTlcurve
                             indicates 'from the first bin of the spectrum up to
                             1000 MHz above'. ':' or 'all' for all the channels.
       --refilt              Re-run the scan filtering
+
+
+
+SDTpreprocess
+-------------
+
+::
+
+    usage: SDTpreprocess [-h] [-c CONFIG] [--sub] [--interactive] [--nofilt]
+                         [--splat SPLAT]
+                         files [files ...]
+
+    Load a series of scans from a config file and preprocess them, or preprocess a
+    single scan.
+
+    positional arguments:
+      files                 Single files to preprocess
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -c CONFIG, --config CONFIG
+                            Config file
+      --sub                 Subtract the baseline from single scans
+      --interactive         Open the interactive display
+      --nofilt              Do not filter noisy channels
+      --splat SPLAT         Spectral scans will be scrunched into a single channel
+                            containing data in the given frequency range, starting
+                            from the frequency of the first bin. E.g. '0:1000'
+                            indicates 'from the first bin of the spectrum up to
+                            1000 MHz above'. ':' or 'all' for all the channels.
 
 
 
