@@ -72,11 +72,9 @@ def read_calibrator_config():
     curdir = os.path.dirname(__file__)
     calibdir = os.path.join(curdir, '..', 'data', 'calibrators')
     calibrator_file_list = glob.glob(os.path.join(calibdir, '*.ini'))
-    print("Reading calibrator files ")
 
     configs = {}
     for cfile in calibrator_file_list:
-        print(cfile)
         cparser = configparser.ConfigParser()
         cparser.read(cfile)
 
@@ -1188,7 +1186,7 @@ def main_calibrator(args=None):
 
     outfile = args.output
     if outfile is None:
-        outfile = args.config.replace("ini", "hdf5")
+        outfile = args.config.replace(".ini", "_cal.hdf5")
     caltable = CalibratorTable()
     caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt)
     caltable.update()
