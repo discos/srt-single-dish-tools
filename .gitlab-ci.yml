@@ -20,4 +20,3 @@ test:2.7:
     - source activate py27
     - python setup.py test --coverage
     - coverage report -m --rcfile=heasarc_pipelines/tests/coveragerc
-  allow_failure: true
