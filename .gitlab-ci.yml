@@ -4,6 +4,7 @@ test:3.5:
   stage: test
   script:
     - source activate py35
+    - conda install h5py
     - python setup.py test --coverage
     - coverage report -m --rcfile=heasarc_pipelines/tests/coveragerc
 
@@ -11,6 +12,7 @@ test:3.4:
   stage: test
   script:
     - source activate py34
+    - conda install h5py
     - python setup.py test --coverage
     - coverage report -m --rcfile=heasarc_pipelines/tests/coveragerc
 
@@ -18,5 +20,6 @@ test:2.7:
   stage: test
   script:
     - source activate py27
+    - conda install h5py
     - python setup.py test --coverage
     - coverage report -m --rcfile=heasarc_pipelines/tests/coveragerc
