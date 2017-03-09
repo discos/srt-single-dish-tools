@@ -1,8 +1,8 @@
 image: registry.gitlab.com/matteobachetti/docker_image_for_tests:latest
 
 before_script: # configure a headless display to test plot generation
-- "export DISPLAY=:99.0"
-- "sh -e /etc/init.d/xvfb start"
+- export DISPLAY=:1.0
+- sh -e /etc/init.d/xvfb start
 - sleep 3 # give xvfb some time to start
 
 test:3.6:
