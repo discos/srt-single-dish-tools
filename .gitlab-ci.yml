@@ -1,4 +1,4 @@
-image: registry.gitlab.com/matteobachetti/heasarc_pipelines:latest
+image: registry.gitlab.com/matteobachetti/docker_image_for_tests:latest
 
 before_script: # configure a headless display to test plot generation
 - "export DISPLAY=:99.0"
