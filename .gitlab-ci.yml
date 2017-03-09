@@ -5,6 +5,14 @@ before_script: # configure a headless display to test plot generation
 - "sh -e /etc/init.d/xvfb start"
 - sleep 3 # give xvfb some time to start
 
+test:3.6:
+  stage: test
+  script:
+    - source activate py36
+    - conda install h5py
+    - python setup.py test --coverage
+    - coverage report -m --rcfile=heasarc_pipelines/tests/coveragerc
+
 test:3.5:
   stage: test
   script:
