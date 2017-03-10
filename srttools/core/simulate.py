@@ -151,8 +151,8 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
         qmin, qmax = 0, 0
         stochastic_amp = 20
 
-    nbins_ra = np.rint(length_ra / speed / dt)
-    nbins_dec = np.rint(length_dec / speed / dt)
+    nbins_ra = np.int(np.rint(length_ra / speed / dt))
+    nbins_dec = np.int(np.rint(length_dec / speed / dt))
 
     times = np.arange(nbins_ra) * dt
     position_ra = np.arange(-nbins_ra / 2, nbins_ra / 2) / nbins_ra * length_ra / 60  # In degrees!
