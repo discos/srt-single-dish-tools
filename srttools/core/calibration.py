@@ -500,8 +500,11 @@ class CalibratorTable(SourceTable):
 
             if not np.any(bad):
                 break
-            for b in bad:
-                logging.info("Outliers: {}, {}".format(x_to_fit[b], y_to_fit[b]))
+
+            xbad = x_to_fit[bad]
+            ybad = y_to_fit[bad]
+            for xb, yb in zip(xbad, ybad):
+                logging.info("Outliers: {}, {}".format(xb, yb))
             good = np.logical_not(bad)
             x_to_fit = x_to_fit[good]
             y_to_fit = y_to_fit[good]
