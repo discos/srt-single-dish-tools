@@ -172,7 +172,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
 
     # Handle empty input.
     if N == 0:
-        if W > 0:
+        if W is not None and W > 0 :
             return [np.zeros(nbin-2) for _ in arange(W)], edges
         else:
             return np.zeros(nbin-2), edges
@@ -208,7 +208,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
     # Compute the number of repetitions in xy and assign it to the
     # flattened histmat.
     if len(xy) == 0:
-        if W > 0:
+        if W is not None and W > 0 :
             return [np.zeros(nbin-2) for _ in arange(W)], edges
         else:
             return zeros(nbin-2, int), edges
@@ -216,10 +216,10 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
     # Flattened histogram matrix (1D)
     # Reshape is used so that overlarge arrays
     # will raise an error.
-    Wd = W if W > 0 else 1
+    Wd = W if (W is not None and W > 0)  else 1
     hists = [zeros(nbin, float).reshape(-1) for _ in arange(Wd)]
     for histidx, hist in enumerate(hists):
-        weights_ = weights[histidx] if W > 0 else weights
+        weights_ = weights[histidx] if (W is not None and W > 0)  else weights
         flatcount = bincount(xy, weights_)
         a = arange(len(flatcount))
         hist[a] = flatcount
