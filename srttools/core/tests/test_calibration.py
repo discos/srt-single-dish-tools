@@ -51,6 +51,7 @@ class Test2_Calibration(unittest.TestCase):
         caltable.update()
         caltable.Jy_over_counts('Ch0')
         caltable.Jy_over_counts('Ch0', elevation=19)
+        caltable.counts_over_Jy('Ch0')
 
     def test_calibration_write_and_plot(self):
         """Simple calibration from scans."""
