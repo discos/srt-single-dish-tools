@@ -72,6 +72,7 @@ class Test2_Scan(unittest.TestCase):
         scan = Scan(self.fname)
 
         scan.write('scan.hdf5', overwrite=True)
+        scan.baseline_subtract('rough')
 
     @classmethod
     def teardown_class(klass):
