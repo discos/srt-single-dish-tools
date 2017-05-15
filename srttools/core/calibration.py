@@ -22,6 +22,7 @@ from matplotlib.gridspec import GridSpec
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import logging
+import six
 
 try:
     import cPickle as pickle
@@ -431,6 +432,9 @@ class CalibratorTable(SourceTable):
             warnings.warn("Statsmodels is not installed. Reverting to rough mode.")
             rough = True
 
+        if not type(channel) == six.binary_type:
+            channel = channel.encode()
+
         if channel not in self.calibration.keys():
             self.compute_conversion_function()
 
@@ -473,11 +477,14 @@ class CalibratorTable(SourceTable):
             uncertainty on `fc`
         """
 
+        if not type(channel) == six.binary_type:
+            channel = channel.encode()
+
         self.check_up_to_date()
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:
-            good_chans = self["Chan"] == channel
+            good_chans = self['Chan'] == channel
 
         f_c_ratio = self["Flux/Counts"][good_chans]
         f_c_ratio_err = self["Flux/Counts Err"][good_chans]
@@ -494,7 +501,8 @@ class CalibratorTable(SourceTable):
 
         p = [np.mean(y_to_fit)]
         while 1:
-            p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p)
+            p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit,
+                                p0=p)
 
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
 
