@@ -27,7 +27,7 @@ class Test2_ScanSet(unittest.TestCase):
 
         klass.config = read_config(klass.config_file)
 
-    def step_1_scanset(self):
+    def test_1_scanset(self):
         '''Test that sets of data are read.'''
         plt.ioff()
 
@@ -35,7 +35,7 @@ class Test2_ScanSet(unittest.TestCase):
 
         scanset.write('test.hdf5', overwrite=True)
 
-    def step_2_rough_image(self):
+    def test_2_rough_image(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -51,7 +51,7 @@ class Test2_ScanSet(unittest.TestCase):
         plt.savefig('img.png')
         plt.close(fig)
 
-    def step_3_rough_image_altaz(self):
+    def test_3_rough_image_altaz(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -67,7 +67,7 @@ class Test2_ScanSet(unittest.TestCase):
         plt.savefig('img_altax.png')
         plt.close(fig)
 
-    def step_4_image_stdev(self):
+    def test_4_image_stdev(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -84,7 +84,7 @@ class Test2_ScanSet(unittest.TestCase):
         plt.savefig('img_sdev.png')
         plt.close(fig)
 
-    def step_5_image_scrunch(self):
+    def test_5_image_scrunch(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -108,7 +108,7 @@ class Test2_ScanSet(unittest.TestCase):
         plt.savefig('img_scrunch_sdev.png')
         plt.close(fig)
     #
-    # def step_6_interactive_image(self):
+    # def test_6_interactive_image(self):
     #     '''Test image production.'''
     #
     #     scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -117,7 +117,7 @@ class Test2_ScanSet(unittest.TestCase):
     #     scanset.calculate_images()
     #     scanset.interactive_display()
 
-    def step_7_ds9_image(self):
+    def test_7_ds9_image(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -125,7 +125,7 @@ class Test2_ScanSet(unittest.TestCase):
 
         scanset.save_ds9_images(save_sdev=True)
 
-    def step_8_global_fit_image(self):
+    def test_8_global_fit_image(self):
         '''Test image production.'''
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
@@ -133,8 +133,8 @@ class Test2_ScanSet(unittest.TestCase):
         excluded = [[125, 125, 30]]
         scanset.fit_full_images(excluded=excluded, chans='Ch0')
 
-
-    def step_999_cleanup(self):
+    @classmethod
+    def teardown_class(klass):
         """Clean up the mess."""
         os.unlink('img.png')
         os.unlink('img_altax.png')
@@ -142,23 +142,11 @@ class Test2_ScanSet(unittest.TestCase):
         os.unlink('img_scrunch_sdev.png')
         os.unlink('img_sdev.png')
         os.unlink('test.hdf5')
-        for d in self.config['list_of_directories']:
-            hfiles = glob.glob(os.path.join(self.config['datadir'], d, '*.hdf5'))
+        for d in klass.config['list_of_directories']:
+            hfiles = glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
             print(hfiles)
             for h in hfiles:
                 os.unlink(h)
-
-    def test_all(self):
-        self.step_1_scanset()
-
-        self.step_2_rough_image()
-        self.step_3_rough_image_altaz()
-        self.step_4_image_stdev()
-        self.step_5_image_scrunch()
-        # self.step_6_interactive_image()
-        self.step_7_ds9_image()
-        self.step_8_global_fit_image()
-        self.step_999_cleanup()
 
 #
 # class Test3_MultiFeed(unittest.TestCase):
