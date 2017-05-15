@@ -52,7 +52,7 @@ class Test2_Calibration(unittest.TestCase):
         caltable.Jy_over_counts('Ch0')
         caltable.Jy_over_counts('Ch0', elevation=19)
 
-    def test_calibration_write(self):
+    def test_calibration_write_and_plot(self):
         """Simple calibration from scans."""
 
         caltable = CalibratorTable()
@@ -61,6 +61,7 @@ class Test2_Calibration(unittest.TestCase):
         caltable.update()
         caltable.write(os.path.join(self.datadir, 'calibrators.hdf5'),
                        path="config", overwrite=True)
+        caltable.show()
 
     @classmethod
     def teardown_class(klass):
