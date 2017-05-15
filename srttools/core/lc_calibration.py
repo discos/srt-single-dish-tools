@@ -3,6 +3,34 @@ from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
 
+import os
+import sys
+import glob
+import re
+import warnings
+import traceback
+from matplotlib.gridspec import GridSpec
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+import logging
+import six
+from .calibration import _get_calibrator_flux, decide_symbol
+
+try:
+    import cPickle as pickle
+except:
+    import pickle
+
+import numpy as np
+from astropy.table import Table, vstack, Column
+# For Python 2 and 3 compatibility
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
+
+CALIBRATOR_CONFIG = None
+
 calist = ['3C147', '3C48', '3C123', '3C295', '3C286', 'NGC7027']
 colors = ['k', 'b', 'r', 'g', 'c', 'm']
 colors = dict(zip(calist, colors))
@@ -380,7 +408,7 @@ def test_calibration_roach():
     show_calibration(full_table)
 
 
-def main_lc_calibrator(args=None):
+def main(args=None):
     """Main function."""
     import argparse
     import os
