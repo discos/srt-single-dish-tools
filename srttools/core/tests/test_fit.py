@@ -2,7 +2,7 @@
 
 from __future__ import (absolute_import, division,
                         print_function)
-from srttools.core.fit import fit_baseline_plus_bell, align, purge_outliers
+from srttools.core.fit import fit_baseline_plus_bell, purge_outliers
 import numpy as np
 
 np.random.seed(1231636)
@@ -55,41 +55,3 @@ class TestFit(object):
         np.testing.assert_almost_equal(model.mean_1, 50., 1)
         np.testing.assert_almost_equal(model.slope_0, 6., 1)
         assert np.abs(model.intercept_0 - 20.) < 2
-
-    # def test_minimize_align():
-    #     """Test that the minimization of the alignment works."""
-    #
-    #     x1 = np.arange(0, 100, 0.1)
-    #     y1 = np.random.poisson(100, len(x1)) + _test_shape(x1)
-    #     x2 = np.arange(0.02, 100, 0.1)
-    #     y2 = np.random.poisson(100, len(x2)) + _test_shape(x2)
-    #     x3 = np.arange(0.053, 98.34, 0.1)
-    #     y3 = np.random.poisson(100, len(x3)) + _test_shape(x3)
-    #
-    #     xs = [x1, x2, x3]
-    #     ys = [y1, y2, y3]
-    #
-    #     qs = [20, -60, 60]
-    #     ms = [0, 0.3, -0.8]
-    #
-    #     plt.figure('Original')
-    #     for ix, x in enumerate(xs):
-    #         ys[ix] = ys[ix] + qs[ix] + ms[ix] * xs[ix]
-    #
-    #         plt.plot(xs[ix], ys[ix], label=ix)
-    #
-    #     plt.legend()
-    #
-    #     qs, ms = align(xs, ys)
-    #
-    #     plt.figure('After fit')
-    #     for ix, x in enumerate(xs):
-    #         if ix == 0:
-    #             plt.plot(xs[0], ys[0], label=ix)
-    #         else:
-    #             ys[ix] = ys[ix] - (qs[ix-1] + ms[ix-1] * xs[ix])
-    #
-    #             plt.plot(xs[ix], ys[ix], label=ix)
-    #
-    #     plt.legend()
-    #     plt.show()
