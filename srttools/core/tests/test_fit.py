@@ -2,7 +2,8 @@
 
 from __future__ import (absolute_import, division,
                         print_function)
-from ..fit import fit_baseline_plus_bell, align, purge_outliers
+from srttools.core.fit import fit_baseline_plus_bell, align, purge_outliers
+from srttools.core.global_fit import fit_full_image, display_intermediate
 import numpy as np
 import matplotlib.pyplot as plt
 import unittest

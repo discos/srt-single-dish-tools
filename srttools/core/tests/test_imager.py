@@ -125,6 +125,15 @@ class Test2_ScanSet(unittest.TestCase):
 
         scanset.save_ds9_images(save_sdev=True)
 
+    def step_8_global_fit_image(self):
+        '''Test image production.'''
+
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config_file)
+        excluded = [[125, 125, 30]]
+        scanset.fit_full_images(excluded=excluded, chans='Ch0')
+
+
     def step_999_cleanup(self):
         """Clean up the mess."""
         os.unlink('img.png')
@@ -148,6 +157,7 @@ class Test2_ScanSet(unittest.TestCase):
         self.step_5_image_scrunch()
         # self.step_6_interactive_image()
         self.step_7_ds9_image()
+        self.step_8_global_fit_image()
         self.step_999_cleanup()
 
 #
