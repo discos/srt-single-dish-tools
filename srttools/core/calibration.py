@@ -712,7 +712,7 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     return flux_function(frequency, bandwidth, coeffs, ecoeffs)
 
 
-def main_calibrator(args=None):
+def main(args=None):
     """Main function."""
     import argparse
     import os
