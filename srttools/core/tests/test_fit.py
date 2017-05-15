@@ -15,7 +15,7 @@ def _test_shape(x):
 class TestFit(object):
     @classmethod
     def setup_class(cls):
-        cls.series = np.random.normal(0, 0.1, 100)
+        cls.series = np.random.normal(0, 0.1, 1000)
 
     def test_outliers1(self):
         """Test that outlier detection works."""
