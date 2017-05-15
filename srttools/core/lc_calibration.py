@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import logging
 import six
-from .calibration import _get_calibrator_flux, decide_symbol
+from .calibration import _get_calibrator_flux
 
 try:
     import cPickle as pickle
@@ -34,6 +34,23 @@ CALIBRATOR_CONFIG = None
 calist = ['3C147', '3C48', '3C123', '3C295', '3C286', 'NGC7027']
 colors = ['k', 'b', 'r', 'g', 'c', 'm']
 colors = dict(zip(calist, colors))
+
+
+def decide_symbol(values):
+    """Decide symbols for plotting.
+
+    Assigns different symbols to RA scans, Dec scans, backward and forward.
+    """
+    raplus = values == "RA>"
+    ramin = values == "RA<"
+    decplus = values == "Dec>"
+    decmin = values == "Dec<"
+    symbols = np.array(['a' for i in values])
+    symbols[raplus] = u"+"
+    symbols[ramin] = u"s"
+    symbols[decplus] = u"^"
+    symbols[decmin] = u"v"
+    return symbols
 
 
 def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
