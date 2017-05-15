@@ -147,6 +147,9 @@ class Test2_ScanSet(unittest.TestCase):
             print(hfiles)
             for h in hfiles:
                 os.unlink(h)
+        out_iter_files = glob.glob('out_iter_*.txt')
+        for o in out_iter_files:
+            os.unlink(o)
 
 #
 # class Test3_MultiFeed(unittest.TestCase):
