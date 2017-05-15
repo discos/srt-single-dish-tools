@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import unittest
 from astropy.table import Table
 from ..imager import ScanSet
+import pytest
+import warnings
+
 import os
 import glob
 import shutil
@@ -26,33 +29,53 @@ class Test2_Calibration(unittest.TestCase):
 
         klass.config = read_config(klass.config_file)
 
-    def step_1_calibrate(self):
-        """Simple calibration from scans."""
-        scan_list = \
-            list_scans(self.config['datadir'],
-                       self.config['calibrator_directories'])
+        klass.scan_list = \
+            list_scans(klass.config['datadir'],
+                       klass.config['calibrator_directories'])
 
-        scan_list.sort()
+        klass.scan_list.sort()
+
+
+    def test_check_class(self):
+        caltable = CalibratorTable()
+        caltable.from_scans(self.scan_list)
+        with pytest.warns(UserWarning):
+            caltable.check_up_to_date()
+
+    def test_calibration(self):
+        """Simple calibration from scans."""
 
         caltable = CalibratorTable()
-        caltable.from_scans(scan_list)
+        caltable.from_scans(self.scan_list)
+
+        caltable.update()
+        caltable.Jy_over_counts('Ch0')
+        caltable.Jy_over_counts('Ch0', elevation=19)
+
+    def test_calibration_write(self):
+        """Simple calibration from scans."""
+
+        caltable = CalibratorTable()
+        caltable.from_scans(self.scan_list)
+
         caltable.update()
         caltable.write(os.path.join(self.datadir, 'calibrators.hdf5'),
                        path="config", overwrite=True)
 
-    def step_999_cleanup(self):
+    @classmethod
+    def teardown_class(klass):
         """Clean up the mess."""
-        os.unlink(os.path.join(self.datadir, 'calibrators.hdf5'))
-        for d in self.config['list_of_directories']:
-            hfiles = glob.glob(os.path.join(self.config['datadir'], d, '*.hdf5'))
+        os.unlink(os.path.join(klass.datadir, 'calibrators.hdf5'))
+        for d in klass.config['list_of_directories']:
+            hfiles = glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
             for h in hfiles:
                 os.unlink(h)
 
-            dirs = glob.glob(os.path.join(self.config['datadir'], d, '*_scanfit'))
+            dirs = glob.glob(os.path.join(klass.config['datadir'], d, '*_scanfit'))
             for dirname in dirs:
                 shutil.rmtree(dirname)
 
-    def test_all(self):
-        self.step_1_calibrate()
-
-        self.step_999_cleanup()
+    # def test_all(self):
+    #     self.step_1_calibrate()
+    #
+    #     self.step_999_cleanup()
