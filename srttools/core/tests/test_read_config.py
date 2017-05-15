@@ -6,33 +6,33 @@ from __future__ import (absolute_import, division,
 import numpy as np
 
 from ..read_config import read_config
+import os
 
 
-def test_read_config():
-    """Test that config file are read."""
-    import os
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    datadir = os.path.join(curdir, 'data')
+class TestConfig(object):
+    @classmethod
+    def setup_class(cls):
+        cls.curdir = os.path.abspath(os.path.dirname(__file__))
+        cls.datadir = os.path.join(cls.curdir, 'data')
 
-    fname = os.path.join(datadir, 'test_config.ini')
+    def test_read_config(self):
+        """Test that config file are read."""
 
-    config = read_config(fname)
+        fname = os.path.join(self.datadir, 'test_config.ini')
 
-    np.testing.assert_almost_equal(config['pixel_size'], np.radians(0.5 / 60))
-    assert config['interpolation'] == 'spline'
+        config = read_config(fname)
 
+        np.testing.assert_almost_equal(config['pixel_size'],
+                                       np.radians(0.5 / 60))
+        assert config['interpolation'] == 'spline'
 
+    def test_read_incomplete_config(self):
+        """Test that config file are read."""
+        fname = os.path.join(self.datadir, 'test_config_incomplete.ini')
 
-def test_read_incomplete_config():
-    """Test that config file are read."""
-    import os
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    datadir = os.path.join(curdir, 'data')
+        config = read_config(fname)
 
-    fname = os.path.join(datadir, 'test_config_incomplete.ini')
-
-    config = read_config(fname)
-
-    np.testing.assert_almost_equal(config['pixel_size'], np.radians(1 / 60))
-    assert config['interpolation'] == 'linear'
+        np.testing.assert_almost_equal(config['pixel_size'],
+                                       np.radians(1 / 60))
+        assert config['interpolation'] == 'linear'
 

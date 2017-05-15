@@ -1,11 +1,10 @@
 from __future__ import division, print_function
 from srttools.core import histograms as hist
-import unittest
 import numpy as np
 
 np.random.seed(1742956)
 
-class Test_Hist(unittest.TestCase):
+class TestHist(object):
     @classmethod
     def setup_class(klass):
         import os
