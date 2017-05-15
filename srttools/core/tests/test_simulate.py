@@ -13,8 +13,10 @@ class TestSimulate(object):
     @classmethod
     def setup_class(cls):
         cls.outdir = os.path.join('sim')
-        cls.emptydir = mkdir_p(os.path.join('sim', 'empty'))
-        cls.gaussdir = mkdir_p(os.path.join('sim', 'gauss'))
+        cls.emptydir = os.path.join('sim', 'empty')
+        cls.gaussdir = os.path.join('sim', 'gauss')
+        for d in [cls.emptydir, cls.gaussdir]:
+            mkdir_p(d)
 
     def test_sim_scan(self):
         """Test the simulation of a single scan."""
@@ -24,7 +26,7 @@ class TestSimulate(object):
 
     def test_sim_map_empty(self):
         """Test the simulation of an empty map."""
-       simulate_map(width_ra=5, width_dec=6., outdir=self.emptydir)
+        simulate_map(width_ra=5, width_dec=6., outdir=self.emptydir)
 
     def test_sim_map_gauss(self):
         """Test the simulation of an map with a large Gaussian PSF."""
