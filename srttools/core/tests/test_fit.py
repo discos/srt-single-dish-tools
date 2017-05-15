@@ -2,8 +2,9 @@
 
 from __future__ import (absolute_import, division,
                         print_function)
-from srttools.core.fit import fit_baseline_plus_bell, purge_outliers
+from srttools.core.fit import fit_baseline_plus_bell, purge_outliers, align
 import numpy as np
+import matplotlib.pyplot as plt
 
 np.random.seed(1231636)
 
@@ -55,3 +56,28 @@ class TestFit(object):
         np.testing.assert_almost_equal(model.mean_1, 50., 1)
         np.testing.assert_almost_equal(model.slope_0, 6., 1)
         assert np.abs(model.intercept_0 - 20.) < 2
+
+    def test_minimize_align(self):
+        """Test that the minimization of the alignment works."""
+
+        x1 = np.arange(0, 100, 0.1)
+        y1 = np.random.poisson(100, len(x1)) + _test_shape(x1)
+        x2 = np.arange(0.02, 100, 0.1)
+        y2 = np.random.poisson(100, len(x2)) + _test_shape(x2)
+        x3 = np.arange(0.053, 98.34, 0.1)
+        y3 = np.random.poisson(100, len(x3)) + _test_shape(x3)
+
+        xs = [x1, x2, x3]
+        ys = [y1, y2, y3]
+
+        qs = [0, -60, 60]
+        ms = [0, 0.3, -0.8]
+
+        for ix, x in enumerate(xs):
+            ys[ix] = ys[ix] + qs[ix] + ms[ix] * xs[ix]
+
+        qs, ms = align(xs, ys)
+
+        np.testing.assert_allclose(qs, [-60, 60], atol=3)
+        np.testing.assert_allclose(ms, [0.3, -0.8], atol=0.05)
+

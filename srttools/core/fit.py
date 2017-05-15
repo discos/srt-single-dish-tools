@@ -215,3 +215,65 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     mod_out = fit(mod_init, x, y)
 
     return mod_out, fit.fit_info
+
+
+def minimize_align(xs, ys, params):
+    """Calculate the total variance of a series of scans.
+
+    This functions subtracts a linear function from each of the scans
+    (excluding the first one) and calculates the total variance.
+    """
+    params = np.array(params).flatten()
+    qs = params[:len(xs) - 1]
+    ms = params[len(xs) - 1:]
+
+    x = xs[0].copy()
+    y = ys[0].copy()
+    for i in range(1, len(xs)):
+        x = np.append(x, xs[i])
+        scaled_y = ys[i] - (xs[i] * ms[i - 1] + qs[i - 1])
+        y = np.append(y, scaled_y)
+
+    order = np.argsort(x)
+
+    x = x[order]
+    y = y[order]
+
+    x_range = [np.min(x), np.max(x)]
+
+    xints = np.linspace(x_range[0], x_range[1], len(x) / 20)
+
+    values = np.array([np.var(y[(x >= xints[k]) & (x < xints[k+1])])
+                      for k in range(len(xints[:-1]))])
+    good = values == values
+    value = np.mean(values[good])
+
+    return value
+
+
+def objective_function(params, args):
+    """Put the parameters in the right order to use with scipy's minimize."""
+    return minimize_align(args[0], args[1], params)
+
+
+def align(xs, ys):
+    """Given the first scan, it aligns all the others to that."""
+    from scipy.optimize import minimize
+
+    qs = np.zeros(len(xs) - 1)
+    ms = np.zeros(len(xs) - 1)
+
+    result = minimize(objective_function, [qs, ms], args=[xs, ys],
+                      options={'disp': True})
+
+    qs = result.x[:len(xs) - 1]
+    ms = np.zeros(len(xs) - 1)
+
+    result = minimize(objective_function, [qs, ms], args=[xs, ys],
+                      options={'disp': True})
+
+    qs = result.x[:len(xs) - 1]
+    ms = result.x[len(xs) - 1:]
+
+    return qs, ms
+
