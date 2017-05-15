@@ -25,19 +25,26 @@ class TestScanSet(object):
             os.path.abspath(os.path.join(klass.datadir, 'test_config.ini'))
 
         klass.config = read_config(klass.config_file)
+        klass.scanset = ScanSet(klass.config_file)
 
-    def test_1_scanset(self):
-        '''Test that sets of data are read.'''
+        klass.scanset.write('test.hdf5', overwrite=True)
+
         plt.ioff()
 
-        scanset = ScanSet(self.config_file, norefilt=False)
-
-        scanset.write('test.hdf5', overwrite=True)
+    def test_1_meta_saved_and_loaded_correctly(self):
+        scanset = ScanSet('test.hdf5',
+                          config_file=self.config_file)
+        for k in scanset.meta.keys():
+           assert np.all(scanset.meta[k] == self.scanset.meta[k])
+        assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
 
     def test_2_rough_image(self):
         '''Test image production.'''
 
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        # scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        #                   config_file=self.config_file)
+
+        scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
         images = scanset.calculate_images()
@@ -123,6 +130,13 @@ class TestScanSet(object):
         excluded = [[125, 125, 30]]
         scanset.fit_full_images(excluded=excluded, chans='Ch0')
 
+    def test_9_find_scan_through_pixel(self):
+        scanset = ScanSet('test.hdf5',
+                          config_file=self.config_file)
+
+        scanset.calculate_images()
+        scanset.find_scans_through_pixel(125, 125, test=True)
+
     @classmethod
     def teardown_class(klass):
         """Clean up the mess."""
@@ -134,7 +148,6 @@ class TestScanSet(object):
         os.unlink('test.hdf5')
         for d in klass.config['list_of_directories']:
             hfiles = glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
-            print(hfiles)
             for h in hfiles:
                 os.unlink(h)
         out_iter_files = glob.glob('out_iter_*.txt')
