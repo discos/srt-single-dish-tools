@@ -8,7 +8,7 @@ import numpy as np
 np.random.seed(1231636)
 
 
-def _test_shape(self, x):
+def _test_shape(x):
     return 1000 * np.exp(-(x - 50) ** 2 / 3)
 
 
