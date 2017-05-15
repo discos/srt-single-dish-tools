@@ -419,8 +419,7 @@ class Scan(Table):
     def write(self, fname, **kwargs):
         """Set default path and call Table.write."""
         logging.info('Saving to {}'.format(fname))
-        t = Table(self)
-        t.write(fname, path='scan', **kwargs)
+        Table.write(self, fname, path='scan', **kwargs)
 
     def check_order(self):
         """Check that times in a scan are monotonically increasing."""

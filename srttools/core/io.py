@@ -16,7 +16,7 @@ locations = {'SRT': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
              'Greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
 
 
-def mkdir_p(path):  # pragma: no cover
+def mkdir_p(path):
     """Safe mkdir function.
 
     Parameters
