@@ -646,23 +646,6 @@ class CalibratorTable(SourceTable):
         plt.close(fig)
 
 
-def decide_symbol(values):
-    """Decide symbols for plotting.
-
-    Assigns different symbols to RA scans, Dec scans, backward and forward.
-    """
-    raplus = values == "RA>"
-    ramin = values == "RA<"
-    decplus = values == "Dec>"
-    decmin = values == "Dec<"
-    symbols = np.array(['a' for i in values])
-    symbols[raplus] = u"+"
-    symbols[ramin] = u"s"
-    symbols[decplus] = u"^"
-    symbols[decmin] = u"v"
-    return symbols
-
-
 def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     """Flux function from Perley & Butler ApJS 204, 19 (2013)."""
     a0, a1, a2, a3 = coeffs
