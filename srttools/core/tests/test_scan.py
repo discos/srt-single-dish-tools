@@ -32,20 +32,17 @@ class Test1_Scan(unittest.TestCase):
 
         read_config(klass.config_file)
 
-    def step_1_scan(self):
+    def test_scan(self):
         '''Test that data are read.'''
 
         scan = Scan(self.fname)
 
         scan.write('scan.hdf5', overwrite=True)
 
-    def cleanup(self):
+    @classmethod
+    def teardown_class(klass):
         """Cleanup."""
         os.unlink('scan.hdf5')
-
-    def test_all(self):
-        self.step_1_scan()
-        self.cleanup()
 
 
 class Test2_Scan(unittest.TestCase):
@@ -69,17 +66,15 @@ class Test2_Scan(unittest.TestCase):
 
         read_config(klass.config_file)
 
-    def step_1_scan(self):
+    def test_scan(self):
         '''Test that data are read.'''
 
         scan = Scan(self.fname)
 
         scan.write('scan.hdf5', overwrite=True)
 
-    def cleanup(self):
+    @classmethod
+    def teardown_class(klass):
         """Cleanup."""
         os.unlink('scan.hdf5')
 
-    def test_all(self):
-        self.step_1_scan()
-        self.cleanup()

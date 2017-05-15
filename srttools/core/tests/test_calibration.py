@@ -1,20 +1,15 @@
+from __future__ import division, print_function
 from ..calibration import CalibratorTable
 from ..read_config import read_config
 from ..scan import list_scans
-import numpy as np
-import matplotlib.pyplot as plt
-import unittest
-from astropy.table import Table
-from ..imager import ScanSet
 import pytest
-import warnings
 
 import os
 import glob
 import shutil
 
 
-class Test2_Calibration(unittest.TestCase):
+class TestCalibration(object):
     @classmethod
     def setup_class(klass):
         import os
@@ -34,7 +29,6 @@ class Test2_Calibration(unittest.TestCase):
                        klass.config['calibrator_directories'])
 
         klass.scan_list.sort()
-
 
     def test_check_class(self):
         caltable = CalibratorTable()
@@ -77,7 +71,3 @@ class Test2_Calibration(unittest.TestCase):
             for dirname in dirs:
                 shutil.rmtree(dirname)
 
-    # def test_all(self):
-    #     self.step_1_calibrate()
-    #
-    #     self.step_999_cleanup()

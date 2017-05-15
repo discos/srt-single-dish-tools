@@ -1,14 +1,13 @@
 from ..inspect_observations import split_observation_table, dump_config_files
 from astropy.table import Table, Column
 import numpy as np
-import unittest
 
 try:
     from ConfigParser import ConfigParser
 except ImportError:
     from configparser import ConfigParser
 
-class Test1_Inspect(unittest.TestCase):
+class TestInspect(object):
     @classmethod
     def setup_class(klass):
         import os
@@ -80,7 +79,8 @@ class Test1_Inspect(unittest.TestCase):
         assert config.get("analysis", "list_of_directories").strip().split("\n") == \
             self.groups["KKG,SARDARA"]["3C157"]["Obs0"]["Src"]
 
-    def test_zzzzz_cleanup(self):
+    @classmethod
+    def teardown_class(cls):
         """Cleanup."""
         import os
         import glob

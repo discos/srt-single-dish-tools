@@ -5,14 +5,13 @@ from __future__ import (absolute_import, division,
 from ..read_config import read_config, SRT_tools_config
 import numpy as np
 import matplotlib.pyplot as plt
-import unittest
 from astropy.table import Table
 from ..imager import ScanSet
 import os
 import glob
 
 
-class Test2_ScanSet(unittest.TestCase):
+class TestScanSet(object):
     @classmethod
     def setup_class(klass):
         import os
@@ -107,15 +106,6 @@ class Test2_ScanSet(unittest.TestCase):
         plt.ioff()
         plt.savefig('img_scrunch_sdev.png')
         plt.close(fig)
-    #
-    # def test_6_interactive_image(self):
-    #     '''Test image production.'''
-    #
-    #     scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-    #                       config_file=self.config)
-    #
-    #     scanset.calculate_images()
-    #     scanset.interactive_display()
 
     def test_7_ds9_image(self):
         '''Test image production.'''
@@ -150,96 +140,3 @@ class Test2_ScanSet(unittest.TestCase):
         out_iter_files = glob.glob('out_iter_*.txt')
         for o in out_iter_files:
             os.unlink(o)
-
-#
-# class Test3_MultiFeed(unittest.TestCase):
-#     @classmethod
-#     def setup_class(klass):
-#         import os
-#         global DEBUG_MODE
-#         print('Setting up class')
-#         DEBUG_MODE = True
-#
-#         klass.curdir = os.path.dirname(__file__)
-#         klass.datadir = os.path.join(klass.curdir, '..', '..', 'TEST_DATASET')
-#
-#         klass.config = \
-#             os.path.abspath(os.path.join(klass.curdir, '..', '..',
-#                                          'TEST_DATASET',
-#                                          'test_config.ini'))
-#
-#         read_config(klass.config)
-#
-#     def step1_scanset(self):
-#         '''Test that sets of data are read also with multifeed.'''
-#         plt.ioff()
-#         scanset = ScanSet(self.config, norefilt=True)
-#
-#         scanset.write('test_multifeed.hdf5', overwrite=True)
-#
-#     def step2_img(self):
-#         scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
-#                           config_file=self.config)
-#
-#         images = scanset.calculate_images()
-#
-#         scanset.save_ds9_images('multifeed.fits')
-#
-#         img = images['Ch0']
-#
-#         plt.figure('img 0')
-#         plt.imshow(img, origin='lower')
-#         plt.colorbar()
-#
-#         img = images['Ch0-Sdev']
-#
-#         plt.figure('log(img 0 -Sdev)')
-#         plt.imshow(np.log10(img), origin='lower')
-#         plt.colorbar()
-#
-#     def step3_scrunch(self):
-#         scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
-#                           config_file=self.config)
-#         images = scanset.calculate_images(scrunch=True)
-#         scanset.save_ds9_images('scrunch.fits', scrunch=True)
-#
-#         img = images['Ch0']
-#
-#         plt.figure('img - scrunched')
-#         plt.imshow(img, origin='lower')
-#         plt.colorbar()
-#         img = images['Ch0-Sdev']
-#
-#         plt.figure('log(img - scrunched - sdev)')
-#         plt.imshow(np.log10(img), origin='lower')
-#         plt.colorbar()
-#         plt.ioff()
-#         plt.show()
-#
-#     def step4_nocorrect(self):
-#         scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
-#                           config_file=self.config)
-#         scanset.save_ds9_images('multifeed_nooffsets.fits', no_offsets=True)
-#
-#     def step5_altaz(self):
-#         scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
-#                           config_file=self.config)
-#         scanset.save_ds9_images('multifeed_nooffsets_altaz.fits',
-#                                 no_offsets=True,
-#                                 altaz=True)
-#
-#     def step6_interactive_image(self):
-#         '''Test image production.'''
-#
-#         scanset = ScanSet(Table.read('test_multifeed.hdf5', path='scanset'),
-#                           config_file=self.config)
-#
-#         scanset.interactive_display()
-#
-#     def test_all_multifeed(self):
-#         '''Test that sets of data are read also with multifeed.'''
-#         self.step1_scanset()
-#         self.step2_img()
-#         self.step3_scrunch()
-#         self.step4_nocorrect()
-#         self.step6_interactive_image()
