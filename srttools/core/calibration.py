@@ -22,7 +22,6 @@ from matplotlib.gridspec import GridSpec
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import logging
-import six
 
 try:
     import cPickle as pickle
@@ -432,7 +431,7 @@ class CalibratorTable(SourceTable):
             warnings.warn("Statsmodels is not installed. Reverting to rough mode.")
             rough = True
 
-        if not type(channel) == six.binary_type:
+        if hasattr(channel, 'encode'):
             channel = channel.encode()
 
         if channel not in self.calibration.keys():
@@ -477,7 +476,7 @@ class CalibratorTable(SourceTable):
             uncertainty on `fc`
         """
 
-        if not type(channel) == six.binary_type:
+        if hasattr(channel, 'encode'):
             channel = channel.encode()
 
         self.check_up_to_date()
