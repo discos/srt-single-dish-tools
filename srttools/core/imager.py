@@ -25,6 +25,7 @@ import warnings
 import logging
 import traceback
 from .global_fit import fit_full_image
+import six
 
 
 class ScanSet(Table):
@@ -36,6 +37,17 @@ class ScanSet(Table):
         self.norefilt = norefilt
         self.freqsplat = freqsplat
 
+        if isinstance(data, six.string_types) and data.endswith('hdf5'):
+            data = Table.read(data, path='scanset')
+
+            txtfile = data.meta['scan_list_file']
+
+            print("loading scan list")
+            with open(txtfile, 'r') as fobj:
+                self.scan_list = []
+                for i in fobj.readlines():
+                    self.scan_list.append(i.strip())
+
         if isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
             if config_file is not None:
@@ -43,6 +55,7 @@ class ScanSet(Table):
                 self.meta.update(config)
 
             self.create_wcs()
+
         else:  # data is a config file
             config_file = data
             config = read_config(config_file)
@@ -71,6 +84,7 @@ class ScanSet(Table):
 
             Table.__init__(self, scan_table)
             self.scan_list = scan_list
+            print(self.scan_list)
             self.meta['scan_list_file'] = None
             self.meta.update(config)
             self.meta['config_file'] = get_config_file()
@@ -436,7 +450,7 @@ class ScanSet(Table):
 
         self.interactive_display(ch=ch, recreate=True)
 
-    def find_scans_through_pixel(self, x, y):
+    def find_scans_through_pixel(self, x, y, test=False):
         """Find scans passing through a pixel."""
         ra_xs = {}
         ra_ys = {}
@@ -447,7 +461,11 @@ class ScanSet(Table):
         dec_masks = {}
         vars_to_filter = {}
 
-        ch = self.current
+        if not test:
+            ch = self.current
+        else:
+            ch = 'Ch0'
+
         feed = list(set(self[ch+'_feed']))[0]
 
         # Select data inside the pixel +- 1
@@ -547,8 +565,8 @@ class ScanSet(Table):
             for i in self.scan_list:
                 print(i, file=fobj)
 
-        t = Table(self)
-        t.write(fname, path='scanset', **kwargs)
+        # t = Table(self)
+        Table.write(self, fname, path='scanset', **kwargs)
 
     def load(self, fname, **kwargs):
         """Set default path and call Table.read."""
@@ -566,7 +584,6 @@ class ScanSet(Table):
         except:
             self.meta['scan_list_file'] = None
         return self
-
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None):
@@ -598,7 +615,7 @@ class ScanSet(Table):
         hdulist.writeto(fname, clobber=True)
 
 
-def main_imager(args=None):
+def main_imager(args=None):  # pragma: no cover
     """Main function."""
     import argparse
 
@@ -698,7 +715,7 @@ def main_imager(args=None):
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate)
 
 
-def main_preprocess(args=None):
+def main_preprocess(args=None):  # pragma: no cover
     """Preprocess the data."""
     import argparse
 
