@@ -5,7 +5,7 @@ import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import EarthLocation, AltAz
+from astropy.coordinates import EarthLocation, AltAz, Angle
 import os
 from astropy.time import Time
 
@@ -13,6 +13,8 @@ DEBUG_MODE = False
 
 locations = {'SRT': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                   unit=u.m),
+             'Medicina': EarthLocation(Angle("44:31:15", u.deg),
+                                       Angle("11:38:49", u.deg), 25 * u.meter),
              'Greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
 
 
