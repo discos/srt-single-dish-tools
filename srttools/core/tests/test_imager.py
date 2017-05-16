@@ -71,7 +71,7 @@ class TestScanSet(object):
         fig = plt.figure('img_altaz')
         plt.imshow(img, origin='lower')
         plt.colorbar()
-        plt.savefig('img_altax.png')
+        plt.savefig('img_altaz.png')
         plt.close(fig)
 
     def test_4_image_stdev(self):
@@ -142,7 +142,7 @@ class TestScanSet(object):
     def teardown_class(klass):
         """Clean up the mess."""
         os.unlink('img.png')
-        os.unlink('img_altax.png')
+        os.unlink('img_altaz.png')
         os.unlink('img_scrunch.png')
         os.unlink('img_scrunch_sdev.png')
         os.unlink('img_sdev.png')
