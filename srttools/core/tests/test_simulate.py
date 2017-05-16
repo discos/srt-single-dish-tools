@@ -6,7 +6,7 @@ import os
 
 
 def _2d_gauss(x, y):
-    return 100 * np.exp(- (x ** 2 + y ** 2) / 8)
+    return 100 * np.exp(- ((x - 180) ** 2 + (y - 70) ** 2) / 0.1**2)
 
 
 class TestSimulate(object):
@@ -31,7 +31,7 @@ class TestSimulate(object):
     def test_sim_map_gauss(self):
         """Test the simulation of an map with a large Gaussian PSF."""
         simulate_map(width_ra=5, width_dec=6., count_map=_2d_gauss,
-                     outdir=self.gaussdir)
+                     outdir=self.gaussdir, mean_ra=180, mean_dec=70)
 
     @classmethod
     def teardown_class(cls):
