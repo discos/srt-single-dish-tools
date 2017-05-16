@@ -84,7 +84,7 @@ class ScanSet(Table):
 
             Table.__init__(self, scan_table)
             self.scan_list = scan_list
-            print(self.scan_list)
+
             self.meta['scan_list_file'] = None
             self.meta.update(config)
             self.meta['config_file'] = get_config_file()
@@ -93,6 +93,10 @@ class ScanSet(Table):
             self.analyze_coordinates(altaz=True)
 
             self.convert_coordinates()
+
+        if not 'altaz' in self["x"].meta:
+            self['x'].meta['altaz'] = False
+            self['y'].meta['altaz'] = False
 
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
@@ -226,12 +230,14 @@ class ScanSet(Table):
 
         self['x'] = np.zeros_like(self[hor])
         self['y'] = np.zeros_like(self[ver])
-        coords = np.degrees(self.get_coordinates())
+        coords = np.degrees(self.get_coordinates(altaz=altaz))
         for f in range(len(self[hor][0, :])):
             pixcrd = self.wcs.wcs_world2pix(coords[:, f], 0)
 
             self['x'][:, f] = pixcrd[:, 0]
             self['y'][:, f] = pixcrd[:, 1]
+        self['x'].meta['altaz'] = altaz
+        self['y'].meta['altaz'] = altaz
 
     def calculate_images(self, scrunch=False, no_offsets=False, altaz=False,
                          calibration=None):
@@ -240,6 +246,10 @@ class ScanSet(Table):
         scrunch:         sum all channels
         no_offsets:      use positions from feed 0 for all feeds.
         """
+        if altaz != self['x'].meta['altaz']:
+            print("Converting")
+            self.convert_coordinates(altaz)
+
         images = {}
 
         xbins = np.linspace(0,
