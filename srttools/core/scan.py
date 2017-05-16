@@ -280,8 +280,8 @@ class Scan(Table):
                 logging.info('Loading file {}'.format(data))
             table = read_data(data)
             Table.__init__(self, table, masked=True, **kwargs)
-            self.meta['filename'] = os.path.abspath(data)
-
+            if not data.endswith('hdf5'):
+                self.meta['filename'] = os.path.abspath(data)
             self.meta['config_file'] = config_file
 
             self.meta.update(read_config(self.meta['config_file']))
@@ -419,7 +419,8 @@ class Scan(Table):
     def write(self, fname, **kwargs):
         """Set default path and call Table.write."""
         logging.info('Saving to {}'.format(fname))
-        Table.write(self, fname, path='scan', **kwargs)
+
+        Table.write(self, fname, path='scan', serialize_meta=True, **kwargs)
 
     def check_order(self):
         """Check that times in a scan are monotonically increasing."""
