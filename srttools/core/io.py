@@ -100,7 +100,7 @@ def read_data_fitszilla(fname):
 
     # ----------- Extract generic observation information ------------------
     source = lchdulist[0].header['SOURCE']
-    site = lchdulist[0].header['ANTENNA']
+    site = lchdulist[0].header['ANTENNA'].lower()
     receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
     ra = lchdulist[0].header['HIERARCH RIGHTASCENSION']
     dec = lchdulist[0].header['HIERARCH DECLINATION']
@@ -204,7 +204,7 @@ def read_data_fitszilla(fname):
         obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
         coords = AltAz(az=new_table['az'][:, i],
                        alt=new_table['el'][:, i], unit=u.radian,
-                       location=locations[site.lower()],
+                       location=locations[site],
                        obstime=obstimes)
 
         # According to line_profiler, coords.icrs is *by far* the longest
