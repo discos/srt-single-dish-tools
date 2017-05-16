@@ -47,6 +47,8 @@ class Test1_Scan(object):
         scan = Scan(self.fname)
 
         scan.write('scan.hdf5', overwrite=True)
+        scan2 = Scan('scan.hdf5')
+        assert scan.meta == scan2.meta
 
     @classmethod
     def teardown_class(klass):

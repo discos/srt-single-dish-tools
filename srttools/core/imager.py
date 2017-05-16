@@ -110,12 +110,13 @@ class ScanSet(Table):
         allhor = self[hor]
         allver = self[ver]
 
-        self.meta['mean_' + hor] = np.mean(allhor)
-        self.meta['mean_' + ver] = np.mean(allver)
-        self.meta['min_' + hor] = np.min(allhor)
-        self.meta['min_' + ver] = np.min(allver)
-        self.meta['max_' + hor] = np.max(allhor)
-        self.meta['max_' + ver] = np.max(allver)
+        # These seemingly useless float() calls are needed for serialize_meta
+        self.meta['mean_' + hor] = float(np.mean(allhor))
+        self.meta['mean_' + ver] = float(np.mean(allver))
+        self.meta['min_' + hor] = float(np.min(allhor))
+        self.meta['min_' + ver] = float(np.min(allver))
+        self.meta['max_' + hor] = float(np.max(allhor))
+        self.meta['max_' + ver] = float(np.max(allver))
 
     def list_scans(self, datadir, dirlist):
         """List all scans contained in the directory listed in config."""
@@ -566,7 +567,7 @@ class ScanSet(Table):
                 print(i, file=fobj)
 
         # t = Table(self)
-        Table.write(self, fname, path='scanset', **kwargs)
+        Table.write(self, fname, path='scanset', serialize_meta=True, **kwargs)
 
     def load(self, fname, **kwargs):
         """Set default path and call Table.read."""

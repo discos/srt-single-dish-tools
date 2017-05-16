@@ -220,15 +220,16 @@ def read_data_fitszilla(fname):
         new_table['Ch{}'.format(ch)] = \
             data_table_data['Ch{}'.format(ch).lower()] * relpowers[feeds[ic]]
 
-        new_table['Ch{}'.format(ch)].meta = {'polarization': polarizations[ic],
-                                             'feed': feeds[ic],
-                                             'IF': IFs[ic],
-                                             'frequency': frequencies[ic],
-                                             'bandwidth': bandwidths[ic],
-                                             'xoffset': xoffsets[feeds[ic]],
-                                             'yoffset': yoffsets[feeds[ic]],
-                                             'relpower': relpowers[feeds[ic]]
-                                             }
+        newmeta = {'polarization': polarizations[ic],
+                   'feed': int(feeds[ic]),
+                   'IF': int(IFs[ic]),
+                   'frequency': float(frequencies[ic]),
+                   'bandwidth': float(bandwidths[ic]),
+                   'xoffset': float(xoffsets[feeds[ic]]),
+                   'yoffset': float(yoffsets[feeds[ic]]),
+                   'relpower': float(relpowers[feeds[ic]])
+                   }
+        new_table['Ch{}'.format(ch)].meta.update(newmeta)
         new_table['Ch{}_feed'.format(ch)] = \
             np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
 
