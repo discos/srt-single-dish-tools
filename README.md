@@ -53,4 +53,4 @@ To update the code, simply run `git pull` and reinstall:
 
 ### Contribution guidelines ###
 
-See the [Wiki on Bitbucket](https://bitbucket.org/mbachett/srt-single-dish-tools/wiki/Home)
+[Why writing contribution guidelines, when Astropy has made such a good job already?](http://docs.astropy.org/en/stable/development/codeguide.html)
