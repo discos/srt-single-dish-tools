@@ -76,7 +76,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None,
 
     obstimes = Time((times / 86400 + 57000) * u.day, format='mjd', scale='utc')
 
-    coords = SkyCoord(ra, dec, unit=u.degree, location=locations['SRT'],
+    coords = SkyCoord(ra, dec, unit=u.degree, location=locations['srt'],
                       obstime=obstimes)
 
     altaz = coords.altaz
