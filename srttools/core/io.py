@@ -11,11 +11,11 @@ from astropy.time import Time
 
 DEBUG_MODE = False
 
-locations = {'SRT': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
+locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                   unit=u.m),
-             'Medicina': EarthLocation(Angle("44:31:15", u.deg),
+             'medicina': EarthLocation(Angle("44:31:15", u.deg),
                                        Angle("11:38:49", u.deg), 25 * u.meter),
-             'Greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
+             'greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
 
 
 def mkdir_p(path):
@@ -100,6 +100,7 @@ def read_data_fitszilla(fname):
 
     # ----------- Extract generic observation information ------------------
     source = lchdulist[0].header['SOURCE']
+    site = lchdulist[0].header['ANTENNA']
     receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
     ra = lchdulist[0].header['HIERARCH RIGHTASCENSION']
     dec = lchdulist[0].header['HIERARCH DECLINATION']
@@ -157,6 +158,7 @@ def read_data_fitszilla(fname):
     new_table = Table()
 
     new_table.meta['SOURCE'] = source
+    new_table.meta['site'] = site
     new_table.meta['backend'] = backend
     new_table.meta['receiver'] = receiver
     new_table.meta['RA'] = ra
@@ -202,7 +204,7 @@ def read_data_fitszilla(fname):
         obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
         coords = AltAz(az=new_table['az'][:, i],
                        alt=new_table['el'][:, i], unit=u.radian,
-                       location=locations['SRT'],
+                       location=locations[site.lower()],
                        obstime=obstimes)
 
         # According to line_profiler, coords.icrs is *by far* the longest
