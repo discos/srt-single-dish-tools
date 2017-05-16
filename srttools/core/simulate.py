@@ -66,6 +66,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None,
     lchdulist = fits.open(template)
     datahdu = lchdulist['DATA TABLE']
     lchdulist[0].header['SOURCE'] = "Dummy"
+    lchdulist[0].header['ANTENNA'] = "SRT"
     lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.radians(np.mean(ra))
     lchdulist[0].header['HIERARCH DECLINATION'] = np.radians(np.mean(dec))
     if scan_type is not None:
