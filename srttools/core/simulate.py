@@ -73,8 +73,6 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None,
 
     data_table_data = Table(datahdu.data)
 
-    location = locations["SRT"]
-
     obstimes = Time((times / 86400 + 57000) * u.day, format='mjd', scale='utc')
 
     coords = SkyCoord(ra, dec, unit=u.degree, location=locations['SRT'],
@@ -84,7 +82,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None,
     el = altaz.alt
     az = altaz.az
     newtable = Table(names=['time', 'raj2000', 'decj2000', "el", "az"],
-                     data=[times, np.radians(ra), np.radians(dec), np.radians(el), np.radians(az)])
+                     data=[obstimes.value, np.radians(ra), np.radians(dec), np.radians(el), np.radians(az)])
 
     for ch in channels.keys():
         newtable[ch] = channels[ch]
