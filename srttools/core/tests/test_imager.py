@@ -37,6 +37,7 @@ class TestScanSet(object):
         for k in scanset.meta.keys():
            assert np.all(scanset.meta[k] == self.scanset.meta[k])
         assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
+        assert scanset.scan_list == self.scanset.scan_list
 
     def test_2_rough_image(self):
         '''Test image production.'''
