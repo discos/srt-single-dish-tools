@@ -39,19 +39,23 @@ def _interpret_frequency_range(freqsplat, bandwidth, nbin):
     return freqmin, freqmax, binmin, binmax
 
 
-def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth, good_mask=None, freqsplat=None,
-                                  noise_threshold=5, debug=True, nofilt=False, outfile="out", label=""):
+def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
+                                  good_mask=None, freqsplat=None,
+                                  noise_threshold=5, debug=True, nofilt=False,
+                                  outfile="out", label=""):
     if len(dynamical_spectrum.shape) == 1:
         return None
     _, nbin = dynamical_spectrum.shape
 
-    times = length * np.arange(dynamical_spectrum.shape[0]) / dynamical_spectrum.shape[0]
+    dynspec_len = dynamical_spectrum.shape[0]
+    times = length * np.arange(dynspec_len) / dynspec_len
     lc = np.sum(dynamical_spectrum, axis=1)
     lc = baseline_als(times, lc)
     lcbins = np.arange(len(lc))
     meanspec = np.sum(dynamical_spectrum, axis=0) / len(dynamical_spectrum)
     spectral_var = \
-        np.mean(np.sqrt((dynamical_spectrum - meanspec) ** 2 / meanspec ** 2), axis=0)
+        np.mean(np.sqrt((dynamical_spectrum - meanspec) ** 2 / meanspec ** 2),
+                axis=0)
 
     df = bandwidth / len(meanspec)
     allbins = np.arange(len(meanspec)) * df
@@ -108,8 +112,6 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth, good_ma
     lc_corr = np.sum(dynamical_spectrum[:, wholemask], axis=1)
 
     bad_intervals = contiguous_regions(np.logical_not(wholemask))
-    # if debug:
-    #     ax_lc.plot(baseline_als(times, lc_corr), lcbins, color="k", zorder=10)
 
     total_fill_lc = 0
     for b in bad_intervals:
@@ -128,13 +130,16 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth, good_ma
             continue
         total_fill_lc += fill_lc * (b[1] - b[0])
 
-    cleaned_meanspec = np.sum(cleaned_dynamical_spectrum, axis=0) / len(cleaned_dynamical_spectrum)
-    cleaned_varimg = np.sqrt((cleaned_dynamical_spectrum - cleaned_meanspec) ** 2 / cleaned_meanspec ** 2)
+    cleaned_meanspec = \
+        np.sum(cleaned_dynamical_spectrum,
+               axis=0) / len(cleaned_dynamical_spectrum)
+    cleaned_varimg = \
+        np.sqrt((cleaned_dynamical_spectrum - cleaned_meanspec) ** 2 / \
+                cleaned_meanspec ** 2)
     cleaned_spectral_var = \
-        np.mean(np.sqrt((dynamical_spectrum - cleaned_meanspec) ** 2 / cleaned_meanspec ** 2), axis=0)
+        np.mean(np.sqrt((dynamical_spectrum - cleaned_meanspec) ** 2 / \
+                        cleaned_meanspec ** 2), axis=0)
 
-    # if debug:
-    #     ax_lc.plot(total_fill_lc, lcbins, color="k", zorder=10)
     lc_corr += total_fill_lc
 
     lc_corr = baseline_als(times, lc_corr)
@@ -189,7 +194,8 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth, good_ma
         ax_var.axvline(freqmin)
         ax_var.axvline(freqmax)
         ax_var.plot(allbins[mask], spectral_var[mask])
-        ax_var.plot(allbins[mask], cleaned_spectral_var[mask], zorder=10, color="k")
+        ax_var.plot(allbins[mask], cleaned_spectral_var[mask],
+                    zorder=10, color="k")
         ax_var.plot(allbins[1:], baseline[1:])
         ax_var.plot(allbins[1:], baseline[1:] + 2 * noise_threshold * stdref)
         minb = np.min(baseline[1:])
@@ -374,10 +380,14 @@ class Scan(Table):
         chans = self.chan_columns()
         for ic, ch in enumerate(chans):
             results = \
-                _clean_scan_using_variability(self[ch], self['time'], self[ch].meta['bandwidth'],
-                                              good_mask=good_mask, freqsplat=freqsplat,
-                                              noise_threshold=noise_threshold, debug=debug, nofilt=nofilt,
-                                              outfile=root_name(self.meta['filename']), label=ic)
+                _clean_scan_using_variability(self[ch], self['time'],
+                                              self[ch].meta['bandwidth'],
+                                              good_mask=good_mask,
+                                              freqsplat=freqsplat,
+                                              noise_threshold=noise_threshold,
+                                              debug=debug, nofilt=nofilt,
+                                              outfile=root_name(self.meta['filename']),
+                                              label=ic)
 
             if results is None:
                 continue
