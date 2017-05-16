@@ -34,7 +34,7 @@ class TestCoords(unittest.TestCase):
         obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
 
         print(obstimes)
-        altaz = probe_location.transform_to(AltAz(location=locations['SRT'],
+        altaz = probe_location.transform_to(AltAz(location=locations['srt'],
                                                   obstime=obstimes))
         print(altaz.alt, altaz.alt.unit)
         print(new_table['el'][:, 0].to(u.deg))
