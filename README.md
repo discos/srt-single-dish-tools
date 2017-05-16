@@ -1,4 +1,6 @@
 # SRT Single dish tools #
+![status](https://gitlab.com/matteobachetti/srt-single-dish-tools/badges/master/build.svg)
+![coverage](https://gitlab.com/matteobachetti/srt-single-dish-tools/badges/master/coverage.svg)
 
 ## Installation
 
@@ -9,36 +11,36 @@ We strongly suggest to install the
 Once the installation has finished, you should have a working `conda`
 command in your shell. First of all, create a new environment:
 
-    $ conda create -n py35 python=3.5
+    $ conda create -n py3 python=3
 
 load the new environment:
 
-    $ source activate py35
+    $ source activate py3
 
 and install the dependencies:
 
-    (py35) $ conda install matplotlib h5py astropy scipy numpy
+    (py3) $ conda install matplotlib h5py astropy scipy numpy
 
 ### Cloning and installation
 
 Clone the repository:
 
-    (py35) $ cd /my/software/directory/
-    (py35) $ git clone https://username@bitbucket.org/mbachett/srt-single-dish-tools.git
+    (py3) $ cd /my/software/directory/
+    (py3) $ git clone https://matteobachetti@gitlab.com/matteobachetti/srt-single-dish-tools.git
 
-or if you have deployed your SSH key to Bitbucket:
+or if you have deployed your SSH key to Gitlab:
 
-    (py35) $ git clone git@bitbucket.org:mbachett/srt-single-dish-tools.git
+    (py3) $ git git@gitlab.com:matteobachetti/srt-single-dish-tools.git
 
 Then:
 
-    (py35) $ cd srt-single-dish-tools
-    (py35) $ python setup.py install
+    (py3) $ cd srt-single-dish-tools
+    (py3) $ python setup.py install
 
 That's it. After installation has ended, you can verify that software is
 installed by executing:
 
-    (py35) $ SDTlcurve -h
+    (py3) $ SDTlcurve -h
 
 If the help message appears, you're done!
 
@@ -46,8 +48,8 @@ If the help message appears, you're done!
 
 To update the code, simply run `git pull` and reinstall:
 
-    (py35) $ git pull
-    (py35) $ python setup.py install
+    (py3) $ git pull
+    (py3) $ python setup.py install
 
 ### Contribution guidelines ###
 
