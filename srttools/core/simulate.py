@@ -51,7 +51,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None,
     Parameters
     ----------
     times : iterable
-        times corresponding to each bin center
+        times corresponding to each bin center, in seconds
     ra : iterable
         RA corresponding to each bin center
     dec : iterable
@@ -75,7 +75,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None,
 
     location = locations["SRT"]
 
-    obstimes = Time(times / 86400 * u.day, format='mjd', scale='utc')
+    obstimes = Time((times / 86400 + 57000) * u.day, format='mjd', scale='utc')
 
     coords = SkyCoord(ra, dec, unit=u.degree, location=locations['SRT'],
                       obstime=obstimes)
@@ -108,8 +108,10 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None,
     lchdulist.writeto(filename, clobber=True)
 
 
-def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5, count_map=None, noise_amplitude=1.,
-                 width_ra=None, width_dec=None, outdir='sim/', baseline="flat"):
+def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
+                 spacing=0.5, count_map=None, noise_amplitude=1.,
+                 width_ra=None, width_dec=None, outdir='sim/',
+                 baseline="flat", mean_ra=180, mean_dec=70):
 
     """Simulate a map.
 
@@ -155,8 +157,10 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
     nbins_dec = np.int(np.rint(length_dec / speed / dt))
 
     times = np.arange(nbins_ra) * dt
-    position_ra = np.arange(-nbins_ra / 2, nbins_ra / 2) / nbins_ra * length_ra / 60  # In degrees!
-    position_dec = np.arange(-nbins_dec / 2, nbins_dec / 2) / nbins_dec * length_dec / 60  # In degrees!
+    position_ra = mean_ra + \
+        np.arange(-nbins_ra / 2, nbins_ra / 2) / nbins_ra * length_ra / 60  # In degrees!
+    position_dec = mean_dec + \
+        np.arange(-nbins_dec / 2, nbins_dec / 2) / nbins_dec * length_dec / 60  # In degrees!
 
     if width_dec is None:
         width_dec = length_ra
@@ -165,10 +169,9 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
     # Dec scans
     fig = plt.figure()
 
-    for i_d, start_dec in enumerate(np.arange(-width_dec / 2 , width_dec / 2 + spacing, spacing) / 60):
+    for i_d, start_dec in enumerate(mean_dec + np.arange(-width_dec / 2 , width_dec / 2 + spacing, spacing) / 60):
         m = ra.uniform(mmin, mmax)
         q = ra.uniform(qmin, qmax)
-        print(m, q)
         stochastic = np.cumsum(np.random.choice([-1, 1], nbins_ra)) * stochastic_amp / np.sqrt(nbins_ra)
 
         baseline = m * position_ra + q + stochastic
@@ -180,10 +183,9 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4., spacing=0.5
         plt.plot(position_ra, counts)
 
     # RA scans
-    for i_r, start_ra in enumerate(np.arange(-width_ra / 2 , width_ra / 2 + spacing, spacing) / 60):
+    for i_r, start_ra in enumerate(mean_ra + np.arange(-width_ra / 2 , width_ra / 2 + spacing, spacing) / 60):
         m = ra.uniform(mmin, mmax)
         q = ra.uniform(qmin, qmax)
-        print(m, q)
 
         stochastic = np.cumsum(np.random.choice([-1, 1], nbins_dec)) * stochastic_amp / np.sqrt(nbins_dec)
 
