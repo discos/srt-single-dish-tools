@@ -328,7 +328,8 @@ class ScanSet(Table):
         """Fit a linear trend to each scan to minimize the scatter in the image."""
 
         if not hasattr(self, 'images'):
-            self.calculate_images(scrunch=scrunch, no_offsets=no_offsets, altaz=altaz,
+            self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
+                                  altaz=altaz,
                                   calibration=calibration)
 
         if chans is not None:
@@ -648,6 +649,10 @@ def main_imager(args=None):  # pragma: no cover
                         action='store_true',
                         help='Re-run the scan filtering')
 
+    parser.add_argument("--altaz", default=False,
+                        action='store_true',
+                        help='Do images in Az-El coordinates')
+
     parser.add_argument("--sub", default=False,
                         action='store_true',
                         help='Subtract the baseline from single scans')
@@ -717,13 +722,19 @@ def main_imager(args=None):  # pragma: no cover
             nexc = len(args.exclude)
             assert nexc % 3 == 0, \
                 ("Exclusion region has to be specified as centerX0, centerY0, "
-                 "radius0, centerX1, centerY1, radius1, ... (in X,Y coordinates)")
-            excluded = np.array([np.float(e) for e in args.exclude]).reshape((nexc // 3, 3))
+                 "radius0, centerX1, centerY1, radius1, ... "
+                 "(in X,Y coordinates)")
+            excluded = \
+                np.array([np.float(e)
+                          for e in args.exclude]).reshape((nexc // 3, 3))
 
-        scanset.fit_full_images(excluded=excluded, chans=args.chans)
-        scanset.write(outfile.replace('.hdf5', '_baselinesub.hdf5'), overwrite=True)
+        scanset.fit_full_images(excluded=excluded, chans=args.chans,
+                                altaz=args.altaz)
+        scanset.write(outfile.replace('.hdf5', '_baselinesub.hdf5'),
+                      overwrite=True)
 
-    scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate)
+    scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate,
+                            altaz=args.altaz)
 
 
 def main_preprocess(args=None):  # pragma: no cover
