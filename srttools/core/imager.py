@@ -191,13 +191,16 @@ class ScanSet(Table):
             self['delta_az'][:,f] = (self['az'][:,f] - ref_az) * np.cos(ref_el)
             self['delta_el'][:,f] = self['el'][:,f] - ref_el
 
-        # plt.figure("adsfasdfasd")
-        # plt.plot(self['delta_az'], self['delta_el'])
-        #
-        # plt.figure("adsfasdf")
-        # plt.plot(self['az'], self['el'])
-        # plt.plot(ref_az, ref_el)
-        # plt.show()
+        fig1 = plt.figure("adsfasdfasd")
+        plt.plot(self['delta_az'], self['delta_el'])
+        plt.savefig('delta_altaz.png')
+        plt.close(fig1)
+
+        fig2 = plt.figure("adsfasdf")
+        plt.plot(self['az'], self['el'])
+        plt.plot(ref_az, ref_el)
+        plt.savefig('altaz_with_src.png')
+        plt.close(fig2)
 
     def create_wcs(self, altaz=False):
         """Create a wcs object from the pointing information."""
