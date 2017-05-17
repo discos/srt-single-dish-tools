@@ -4,12 +4,16 @@ from __future__ import (absolute_import, division,
                         print_function)
 
 from ..read_config import read_config
-
+from astropy.time import Time
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 import pytest
 
 from ..scan import Scan
 from ..io import print_obs_info_fitszilla
+from ..io import locations
 import os
+import numpy as np
 
 
 class Test1_Scan(object):
@@ -49,6 +53,20 @@ class Test1_Scan(object):
         scan.write('scan.hdf5', overwrite=True)
         scan2 = Scan('scan.hdf5')
         assert scan.meta == scan2.meta
+
+    def test_coordinate_conversion_works(self):
+        scan = Scan(self.fname)
+        obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
+        ref_coords = SkyCoord(ra=scan['ra'][:,0],
+                              dec=scan['dec'][:,0],
+                              obstime=obstimes,
+                              location=locations[scan.meta['site']]
+                              )
+        altaz = ref_coords.altaz
+        assert np.allclose(altaz.az.rad, np.array(scan['az'][:,0]))
+        assert np.allclose(altaz.alt.rad, np.array(scan['el'][:,0]))
+
+
 
     @classmethod
     def teardown_class(klass):
