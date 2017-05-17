@@ -72,6 +72,7 @@ class TestScanSet(object):
         plt.imshow(img, origin='lower')
         plt.colorbar()
         plt.savefig('img_altaz.png')
+        scanset.save_ds9_images(save_sdev=True, altaz=True)
         plt.close(fig)
 
     def test_4_image_stdev(self):
