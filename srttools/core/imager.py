@@ -13,6 +13,7 @@ import numpy as np
 from astropy import wcs
 from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
+import astropy.units as u
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
@@ -115,14 +116,16 @@ class ScanSet(Table):
 
         allhor = self[hor]
         allver = self[ver]
+        hor_unit = self[hor].unit
+        ver_unit = self[ver].unit
 
         # These seemingly useless float() calls are needed for serialize_meta
-        self.meta['mean_' + hor] = float(np.mean(allhor))
-        self.meta['mean_' + ver] = float(np.mean(allver))
-        self.meta['min_' + hor] = float(np.min(allhor))
-        self.meta['min_' + ver] = float(np.min(allver))
-        self.meta['max_' + hor] = float(np.max(allhor))
-        self.meta['max_' + ver] = float(np.max(allver))
+        self.meta['mean_' + hor] = float(np.mean(allhor)) * hor_unit
+        self.meta['mean_' + ver] = float(np.mean(allver)) * ver_unit
+        self.meta['min_' + hor] = float(np.min(allhor)) * hor_unit
+        self.meta['min_' + ver] = float(np.min(allver)) * ver_unit
+        self.meta['max_' + hor] = float(np.max(allhor)) * hor_unit
+        self.meta['max_' + ver] = float(np.max(allver)) * ver_unit
 
         if 'reference_ra' not in self.meta:
             self.meta['reference_ra'] = self.meta['RA']
@@ -168,25 +171,33 @@ class ScanSet(Table):
         """
         from astropy.time import Time
         from astropy.coordinates import SkyCoord, AltAz
-        import astropy.units as u
+
         from .io import locations
         obstimes = Time((self['time']) * u.day, format='mjd', scale='utc')
-        ref_coords = SkyCoord(ra=self.meta['reference_ra'] * u.rad,
-                              dec=self.meta['reference_dec'] * u.rad,
+        ref_coords = SkyCoord(ra=self.meta['reference_ra'],
+                              dec=self.meta['reference_dec'],
                               obstime=obstimes,
                               location=locations[self.meta['site']]
                               )
         ref_altaz_coords = ref_coords.altaz
-        ref_az = ref_altaz_coords.az.rad
-        ref_el = ref_altaz_coords.alt.rad
+        ref_az = ref_altaz_coords.az.to(u.rad)
+        ref_el = ref_altaz_coords.alt.to(u.rad)
 
-        self.meta['reference_delta_az'] = 0
-        self.meta['reference_delta_el'] = 0
+        self.meta['reference_delta_az'] = ref_az.mean()
+        self.meta['reference_delta_el'] = ref_el.mean()
         self['delta_az'] = np.zeros_like(self['az'])
         self['delta_el'] = np.zeros_like(self['el'])
         for f in range(len(self['el'][0, :])):
             self['delta_az'][:,f] = (self['az'][:,f] - ref_az) * np.cos(ref_el)
             self['delta_el'][:,f] = self['el'][:,f] - ref_el
+
+        # plt.figure("adsfasdfasd")
+        # plt.plot(self['delta_az'], self['delta_el'])
+        #
+        # plt.figure("adsfasdf")
+        # plt.plot(self['az'], self['el'])
+        # plt.plot(ref_az, ref_el)
+        # plt.show()
 
     def create_wcs(self, altaz=False):
         """Create a wcs object from the pointing information."""
@@ -212,12 +223,13 @@ class ScanSet(Table):
 
         # TODO: check consistency of units
         # Here I'm assuming all angles are radians
-        crval = np.array([self.meta['reference_' + hor],
-                          self.meta['reference_' + ver]])
+        crval = np.array([self.meta['reference_' + hor].to(u.rad).value,
+                          self.meta['reference_' + ver].to(u.rad).value])
 
         self.wcs.wcs.crval = np.degrees(crval)
 
-        cdelt = np.array([-pixel_size, pixel_size])
+        cdelt = np.array([-pixel_size.to(u.rad).value,
+                          pixel_size.to(u.rad).value])
         self.wcs.wcs.cdelt = np.degrees(cdelt)
 
         self.wcs.wcs.ctype = \
