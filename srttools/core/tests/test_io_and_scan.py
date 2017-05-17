@@ -117,8 +117,9 @@ class Test2_Scan(object):
                               location=locations[scan.meta['site']]
                               )
         altaz = ref_coords.altaz
-        assert np.allclose(altaz.az.rad, np.array(scan['az'][:,0]))
-        assert np.allclose(altaz.alt.rad, np.array(scan['el'][:,0]))
+
+        assert np.all(np.abs((altaz.az.to(u.rad) - scan['az'][:,0]).to(u.arcsec).value) < 1)
+        assert np.all(np.abs((altaz.alt.to(u.rad) - scan['el'][:,0]).to(u.arcsec).value) < 1)
 
     @classmethod
     def teardown_class(klass):

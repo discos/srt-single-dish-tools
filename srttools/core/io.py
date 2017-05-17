@@ -13,8 +13,9 @@ DEBUG_MODE = False
 
 locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                   unit=u.m),
-             'medicina': EarthLocation(Angle("44:31:15", u.deg),
-                                       Angle("11:38:49", u.deg), 25 * u.meter),
+             'medicina': EarthLocation(Angle("11:38:49", u.deg),
+                                       Angle("44:31:15", u.deg),
+                                       25 * u.meter),
              'greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
 
 
@@ -198,10 +199,10 @@ def read_data_fitszilla(fname):
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
 
-    new_table['ra'] += ra_offset
-    new_table['dec'] += dec_offset
-    new_table['el'] += el_offset
-    new_table['az'] += az_offset
+    # new_table['ra'] += ra_offset
+    # new_table['dec'] += dec_offset
+    # new_table['el'] += el_offset
+    # new_table['az'] += az_offset
 
     # Coordinate correction. Will it work?
     for i in range(0, new_table['el'].shape[1]):
