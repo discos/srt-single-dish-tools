@@ -104,6 +104,11 @@ def read_data_fitszilla(fname):
     receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
     ra = lchdulist[0].header['HIERARCH RIGHTASCENSION'] * u.rad
     dec = lchdulist[0].header['HIERARCH DECLINATION'] * u.rad
+    ra_offset = lchdulist[0].header['HIERARCH RightAscension Offset'] * u.rad
+    dec_offset = lchdulist[0].header['HIERARCH Declination Offset'] * u.rad
+    az_offset = lchdulist[0].header['HIERARCH Azimuth Offset'] * u.rad
+    el_offset = lchdulist[0].header['HIERARCH Elevation Offset'] * u.rad
+
     # Check. If backend is not specified, use Total Power
     try:
         backend = lchdulist[0].header['HIERARCH BACKEND NAME']
@@ -174,16 +179,16 @@ def read_data_fitszilla(fname):
     # Duplicate raj and decj columns (in order to be corrected later)
     new_table['ra'] = \
         np.tile(data_table_data['raj2000'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (np.max(feeds) + 1, 1)).transpose() - ra_offset
     new_table['dec'] = \
         np.tile(data_table_data['decj2000'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (np.max(feeds) + 1, 1)).transpose() - dec_offset
     new_table['el'] = \
         np.tile(data_table_data['el'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (np.max(feeds) + 1, 1)).transpose() - el_offset
     new_table['az'] = \
         np.tile(data_table_data['az'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (np.max(feeds) + 1, 1)).transpose() - az_offset
 
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian 
