@@ -14,6 +14,7 @@ from ..io import print_obs_info_fitszilla
 from ..io import locations
 import os
 import numpy as np
+import glob
 
 
 class Test1_Scan(object):
@@ -106,8 +107,25 @@ class Test2_Scan(object):
         scan.write('scan.hdf5', overwrite=True)
         scan.baseline_subtract('rough')
 
+    @pytest.mark.parametrize('fname', ['srt_data.fits', 'med_data.fits'])
+    def test_coordinate_conversion_works(self, fname):
+        scan = Scan(os.path.join(self.datadir, 'spectrum', fname))
+        obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
+        ref_coords = SkyCoord(ra=scan['ra'][:,0],
+                              dec=scan['dec'][:,0],
+                              obstime=obstimes,
+                              location=locations[scan.meta['site']]
+                              )
+        altaz = ref_coords.altaz
+        assert np.allclose(altaz.az.rad, np.array(scan['az'][:,0]))
+        assert np.allclose(altaz.alt.rad, np.array(scan['el'][:,0]))
+
     @classmethod
     def teardown_class(klass):
         """Cleanup."""
         os.unlink('scan.hdf5')
+        for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.pdf')):
+            os.unlink(f)
+        for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.hdf5')):
+            os.unlink(f)
 
