@@ -22,6 +22,7 @@ from matplotlib.gridspec import GridSpec
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import logging
+import astropy.units as u
 
 try:
     import cPickle as pickle
@@ -246,24 +247,24 @@ class SourceTable(Table):
                     fit_ra = bell.mean
                     fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
                     fit_dec = None
-                    ra_err = fit_ra - pnt_ra
+                    ra_err = fit_ra * u.degree - pnt_ra
                     dec_err = None
                     if plot:
                         plt.axvline(fit_ra, label="RA Fit", ls="-")
                     if plot:# and np.abs(ra_err) < fit_width:
-                        plt.axvline(pnt_ra, label="RA Pnt", ls="--")
+                        plt.axvline(pnt_ra.to(u.deg).value, label="RA Pnt", ls="--")
                     plt.xlim([fit_ra - 2, fit_ra + 2])
 
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
                     fit_dec = bell.mean
                     fit_width = bell.stddev
-                    dec_err = fit_dec - pnt_dec
+                    dec_err = fit_dec * u.degree - pnt_dec
                     ra_err = None
                     if plot:
                         plt.axvline(fit_dec, label="Dec Fit", ls="-")
                     if plot:# and np.abs(dec_err) < fit_width:
-                        plt.axvline(pnt_dec, label="Dec Pnt", ls="--")
+                        plt.axvline(pnt_dec.to(u.deg).value, label="Dec Pnt", ls="--")
                     plt.xlim([fit_dec - 2, fit_dec + 2])
 
                 index = pnames.index("amplitude_1")

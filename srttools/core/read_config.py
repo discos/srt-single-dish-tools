@@ -6,6 +6,7 @@ import os
 import glob
 import warnings
 import numpy as np
+import astropy.units as u
 # For Python 2 and 3 compatibility
 try:
     import configparser
@@ -151,7 +152,7 @@ def read_config(fname=None):
              if os.path.isdir(f)]  # only if it's a directory
 
     config_output['pixel_size'] = \
-        float(np.radians(float(config_output['pixel_size']) / 60))
+        float(np.radians(float(config_output['pixel_size']) / 60)) * u.rad
 
     if config_output['goodchans'] is not None:
         config_output['goodchans'] = \
