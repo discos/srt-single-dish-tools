@@ -90,7 +90,6 @@ class ScanSet(Table):
             self.meta['config_file'] = get_config_file()
 
             self.analyze_coordinates(altaz=False)
-            self.analyze_coordinates(altaz=True)
 
             self.convert_coordinates()
 
@@ -107,9 +106,12 @@ class ScanSet(Table):
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
         if altaz:
-            hor, ver = 'az', 'el'
+            hor, ver = 'delta_az', 'delta_el'
         else:
             hor, ver = 'ra', 'dec'
+
+        if 'delta_az' not in self.columns and altaz:
+            self.calculate_delta_altaz()
 
         allhor = self[hor]
         allver = self[ver]
@@ -121,6 +123,11 @@ class ScanSet(Table):
         self.meta['min_' + ver] = float(np.min(allver))
         self.meta['max_' + hor] = float(np.max(allhor))
         self.meta['max_' + ver] = float(np.max(allver))
+
+        if 'reference_ra' not in self.meta:
+            self.meta['reference_ra'] = self.meta['RA']
+        if 'reference_dec' not in self.meta:
+            self.meta['reference_dec'] = self.meta['Dec']
 
     def list_scans(self, datadir, dirlist):
         """List all scans contained in the directory listed in config."""
@@ -153,14 +160,45 @@ class ScanSet(Table):
             return np.array(np.dstack([self['ra'],
                                        self['dec']]))
 
+    def calculate_delta_altaz(self):
+        """Construction of delta altaz coordinates.
+        
+        Calculate the delta of altazimutal coordinates wrt the position 
+        of the source
+        """
+        from astropy.time import Time
+        from astropy.coordinates import SkyCoord, AltAz
+        import astropy.units as u
+        from .io import locations
+        obstimes = Time((self['time']) * u.day, format='mjd', scale='utc')
+        ref_coords = SkyCoord(ra=self.meta['reference_ra'] * u.rad,
+                              dec=self.meta['reference_dec'] * u.rad,
+                              obstime=obstimes,
+                              location=locations[self.meta['site']]
+                              )
+        ref_altaz_coords = ref_coords.altaz
+        ref_az = ref_altaz_coords.az.rad
+        ref_el = ref_altaz_coords.alt.rad
+
+        self.meta['reference_delta_az'] = 0
+        self.meta['reference_delta_el'] = 0
+        self['delta_az'] = np.zeros_like(self['az'])
+        self['delta_el'] = np.zeros_like(self['el'])
+        for f in range(len(self['el'][0, :])):
+            self['delta_az'][:,f] = (self['az'][:,f] - ref_az) * np.cos(ref_el)
+            self['delta_el'][:,f] = self['el'][:,f] - ref_el
+
     def create_wcs(self, altaz=False):
         """Create a wcs object from the pointing information."""
         if altaz:
-            hor, ver = 'az', 'el'
+            hor, ver = 'delta_az', 'delta_el'
         else:
             hor, ver = 'ra', 'dec'
         pixel_size = self.meta['pixel_size']
         self.wcs = wcs.WCS(naxis=2)
+
+        if 'max_' + hor not in self.meta:
+            self.analyze_coordinates(altaz)
 
         delta_hor = self.meta['max_' + hor] - self.meta['min_' + hor]
         delta_ver = self.meta['max_' + ver] - self.meta['min_' + ver]
@@ -172,15 +210,11 @@ class ScanSet(Table):
 
         self.wcs.wcs.crpix = self.meta['npix'] / 2
 
-        if not hasattr(self.meta, 'reference_' + hor):
-            self.meta['reference_' + hor] = self.meta['mean_' + hor]
-        if not hasattr(self.meta, 'reference_' + ver):
-            self.meta['reference_' + ver] = self.meta['mean_' + ver]
-
         # TODO: check consistency of units
         # Here I'm assuming all angles are radians
         crval = np.array([self.meta['reference_' + hor],
                           self.meta['reference_' + ver]])
+
         self.wcs.wcs.crval = np.degrees(crval)
 
         cdelt = np.array([-pixel_size, pixel_size])
@@ -223,7 +257,7 @@ class ScanSet(Table):
     def convert_coordinates(self, altaz=False):
         """Convert the coordinates from sky to pixel."""
         if altaz:
-            hor, ver = 'az', 'el'
+            hor, ver = 'delta_az', 'delta_el'
         else:
             hor, ver = 'ra', 'dec'
         self.create_wcs(altaz)
