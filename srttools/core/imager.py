@@ -157,8 +157,8 @@ class ScanSet(Table):
     def get_coordinates(self, altaz=False):
         """Give the coordinates as pairs of RA, DEC."""
         if altaz:
-            return np.array(np.dstack([self['az'],
-                                       self['el']]))
+            return np.array(np.dstack([self['delta_az'],
+                                       self['delta_el']]))
         else:
             return np.array(np.dstack([self['ra'],
                                        self['dec']]))
@@ -183,8 +183,8 @@ class ScanSet(Table):
         ref_az = ref_altaz_coords.az.to(u.rad)
         ref_el = ref_altaz_coords.alt.to(u.rad)
 
-        self.meta['reference_delta_az'] = ref_az.mean()
-        self.meta['reference_delta_el'] = ref_el.mean()
+        self.meta['reference_delta_az'] = 0*u.rad # ref_az.mean()
+        self.meta['reference_delta_el'] = 0*u.rad # ref_el.mean()
         self['delta_az'] = np.zeros_like(self['az'])
         self['delta_el'] = np.zeros_like(self['el'])
         for f in range(len(self['el'][0, :])):
@@ -650,7 +650,10 @@ class ScanSet(Table):
                         no_offsets=False, altaz=False, calibration=None):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
-            fname = self.meta['config_file'].replace('ini','fits')
+            tail = '.fits'
+            if altaz:
+                tail = '_altaz.fits'
+            fname = self.meta['config_file'].replace('.ini', tail)
         images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
                                        altaz=altaz, calibration=calibration)
         self.create_wcs(altaz)
