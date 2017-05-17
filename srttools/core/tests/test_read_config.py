@@ -7,6 +7,7 @@ import numpy as np
 
 from ..read_config import read_config
 import os
+import astropy.units as u
 
 
 class TestConfig(object):
@@ -22,7 +23,7 @@ class TestConfig(object):
 
         config = read_config(fname)
 
-        np.testing.assert_almost_equal(config['pixel_size'],
+        np.testing.assert_almost_equal(config['pixel_size'].to(u.rad).value,
                                        np.radians(0.5 / 60))
         assert config['interpolation'] == 'spline'
 
@@ -32,7 +33,7 @@ class TestConfig(object):
 
         config = read_config(fname)
 
-        np.testing.assert_almost_equal(config['pixel_size'],
+        np.testing.assert_almost_equal(config['pixel_size'].to(u.rad).value,
                                        np.radians(1 / 60))
         assert config['interpolation'] == 'linear'
 
