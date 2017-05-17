@@ -80,10 +80,10 @@ def save_scan(times, ra, dec, channels, filename='out.fits', other_columns=None,
                       obstime=obstimes)
 
     altaz = coords.altaz
-    el = altaz.alt
-    az = altaz.az
+    el = altaz.alt.rad
+    az = altaz.az.rad
     newtable = Table(names=['time', 'raj2000', 'decj2000', "el", "az"],
-                     data=[obstimes.value, np.radians(ra), np.radians(dec), np.radians(el), np.radians(az)])
+                     data=[obstimes.value, np.radians(ra), np.radians(dec), el, az])
 
     for ch in channels.keys():
         newtable[ch] = channels[ch]
