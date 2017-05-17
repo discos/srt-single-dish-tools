@@ -66,7 +66,10 @@ def detect_data_kind(fname):
 
 
 def correct_offsets(derot_angle, xoffset, yoffset):
-    """Correct feed offsets for derotation angle."""
+    """Correct feed offsets for derotation angle.
+    
+    All angles are in radians.
+    """
     # Clockwise rotation of angle derot_angle
     new_xoff = xoffset * np.cos(derot_angle) - yoffset * np.sin(derot_angle)
     new_yoff = xoffset * np.sin(derot_angle) + yoffset * np.cos(derot_angle)
@@ -174,6 +177,9 @@ def read_data_fitszilla(fname):
     new_table.meta['receiver'] = receiver
     new_table.meta['RA'] = ra
     new_table.meta['Dec'] = dec
+    for i, off in zip("ra,dec,el,az".split(','),
+                      [ra_offset, dec_offset, el_offset, az_offset]):
+        new_table.meta[i + "_offset"] = off
 
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]
@@ -198,11 +204,6 @@ def read_data_fitszilla(fname):
 
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
-
-    # new_table['ra'] += ra_offset
-    # new_table['dec'] += dec_offset
-    # new_table['el'] += el_offset
-    # new_table['az'] += az_offset
 
     # Coordinate correction. Will it work?
     for i in range(0, new_table['el'].shape[1]):
