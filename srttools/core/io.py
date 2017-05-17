@@ -102,8 +102,8 @@ def read_data_fitszilla(fname):
     source = lchdulist[0].header['SOURCE']
     site = lchdulist[0].header['ANTENNA'].lower()
     receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
-    ra = lchdulist[0].header['HIERARCH RIGHTASCENSION']
-    dec = lchdulist[0].header['HIERARCH DECLINATION']
+    ra = lchdulist[0].header['HIERARCH RIGHTASCENSION'] * u.rad
+    dec = lchdulist[0].header['HIERARCH DECLINATION'] * u.rad
     # Check. If backend is not specified, use Total Power
     try:
         backend = lchdulist[0].header['HIERARCH BACKEND NAME']
