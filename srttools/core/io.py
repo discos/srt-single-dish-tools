@@ -5,7 +5,7 @@ import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import EarthLocation, AltAz, Angle
+from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS
 import os
 from astropy.time import Time
 
@@ -280,30 +280,32 @@ def read_data_fitszilla(fname):
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
 
-    # Calculate observing angle
-    obs_angle = observing_angle(get_rest_angle(xoffsets, yoffsets),
-                                new_table['derot_angle'])
-
+    rest_angles = get_rest_angle(xoffsets, yoffsets)
     for i in range(0, new_table['el'].shape[1]):
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
         if xoffsets[i] < np.radians(0.001 / 60.) * u.rad and \
            yoffsets[i] < np.radians(0.001 / 60.) * u.rad:
             continue
+
+        # Calculate observing angle
+        obs_angle = observing_angle(rest_angles[i], new_table['derot_angle'])
+
         xoffs, yoffs = correct_offsets(obs_angle, xoffsets[i], yoffsets[i])
 
         new_table['el'][:, i] += yoffs
         new_table['az'][:, i] += xoffs / np.cos(new_table['el'][:, i])
 
         obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
-        coords = AltAz(az=new_table['az'][:, i],
-                       alt=new_table['el'][:, i], unit=u.radian,
+
+        coords = AltAz(az=Angle(new_table['az'][:, i]),
+                       alt=Angle(new_table['el'][:, i]),
                        location=locations[site],
                        obstime=obstimes)
 
         # According to line_profiler, coords.icrs is *by far* the longest
         # operation in this function, taking between 80 and 90% of the
         # execution time. Need to study a way to avoid this.
-        coords_deg = coords.icrs
+        coords_deg = coords.transform_to(ICRS)
         new_table['ra'][:, i] = np.radians(coords_deg.ra)
         new_table['dec'][:, i] = np.radians(coords_deg.dec)
 
