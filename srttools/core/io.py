@@ -65,16 +65,90 @@ def detect_data_kind(fname):
         return 'fitszilla'
 
 
-def correct_offsets(derot_angle, xoffset, yoffset):
+def correct_offsets(obs_angle, xoffset, yoffset):
     """Correct feed offsets for derotation angle.
-    
+
     All angles are in radians.
+
+    Examples
+    --------
+    >>> np.allclose(correct_offsets(np.pi / 4, 2 ** 0.5, 2 ** 0.5), np.sqrt(2))
+    True
+
     """
-    # Clockwise rotation of angle derot_angle
-    new_xoff = xoffset * np.cos(derot_angle) - yoffset * np.sin(derot_angle)
-    new_yoff = xoffset * np.sin(derot_angle) + yoffset * np.cos(derot_angle)
+    sep = np.sqrt(xoffset**2. + yoffset**2.)
+
+    new_xoff = sep * np.cos(obs_angle)
+    new_yoff = sep * np.sin(obs_angle)
 
     return new_xoff, new_yoff
+
+
+def observing_angle(rest_angle, derot_angle):
+    """Calculate the observing angle of the multifeed.
+    
+    If values have no units, they are assumed in radians
+    
+    Parameters
+    ----------
+    rest_angle : float or Astropy quantity, angle 
+        rest angle of the feeds
+    derot_angle : float or Astropy quantity, angle
+        derotator angle
+    
+    Examples
+    --------
+    >>> observing_angle(0 * u.rad, 2 * np.pi * u.rad).to(u.rad).value
+    0.0
+    >>> observing_angle(0, 2 * np.pi).to(u.rad).value
+    0.0
+    
+    """
+    if not hasattr(rest_angle, 'unit'):
+        rest_angle *= u.rad
+    if not hasattr(derot_angle, 'unit'):
+        derot_angle *= u.rad
+    return rest_angle + (2 * np.pi * u.rad - derot_angle)
+
+
+def _rest_angle_default(n_lat_feeds):
+    """Default rest angles for a multifeed, in units of a circle
+
+    Assumes uniform coverage.
+
+    Examples
+    --------
+    >>> _rest_angle_default(5)
+    array([ 1. ,  0.8,  0.6,  0.4,  0.2])
+    >>> _rest_angle_default(6) * 360
+    array([ 360.,  300.,  240.,  180.,  120.,   60.])
+    """
+    return np.arange(1, 0, -1 / n_lat_feeds)
+
+
+def get_rest_angle(xoffsets, yoffsets):
+    """Calculate the rest angle for multifeed.
+
+    The first feed is assumed to be at position 0, for it the return value is 0
+    
+    Examples
+    --------
+    >>> xoffsets = [0.0, -0.0382222, -0.0191226, 0.0191226, 0.0382222, 0.0191226, -0.0191226]
+    >>> yoffsets = [0.0, 0.0, 0.0331014, 0.0331014, 0.0, -0.0331014, -0.0331014]
+    >>> get_rest_angle(xoffsets, yoffsets).to(u.deg).value
+    array([   0.,  180.,  120.,   60.,  360.,  300.,  240.])
+
+    """
+    if len(xoffsets) == 1:
+        return 0
+    xoffsets = np.asarray(xoffsets)
+    yoffsets = np.asarray(yoffsets)
+    n_lat_feeds = len(xoffsets) - 1
+    rest_angle_default = _rest_angle_default(n_lat_feeds) * 2 * np.pi * u.rad
+    w_0 = np.where((xoffsets[1:] > 0) & (yoffsets[1:] == 0.))[0][0]
+    return np.concatenate(([0],
+                           np.roll(rest_angle_default.to(u.rad).value,
+                                   w_0))) * u.rad
 
 
 def print_obs_info_fitszilla(fname):
@@ -138,8 +212,9 @@ def read_data_fitszilla(fname):
 
     # ----- Read the offsets of different feeds (nonzero only if multifeed)--
     feed_input_data = lchdulist['FEED TABLE'].data
-    xoffsets = feed_input_data['xOffset']
-    yoffsets = feed_input_data['yOffset']
+    # Add management of historical offsets
+    xoffsets = feed_input_data['xOffset'] * u.rad
+    yoffsets = feed_input_data['yOffset'] * u.rad
 
     if DEBUG_MODE and len(xoffsets) > 1:
         xoffsets, yoffsets = _standard_offsets()
@@ -205,18 +280,18 @@ def read_data_fitszilla(fname):
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
 
-    # Coordinate correction. Will it work?
+    # Calculate observing angle
+    obs_angle = observing_angle(get_rest_angle(xoffsets, yoffsets),
+                                new_table['derot_angle'])
+
     for i in range(0, new_table['el'].shape[1]):
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
-        if xoffsets[i] < np.radians(0.001 / 60.) and \
-           yoffsets[i] < np.radians(0.001 / 60.):
+        if xoffsets[i] < np.radians(0.001 / 60.) * u.rad and \
+           yoffsets[i] < np.radians(0.001 / 60.) * u.rad:
             continue
-        xoffs, yoffs = correct_offsets(new_table['derot_angle'],
-                                       xoffsets[i],
-                                       yoffsets[i])
+        xoffs, yoffs = correct_offsets(obs_angle, xoffsets[i], yoffsets[i])
 
         new_table['el'][:, i] += yoffs
-        # TODO: Not sure about this cosine factor
         new_table['az'][:, i] += xoffs / np.cos(new_table['el'][:, i])
 
         obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
@@ -242,15 +317,16 @@ def read_data_fitszilla(fname):
         new_table['Ch{}'.format(ch)] = \
             data_table_data['Ch{}'.format(ch).lower()] * relpowers[feeds[ic]]
 
-        newmeta = {'polarization': polarizations[ic],
-                   'feed': int(feeds[ic]),
-                   'IF': int(IFs[ic]),
-                   'frequency': float(frequencies[ic]),
-                   'bandwidth': float(bandwidths[ic]),
-                   'xoffset': float(xoffsets[feeds[ic]]),
-                   'yoffset': float(yoffsets[feeds[ic]]),
-                   'relpower': float(relpowers[feeds[ic]])
-                   }
+        newmeta = \
+            {'polarization': polarizations[ic],
+             'feed': int(feeds[ic]),
+             'IF': int(IFs[ic]),
+             'frequency': float(frequencies[ic]),
+             'bandwidth': float(bandwidths[ic]),
+             'xoffset': float(xoffsets[feeds[ic]].to(u.rad).value) * u.rad,
+             'yoffset': float(yoffsets[feeds[ic]].to(u.rad).value) * u.rad,
+             'relpower': float(relpowers[feeds[ic]])
+             }
         new_table['Ch{}'.format(ch)].meta.update(newmeta)
         new_table['Ch{}_feed'.format(ch)] = \
             np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
