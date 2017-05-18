@@ -13,9 +13,13 @@ DEBUG_MODE = False
 
 locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                   unit=u.m),
-             'medicina' : EarthLocation(4461342.935, 919591.056, 4449531.445,
-                                        unit = u.m),
+             'medicina': EarthLocation(Angle("11:38:49", u.deg),
+                                       Angle("44:31:15", u.deg),
+                                       25 * u.meter),
              'greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
+
+#              'medicina' : EarthLocation(4461342.935, 919591.056, 4449531.445,
+#                                         unit = u.m),
 
 
 def mkdir_p(path):
