@@ -195,10 +195,12 @@ class SourceTable(Table):
             except KeyError as e:
                 warnings.warn("Error while processing {}: {}".format(s,
                                                                      str(e)))
+                continue
             except Exception as e:
                 traceback.print_exc()
                 warnings.warn("Error while processing {}: {}".format(s,
                                                                      str(e)))
+                continue
 
             feeds = np.arange(scan['ra'].shape[1])
             chans = scan.chan_columns()
