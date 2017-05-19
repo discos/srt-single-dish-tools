@@ -1,4 +1,4 @@
-"""Functions to clean up images by fitting linear trends to the initial scans."""
+"""Functions to clean images by fitting linear trends to the initial scans."""
 
 from __future__ import (absolute_import, division,
                         print_function)
@@ -9,7 +9,7 @@ from .histograms import histogram2d
 import numpy as np
 
 
-@vectorize ('(float64(float64,float64,float64,float64))', nopython=True)
+@vectorize('(float64(float64,float64,float64,float64))', nopython=True)
 def _align_fast(x, scan, m, q):
     """Align ``scan`` to a linear function."""
     return scan - x * m - q
@@ -32,7 +32,7 @@ def _get_coords(xedges, yedges):
     return XBUFFER, YBUFFER
 
 
-EXPOMAP=None
+EXPOMAP = None
 
 
 def _calculate_image(x, y, counts, bx, by, nsamp):
@@ -43,8 +43,9 @@ def _calculate_image(x, y, counts, bx, by, nsamp):
         EXPOMAP, xedges, yedges = histogram2d(x, y, bins=(bx, by),
                                               weights=nsamp)
 
-    histograms, xedges, yedges = histogram2d(x, y, bins=(bx, by),
-                                             weights=[counts * nsamp, (counts) ** 2 * nsamp])
+    histograms, xedges, yedges = \
+        histogram2d(x, y, bins=(bx, by),
+                    weights=[counts * nsamp, (counts) ** 2 * nsamp])
 
     img, img_var = histograms
     X, Y = _get_coords(xedges, yedges)
@@ -59,7 +60,7 @@ def _calculate_image(x, y, counts, bx, by, nsamp):
     return X, Y, mean.T, img_var.T
 
 
-@jit #(nopython=True)
+@jit  # (nopython=True)
 def _align_all(newd_t, newd_c, data_idx, par):
     ms = np.zeros_like(newd_c, dtype=np.float64)
     qs = np.zeros_like(newd_c, dtype=np.float64)
@@ -98,7 +99,8 @@ def _save_iteration(par):
     print(iteration, end="\r")
     if iteration % 2 == 0:
         _save_intermediate("out_iter_{}_{:03d}.txt".format(CURR_CHANNEL,
-                                                         iteration), par)
+                                                           iteration), par)
+
 
 def _obj_fun(par, data, data_idx, excluded, bx, by):
     """
@@ -122,7 +124,8 @@ def _obj_fun(par, data, data_idx, excluded, bx, by):
     newd_t, newd_i, newd_x, newd_y, newd_c, newd_e = data
 
     newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
-    X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by, newd_e)
+    X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by,
+                                          newd_e)
 
     good = np.ones_like(img, dtype=bool)
     if excluded is not None:
@@ -259,7 +262,8 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
         times[good] = filt_t
         par[i_p * 2 + 1] = counts[good][0]
 
-    data_to_fit = [np.array(times, dtype=np.float64), idxs, X, Y, np.array(counts, dtype=np.float64)]
+    data_to_fit = [np.array(times, dtype=np.float64), idxs, X, Y,
+                   np.array(counts, dtype=np.float64)]
 
     data, bx, by = _resample_scans(data_to_fit)
 
@@ -267,9 +271,10 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
     data_idx_resamp = _get_data_idx(par, i)
 
-    _callback = lambda x : _save_iteration(x * count_range)
+    def _callback(x): return _save_iteration(x * count_range)
 
-    res = minimize(_obj_fun, par, args=(data, data_idx_resamp, excluded, bx, by),
+    res = minimize(_obj_fun, par,
+                   args=(data, data_idx_resamp, excluded, bx, by),
                    method="SLSQP", callback=_callback)
 
     new_counts = _align_all(times, counts, data_idx, res.x)
@@ -278,7 +283,8 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     return new_counts * count_range
 
 
-def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=None, factor=1):
+def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None,
+                         parfile=None, factor=1):
     """Get a clean image by subtracting linear trends from the initial scans.
 
     Parameters
@@ -322,7 +328,8 @@ def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=Non
     data_idx = _get_data_idx(par, newd_i)
 
     newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
-    X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by, newd_e)
+    X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by,
+                                          newd_e)
 
     good = np.ones_like(img, dtype=bool)
     if excluded is not None:
@@ -347,5 +354,3 @@ def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None, parfile=Non
 
     fig.savefig(parfile.replace(".txt", ".png"))
     plt.close(fig)
-
-

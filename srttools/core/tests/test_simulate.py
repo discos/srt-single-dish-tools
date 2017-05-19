@@ -21,7 +21,8 @@ class TestSimulate(object):
     def test_sim_scan(self):
         """Test the simulation of a single scan."""
         times, position, shape = simulate_scan()
-        save_scan(times, position, np.zeros_like(position), {'Ch0': shape, 'Ch1': shape},
+        save_scan(times, position, np.zeros_like(position),
+                  {'Ch0': shape, 'Ch1': shape},
                   os.path.join(self.outdir, 'output.fits'))
 
     def test_sim_map_empty(self):
@@ -36,4 +37,3 @@ class TestSimulate(object):
     @classmethod
     def teardown_class(cls):
         shutil.rmtree(cls.outdir)
-

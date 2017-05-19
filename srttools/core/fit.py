@@ -64,7 +64,6 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=False):
         q0 = min(lc)
         start_pars = [q0, m0]
 
-
     nbin = len(time)
     #    bins = np.arange(nbin, dtype=int)
     lc = lc.copy()
@@ -115,8 +114,7 @@ def purge_outliers(y):
     diffs_after = np.array(diffs)[1:]
     sign_rule = np.sign(diffs_before) != np.sign(diffs_after)
     outliers = (np.abs(diffs_before) > 10 * min_diff) & \
-               (np.abs(diffs_after) > 10 * min_diff) & \
-               sign_rule
+               (np.abs(diffs_after) > 10 * min_diff) & sign_rule
     outlier_idxs = idxs[:-1][outliers]
     for i in outlier_idxs:
         y[i] = (y[i - 1] + y[i + 1]) / 2
@@ -131,9 +129,12 @@ def _als(y, lam, p, niter=10):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
     Modifications to the routine from Eilers & Boelens 2005
-    https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
+    https://www.researchgate.net/publication/
+        228961729_Technical_Report_Baseline_Correction_with_
+        Asymmetric_Least_Squares_Smoothing
     The Python translation is partly from
-    http://stackoverflow.com/questions/29156532/python-baseline-correction-library
+    http://stackoverflow.com/questions/29156532/
+        python-baseline-correction-library
     """
     from scipy import sparse
     L = len(y)
@@ -147,7 +148,8 @@ def _als(y, lam, p, niter=10):
     return z
 
 
-def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False, offset_correction=True,
+def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
+                 offset_correction=True,
                  outlier_purging=True):
     """Baseline Correction with Asymmetric Least Squares Smoothing."""
 
@@ -276,4 +278,3 @@ def align(xs, ys):
     ms = result.x[len(xs) - 1:]
 
     return qs, ms
-

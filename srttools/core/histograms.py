@@ -1,7 +1,8 @@
 #  From https://gist.github.com/neothemachine/e625cb7777376899adca
 
 '''
-This module contains a fast replacement for numpy's histogramdd and histogram2d.
+This module contains a fast replacement for numpy's histogramdd and
+histogram2d.
 Two changes were made. The first was replacing
 
 np.digitize(a, b)
@@ -15,7 +16,8 @@ The speedup is around 2x for big number of bins (roughly >100).
 It assumes that the bins are monotonic.
 
 The other change is to allow lists of weight arrays. This is advantageous for
-resampling as there is just one set of coordinates but several data arrays (=weights).
+resampling as there is just one set of coordinates but several data arrays
+(=weights).
 Therefore repeated computations are prevented.
 '''
 
@@ -28,6 +30,7 @@ from numpy import atleast_2d, asarray, zeros, ones, array, atleast_1d, arange,\
     searchsorted
 
 __doctest_skip__ = ['*']
+
 
 def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
     """
@@ -103,7 +106,8 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
             W = len(weights)
 
     if W == -1 and weights.ndim != 1:
-        raise AttributeError('Weights must be a 1D-array, None, or a list of both')
+        raise AttributeError('Weights must be a 1D-array, None, or '
+                             'a list of both')
 
     nbin = empty(D, int)
     edges = D*[None]
@@ -172,7 +176,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
 
     # Handle empty input.
     if N == 0:
-        if W is not None and W > 0 :
+        if W is not None and W > 0:
             return [np.zeros(nbin-2) for _ in arange(W)], edges
         else:
             return np.zeros(nbin-2), edges
@@ -182,7 +186,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
     for i in arange(D):
         # searchsorted is faster for many bins
         Ncount[i] = searchsorted(edges[i], sample[:, i], "right")
-        #Ncount[i] = digitize(sample[:, i], edges[i])
+        # Ncount[i] = digitize(sample[:, i], edges[i])
 
     # Using digitize, values that fall on an edge are put in the right bin.
     # For the rightmost bin, we want values equal to the right
@@ -194,7 +198,8 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
             decimal = int(-log10(mindiff)) + 6
             # Find which points are on the rightmost edge.
             not_smaller_than_edge = (sample[:, i] >= edges[i][-1])
-            on_edge = (around(sample[:, i], decimal) == around(edges[i][-1], decimal))
+            on_edge = (around(sample[:, i], decimal) ==
+                       around(edges[i][-1], decimal))
             # Shift these points one bin to the left.
             Ncount[i][where(on_edge & not_smaller_than_edge)[0]] -= 1
 
@@ -208,7 +213,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
     # Compute the number of repetitions in xy and assign it to the
     # flattened histmat.
     if len(xy) == 0:
-        if W is not None and W > 0 :
+        if W is not None and W > 0:
             return [np.zeros(nbin-2) for _ in arange(W)], edges
         else:
             return zeros(nbin-2, int), edges
@@ -216,10 +221,10 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
     # Flattened histogram matrix (1D)
     # Reshape is used so that overlarge arrays
     # will raise an error.
-    Wd = W if (W is not None and W > 0)  else 1
+    Wd = W if (W is not None and W > 0) else 1
     hists = [zeros(nbin, float).reshape(-1) for _ in arange(Wd)]
     for histidx, hist in enumerate(hists):
-        weights_ = weights[histidx] if (W is not None and W > 0)  else weights
+        weights_ = weights[histidx] if (W is not None and W > 0) else weights
         flatcount = bincount(xy, weights_)
         a = arange(len(flatcount))
         hist[a] = flatcount
@@ -247,7 +252,8 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
 
         if (hist.shape != nbin - 2).any():
             raise RuntimeError(
-                "Internal Shape Error: hist.shape != nbin-2 -> " + str(hist.shape) + " != " + str(nbin-2))
+                "Internal Shape Error: hist.shape != nbin-2 -> " +
+                str(hist.shape) + " != " + str(nbin-2))
 
         hists[histidx] = hist
 
@@ -255,6 +261,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
         return hists[0], edges
     else:
         return hists, edges
+
 
 def histogram2d(x, y, bins=10, range=None, normed=False, weights=None):
     """

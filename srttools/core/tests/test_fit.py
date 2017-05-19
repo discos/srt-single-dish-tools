@@ -25,7 +25,8 @@ class TestFit(object):
         series2 = purge_outliers(series)
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])
-        np.testing.assert_almost_equal(series2[10], (series[9] + series[11]) / 2)
+        np.testing.assert_almost_equal(series2[10],
+                                       (series[9] + series[11]) / 2)
 
     def test_outliers2(self):
         """Test that outlier detection works."""
@@ -34,7 +35,8 @@ class TestFit(object):
         series2 = purge_outliers(series)
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])
-        np.testing.assert_almost_equal(series2[10], (series[9] + series[11]) / 2)
+        np.testing.assert_almost_equal(series2[10],
+                                       (series[9] + series[11]) / 2)
 
     def test_outliers3(self):
         """Test that outlier detection works."""
@@ -80,4 +82,3 @@ class TestFit(object):
 
         np.testing.assert_allclose(qs, [-60, 60], atol=3)
         np.testing.assert_allclose(ms, [0.3, -0.8], atol=0.05)
-

@@ -4,6 +4,7 @@ import numpy as np
 
 np.random.seed(1742956)
 
+
 class TestHist(object):
     @classmethod
     def setup_class(klass):
@@ -14,7 +15,6 @@ class TestHist(object):
         klass.a = np.random.poisson(100, klass.N)
         klass.b = np.random.poisson(100, klass.N)
         klass.bins = np.linspace(50, 150, 51)
-
 
     def test_hist_numbers(self):
         hnum, xbnum, ybnum = np.histogram2d(self.a,
@@ -37,5 +37,3 @@ class TestHist(object):
                                         bins=(self.bins, self.bins),
                                         weights=w, normed=True)
         np.testing.assert_equal(hnum, hh)
-
-

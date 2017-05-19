@@ -36,4 +36,3 @@ class TestConfig(object):
         np.testing.assert_almost_equal(config['pixel_size'].to(u.rad).value,
                                        np.radians(1 / 60))
         assert config['interpolation'] == 'linear'
-

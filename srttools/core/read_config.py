@@ -116,12 +116,14 @@ def read_config(fname=None):
 
     config_output.update(local_params)
     if not config_output['workdir'].startswith('/'):
-        config_output['workdir'] = os.path.abspath(os.path.join(os.path.split(fname)[0],
-                                                                config_output['workdir']))
+        config_output['workdir'] = \
+            os.path.abspath(os.path.join(os.path.split(fname)[0],
+                                         config_output['workdir']))
 
     if not config_output['datadir'].startswith('/'):
-        config_output['datadir'] = os.path.abspath(os.path.join(os.path.split(fname)[0],
-                                                                config_output['datadir']))
+        config_output['datadir'] = \
+            os.path.abspath(os.path.join(os.path.split(fname)[0],
+                                         config_output['datadir']))
 
     # Read analysis information
     analysis_params = dict(Config.items('analysis'))

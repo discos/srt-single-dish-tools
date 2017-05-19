@@ -64,11 +64,13 @@ class TestCalibration(object):
         os.unlink('calibration_summary.png')
         os.unlink(os.path.join(klass.datadir, 'calibrators.hdf5'))
         for d in klass.config['list_of_directories']:
-            hfiles = glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
+            hfiles = \
+                glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
             for h in hfiles:
                 os.unlink(h)
 
-            dirs = glob.glob(os.path.join(klass.config['datadir'], d, '*_scanfit'))
+            dirs = \
+                glob.glob(os.path.join(klass.config['datadir'], d,
+                                       '*_scanfit'))
             for dirname in dirs:
                 shutil.rmtree(dirname)
-

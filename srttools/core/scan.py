@@ -134,17 +134,17 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         np.sum(cleaned_dynamical_spectrum,
                axis=0) / len(cleaned_dynamical_spectrum)
     cleaned_varimg = \
-        np.sqrt((cleaned_dynamical_spectrum - cleaned_meanspec) ** 2 / \
+        np.sqrt((cleaned_dynamical_spectrum - cleaned_meanspec) ** 2 /
                 cleaned_meanspec ** 2)
     cleaned_spectral_var = \
-        np.mean(np.sqrt((dynamical_spectrum - cleaned_meanspec) ** 2 / \
+        np.mean(np.sqrt((dynamical_spectrum - cleaned_meanspec) ** 2 /
                         cleaned_meanspec ** 2), axis=0)
 
     lc_corr += total_fill_lc
 
     lc_corr = baseline_als(times, lc_corr)
 
-    results = type('test', (), {})() # create empty object
+    results = type('test', (), {})()  # create empty object
     results.lc = lc_corr
     results.freqmin = freqmin
     results.freqmax = freqmax
@@ -154,7 +154,7 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         ax_meanspec.axvline(freqmin)
         ax_meanspec.axvline(freqmax)
         ax_meanspec.plot(allbins[mask], meanspec[mask],
-                 label="Final mask")
+                         label="Final mask")
         # ax_meanspec.legend()
 
         try:
@@ -162,18 +162,18 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         except:
             cmap = plt.get_cmap("gnuplot2")
         ax_dynspec.imshow(varimg, origin="lower", aspect='auto',
-                   cmap=cmap,
-                   vmin=mean_varimg - 5 * std_varimg,
-                   vmax=mean_varimg + 5 * std_varimg,
-                   extent=(0, bandwidth,
-                           0, varimg.shape[0]), interpolation='none')
+                          cmap=cmap,
+                          vmin=mean_varimg - 5 * std_varimg,
+                          vmax=mean_varimg + 5 * std_varimg,
+                          extent=(0, bandwidth,
+                                  0, varimg.shape[0]), interpolation='none')
 
         ax_cleanspec.imshow(cleaned_varimg, origin="lower", aspect='auto',
-                   cmap=cmap,
-                   vmin=mean_varimg - 5 * std_varimg,
-                   vmax=mean_varimg + 5 * std_varimg,
-                   extent=(0, bandwidth,
-                           0, varimg.shape[0]), interpolation='none')
+                            cmap=cmap,
+                            vmin=mean_varimg - 5 * std_varimg,
+                            vmax=mean_varimg + 5 * std_varimg,
+                            extent=(0, bandwidth,
+                                    0, varimg.shape[0]), interpolation='none')
 
         for b in bad_intervals:
             maxsp = np.max(meanspec)
@@ -227,7 +227,9 @@ def contiguous_regions(condition):
 
     Notes
     -----
-    From http://stackoverflow.com/questions/4494404/find-large-number-of-consecutive-values-fulfilling-condition-in-a-numpy-array
+    From http://stackoverflow.com/questions/4494404/
+        find-large-number-of-consecutive-values-fulfilling-
+        condition-in-a-numpy-array
     """  # NOQA
     # Find the indicies of changes in "condition"
     diff = np.diff(condition)
@@ -341,8 +343,8 @@ class Scan(Table):
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
-    def clean_and_splat(self, good_mask=None, freqsplat=None, noise_threshold=5,
-                        debug=True,
+    def clean_and_splat(self, good_mask=None, freqsplat=None,
+                        noise_threshold=5, debug=True,
                         save_spectrum=False, nofilt=False):
         """Clean from RFI.
 
@@ -354,7 +356,8 @@ class Scan(Table):
             this mask specifies intervals that should never be discarded as
             RFI, for example because they contain spectral lines
         noise_threshold : float
-            The threshold, in sigmas, over which a given channel is considered noisy
+            The threshold, in sigmas, over which a given channel is
+            considered noisy
         freqsplat : str
             Specification of frequency interval to merge into a single channel
 
@@ -380,14 +383,15 @@ class Scan(Table):
         chans = self.chan_columns()
         for ic, ch in enumerate(chans):
             results = \
-                _clean_scan_using_variability(self[ch], self['time'],
-                                              self[ch].meta['bandwidth'],
-                                              good_mask=good_mask,
-                                              freqsplat=freqsplat,
-                                              noise_threshold=noise_threshold,
-                                              debug=debug, nofilt=nofilt,
-                                              outfile=root_name(self.meta['filename']),
-                                              label=ic)
+                _clean_scan_using_variability(
+                    self[ch], self['time'],
+                    self[ch].meta['bandwidth'],
+                    good_mask=good_mask,
+                    freqsplat=freqsplat,
+                    noise_threshold=noise_threshold,
+                    debug=debug, nofilt=nofilt,
+                    outfile=root_name(self.meta['filename']),
+                    label=ic)
 
             if results is None:
                 continue
