@@ -392,6 +392,7 @@ class ScanSet(Table):
         for ch in self.chan_columns:
             Jy_over_counts, Jy_over_counts_err = \
                 caltable.Jy_over_counts(channel=ch, elevation=np.pi / 8)
+
             if np.isnan(Jy_over_counts):
                 warnings.warn("The Jy/counts factor is nan")
                 continue
@@ -413,7 +414,8 @@ class ScanSet(Table):
             B = Jy_over_counts
             eB = Jy_over_counts_err
 
-            C = A * self.meta['pixel_size']**2 * Jy_over_counts
+            pixel_area = self.meta['pixel_size'].to(u.rad).value**2
+            C = A * pixel_area * Jy_over_counts
 
             self.images[ch] = C
 
@@ -635,6 +637,7 @@ class ScanSet(Table):
             fname = self.meta['config_file'].replace('.ini', tail)
         images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
                                        altaz=altaz, calibration=calibration)
+
         self.create_wcs(altaz)
 
         hdulist = fits.HDUList()
