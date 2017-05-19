@@ -75,7 +75,11 @@ def correct_offsets(obs_angle, xoffset, yoffset):
 
     Examples
     --------
-    >>> np.allclose(correct_offsets(np.pi / 4, 2 ** 0.5, 2 ** 0.5), np.sqrt(2))
+    >>> x = 2 ** 0.5
+    >>> y = 2 ** 0.5
+    >>> angle = np.pi / 4
+    >>> xoff, yoff = correct_offsets(angle, x, y)
+    >>> np.allclose([xoff, yoff], 2 ** 0.5)
     True
 
     """
@@ -284,10 +288,11 @@ def read_data_fitszilla(fname):
         new_table[info].unit = u.radian
 
     rest_angles = get_rest_angle(xoffsets, yoffsets)
+
     for i in range(0, new_table['el'].shape[1]):
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
-        if xoffsets[i] < np.radians(0.001 / 60.) * u.rad and \
-           yoffsets[i] < np.radians(0.001 / 60.) * u.rad:
+        if np.abs(xoffsets[i]) < np.radians(0.001 / 60.) * u.rad and \
+           np.abs(yoffsets[i]) < np.radians(0.001 / 60.) * u.rad:
             continue
 
         # Calculate observing angle
