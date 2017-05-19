@@ -10,6 +10,7 @@ from ..imager import ScanSet
 from ..global_fit import display_intermediate
 import os
 import glob
+import subprocess as sp
 
 
 class TestScanSet(object):
@@ -135,7 +136,7 @@ class TestScanSet(object):
         os.path.exists("out_iter_Ch0_002.txt")
         scanset.fit_full_images(excluded=excluded, chans='Ch1')
         os.path.exists("out_iter_Ch1_000.txt")
-        display_intermediate(scanset, chan="Ch0",
+        display_intermediate(scanset, chan="Ch0", excluded=excluded,
                              parfile="out_iter_Ch0_002.txt")
         os.path.exists("out_iter_Ch1_002.png")
 
