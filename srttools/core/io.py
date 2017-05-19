@@ -8,6 +8,7 @@ import astropy.units as u
 from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS
 import os
 from astropy.time import Time
+import warnings
 
 DEBUG_MODE = False
 
@@ -44,6 +45,13 @@ def mkdir_p(path):
             pass
         else:
             raise
+
+
+def _check_derotator(derot_angle):
+    # Check that derotator angle is outside any plausible value
+    if np.any(np.abs(derot_angle) > 2*360):
+        return False
+    return True
 
 
 def _standard_offsets():
@@ -147,8 +155,8 @@ def get_rest_angle(xoffsets, yoffsets):
     array([   0.,  180.,  120.,   60.,  360.,  300.,  240.])
 
     """
-    if len(xoffsets) == 1:
-        return 0
+    if len(xoffsets) <= 2:
+        return np.array([0]*len(xoffsets))
     xoffsets = np.asarray(xoffsets)
     yoffsets = np.asarray(yoffsets)
     n_lat_feeds = len(xoffsets) - 1
@@ -267,6 +275,10 @@ def read_data_fitszilla(fname):
 
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]
+
+    if not _check_derotator(new_table['derot_angle']):
+        warnings.warn('Derotator angle looks weird. Setting to 0')
+        new_table['derot_angle'][:] = 0
 
     if DEBUG_MODE:
         # Case with fake multibeam data in files. Still damn it
