@@ -36,6 +36,18 @@ class TestCalibration(object):
         with pytest.warns(UserWarning):
             caltable.check_up_to_date()
 
+    def test_bad_file(self):
+        caltable = CalibratorTable()
+        with pytest.warns(UserWarning) as record:
+            caltable.from_scans([os.path.join(self.config['datadir'],
+                                              'calibrators', 'summary.fits')])
+        assert "Missing key" in record[0].message.args[0]
+
+        with pytest.warns(UserWarning) as record:
+            caltable.from_scans([os.path.join(self.config['datadir'],
+                                              'calibrators', 'bubu.fits')])
+        assert "Error while processing" in record[0].message.args[0]
+
     def test_calibration(self):
         """Simple calibration from scans."""
 
