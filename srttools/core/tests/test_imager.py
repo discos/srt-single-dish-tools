@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.table import Table
 from ..imager import ScanSet
+from ..global_fit import display_intermediate
 import os
 import glob
 
@@ -131,6 +132,11 @@ class TestScanSet(object):
                           config_file=self.config_file)
         excluded = [[125, 125, 30]]
         scanset.fit_full_images(excluded=excluded, chans='Ch0')
+        os.path.exists("out_iter_Ch0_002.txt")
+        scanset.fit_full_images(excluded=excluded, chans='Ch1')
+        os.path.exists("out_iter_Ch1_000.txt")
+        display_intermediate(scanset, chan="Ch0", parfile="out_iter_Ch0_002.txt")
+        os.path.exists("out_iter_Ch1_002.png")
 
     def test_9_find_scan_through_pixel(self):
         scanset = ScanSet('test.hdf5',

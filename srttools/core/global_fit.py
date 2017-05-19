@@ -75,13 +75,14 @@ def _align_all(newd_t, newd_c, data_idx, par):
     return _align_fast(newd_t, newd_c, ms, qs)
 
 
-def counter():
-    count = 0
+def counter(initial_value=0):
+    count = initial_value
     while True:
         yield count
         count += 1
 
-ITERATION_COUNT = counter()
+ITERATION_COUNT = counter(0)
+CURR_CHANNEL = "Ch0"
 
 
 def _save_intermediate(filename, par):
@@ -96,7 +97,8 @@ def _save_iteration(par):
     iteration = next(ITERATION_COUNT)
     print(iteration, end="\r")
     if iteration % 2 == 0:
-        _save_intermediate("out_iter_{}.txt".format(iteration), par)
+        _save_intermediate("out_iter_{}_{:03d}.txt".format(CURR_CHANNEL,
+                                                         iteration), par)
 
 def _obj_fun(par, data, data_idx, excluded, bx, by):
     """
@@ -224,7 +226,8 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
     """
     from scipy.optimize import minimize
-    global EXPOMAP, XBUFFER, YBUFFER
+    global EXPOMAP, XBUFFER, YBUFFER, ITERATION_COUNT, CURR_CHANNEL
+    CURR_CHANNEL = chan
     EXPOMAP = None
     XBUFFER = None
     YBUFFER = None
@@ -271,6 +274,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
     new_counts = _align_all(times, counts, data_idx, res.x)
 
+    ITERATION_COUNT = counter(0)
     return new_counts * count_range
 
 
