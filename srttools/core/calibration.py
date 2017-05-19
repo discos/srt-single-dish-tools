@@ -232,7 +232,10 @@ class SourceTable(Table):
                 try:
                     uncert = fit_info['param_cov'].diagonal() ** 0.5
                 except:
-                    warnings.warn("Fit failed in scan {s}: {m}".format(s=s, m=fit_info['message']))
+                    message = fit_info['message']
+                    warnings.warn(
+                        "Fit failed in scan {s}: {m}".format(s=s,
+                                                             m=message))
                     continue
                 bell = model['Bell']
                 # pars = model.parameters
@@ -251,8 +254,9 @@ class SourceTable(Table):
                     dec_err = None
                     if plot:
                         plt.axvline(fit_ra, label="RA Fit", ls="-")
-                    if plot:# and np.abs(ra_err) < fit_width:
-                        plt.axvline(pnt_ra.to(u.deg).value, label="RA Pnt", ls="--")
+                    if plot:
+                        plt.axvline(pnt_ra.to(u.deg).value, label="RA Pnt",
+                                    ls="--")
                     plt.xlim([fit_ra - 2, fit_ra + 2])
 
                 elif scan_type.startswith("Dec"):
@@ -263,8 +267,9 @@ class SourceTable(Table):
                     ra_err = None
                     if plot:
                         plt.axvline(fit_dec, label="Dec Fit", ls="-")
-                    if plot:# and np.abs(dec_err) < fit_width:
-                        plt.axvline(pnt_dec.to(u.deg).value, label="Dec Pnt", ls="--")
+                    if plot:
+                        plt.axvline(pnt_dec.to(u.deg).value, label="Dec Pnt",
+                                    ls="--")
                     plt.xlim([fit_dec - 2, fit_dec + 2])
 
                 index = pnames.index("amplitude_1")
@@ -276,13 +281,14 @@ class SourceTable(Table):
                               fit_width,
                               flux_density, flux_density_err, el, az,
                               flux_over_counts, flux_over_counts_err,
-                              pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err, dec_err])
-
+                              pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
+                              dec_err])
 
                 if plot:
                     plt.legend()
                     plt.savefig(os.path.join(outdir,
-                                             "Feed{}_chan{}.png".format(feed, nch)))
+                                             "Feed{}_chan{}.png".format(feed,
+                                                                        nch)))
                     plt.close(fig)
 
 
@@ -422,14 +428,15 @@ class CalibratorTable(SourceTable):
                 results.cov_params().diagonal()**0.5
             self.calibration[channel] = results
 
-
     def Jy_over_counts(self, channel, elevation=None):
         rough = False
         try:
             import statsmodels.api as sm
-            from statsmodels.sandbox.regression.predstd import wls_prediction_std
+            from statsmodels.sandbox.regression.predstd import \
+                wls_prediction_std
         except:
-            warnings.warn("Statsmodels is not installed. Reverting to rough mode.")
+            warnings.warn("Statsmodels is not installed. "
+                          "Reverting to rough mode.")
             rough = True
 
         if hasattr(channel, 'encode'):
@@ -446,20 +453,18 @@ class CalibratorTable(SourceTable):
                 fce = np.zeros_like(elevation) + fce
             return fc, fce
 
-        X = np.column_stack((np.ones(np.array(elevation).size), np.array(elevation)))
-        # X = np.c_[np.ones(np.array(elevation).size), X]
+        X = np.column_stack((np.ones(np.array(elevation).size),
+                             np.array(elevation)))
 
         fc = self.calibration[channel].predict(X)
-        # prstd2, iv_l2, iv_u2 = \
-        #     wls_prediction_std(self.calibration[channel], X)
-        # fce = (iv_l2 + iv_u2) / 2 - fc
-        fce = np.mean(self["Flux/Counts Err"][self["Chan"] == channel]) + np.zeros_like(fc)
+
+        goodch = self["Chan"] == channel
+        fce = np.mean(self["Flux/Counts Err"][goodch]) + np.zeros_like(fc)
 
         if len(fc) == 1:
             fc, fce = fc[0], fce[0]
 
         return fc, fce
-
 
     def Jy_over_counts_rough(self, channel=None):
         """Get the conversion from counts to Jy.
@@ -531,7 +536,8 @@ class CalibratorTable(SourceTable):
         cf = 1 / fc
         return cf, fce / fc * cf
 
-    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None, channel=None,
+    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None,
+                         channel=None,
                          xfactor=1, yfactor=1, color=None):
         """Plot the data corresponding to two given columns."""
         showit = False
@@ -600,40 +606,43 @@ class CalibratorTable(SourceTable):
                 channel_str = channel.decode()
             else:
                 channel_str = channel
-            color=colors[ic]
+            color = colors[ic]
             self.plot_two_columns('Elevation', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax00,
                                   channel=channel, color=color)
 
-            elevations = np.arange(np.min(self['Elevation']), np.max(self['Elevation']), 0.001)
-            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str, elevations)
+            elevations = np.arange(np.min(self['Elevation']),
+                                   np.max(self['Elevation']), 0.001)
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str,
+                                                               elevations)
             ax00.plot(elevations, jy_over_cts, color=color)
             ax00.plot(elevations, jy_over_cts + jy_over_cts_err, color=color)
             ax00.plot(elevations, jy_over_cts - jy_over_cts_err, color=color)
             self.plot_two_columns('Elevation', "RA err", ax=ax10,
                                   channel=channel,
-                                  yfactor = 60, color=color)
+                                  yfactor=60, color=color)
             self.plot_two_columns('Elevation', "Dec err", ax=ax10,
                                   channel=channel,
-                                  yfactor = 60, color=color)
+                                  yfactor=60, color=color)
             self.plot_two_columns('Azimuth', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax01,
                                   channel=channel, color=color)
+
             jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str, 45)
             ax01.axhline(jy_over_cts, color=color)
             ax01.axhline(jy_over_cts + jy_over_cts_err, color=color)
             ax01.axhline(jy_over_cts - jy_over_cts_err, color=color)
             self.plot_two_columns('Azimuth', "RA err", ax=ax11,
                                   channel=channel,
-                                  yfactor = 60, color=color)
+                                  yfactor=60, color=color)
             self.plot_two_columns('Azimuth', "Dec err", ax=ax11,
                                   channel=channel,
-                                  yfactor = 60, color=color)
+                                  yfactor=60, color=color)
 
         for i in np.arange(-1, 1, 0.1):
             # Arcmin errors
-            ax10.axhline(i, ls = "--", color="gray")
-            ax11.axhline(i, ls = "--", color="gray")
+            ax10.axhline(i, ls="--", color="gray")
+            ax11.axhline(i, ls="--", color="gray")
 #            ax11.text(1, i, "{}".format())
         ax00.legend()
         ax01.legend()
@@ -704,7 +713,8 @@ def main(args=None):
                    'and produce a map.')
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("file", nargs='?', help="Input calibration file", default=None, type=str)
+    parser.add_argument("file", nargs='?', help="Input calibration file",
+                        default=None, type=str)
     parser.add_argument("--sample-config", action='store_true', default=False,
                         help='Produce sample config file')
 

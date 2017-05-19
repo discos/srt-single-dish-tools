@@ -36,7 +36,7 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
         for k in scanset.meta.keys():
-           assert np.all(scanset.meta[k] == self.scanset.meta[k])
+            assert np.all(scanset.meta[k] == self.scanset.meta[k])
         assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
         assert scanset.scan_list == self.scanset.scan_list
 
@@ -135,7 +135,8 @@ class TestScanSet(object):
         os.path.exists("out_iter_Ch0_002.txt")
         scanset.fit_full_images(excluded=excluded, chans='Ch1')
         os.path.exists("out_iter_Ch1_000.txt")
-        display_intermediate(scanset, chan="Ch0", parfile="out_iter_Ch0_002.txt")
+        display_intermediate(scanset, chan="Ch0",
+                             parfile="out_iter_Ch0_002.txt")
         os.path.exists("out_iter_Ch1_002.png")
 
     def test_9_find_scan_through_pixel(self):
@@ -156,7 +157,8 @@ class TestScanSet(object):
         os.unlink('img_sdev.png')
         os.unlink('test.hdf5')
         for d in klass.config['list_of_directories']:
-            hfiles = glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
+            hfiles = \
+                glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
             for h in hfiles:
                 os.unlink(h)
         out_iter_files = glob.glob('out_iter_*.txt')

@@ -61,16 +61,19 @@ class Test1_Scan(object):
         scan = Scan(os.path.join(self.datadir, fname))
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
         idx = 1 if '_multif' in fname else 0
-        ref_coords = SkyCoord(ra=scan['ra'][:,idx],
-                              dec=scan['dec'][:,idx],
+        ref_coords = SkyCoord(ra=scan['ra'][:, idx],
+                              dec=scan['dec'][:, idx],
                               obstime=obstimes,
                               location=locations[scan.meta['site']]
                               )
         altaz = ref_coords.altaz
 
-        assert np.all(np.abs((altaz.az.to(u.rad) - scan['az'][:,idx]).to(u.arcsec).value) < 1)
-        assert np.all(np.abs((altaz.alt.to(u.rad) - scan['el'][:,idx]).to(u.arcsec).value) < 1)
-
+        diff = np.abs(
+             (altaz.az.to(u.rad) - scan['az'][:, idx]).to(u.arcsec).value)
+        assert np.all(diff < 1)
+        diff = np.abs(
+            (altaz.alt.to(u.rad) - scan['el'][:, idx]).to(u.arcsec).value)
+        assert np.all(diff < 1)
 
     @classmethod
     def teardown_class(klass):
@@ -117,15 +120,19 @@ class Test2_Scan(object):
         scan = Scan(os.path.join(self.datadir, 'spectrum', fname))
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
         idx = 1 if '_multif' in fname else 0
-        ref_coords = SkyCoord(ra=scan['ra'][:,idx],
-                              dec=scan['dec'][:,idx],
+        ref_coords = SkyCoord(ra=scan['ra'][:, idx],
+                              dec=scan['dec'][:, idx],
                               obstime=obstimes,
                               location=locations[scan.meta['site']]
                               )
         altaz = ref_coords.altaz
 
-        assert np.all(np.abs((altaz.az.to(u.rad) - scan['az'][:,idx]).to(u.arcsec).value) < 1)
-        assert np.all(np.abs((altaz.alt.to(u.rad) - scan['el'][:,idx]).to(u.arcsec).value) < 1)
+        diff = np.abs(
+            (altaz.az.to(u.rad) - scan['az'][:, idx]).to(u.arcsec).value)
+        assert np.all(diff < 1)
+        diff = np.abs(
+            (altaz.alt.to(u.rad) - scan['el'][:, idx]).to(u.arcsec).value)
+        assert np.all(diff < 1)
 
     @classmethod
     def teardown_class(klass):
@@ -135,4 +142,3 @@ class Test2_Scan(object):
             os.unlink(f)
         for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.hdf5')):
             os.unlink(f)
-

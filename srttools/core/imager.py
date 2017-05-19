@@ -94,7 +94,7 @@ class ScanSet(Table):
 
             self.convert_coordinates()
 
-        if not 'altaz' in self["x"].meta:
+        if 'altaz' not in self["x"].meta:
             self['x'].meta['altaz'] = False
             self['y'].meta['altaz'] = False
 
@@ -142,13 +142,15 @@ class ScanSet(Table):
         for i, f in enumerate(scan_list):
             print("{}/{}".format(i + 1, nscan), end="\r")
             try:
-                s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat, nofilt=nofilt,
-                         **kwargs)
+                s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
+                         nofilt=nofilt, **kwargs)
                 yield i, s
             except KeyError as e:
                 traceback.print_exc()
-                warnings.warn("Error while processing {}: Missing key: {}".format(f,
-                                                                                  str(e)))
+                warnings.warn(
+                    "Error while processing {}: Missing key: {}".format(f,
+                                                                        str(e))
+                )
             except Exception as e:
                 traceback.print_exc()
                 warnings.warn("Error while processing {}: {}".format(f,
@@ -165,8 +167,8 @@ class ScanSet(Table):
 
     def calculate_delta_altaz(self):
         """Construction of delta altaz coordinates.
-        
-        Calculate the delta of altazimutal coordinates wrt the position 
+
+        Calculate the delta of altazimutal coordinates wrt the position
         of the source
         """
         from astropy.time import Time
@@ -183,13 +185,14 @@ class ScanSet(Table):
         ref_az = ref_altaz_coords.az.to(u.rad)
         ref_el = ref_altaz_coords.alt.to(u.rad)
 
-        self.meta['reference_delta_az'] = 0*u.rad # ref_az.mean()
-        self.meta['reference_delta_el'] = 0*u.rad # ref_el.mean()
+        self.meta['reference_delta_az'] = 0*u.rad
+        self.meta['reference_delta_el'] = 0*u.rad
         self['delta_az'] = np.zeros_like(self['az'])
         self['delta_el'] = np.zeros_like(self['el'])
         for f in range(len(self['el'][0, :])):
-            self['delta_az'][:,f] = (self['az'][:,f] - ref_az) * np.cos(ref_el)
-            self['delta_el'][:,f] = self['el'][:,f] - ref_el
+            self['delta_az'][:, f] = \
+                (self['az'][:, f] - ref_az) * np.cos(ref_el)
+            self['delta_el'][:, f] = self['el'][:, f] - ref_el
 
         fig1 = plt.figure("adsfasdfasd")
         plt.plot(self['delta_az'], self['delta_el'])
@@ -238,36 +241,6 @@ class ScanSet(Table):
         self.wcs.wcs.ctype = \
             ["RA---{}".format(self.meta['projection']),
              "DEC--{}".format(self.meta['projection'])]
-
-#    def scrunch_channels(self, feeds=None, polarizations=None,
-#                         chan_names=None):
-#        """Scrunch channels and reduce their number.
-#
-#        POLARIZATIONS NOT IMPLEMENTED YET!
-#        2-D lists of channels NOT IMPLEMENTED YET!
-#
-#        feed and polarization filters can be given as:
-#
-#        None:          all channels are to be summed in one
-#        list of chans: channels in this list are summed, the others are
-#                       deleted only one channel remains
-#        2-d array:     the channels arr[0, :] will go to chan 0, arr[1, :] to
-#                       chan 1, and so on.
-#
-#        At the end of the process, all channels have been eliminated but the
-#        ones selected.
-#        The axis-1 length of feeds and polarizations MUST be the same, unless
-#        one of them is None.
-#        """
-#        # TODO: Implement polarizations
-#        # TODO: Implement 2-d arrays
-#
-#        allfeeds = np.array([self[ch + '_feed'][0]
-#                             for ch in self.chan_columns])
-#        if feeds is None:
-#            feeds = list(set(allfeeds))
-#
-#        feed_mask = np.in1d(allfeeds, feeds)
 
     def convert_coordinates(self, altaz=False):
         """Convert the coordinates from sky to pixel."""
@@ -367,14 +340,19 @@ class ScanSet(Table):
                 total_img[good] ** 2
 
             images = {self.chan_columns[0]: total_img,
-                      '{}-Sdev'.format(self.chan_columns[0]): np.sqrt(total_sdev),
+                      '{}-Sdev'.format(self.chan_columns[0]): np.sqrt(
+                          total_sdev),
                       '{}-EXPO'.format(self.chan_columns[0]): total_expo}
 
         return images
 
-    def fit_full_images(self, chans=None, fname=None, save_sdev=False, scrunch=False,
-                        no_offsets=False, altaz=False, calibration=None, excluded=None, par=None):
-        """Fit a linear trend to each scan to minimize the scatter in the image."""
+    def fit_full_images(self, chans=None, fname=None, save_sdev=False,
+                        scrunch=False, no_offsets=False, altaz=False,
+                        calibration=None, excluded=None, par=None):
+        """Flatten the baseline with a global fit.
+
+        Fit a linear trend to each scan to minimize the scatter in an image
+        """
 
         if not hasattr(self, 'images'):
             self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
@@ -396,10 +374,11 @@ class ScanSet(Table):
             else:
                 feed = feeds[0]
             self[ch + "_save"] = self[ch].copy()
-            self[ch] = Column(fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par))
+            self[ch] = Column(fit_full_image(self, chan=ch, feed=feed,
+                                             excluded=excluded, par=par))
 
-        self.calculate_images(scrunch=scrunch, no_offsets=no_offsets, altaz=altaz,
-                              calibration=calibration)
+        self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
+                              altaz=altaz, calibration=calibration)
 
     def calibrate_images(self, calibration):
         """Calibrate the images."""
@@ -719,15 +698,16 @@ def main_imager(args=None):  # pragma: no cover
     parser.add_argument("--nofilt", action='store_true', default=False,
                         help='Do not filter noisy channels')
 
-    parser.add_argument("-g", "--global-fit", action='store_true', default=False,
+    parser.add_argument("-g", "--global-fit", action='store_true',
+                        default=False,
                         help='Perform global fitting of baseline')
 
     parser.add_argument("-e", "--exclude", nargs='+', default=None,
                         help='Exclude region from global fitting of baseline')
 
     parser.add_argument("--chans", type=str, default=None,
-                        help=('Comma-separated channels to include in global fitting '
-                              '(Ch0, Ch1, ...)'))
+                        help=('Comma-separated channels to include in global '
+                              'fitting (Ch0, Ch1, ...)'))
 
     parser.add_argument("-o", "--outfile", type=str, default=None,
                         help='Save intermediate scanset to this file.')

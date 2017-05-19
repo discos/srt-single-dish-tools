@@ -93,23 +93,22 @@ def correct_offsets(obs_angle, xoffset, yoffset):
 
 def observing_angle(rest_angle, derot_angle):
     """Calculate the observing angle of the multifeed.
-    
+
     If values have no units, they are assumed in radians
-    
+
     Parameters
     ----------
-    rest_angle : float or Astropy quantity, angle 
+    rest_angle : float or Astropy quantity, angle
         rest angle of the feeds
     derot_angle : float or Astropy quantity, angle
         derotator angle
-    
+
     Examples
     --------
     >>> observing_angle(0 * u.rad, 2 * np.pi * u.rad).to(u.rad).value
     0.0
     >>> observing_angle(0, 2 * np.pi).to(u.rad).value
     0.0
-    
     """
     if not hasattr(rest_angle, 'unit'):
         rest_angle *= u.rad
@@ -137,11 +136,13 @@ def get_rest_angle(xoffsets, yoffsets):
     """Calculate the rest angle for multifeed.
 
     The first feed is assumed to be at position 0, for it the return value is 0
-    
+
     Examples
     --------
-    >>> xoffsets = [0.0, -0.0382222, -0.0191226, 0.0191226, 0.0382222, 0.0191226, -0.0191226]
-    >>> yoffsets = [0.0, 0.0, 0.0331014, 0.0331014, 0.0, -0.0331014, -0.0331014]
+    >>> xoffsets = [0.0, -0.0382222, -0.0191226, 0.0191226, 0.0382222, \
+                    0.0191226, -0.0191226]
+    >>> yoffsets = [0.0, 0.0, 0.0331014, 0.0331014, 0.0, -0.0331014, \
+                    -0.0331014]
     >>> get_rest_angle(xoffsets, yoffsets).to(u.deg).value
     array([   0.,  180.,  120.,   60.,  360.,  300.,  240.])
 
@@ -191,7 +192,8 @@ def read_data_fitszilla(fname):
     dec = lchdulist[0].header['HIERARCH DECLINATION'] * u.rad
     ra_offset = dec_offset = az_offset = el_offset = 0 * u.rad
     if 'HIERARCH RightAscension Offset' in lchdulist[0].header:
-        ra_offset = lchdulist[0].header['HIERARCH RightAscension Offset'] * u.rad
+        ra_offset = \
+            lchdulist[0].header['HIERARCH RightAscension Offset'] * u.rad
     if 'HIERARCH Declination Offset' in lchdulist[0].header:
         dec_offset = lchdulist[0].header['HIERARCH Declination Offset'] * u.rad
     if 'HIERARCH Azimuth Offset' in lchdulist[0].header:
@@ -321,9 +323,11 @@ def read_data_fitszilla(fname):
         if bandwidths[ic] < 0:
             frequencies[ic] -= bandwidths[ic]
             bandwidths[ic] *= -1
-            for i in range(data_table_data['Ch{}'.format(ch).lower()].shape[0]):
+            for i in range(
+                    data_table_data['Ch{}'.format(ch).lower()].shape[0]):
                 data_table_data['Ch{}'.format(ch).lower()][i, :] = \
                     data_table_data['Ch{}'.format(ch).lower()][i, ::-1]
+
         new_table['Ch{}'.format(ch)] = \
             data_table_data['Ch{}'.format(ch).lower()] * relpowers[feeds[ic]]
 
@@ -342,7 +346,8 @@ def read_data_fitszilla(fname):
             np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
 
         new_table['Ch{}-filt'.format(ch)] = \
-            np.ones(len(data_table_data['Ch{}'.format(ch).lower()]), dtype=bool)
+            np.ones(len(data_table_data['Ch{}'.format(ch).lower()]),
+                    dtype=bool)
     lchdulist.close()
     return new_table
 
