@@ -193,7 +193,7 @@ class SourceTable(Table):
                 scan = Scan(s, norefilt=True, nosave=True, verbose=verbose,
                             freqsplat=freqsplat, nofilt=nofilt)
             except KeyError as e:
-                warnings.warn("Error while processing {}: {}".format(s,
+                warnings.warn("Missing key. Bad file? {}: {}".format(s,
                                                                      str(e)))
                 continue
             except Exception as e:
