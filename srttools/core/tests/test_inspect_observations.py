@@ -1,6 +1,10 @@
 from ..inspect_observations import split_observation_table, dump_config_files
+from ..inspect_observations import main_inspector
 from astropy.table import Table, Column
 import numpy as np
+import os
+import glob
+import pytest
 
 try:
     from ConfigParser import ConfigParser
@@ -11,7 +15,6 @@ except ImportError:
 class TestInspect(object):
     @classmethod
     def setup_class(klass):
-        import os
         global DEBUG_MODE
         DEBUG_MODE = True
 
@@ -43,6 +46,13 @@ class TestInspect(object):
                           backends[i], times[i], frequency[i], bandwidth[i]])
         klass.info = info
         klass.groups = split_observation_table(info)
+        dump_config_files(klass.info)
+
+    def test_0_files_exist(self):
+        assert os.path.exists("CCB_SARDARA_W44_Obs0.ini")
+        assert os.path.exists("KKG_SARDARA_3C157_Obs0.ini")
+        assert os.path.exists("KKG_SARDARA_W44_Obs0.ini")
+        assert os.path.exists("CCB_SARDARA_W44_Obs1.ini")
 
     def test_inspect_observations01(self):
         assert self.groups["CCB,SARDARA"]["W44"]["Obs0"]["Src"] == \
@@ -77,7 +87,6 @@ class TestInspect(object):
                ["3C48_0.6_KKG", "3C295_1.1_KKG", "3C48_1.2_KKG"]
 
     def test_inspect_observations09(self):
-        dump_config_files(self.info)
         config = ConfigParser()
         config.read("CCB_SARDARA_W44_Obs0.ini")
         entry = config.get("analysis", "calibrator_directories")
@@ -85,7 +94,6 @@ class TestInspect(object):
             self.groups["CCB,SARDARA"]["W44"]["Obs0"]["Cal"]
 
     def test_inspect_observations10(self):
-        dump_config_files(self.info)
         config = ConfigParser()
         config.read("KKG_SARDARA_3C157_Obs0.ini")
         entry = config.get("analysis", "list_of_directories")
@@ -95,7 +103,40 @@ class TestInspect(object):
     @classmethod
     def teardown_class(cls):
         """Cleanup."""
+        os.unlink("KKG_SARDARA_3C157_Obs0.ini")
+        os.unlink("KKG_SARDARA_W44_Obs0.ini")
+        os.unlink("CCB_SARDARA_W44_Obs0.ini")
+        os.unlink("CCB_SARDARA_W44_Obs1.ini")
+
+class TestRun(object):
+    @classmethod
+    def setup_class(klass):
+        global DEBUG_MODE
+        DEBUG_MODE = True
+
+        klass.curdir = os.path.dirname(__file__)
+        klass.datadir = os.path.join(klass.curdir, 'data')
+
+    def test_run_dump_default(self):
+        main_inspector(glob.glob(os.path.join(self.datadir, '*/')) + ['-d'])
+        assert os.path.exists('CCB_ROACH2_3C157_Obs0.ini')
+
+    def test_run_dump(self):
+        main_inspector(glob.glob(os.path.join(self.datadir, '*/')) +
+                       ['-g', 'Backend', '-d'])
+        assert os.path.exists('ROACH2_3C157_Obs0.ini')
+
+    def test_run_nodump(self, capsys):
+        main_inspector(glob.glob(os.path.join(self.datadir, '*/')))
+        out, err = capsys.readouterr()
+        assert '3C157' in out
+
+    @classmethod
+    def teardown_class(cls):
+        """Cleanup."""
         import os
         import glob
-        for ini in glob.glob('*.ini'):
-            os.unlink(ini)
+        os.unlink("ROACH2_3C157_Obs0.ini")
+        os.unlink("CCB_ROACH2_3C157_Obs0.ini")
+        os.unlink('table.csv')
+        os.unlink('sample_config_file.ini')
