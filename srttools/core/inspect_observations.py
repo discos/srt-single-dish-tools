@@ -5,6 +5,7 @@ from __future__ import (absolute_import, division,
 import os
 import glob
 import warnings
+import logging
 import numpy as np
 from astropy.table import Table, Column
 from .io import read_data
@@ -66,8 +67,11 @@ def inspect_directories(directories):
 
 
 def split_observation_table(info, max_calibrator_delay=0.4,
-                            max_source_delay=0.2):
-    grouped_table = info.group_by(["Receiver", "Backend"])
+                            max_source_delay=0.2, group_by_entries=None):
+    if group_by_entries is None:
+        group_by_entries = ["Receiver", "Backend"]
+    grouped_table = info.group_by(group_by_entries)
+
     indices = grouped_table.groups.indices
 
     groups = {}
@@ -80,10 +84,7 @@ def split_observation_table(info, max_calibrator_delay=0.4,
                             max_calibrator_delay=max_calibrator_delay,
                             max_source_delay=max_source_delay)
 
-        receiver = start_row["Receiver"]
-        backend = start_row["Backend"]
-
-        label = standard_string(receiver) + ',' + standard_string(backend)
+        label = ','.join([standard_string(start_row[s]) for s in group_by_entries])
 
         groups[label] = s
 
@@ -138,6 +139,7 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
             print("")
             print("Calibrator observations:")
             retval[s]["Obs{}".format(i)]["Cal"] = []
+
             condition1 = \
                 np.abs(info["Time"] - observation_start) < max_calibrator_delay
             condition2 = \
@@ -155,8 +157,9 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
     return retval
 
 
-def dump_config_files(info):
-    observation_dict = split_observation_table(info)
+def dump_config_files(info, group_by_entries=None):
+    observation_dict = \
+        split_observation_table(info, group_by_entries=group_by_entries)
     config_files = []
     for label in observation_dict.keys():
         group = observation_dict[label]
@@ -205,11 +208,11 @@ def main_inspector(args=None):
     args = parser.parse_args(args)
 
     info = inspect_directories(args.directories)
-    info.write('table.csv')
-    split_observation_table(info)
+    info.write('table.csv', overwrite=True)
 
-    if args.group_by is not None:
-        rearranged_info = info.group_by(args.group_by)
-        rearranged_info.write('rearranged_table.csv')
     if args.dump_config_files:
-        dump_config_files(info)
+        config_files = dump_config_files(info, group_by_entries=args.group_by)
+        logging.debug(config_files)
+    else:
+        groups = split_observation_table(info, group_by_entries=args.group_by)
+        logging.debug(groups)
