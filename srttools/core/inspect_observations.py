@@ -46,9 +46,8 @@ def inspect_directories(directories):
         fits_files = glob.glob(os.path.join(d, '*.fits'))
 
         for f in fits_files:
+            print("Reading {}".format(f), end="\r")
             try:
-                print("Reading {}".format(f), end="\r")
-
                 data = read_data(f)
                 backend = data.meta['backend']
                 receiver = data.meta['receiver']
@@ -84,7 +83,7 @@ def split_observation_table(info, max_calibrator_delay=0.4,
                             max_calibrator_delay=max_calibrator_delay,
                             max_source_delay=max_source_delay)
 
-        label = ','.join([standard_string(start_row[s]) for s in group_by_entries])
+        label = ','.join([standard_string(start_row[e]) for e in group_by_entries])
 
         groups[label] = s
 
