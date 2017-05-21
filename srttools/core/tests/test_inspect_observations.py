@@ -108,6 +108,7 @@ class TestInspect(object):
         os.unlink("CCB_SARDARA_W44_Obs0.ini")
         os.unlink("CCB_SARDARA_W44_Obs1.ini")
 
+
 class TestRun(object):
     @classmethod
     def setup_class(klass):
