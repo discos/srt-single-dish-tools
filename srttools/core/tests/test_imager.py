@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from astropy.table import Table
 from ..imager import ScanSet
 from ..global_fit import display_intermediate
+from ..calibration import CalibratorTable
 import os
 import glob
 import subprocess as sp
@@ -118,10 +119,27 @@ class TestScanSet(object):
         plt.savefig('img_scrunch_sdev.png')
         plt.close(fig)
 
+    def test_6_calibrate_image(self):
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config_file)
+        caltable = CalibratorTable()
+        caltable.from_scans(glob.glob(os.path.join(self.datadir,
+                                                   'calibrators',
+                                                   'cal*.fits')))
+
+        caltable.update()
+        calfile = os.path.join(self.datadir, 'calibrators.hdf5')
+        caltable.write(calfile,
+                       path="config", overwrite=True)
+        images = scanset.calculate_images()
+
+        images = scanset.calculate_images(calibration=calfile)
+        assert np.allclose(np.sum(images['Ch0']), 1)
+
     def test_7_ds9_image(self):
         '''Test image production.'''
 
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
         scanset.save_ds9_images(save_sdev=True)
