@@ -179,7 +179,7 @@ class SourceTable(Table):
         nscan = len(scan_list)
 
         for i_s, s in enumerate(scan_list):
-            print('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
+            logging.info('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
             scandir, sname = os.path.split(s)
             if plot:
                 outdir = os.path.splitext(sname)[0] + "_scanfit"
@@ -197,9 +197,9 @@ class SourceTable(Table):
                                                                      str(e)))
                 continue
             except Exception as e:
-                traceback.print_exc()
                 warnings.warn("Error while processing {}: {}".format(s,
                                                                      str(e)))
+                warnings.warn(traceback.format_exc())
                 continue
 
             feeds = np.arange(scan['ra'].shape[1])
@@ -363,22 +363,25 @@ class CalibratorTable(SourceTable):
         if not self.check_not_empty():
             return
 
-        flux = self['Flux Density']
-        eflux = self['Flux Density Err']
-        counts = self['Counts']
-        ecounts = self['Counts Err']
-        width = np.radians(self['Width'])
+        flux = self['Flux Density'] * u.Jy
+        eflux = self['Flux Density Err'] * u.Jy
+        counts = self['Counts'] * u.ct
+        ecounts = self['Counts Err'] * u.ct
+        width = np.radians(self['Width']) * u.radian
 
-        # Volume in a beam
+        # Volume in a beam: For a 2-d Gaussian with amplitude A and sigmas sx
+        # and sy, this is 2 pi A sx sy.
         total = 2 * np.pi * counts * width ** 2
         etotal = 2 * np.pi * ecounts * width ** 2
 
-        flux_over_counts = np.array(flux / total)
+        flux_over_counts = flux / total
         flux_over_counts_err = \
-            np.array((etotal / total + eflux / flux) * flux_over_counts)
+            (etotal / total + eflux / flux) * flux_over_counts
 
-        self['Flux/Counts'][:] = flux_over_counts
-        self['Flux/Counts Err'][:] = flux_over_counts_err
+        self['Flux/Counts'][:] = \
+            flux_over_counts.to(u.Jy / u.ct / u.steradian).value
+        self['Flux/Counts Err'][:] = \
+                flux_over_counts_err.to(u.Jy / u.ct / u.steradian).value
 
     def compute_conversion_function(self):
         """Compute the conversion between Jy and counts.
@@ -502,9 +505,9 @@ class CalibratorTable(SourceTable):
 
         good = good_fc & good_fce
 
-        x_to_fit = times[good]
-        y_to_fit = f_c_ratio[good]
-        ye_to_fit = f_c_ratio_err[good]
+        x_to_fit = np.array(times[good])
+        y_to_fit = np.array(f_c_ratio[good])
+        ye_to_fit = np.array(f_c_ratio_err[good])
 
         p = [np.mean(y_to_fit)]
         while 1:
@@ -514,6 +517,10 @@ class CalibratorTable(SourceTable):
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
 
             if not np.any(bad):
+                break
+
+            if len(x_to_fit[bad]) > len(x_to_fit) - 5:
+                warnings.warn("Calibration fit is shaky")
                 break
 
             xbad = x_to_fit[bad]
@@ -526,15 +533,15 @@ class CalibratorTable(SourceTable):
             ye_to_fit = ye_to_fit[good]
 
         fc = p[0]
-        fce = np.sqrt(pcov[0])
+        fce = np.sqrt(pcov[0, 0])
 
         return fc, fce
 
-    def counts_over_Jy(self, channel=None):
+    def counts_over_Jy(self, channel=None, elevation=None):
         """Get the conversion from Jy to counts."""
         self.check_up_to_date()
 
-        fc, fce = self.Jy_over_counts_rough(channel=channel)
+        fc, fce = self.Jy_over_counts(channel=channel, elevation=elevation)
         cf = 1 / fc
         return cf, fce / fc * cf
 
@@ -679,8 +686,8 @@ def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     S = 10 ** logS
     eS = S * elogS
 
-    # Error is not random, should add linearly
-    return np.sum(S) * df, np.sum(eS) * df
+    # Error is not random, should add linearly; divide by bandwidth
+    return np.sum(S) * df / bandwidth, np.sum(eS) * df / bandwidth
 
 
 def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
