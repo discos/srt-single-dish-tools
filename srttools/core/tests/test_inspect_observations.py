@@ -119,18 +119,19 @@ class TestRun(object):
         klass.datadir = os.path.join(klass.curdir, 'data')
 
     def test_run_dump_default(self):
-        main_inspector(glob.glob(os.path.join(self.datadir, '*/')) + ['-d'])
-        assert os.path.exists('CCB_ROACH2_3C157_Obs0.ini')
+        main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) + ['-d'])
+        assert os.path.exists('CCB_TP_Dummy_Obs0.ini')
 
     def test_run_dump(self):
-        main_inspector(glob.glob(os.path.join(self.datadir, '*/')) +
+        main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) +
                        ['-g', 'Backend', '-d'])
-        assert os.path.exists('ROACH2_3C157_Obs0.ini')
+        assert os.path.exists('TP_Dummy_Obs0.ini')
 
     def test_run_nodump(self, capsys):
-        main_inspector(glob.glob(os.path.join(self.datadir, '*/')))
+        main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')))
         out, err = capsys.readouterr()
-        assert '3C157' in out
+        assert 'Dummy' in out
+        assert 'gauss_dec/' in out
 
     @classmethod
     def teardown_class(cls):
