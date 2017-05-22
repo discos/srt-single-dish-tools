@@ -138,7 +138,7 @@ class TestRun(object):
         """Cleanup."""
         import os
         import glob
-        os.unlink("ROACH2_3C157_Obs0.ini")
-        os.unlink("CCB_ROACH2_3C157_Obs0.ini")
+        os.unlink('TP_Dummy_Obs0.ini')
+        os.unlink('CCB_TP_Dummy_Obs0.ini')
         os.unlink('table.csv')
         os.unlink('sample_config_file.ini')
