@@ -391,37 +391,39 @@ class ScanSet(Table):
 
         for ch in self.chan_columns:
             Jy_over_counts, Jy_over_counts_err = \
-                caltable.Jy_over_counts(channel=ch, elevation=np.pi / 8)
+                caltable.Jy_over_counts(channel=ch,
+                                        elevation=np.pi / 8) * \
+                    u.Jy / u.ct / u.steradian
 
             if np.isnan(Jy_over_counts):
                 warnings.warn("The Jy/counts factor is nan")
                 continue
-            A = self.images[ch].copy()
-            eA = self.images['{}-Sdev'.format(ch)].copy()
+            A = self.images[ch].copy() * u.ct
+            eA = self.images['{}-Sdev'.format(ch)].copy() * u.ct
 
             self.images['{}-RAW'.format(ch)] = \
                 self.images['{}'.format(ch)].copy()
             self.images['{}-Sdev-RAW'.format(ch)] = \
                 self.images['{}-Sdev'.format(ch)].copy()
             bad = eA != eA
-            A[bad] = 1
-            eA[bad] = 0
+            A[bad] = 1 * u.ct
+            eA[bad] = 0 * u.ct
 
             bad = np.logical_or(A == 0, A != A)
-            A[bad] = 1
-            eA[bad] = 0
+            A[bad] = 1 * u.ct
+            eA[bad] = 0 * u.ct
 
             B = Jy_over_counts
             eB = Jy_over_counts_err
 
-            pixel_area = self.meta['pixel_size'].to(u.rad).value**2
+            pixel_area = self.meta['pixel_size']**2
             C = A * pixel_area * Jy_over_counts
 
-            self.images[ch] = C
+            self.images[ch] = C.to(u.Jy).value
 
             eC = C * (eA / A + eB / B)
 
-            self.images['{}-Sdev'.format(ch)] = eC
+            self.images['{}-Sdev'.format(ch)] = eC.to(u.Jy).value
 
     def interactive_display(self, ch=None, recreate=False):
         """Modify original scans from the image display."""
