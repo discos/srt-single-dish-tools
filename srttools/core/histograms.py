@@ -362,7 +362,7 @@ def histogram2d(x, y, bins=10, range=None, normed=False, weights=None):
     >>> ax = fig.add_subplot(131)
     >>> ax.set_title('imshow: equidistant')
     >>> im = plt.imshow(H, interpolation='nearest', origin='low',
-                    extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
+    ...                 extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
 
     pcolormesh can display exact bin edges:
 
