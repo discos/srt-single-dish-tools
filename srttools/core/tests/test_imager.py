@@ -4,14 +4,99 @@ from __future__ import (absolute_import, division,
                         print_function)
 from ..read_config import read_config, SRT_tools_config
 import numpy as np
+import numpy.random as ra
 import matplotlib.pyplot as plt
 from astropy.table import Table
 from ..imager import ScanSet
+from ..simulate import simulate_map, save_scan
 from ..global_fit import display_intermediate
 from ..calibration import CalibratorTable
+from ..io import mkdir_p
 import os
 import glob
 import subprocess as sp
+
+
+np.random.seed(1241347)
+
+
+def _2d_gauss(x, y, sigma=3 / 60.):
+    """A Gaussian beam"""
+    return np.exp(-(x ** 2 + y ** 2) / sigma**2)
+
+
+def gauss_src_func(x, y):
+    return 50 * _2d_gauss(x, y, sigma=3 / 60)
+
+
+def calibrator_scan_func(x):
+    return 100 * _2d_gauss(x, 0, sigma=3 / 60)
+
+
+def sim_config_file(filename):
+    """Create a sample config file, to be modified by hand."""
+    string = """
+[local]
+workdir : .
+datadir : .
+
+[analysis]
+projection : ARC
+interpolation : spline
+prefix : test_
+list_of_directories :
+    gauss_ra
+    gauss_dec
+calibrator_directories :
+    calibration
+
+noise_threshold : 5
+
+pixel_size : 1
+        """
+    with open(filename, 'w') as fobj:
+        print(string, file=fobj)
+    return string
+
+
+def sim_map(obsdir_ra, obsdir_dec):
+    simulate_map(count_map=gauss_src_func,
+                 length_ra=10. * np.cos(np.radians(70)),
+                 length_dec=10.,
+                 outdir=(obsdir_ra, obsdir_dec), mean_ra=180,
+                 mean_dec=70,
+                 spacing=0.5, srcname='Dummy')
+
+
+def sim_calibrators(ncross, caldir):
+    src_ra = 185
+    src_dec = 75
+    timedelta = 0
+    scan_values = np.arange(-5, 5, 0.002)
+    zero_values = np.zeros_like(scan_values)
+
+    for i in range(ncross):
+        ras = src_ra + scan_values / np.cos(np.radians(src_dec))
+        decs = src_dec + zero_values
+        times = np.arange(scan_values.size) * 0.04 + timedelta
+
+        scan = calibrator_scan_func(scan_values) + \
+               ra.normal(0, 0.2, scan_values.size)
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
+                  filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
+                  src_ra=src_ra, src_dec=src_dec, srcname='DummyCal')
+        timedelta = times[-1] + 1
+
+        ras = src_ra + zero_values
+        decs = src_dec + scan_values
+        times = np.arange(scan_values.size) * 0.04 + timedelta
+
+        scan = calibrator_scan_func(scan_values) + \
+               ra.normal(0, 0.2, scan_values.size)
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
+                  filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
+                  src_ra=src_ra, src_dec=src_dec, srcname='DummyCal')
+        timedelta = times[-1] + 1
 
 
 class TestScanSet(object):
@@ -23,16 +108,30 @@ class TestScanSet(object):
 
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, 'data')
-
+        klass.obsdir_ra = os.path.join(klass.datadir, 'sim', 'gauss_ra')
+        klass.obsdir_dec = os.path.join(klass.datadir, 'sim', 'gauss_dec')
         klass.config_file = \
-            os.path.abspath(os.path.join(klass.datadir, 'test_config.ini'))
+            os.path.abspath(os.path.join(klass.datadir, 'sim',
+                                         'test_config_sim.ini'))
+        klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
+        mkdir_p(klass.obsdir_ra)
+        mkdir_p(klass.obsdir_dec)
+        mkdir_p(klass.caldir)
+        # First off, simulate a beamed observation  -------
+
+        sim_config_file(klass.config_file)
+        sim_calibrators(5, klass.caldir)
+        sim_map(klass.obsdir_ra, klass.obsdir_dec)
 
         klass.config = read_config(klass.config_file)
-        klass.scanset = ScanSet(klass.config_file)
+        klass.scanset = ScanSet(klass.config_file, norefilt=False)
 
         klass.scanset.write('test.hdf5', overwrite=True)
 
         plt.ioff()
+
+    def test_0_prepare(self):
+        pass
 
     def test_1_meta_saved_and_loaded_correctly(self):
         scanset = ScanSet('test.hdf5',
