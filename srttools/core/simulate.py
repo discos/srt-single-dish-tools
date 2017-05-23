@@ -51,7 +51,8 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
 
 
 def save_scan(times, ra, dec, channels, filename='out.fits',
-              other_columns=None, scan_type=None, src_ra=None, src_dec=None):
+              other_columns=None, scan_type=None, src_ra=None, src_dec=None,
+              srcname='Dummy'):
     """Save a simulated scan in fitszilla format.
 
     Parameters
@@ -67,6 +68,8 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
         channel
     filename : str
         Output file name
+    srcname : str
+        Name of the source
     """
     if src_ra is None: src_ra = np.mean(ra)
     if src_dec is None: src_dec = np.mean(dec)
@@ -116,13 +119,15 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     # print(datahdu)
     # lchdulist['DATA TABLE'].name = 'TMP'
     # lchdulist.append(datahdu)
+    lchdulist[0].header['SOURCE'] = srcname
     lchdulist.writeto(filename, clobber=True)
 
 
 def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                  spacing=0.5, count_map=None, noise_amplitude=1.,
                  width_ra=None, width_dec=None, outdir='sim/',
-                 baseline="flat", mean_ra=180, mean_dec=70):
+                 baseline="flat", mean_ra=180, mean_dec=70,
+                 srcname='Dummy'):
 
     """Simulate a map.
 
@@ -215,10 +220,13 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
                   {'Ch0': counts, 'Ch1': counts},
                   filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
-                  src_ra=mean_ra, src_dec=mean_dec)
+                  src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
         plt.plot(ra_array, counts)
+    fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
+    plt.close(fig)
 
 
+    fig = plt.figure()
     delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing,
                           spacing) / 60
     # RA scans
@@ -240,9 +248,9 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                   dec_array + mean_dec,
                   {'Ch0': counts, 'Ch1': counts},
                   filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
-                  src_ra=mean_ra, src_dec=mean_dec)
+                  src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
 
         plt.plot(dec_array, counts)
 
-    fig.savefig(os.path.join(outdir, "allscans.png"))
+    fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
     plt.close(fig)
