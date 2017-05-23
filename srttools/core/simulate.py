@@ -13,6 +13,7 @@ from .io import mkdir_p, locations
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from astropy.time import Time
 import astropy.units as u
+import six
 
 
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
@@ -146,10 +147,20 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         (random walk)
     count_map : function
         Flux distribution function, centered on zero
+    outdir : str or iterable (str, str)
+        If a single string, put all files in that directory; if two strings,
+        put RA and DEC scans in the two directories.
     """
     import matplotlib.pyplot as plt
 
-    mkdir_p(outdir)
+    if isinstance(outdir, six.string_types):
+        outdir = (outdir, outdir)
+    outdir_ra = outdir[0]
+    outdir_dec = outdir[1]
+
+    mkdir_p(outdir_ra)
+    mkdir_p(outdir_dec)
+
     if count_map is None:
         def count_map(x, y): return 100
 
@@ -203,7 +214,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
 
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
                   {'Ch0': counts, 'Ch1': counts},
-                  filename=os.path.join(outdir, 'Ra{}.fits'.format(i_d)),
+                  filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
                   src_ra=mean_ra, src_dec=mean_dec)
         plt.plot(ra_array, counts)
 
@@ -228,7 +239,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         save_scan(times_dec, np.zeros_like(dec_array) + start_ra,
                   dec_array + mean_dec,
                   {'Ch0': counts, 'Ch1': counts},
-                  filename=os.path.join(outdir, 'Dec{}.fits'.format(i_r)),
+                  filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
                   src_ra=mean_ra, src_dec=mean_dec)
 
         plt.plot(dec_array, counts)
