@@ -146,13 +146,12 @@ class ScanSet(Table):
                          nofilt=nofilt, **kwargs)
                 yield i, s
             except KeyError as e:
-                traceback.print_exc()
                 warnings.warn(
                     "Error while processing {}: Missing key: {}".format(f,
                                                                         str(e))
                 )
             except Exception as e:
-                traceback.print_exc()
+                warnings.warn(traceback.format_exc())
                 warnings.warn("Error while processing {}: {}".format(f,
                                                                      str(e)))
 
