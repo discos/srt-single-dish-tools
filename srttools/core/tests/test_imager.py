@@ -263,7 +263,9 @@ class TestScanSet(object):
 
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
                           config_file=self.config_file)
-        excluded = [[125, 125, 30]]
+        images = scanset.calculate_images()
+        nx, ny = images['Ch0'].shape
+        excluded = [[nx//2, ny//2, nx//4]]
         scanset.fit_full_images(excluded=excluded, chans='Ch0')
         os.path.exists("out_iter_Ch0_002.txt")
         scanset.fit_full_images(excluded=excluded, chans='Ch1')
