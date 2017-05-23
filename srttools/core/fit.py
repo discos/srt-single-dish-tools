@@ -17,12 +17,15 @@ def _rolling_window(a, window):
         strides = a.strides + (a.strides[-1],)
         return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
     except Exception:
-        warnings.warn(traceback.traceback.format_exc())
+        warnings.warn(traceback.format_exc())
         raise
 
 
 def ref_std(array, window):
     """Minimum standard deviation along an array."""
+
+    if len(array) < window*5:
+        return (np.std(np.diff(array)))
 
     return np.min(np.std(_rolling_window(array, window), 1))
 
@@ -65,6 +68,7 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=False):
         start_pars = [q0, m0]
 
     nbin = len(time)
+
     #    bins = np.arange(nbin, dtype=int)
     lc = lc.copy()
     time = time.copy()
