@@ -14,6 +14,11 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from astropy.time import Time
 import astropy.units as u
 import six
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(x):
+        return x
 
 
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
@@ -194,14 +199,15 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                           nbins_dec / 2) / nbins_dec * length_dec / 60
     # In degrees!
     if width_dec is None:
-        width_dec = length_ra
+        width_dec = length_dec
     if width_ra is None:
-        width_ra = length_dec
+        width_ra = length_ra
     # Dec scans
     fig = plt.figure()
 
     delta_decs = np.arange(-width_dec/2, width_dec/2 + spacing, spacing)/60
-    for i_d, delta_dec in enumerate(delta_decs):
+    print("Simulating dec scans...")
+    for i_d, delta_dec in enumerate(tqdm(delta_decs)):
 
         start_dec = mean_dec + delta_dec
         m = ra.uniform(mmin, mmax)
@@ -229,8 +235,9 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     fig = plt.figure()
     delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing,
                           spacing) / 60
+    print("Simulating RA scans...")
     # RA scans
-    for i_r, delta_ra in enumerate(delta_ras):
+    for i_r, delta_ra in enumerate(tqdm(delta_ras)):
         start_ra = delta_ra / np.cos(np.radians(mean_dec)) + mean_ra
         m = ra.uniform(mmin, mmax)
         q = ra.uniform(qmin, qmax)
