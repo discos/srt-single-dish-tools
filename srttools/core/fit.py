@@ -158,7 +158,7 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
     """Baseline Correction with Asymmetric Least Squares Smoothing."""
 
     if lam is None:
-        lam = 1e9
+        lam = 1e11
     if p is None:
         p = 0.001
 
