@@ -146,7 +146,6 @@ class TestCalibration(object):
     def teardown_class(klass):
         """Clean up the mess."""
         os.unlink('calibration_summary.png')
-        os.unlink(os.path.join(klass.datadir, 'calibrators.hdf5'))
         for d in klass.config['list_of_directories']:
             hfiles = \
                 glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
