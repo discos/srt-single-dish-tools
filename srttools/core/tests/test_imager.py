@@ -206,6 +206,7 @@ class TestScanSet(object):
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
                           config_file=self.config_file)
 
+        scanset.calculate_images()
         images = scanset.calculate_images(calibration=self.calfile)
 
         img = images['Ch0']
