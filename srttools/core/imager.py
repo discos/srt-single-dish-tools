@@ -742,6 +742,10 @@ def main_imager(args=None):  # pragma: no cover
     parser.add_argument("-o", "--outfile", type=str, default=None,
                         help='Save intermediate scanset to this file.')
 
+    parser.add_argument("-u", "--unit", type=str, default="Jy/beam",
+                        help='Unit of the calibrated image. Jy/beam or '
+                             'Jy/pixel')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -796,6 +800,7 @@ def main_imager(args=None):  # pragma: no cover
                       overwrite=True)
 
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate,
+                            map_unit=args.unit,
                             altaz=args.altaz)
 
 
