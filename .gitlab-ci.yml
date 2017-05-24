@@ -9,23 +9,24 @@ test:3.6:
   stage: test
   script:
     - source activate py36
-    - conda install h5py
+    - conda install h5py statsmodels
     - python setup.py test --coverage
     - coverage report -m --rcfile=srttools/tests/coveragerc
 
-test:3.5:
+test:3.5no_sm:
   stage: test
   script:
     - source activate py35
     - conda install h5py
     - python setup.py test --coverage
     - coverage report -m --rcfile=srttools/tests/coveragerc
+  allow_failure: true
 
 test:3.4:
   stage: test
   script:
     - source activate py34
-    - conda install h5py
+    - conda install h5py statsmodels
     - python setup.py test --coverage
     - coverage report -m --rcfile=srttools/tests/coveragerc
 
@@ -33,6 +34,6 @@ test:2.7:
   stage: test
   script:
     - source activate py27
-    - conda install h5py
+    - conda install h5py statsmodels
     - python setup.py test --coverage
     - coverage report -m --rcfile=srttools/tests/coveragerc
