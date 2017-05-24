@@ -37,7 +37,6 @@ class Test1_Scan(object):
 
         klass.config_file = \
             os.path.abspath(os.path.join(klass.datadir, 'test_config.ini'))
-        print(klass.config_file)
 
         read_config(klass.config_file)
 

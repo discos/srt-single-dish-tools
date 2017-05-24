@@ -408,15 +408,25 @@ class Scan(Table):
             self[ch + 'TEMP'].name = ch
             self[ch].meta['bandwidth'] = freqmax - freqmin
 
-    def baseline_subtract(self, kind='als'):
+    def baseline_subtract(self, kind='als', plot=False):
         """Subtract the baseline."""
-        if kind == 'als':
-            for col in self.chan_columns():
-                self[col] = baseline_als(self['time'], self[col])
-        elif kind == 'rough':
-            for col in self.chan_columns():
-                self[col] = baseline_rough(self['time'], self[col])
+        for ch in self.chan_columns():
+            if plot:
+                fig = plt.figure("Sub" + ch)
+                plt.plot(self['time'], self[ch] - np.min(self[ch]),
+                         alpha=0.5)
 
+            if kind == 'als':
+                self[ch] = baseline_als(self['time'], self[ch])
+            elif kind == 'rough':
+                self[ch] = baseline_rough(self['time'], self[ch])
+
+            if plot:
+                plt.plot(self['time'], self[ch])
+                out = self.meta['filename'].replace('.fits',
+                                                    '_{}.png'.format(ch))
+                plt.savefig(out)
+                plt.close(fig)
         self.meta['backsub'] = True
 
     def zap_birdies(self):

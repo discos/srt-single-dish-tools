@@ -13,6 +13,12 @@ from .io import mkdir_p, locations
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from astropy.time import Time
 import astropy.units as u
+import six
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(x):
+        return x
 
 
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
@@ -50,7 +56,8 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
 
 
 def save_scan(times, ra, dec, channels, filename='out.fits',
-              other_columns=None, scan_type=None):
+              other_columns=None, scan_type=None, src_ra=None, src_dec=None,
+              srcname='Dummy'):
     """Save a simulated scan in fitszilla format.
 
     Parameters
@@ -66,7 +73,12 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
         channel
     filename : str
         Output file name
+    srcname : str
+        Name of the source
     """
+    if src_ra is None: src_ra = np.mean(ra)
+    if src_dec is None: src_dec = np.mean(dec)
+
     curdir = os.path.abspath(os.path.dirname(__file__))
     template = os.path.abspath(os.path.join(curdir, '..', 'data',
                                             'scan_template.fits'))
@@ -74,8 +86,8 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     datahdu = lchdulist['DATA TABLE']
     lchdulist[0].header['SOURCE'] = "Dummy"
     lchdulist[0].header['ANTENNA'] = "SRT"
-    lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.radians(np.mean(ra))
-    lchdulist[0].header['HIERARCH DECLINATION'] = np.radians(np.mean(dec))
+    lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.radians(src_ra)
+    lchdulist[0].header['HIERARCH DECLINATION'] = np.radians(src_dec)
     if scan_type is not None:
         lchdulist[0].header['HIERARCH SubScanType'] = scan_type
 
@@ -112,13 +124,15 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     # print(datahdu)
     # lchdulist['DATA TABLE'].name = 'TMP'
     # lchdulist.append(datahdu)
+    lchdulist[0].header['SOURCE'] = srcname
     lchdulist.writeto(filename, clobber=True)
 
 
 def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                  spacing=0.5, count_map=None, noise_amplitude=1.,
                  width_ra=None, width_dec=None, outdir='sim/',
-                 baseline="flat", mean_ra=180, mean_dec=70):
+                 baseline="flat", mean_ra=180, mean_dec=70,
+                 srcname='Dummy'):
 
     """Simulate a map.
 
@@ -141,10 +155,22 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     baseline : str
         "flat", "slope" (linearly increasing/decreasing) or "messy"
         (random walk)
+    count_map : function
+        Flux distribution function, centered on zero
+    outdir : str or iterable (str, str)
+        If a single string, put all files in that directory; if two strings,
+        put RA and DEC scans in the two directories.
     """
     import matplotlib.pyplot as plt
 
-    mkdir_p(outdir)
+    if isinstance(outdir, six.string_types):
+        outdir = (outdir, outdir)
+    outdir_ra = outdir[0]
+    outdir_dec = outdir[1]
+
+    mkdir_p(outdir_ra)
+    mkdir_p(outdir_dec)
+
     if count_map is None:
         def count_map(x, y): return 100
 
@@ -164,43 +190,55 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     nbins_ra = np.int(np.rint(length_ra / speed / dt))
     nbins_dec = np.int(np.rint(length_dec / speed / dt))
 
-    times = np.arange(nbins_ra) * dt
-    # In degrees!
-    position_ra = mean_ra + \
-        np.arange(-nbins_ra / 2, nbins_ra / 2) / nbins_ra * length_ra / 60
-    position_dec = mean_dec + \
-        np.arange(-nbins_dec / 2, nbins_dec / 2) / nbins_dec * length_dec / 60
+    times_ra = np.arange(nbins_ra) * dt
+    times_dec = np.arange(nbins_dec) * dt
 
+    ra_array = np.arange(-nbins_ra / 2,
+                         nbins_ra / 2) / nbins_ra * length_ra / 60
+    dec_array = np.arange(-nbins_dec / 2,
+                          nbins_dec / 2) / nbins_dec * length_dec / 60
+    # In degrees!
     if width_dec is None:
-        width_dec = length_ra
+        width_dec = length_dec
     if width_ra is None:
-        width_ra = length_dec
+        width_ra = length_ra
     # Dec scans
     fig = plt.figure()
 
-    for i_d, start_dec in enumerate(mean_dec + np.arange(-width_dec/2,
-                                                         width_dec/2 + spacing,
-                                                         spacing)/60):
+    delta_decs = np.arange(-width_dec/2, width_dec/2 + spacing, spacing)/60
+    print("Simulating dec scans...")
+    for i_d, delta_dec in enumerate(tqdm(delta_decs)):
+
+        start_dec = mean_dec + delta_dec
         m = ra.uniform(mmin, mmax)
         q = ra.uniform(qmin, qmax)
         signs = np.random.choice([-1, 1], nbins_ra)
         stochastic = \
             np.cumsum(signs) * stochastic_amp / np.sqrt(nbins_ra)
 
-        baseline = m * position_ra + q + stochastic
-        counts = count_map(position_ra, start_dec) + \
-            ra.normal(0, noise_amplitude, position_ra.shape) + \
+        baseline = m * ra_array + q + stochastic
+        counts = count_map(ra_array, delta_dec) + \
+            ra.normal(0, noise_amplitude, ra_array.shape) + \
             baseline
 
-        save_scan(times, position_ra, np.zeros_like(position_ra) + start_dec,
-                  {'Ch0': counts, 'Ch1': counts},
-                  filename=os.path.join(outdir, 'Ra{}.fits'.format(i_d)))
-        plt.plot(position_ra, counts)
+        actual_ra = mean_ra + ra_array / np.cos(np.radians(start_dec))
 
+        save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
+                  {'Ch0': counts, 'Ch1': counts},
+                  filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
+                  src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
+        plt.plot(ra_array, counts)
+    fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
+    plt.close(fig)
+
+
+    fig = plt.figure()
+    delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing,
+                          spacing) / 60
+    print("Simulating RA scans...")
     # RA scans
-    for i_r, start_ra in enumerate(mean_ra + np.arange(-width_ra / 2,
-                                                       width_ra / 2 + spacing,
-                                                       spacing) / 60):
+    for i_r, delta_ra in enumerate(tqdm(delta_ras)):
+        start_ra = delta_ra / np.cos(np.radians(mean_dec)) + mean_ra
         m = ra.uniform(mmin, mmax)
         q = ra.uniform(qmin, qmax)
 
@@ -208,16 +246,18 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         stochastic = \
             np.cumsum(signs) * stochastic_amp / np.sqrt(nbins_dec)
 
-        baseline = m * position_dec + q + stochastic
-        counts = count_map(start_ra, position_dec) + \
-            ra.normal(0, noise_amplitude, position_dec.shape) + \
+        baseline = m * dec_array + q + stochastic
+        counts = count_map(delta_ra, dec_array) + \
+            ra.normal(0, noise_amplitude, dec_array.shape) + \
             baseline
 
-        save_scan(times, np.zeros_like(position_dec) + start_ra, position_dec,
+        save_scan(times_dec, np.zeros_like(dec_array) + start_ra,
+                  dec_array + mean_dec,
                   {'Ch0': counts, 'Ch1': counts},
-                  filename=os.path.join(outdir, 'Dec{}.fits'.format(i_r)))
+                  filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
+                  src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
 
-        plt.plot(position_dec, counts)
+        plt.plot(dec_array, counts)
 
-    fig.savefig(os.path.join(outdir, "allscans.png"))
+    fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
     plt.close(fig)
