@@ -48,6 +48,16 @@ def _constant(x, p):
     return p
 
 
+def _get_flux_quantity(map_unit):
+    if map_unit == "Jy/beam":
+        return "Flux"
+    elif map_unit == "Jy/pixel":
+        return "Flux Integral"
+    else:
+        raise ValueError("Incorrect map_unit for flux conversion. Use one of"
+                         "Jy/beam, Jy/pixel")
+
+
 def _scantype(ras, decs):
     """Get if scan is along RA or Dec, and if forward or backward."""
     ravar = np.max(ras) - np.min(ras)
@@ -141,10 +151,11 @@ class SourceTable(Table):
                  "Chan", "Feed", "Time",
                  "Frequency", "Bandwidth",
                  "Counts", "Counts Err",
-                 "Width",
-                 "Flux Density", "Flux Density Err",
+                 "Width", "Width Err",
+                 "Flux", "Flux Err",
                  "Elevation", "Azimuth",
                  "Flux/Counts", "Flux/Counts Err",
+                 "Flux Integral/Counts", "Flux Integral/Counts Err",
                  "RA", "Dec",
                  "Fit RA", "Fit Dec",
                  "RA err", "Dec err"]
@@ -153,7 +164,8 @@ class SourceTable(Table):
                  'S200', np.int, np.double,
                  np.float, np.float,
                  np.float, np.float,
-                 np.float,
+                 np.float, np.float,
+                 np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
@@ -179,7 +191,7 @@ class SourceTable(Table):
         nscan = len(scan_list)
 
         for i_s, s in enumerate(scan_list):
-            print('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
+            logging.info('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
             scandir, sname = os.path.split(s)
             if plot:
                 outdir = os.path.splitext(sname)[0] + "_scanfit"
@@ -197,9 +209,9 @@ class SourceTable(Table):
                                                                      str(e)))
                 continue
             except Exception as e:
-                traceback.print_exc()
                 warnings.warn("Error while processing {}: {}".format(s,
                                                                      str(e)))
+                warnings.warn(traceback.format_exc())
                 continue
 
             feeds = np.arange(scan['ra'].shape[1])
@@ -245,8 +257,14 @@ class SourceTable(Table):
                 counts = model.amplitude_1.value
                 if plot:
                     fig = plt.figure("Fit information")
-                    plt.plot(x, y, label="Data")
-                    plt.plot(x, bell(x), label="Fit")
+                    import matplotlib as mpl
+                    gs = mpl.gridspec.GridSpec(2, 1, height_ratios=(3,1))
+                    ax0 = plt.subplot(gs[0])
+                    ax1 = plt.subplot(gs[1], sharex=ax0)
+
+                    ax0.plot(x, y, label="Data")
+                    ax0.plot(x, bell(x), label="Fit")
+                    ax1.plot(x, y - bell(x))
 
                 if scan_type.startswith("RA"):
                     fit_ra = bell.mean
@@ -255,11 +273,12 @@ class SourceTable(Table):
                     ra_err = fit_ra * u.degree - pnt_ra
                     dec_err = None
                     if plot:
-                        plt.axvline(fit_ra, label="RA Fit", ls="-")
+                        ax0.axvline(fit_ra, label="RA Fit", ls="-")
                     if plot:
-                        plt.axvline(pnt_ra.to(u.deg).value, label="RA Pnt",
+                        ax0.axvline(pnt_ra.to(u.deg).value, label="RA Pnt",
                                     ls="--")
-                    plt.xlim([fit_ra - 2, fit_ra + 2])
+                    ax0.set_xlim([fit_ra - 2, fit_ra + 2])
+                    ax1.set_xlabel('RA')
 
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
@@ -268,20 +287,25 @@ class SourceTable(Table):
                     dec_err = fit_dec * u.degree - pnt_dec
                     ra_err = None
                     if plot:
-                        plt.axvline(fit_dec, label="Dec Fit", ls="-")
+                        ax0.axvline(fit_dec, label="Dec Fit", ls="-")
                     if plot:
-                        plt.axvline(pnt_dec.to(u.deg).value, label="Dec Pnt",
+                        ax0.axvline(pnt_dec.to(u.deg).value, label="Dec Pnt",
                                     ls="--")
-                    plt.xlim([fit_dec - 2, fit_dec + 2])
-
+                    ax0.set_xlim([fit_dec - 2, fit_dec + 2])
+                    ax1.set_xlabel('Dec')
+                ax0.set_ylabel("Counts")
+                ax1.set_ylabel("Residual (cts)")
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
+                index = pnames.index("stddev_1")
+                width_err = uncert[index]
 
                 self.add_row([scandir, sname, scan_type, source, channel, feed,
                               time, frequency, bandwidth, counts, counts_err,
-                              fit_width,
+                              fit_width, width_err,
                               flux_density, flux_density_err, el, az,
+                              flux_over_counts, flux_over_counts_err,
                               flux_over_counts, flux_over_counts_err,
                               pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
                               dec_err])
@@ -292,6 +316,12 @@ class SourceTable(Table):
                                              "Feed{}_chan{}.png".format(feed,
                                                                         nch)))
                     plt.close(fig)
+
+    def write(self, fname, *args, **kwargs):
+        if fname.endswith('.hdf5'):
+            Table.write(self, fname, *args, path='table', **kwargs)
+        else:
+            Table.write(self, fname, *args, **kwargs)
 
 
 class CalibratorTable(SourceTable):
@@ -355,32 +385,46 @@ class CalibratorTable(SourceTable):
             flux, eflux = \
                 _get_calibrator_flux(source, frequency, bandwidth, time=t)
 
-            self['Flux Density'][it] = flux
-            self['Flux Density Err'][it] = eflux
+            self['Flux'][it] = flux
+            self['Flux Err'][it] = eflux
 
     def calibrate(self):
         """Calculate the calibration constants."""
         if not self.check_not_empty():
             return
 
-        flux = self['Flux Density']
-        eflux = self['Flux Density Err']
-        counts = self['Counts']
-        ecounts = self['Counts Err']
-        width = np.radians(self['Width'])
+        flux = self['Flux'] * u.Jy
+        eflux = self['Flux Err'] * u.Jy
+        counts = self['Counts'] * u.ct
+        ecounts = self['Counts Err'] * u.ct
+        width = np.radians(self['Width']) * u.radian
+        ewidth = np.radians(self['Width Err']) * u.radian
 
-        # Volume in a beam
+        # Volume in a beam: For a 2-d Gaussian with amplitude A and sigmas sx
+        # and sy, this is 2 pi A sx sy.
         total = 2 * np.pi * counts * width ** 2
         etotal = 2 * np.pi * ecounts * width ** 2
 
-        flux_over_counts = np.array(flux / total)
+        flux_integral_over_counts = flux / total
+        flux_integral_over_counts_err = \
+            (etotal / total + eflux / flux +
+             2 * ewidth / width) * flux_integral_over_counts
+
+        flux_over_counts = flux / ecounts
         flux_over_counts_err = \
-            np.array((etotal / total + eflux / flux) * flux_over_counts)
+            (ecounts / counts + eflux / flux) * flux_over_counts
 
-        self['Flux/Counts'][:] = flux_over_counts
-        self['Flux/Counts Err'][:] = flux_over_counts_err
+        self['Flux/Counts'][:] = \
+            flux_over_counts.to(u.Jy / u.ct).value
+        self['Flux/Counts Err'][:] = \
+                flux_over_counts_err.to(u.Jy / u.ct).value
 
-    def compute_conversion_function(self):
+        self['Flux Integral/Counts'][:] = \
+            flux_integral_over_counts.to(u.Jy / u.ct / u.steradian).value
+        self['Flux Integral/Counts Err'][:] = \
+            flux_integral_over_counts_err.to(u.Jy / u.ct / u.steradian).value
+
+    def compute_conversion_function(self, map_unit="Jy/beam"):
         """Compute the conversion between Jy and counts.
 
         Try to get a meaningful fit over elevation. Revert to the rough
@@ -391,18 +435,21 @@ class CalibratorTable(SourceTable):
         except:
             channels = list(set(self["Chan"]))
             for channel in channels:
-                fc, fce = self.Jy_over_counts_rough(channel=channel)
+                fc, fce = self.Jy_over_counts_rough(channel=channel,
+                                                    map_unit=map_unit)
                 self.calibration_coeffs[channel] = [fc, 0, 0]
                 self.calibration_uncerts[channel] = [fce, 0, 0]
                 self.calibration[channel] = None
             return
 
+        flux_quantity = _get_flux_quantity(map_unit)
+
         channels = list(set(self["Chan"]))
         for channel in channels:
             good_chans = self["Chan"] == channel
 
-            f_c_ratio = self["Flux/Counts"][good_chans]
-            f_c_ratio_err = self["Flux/Counts Err"][good_chans]
+            f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
+            f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
             elvs = self["Elevation"][good_chans]
 
             good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
@@ -430,7 +477,7 @@ class CalibratorTable(SourceTable):
                 results.cov_params().diagonal()**0.5
             self.calibration[channel] = results
 
-    def Jy_over_counts(self, channel, elevation=None):
+    def Jy_over_counts(self, channel, elevation=None, map_unit="Jy/beam"):
         rough = False
         try:
             import statsmodels.api as sm
@@ -441,15 +488,18 @@ class CalibratorTable(SourceTable):
                           "Reverting to rough mode.")
             rough = True
 
+        flux_quantity = _get_flux_quantity(map_unit)
+
         if hasattr(channel, 'encode'):
             channel = channel.encode()
 
         if channel not in self.calibration.keys():
-            self.compute_conversion_function()
+            self.compute_conversion_function(map_unit)
 
         if elevation is None or rough is True:
             elevation = np.array(elevation)
-            fc, fce = self.Jy_over_counts_rough(channel=channel)
+            fc, fce = self.Jy_over_counts_rough(channel=channel,
+                                                map_unit=map_unit)
             if elevation.size > 1:
                 fc = np.zeros_like(elevation) + fc
                 fce = np.zeros_like(elevation) + fce
@@ -461,14 +511,14 @@ class CalibratorTable(SourceTable):
         fc = self.calibration[channel].predict(X)
 
         goodch = self["Chan"] == channel
-        fce = np.mean(self["Flux/Counts Err"][goodch]) + np.zeros_like(fc)
+        fce = np.mean(self[flux_quantity + " Err"][goodch]) + np.zeros_like(fc)
 
         if len(fc) == 1:
             fc, fce = fc[0], fce[0]
 
         return fc, fce
 
-    def Jy_over_counts_rough(self, channel=None):
+    def Jy_over_counts_rough(self, channel=None, map_unit="Jy/beam"):
         """Get the conversion from counts to Jy.
 
         Other parameters
@@ -493,8 +543,10 @@ class CalibratorTable(SourceTable):
         if channel is not None:
             good_chans = self['Chan'] == channel
 
-        f_c_ratio = self["Flux/Counts"][good_chans]
-        f_c_ratio_err = self["Flux/Counts Err"][good_chans]
+        flux_quantity = _get_flux_quantity(map_unit)
+
+        f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
+        f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
         times = self["Time"][good_chans]
 
         good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
@@ -502,9 +554,9 @@ class CalibratorTable(SourceTable):
 
         good = good_fc & good_fce
 
-        x_to_fit = times[good]
-        y_to_fit = f_c_ratio[good]
-        ye_to_fit = f_c_ratio_err[good]
+        x_to_fit = np.array(times[good])
+        y_to_fit = np.array(f_c_ratio[good])
+        ye_to_fit = np.array(f_c_ratio_err[good])
 
         p = [np.mean(y_to_fit)]
         while 1:
@@ -514,6 +566,10 @@ class CalibratorTable(SourceTable):
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
 
             if not np.any(bad):
+                break
+
+            if len(x_to_fit[bad]) > len(x_to_fit) - 5:
+                warnings.warn("Calibration fit is shaky")
                 break
 
             xbad = x_to_fit[bad]
@@ -526,15 +582,33 @@ class CalibratorTable(SourceTable):
             ye_to_fit = ye_to_fit[good]
 
         fc = p[0]
-        fce = np.sqrt(pcov[0])
+        fce = np.sqrt(pcov[0, 0])
 
         return fc, fce
 
-    def counts_over_Jy(self, channel=None):
+
+    def beam_width(self, channel=None):
+        goodch = np.ones(len(self), dtype=bool)
+        if channel is not None:
+            goodch = self["Chan"] == channel
+        allwidths = self[goodch]['Width']
+        allwidth_errs = self[goodch]['Width Err']
+        good = (allwidth_errs > 0)&(allwidth_errs == allwidth_errs)
+        allwidths = allwidths[good]
+        allwidth_errs = allwidth_errs[good]
+
+        # Weighted mean
+        width = np.sum(allwidths/allwidth_errs) / np.sum(1/allwidth_errs)
+
+        width_err = np.sqrt(np.sum(allwidth_errs ** 2))
+        return np.radians(width), np.radians(width_err)
+
+
+    def counts_over_Jy(self, channel=None, elevation=None):
         """Get the conversion from Jy to counts."""
         self.check_up_to_date()
 
-        fc, fce = self.Jy_over_counts_rough(channel=channel)
+        fc, fce = self.Jy_over_counts(channel=channel, elevation=elevation)
         cf = 1 / fc
         return cf, fce / fc * cf
 
@@ -679,8 +753,8 @@ def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     S = 10 ** logS
     eS = S * elogS
 
-    # Error is not random, should add linearly
-    return np.sum(S) * df, np.sum(eS) * df
+    # Error is not random, should add linearly; divide by bandwidth
+    return np.sum(S) * df / bandwidth, np.sum(eS) * df / bandwidth
 
 
 def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
@@ -774,4 +848,4 @@ def main(args=None):
     if args.show:
         caltable.show()
 
-    caltable.write(outfile, path="config", overwrite=True)
+    caltable.write(outfile, overwrite=True)
