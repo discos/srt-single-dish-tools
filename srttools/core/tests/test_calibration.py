@@ -80,19 +80,31 @@ class TestCalibration(object):
         klass.config = read_config(klass.config_file)
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
         mkdir_p(klass.caldir)
-        # print('Fake calibrators: DummyCal, 1 Jy.')
-        # sim_calibrators(5, klass.caldir)
+        print('Fake calibrators: DummyCal, 1 Jy.')
+        sim_calibrators(5, klass.caldir)
 
         klass.scan_list = \
             list_scans(klass.caldir, ['./'])
 
         klass.scan_list.sort()
+        caltable = CalibratorTable()
+        caltable.from_scans(klass.scan_list)
+        caltable.update()
+        klass.calfile = os.path.join(klass.curdir, 'test_calibration.hdf5')
+        caltable.write(klass.calfile, overwrite=True)
+
+    def test_0_prepare(self):
+        pass
 
     def test_check_class(self):
         caltable = CalibratorTable()
         caltable.from_scans(self.scan_list)
         with pytest.warns(UserWarning):
             caltable.check_up_to_date()
+
+    def test_check_class_from_file(self):
+        caltable = CalibratorTable.read(self.calfile)
+        assert caltable.check_up_to_date()
 
     def test_bad_file(self):
         caltable = CalibratorTable()
@@ -109,34 +121,25 @@ class TestCalibration(object):
     def test_calibration_counts(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable()
-        caltable.from_scans(self.scan_list)
-
-        caltable.update()
-
+        caltable = CalibratorTable.read(self.calfile)
         assert np.all(
             np.abs(caltable['Counts'] - 100.) < 3 * caltable['Counts Err'])
 
     def test_calibration_width(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable()
-        caltable.from_scans(self.scan_list)
-
-        caltable.update()
-
+        caltable = CalibratorTable.read(self.calfile)
         assert np.all(
             np.abs(caltable['Width'] - 3/60.) < 3 * caltable['Width Err'])
 
-    def test_calibration_write_and_plot(self):
+        beam, beam_err = caltable.beam_width()
+        assert np.all(beam - np.radians(3/60) < 3 * beam_err)
+
+
+    def test_calibration_plot(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable()
-        caltable.from_scans(self.scan_list)
-
-        caltable.update()
-        caltable.write(os.path.join(self.datadir, 'calibrators.hdf5'),
-                       path="config", overwrite=True)
+        caltable = CalibratorTable.read(self.calfile)
         caltable.show()
 
     @classmethod

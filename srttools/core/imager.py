@@ -261,7 +261,7 @@ class ScanSet(Table):
         self['y'].meta['altaz'] = altaz
 
     def calculate_images(self, scrunch=False, no_offsets=False, altaz=False,
-                         calibration=None, elevation=None):
+                         calibration=None, elevation=None, map_unit="Jy/beam"):
         """Obtain image from all scans.
 
         scrunch:         sum all channels
@@ -328,7 +328,8 @@ class ScanSet(Table):
 
         self.images = images
         if calibration is not None:
-            self.calibrate_images(calibration, elevation=elevation)
+            self.calibrate_images(calibration, elevation=elevation,
+                                  map_unit=map_unit)
 
         if scrunch:
             # Filter the part of the image whose value of exposure is higher
@@ -350,7 +351,8 @@ class ScanSet(Table):
 
     def fit_full_images(self, chans=None, fname=None, save_sdev=False,
                         scrunch=False, no_offsets=False, altaz=False,
-                        calibration=None, excluded=None, par=None):
+                        calibration=None, excluded=None, par=None,
+                        map_unit="Jy/beam"):
         """Flatten the baseline with a global fit.
 
         Fit a linear trend to each scan to minimize the scatter in an image
@@ -358,8 +360,7 @@ class ScanSet(Table):
 
         if not hasattr(self, 'images'):
             self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
-                                  altaz=altaz,
-                                  calibration=calibration)
+                                  altaz=altaz)
 
         if chans is not None:
             chans = chans.split(',')
@@ -380,22 +381,31 @@ class ScanSet(Table):
                                              excluded=excluded, par=par))
 
         self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
-                              altaz=altaz, calibration=calibration)
+                              altaz=altaz, calibration=calibration,
+                              map_unit=map_unit)
 
-    def calibrate_images(self, calibration, elevation=np.pi/4):
+    def calibrate_images(self, calibration, elevation=np.pi/4,
+                         map_unit="Jy/beam"):
         """Calibrate the images."""
         if not hasattr(self, 'images'):
             self.calculate_images()
 
         caltable = CalibratorTable().read(calibration)
         caltable.update()
-        caltable.compute_conversion_function()
+        caltable.compute_conversion_function(map_unit)
+
+        if map_unit == "Jy/beam":
+            conversion_units = u.Jy / u.ct
+        elif map_unit == "Jy/pixel":
+            conversion_units = u.Jy / u.ct / u.steradian
+        else:
+            raise ValueError("Unit for calibration not recognized")
 
         for ch in self.chan_columns:
             Jy_over_counts, Jy_over_counts_err = \
                 caltable.Jy_over_counts(channel=ch,
                                         elevation=elevation) * \
-                    u.Jy / u.ct / u.steradian
+                    conversion_units
 
             if np.isnan(Jy_over_counts):
                 warnings.warn("The Jy/counts factor is nan")
@@ -418,8 +428,12 @@ class ScanSet(Table):
             B = Jy_over_counts
             eB = Jy_over_counts_err
 
-            pixel_area = self.meta['pixel_size']**2
-            C = A * pixel_area * Jy_over_counts
+            if map_unit == "Jy/beam":
+                area_conversion = 1
+            elif map_unit == "Jy/pixel":
+                area_conversion = self.meta['pixel_size'] ** 2
+
+            C = A * area_conversion * Jy_over_counts
 
             self.images[ch] = C.to(u.Jy).value
 
@@ -632,7 +646,8 @@ class ScanSet(Table):
         return self
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
-                        no_offsets=False, altaz=False, calibration=None):
+                        no_offsets=False, altaz=False, calibration=None,
+                        map_unit="Jy/beam"):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             tail = '.fits'
@@ -640,7 +655,8 @@ class ScanSet(Table):
                 tail = '_altaz.fits'
             fname = self.meta['config_file'].replace('.ini', tail)
         images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
-                                       altaz=altaz, calibration=calibration)
+                                       altaz=altaz, calibration=calibration,
+                                       map_unit=map_unit)
 
         self.create_wcs(altaz)
 
@@ -661,6 +677,13 @@ class ScanSet(Table):
 
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
+
+        if map_unit == "Jy/beam" and calibration is not None:
+            caltable = CalibratorTable.read(calibration)
+            beam, beam_err = caltable.beam_width()
+            hdulist[0].header['bmaj'] = beam
+            hdulist[0].header['bmin'] = beam
+            hdulist[0].header['bpa'] = 0
 
         hdulist.writeto(fname, clobber=True)
 

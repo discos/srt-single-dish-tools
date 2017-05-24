@@ -92,10 +92,10 @@ class TestScanSet(object):
         mkdir_p(klass.obsdir_dec)
         # First off, simulate a beamed observation  -------
 
-        print('Setting up simulated data.')
-        sim_config_file(klass.config_file)
-        print('Fake map: Point-like (but Gaussian beam shape), 0.5 Jy.')
-        sim_map(klass.obsdir_ra, klass.obsdir_dec)
+        # print('Setting up simulated data.')
+        # sim_config_file(klass.config_file)
+        # print('Fake map: Point-like (but Gaussian beam shape), 0.5 Jy.')
+        # sim_map(klass.obsdir_ra, klass.obsdir_dec)
 
         caltable = CalibratorTable()
         caltable.from_scans(glob.glob(os.path.join(klass.caldir,
@@ -103,8 +103,7 @@ class TestScanSet(object):
 
         caltable.update()
         klass.calfile = os.path.join(klass.datadir, 'calibrators.hdf5')
-        caltable.write(klass.calfile,
-                       path="config", overwrite=True)
+        caltable.write(klass.calfile, overwrite=True)
 
 
         klass.config = read_config(klass.config_file)
@@ -202,12 +201,13 @@ class TestScanSet(object):
         plt.savefig('img_scrunch_sdev.png')
         plt.close(fig)
 
-    def test_6_calibrate_image(self):
+    def test_6a_calibrate_image_pixel(self):
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
                           config_file=self.config_file)
 
         scanset.calculate_images()
-        images = scanset.calculate_images(calibration=self.calfile)
+        images = scanset.calculate_images(calibration=self.calfile,
+                                          map_unit="Jy/pixel")
 
         img = images['Ch0']
         center = img.shape[0] // 2, img.shape[1] // 2
@@ -215,6 +215,15 @@ class TestScanSet(object):
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
         assert np.allclose(np.sum(images['Ch0'][good]), 0.5, 0.05)
+
+
+    def test_6b_calibrate_image_beam(self):
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config_file)
+
+        scanset.calculate_images()
+        images = scanset.calculate_images(calibration=self.calfile,
+                                          map_unit="Jy/beam")
 
     def test_7_ds9_image(self):
         '''Test image production.'''
