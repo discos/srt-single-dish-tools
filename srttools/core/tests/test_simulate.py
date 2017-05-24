@@ -10,7 +10,7 @@ class TestSimulate(object):
     def setup_class(cls):
         cls.outdir = os.path.join('sim')
         cls.emptydir = os.path.join('sim', 'empty')
-        for d in [cls.emptydir, cls.gaussdir]:
+        for d in [cls.emptydir]:
             mkdir_p(d)
 
     def test_sim_scan(self):
@@ -22,7 +22,7 @@ class TestSimulate(object):
 
     def test_sim_map_empty(self):
         """Test the simulation of an empty map."""
-        simulate_map(width_ra=5, width_dec=6., outdir=self.emptydir)
+        simulate_map(width_ra=2, width_dec=2., outdir=self.emptydir)
 
     @classmethod
     def teardown_class(cls):
