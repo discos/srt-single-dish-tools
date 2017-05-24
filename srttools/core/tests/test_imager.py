@@ -64,8 +64,8 @@ pixel_size : 0.8
 
 def sim_map(obsdir_ra, obsdir_dec):
     simulate_map(count_map=gauss_src_func,
-                 length_ra=30.,
-                 length_dec=30.,
+                 length_ra=50.,
+                 length_dec=50.,
                  outdir=(obsdir_ra, obsdir_dec), mean_ra=180,
                  mean_dec=70, speed=2.,
                  spacing=0.5, srcname='Dummy')
@@ -205,11 +205,15 @@ class TestScanSet(object):
     def test_6_calibrate_image(self):
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
                           config_file=self.config_file)
-        images = scanset.calculate_images()
 
         images = scanset.calculate_images(calibration=self.calfile)
 
-        assert np.allclose(np.sum(images['Ch0']), 0.5)
+        img = images['Ch0']
+        center = img.shape[0] // 2, img.shape[1] // 2
+        shortest_side = np.min(img.shape)
+        X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
+        good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
+        assert np.allclose(np.sum(images['Ch0'][good]), 0.5, 0.05)
 
     def test_7_ds9_image(self):
         '''Test image production.'''
