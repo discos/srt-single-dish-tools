@@ -141,7 +141,7 @@ class SourceTable(Table):
                  "Chan", "Feed", "Time",
                  "Frequency", "Bandwidth",
                  "Counts", "Counts Err",
-                 "Width",
+                 "Width", "Width Err",
                  "Flux Density", "Flux Density Err",
                  "Elevation", "Azimuth",
                  "Flux/Counts", "Flux/Counts Err",
@@ -153,7 +153,7 @@ class SourceTable(Table):
                  'S200', np.int, np.double,
                  np.float, np.float,
                  np.float, np.float,
-                 np.float,
+                 np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
@@ -245,8 +245,14 @@ class SourceTable(Table):
                 counts = model.amplitude_1.value
                 if plot:
                     fig = plt.figure("Fit information")
-                    plt.plot(x, y, label="Data")
-                    plt.plot(x, bell(x), label="Fit")
+                    import matplotlib as mpl
+                    gs = mpl.gridspec.GridSpec(2, 1, height_ratios=(3,1))
+                    ax0 = plt.subplot(gs[0])
+                    ax1 = plt.subplot(gs[1], sharex=ax0)
+
+                    ax0.plot(x, y, label="Data")
+                    ax0.plot(x, bell(x), label="Fit")
+                    ax1.plot(x, y - bell(x))
 
                 if scan_type.startswith("RA"):
                     fit_ra = bell.mean
@@ -255,11 +261,12 @@ class SourceTable(Table):
                     ra_err = fit_ra * u.degree - pnt_ra
                     dec_err = None
                     if plot:
-                        plt.axvline(fit_ra, label="RA Fit", ls="-")
+                        ax0.axvline(fit_ra, label="RA Fit", ls="-")
                     if plot:
-                        plt.axvline(pnt_ra.to(u.deg).value, label="RA Pnt",
+                        ax0.axvline(pnt_ra.to(u.deg).value, label="RA Pnt",
                                     ls="--")
-                    plt.xlim([fit_ra - 2, fit_ra + 2])
+                    ax0.set_xlim([fit_ra - 2, fit_ra + 2])
+                    ax1.set_xlabel('RA')
 
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
@@ -268,19 +275,23 @@ class SourceTable(Table):
                     dec_err = fit_dec * u.degree - pnt_dec
                     ra_err = None
                     if plot:
-                        plt.axvline(fit_dec, label="Dec Fit", ls="-")
+                        ax0.axvline(fit_dec, label="Dec Fit", ls="-")
                     if plot:
-                        plt.axvline(pnt_dec.to(u.deg).value, label="Dec Pnt",
+                        ax0.axvline(pnt_dec.to(u.deg).value, label="Dec Pnt",
                                     ls="--")
-                    plt.xlim([fit_dec - 2, fit_dec + 2])
-
+                    ax0.set_xlim([fit_dec - 2, fit_dec + 2])
+                    ax1.set_xlabel('Dec')
+                ax0.set_ylabel("Counts")
+                ax1.set_ylabel("Residual (cts)")
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]
+                index = pnames.index("stddev_1")
+                width_err = uncert[index]
 
                 self.add_row([scandir, sname, scan_type, source, channel, feed,
                               time, frequency, bandwidth, counts, counts_err,
-                              fit_width,
+                              fit_width, width_err,
                               flux_density, flux_density_err, el, az,
                               flux_over_counts, flux_over_counts_err,
                               pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
