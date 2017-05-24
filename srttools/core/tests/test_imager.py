@@ -256,13 +256,15 @@ class TestScanSet(object):
         os.unlink('delta_altaz.png')
         os.unlink('altaz_with_src.png')
         os.unlink('img_sdev.png')
-        # os.unlink('test.hdf5')
+        os.unlink('test.hdf5')
+        os.unlink('test_scan_list.txt')
+        os.unlink('img_scrunch_sdev.png')
         for d in klass.config['list_of_directories']:
             hfiles = \
                 glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
             for h in hfiles:
                 os.unlink(h)
-        out_iter_files = glob.glob('out_iter_*.txt')
+        out_iter_files = glob.glob('out_iter_*')
         for o in out_iter_files:
             os.unlink(o)
         out_fits_files = glob.glob(os.path.join(klass.config['datadir'],
