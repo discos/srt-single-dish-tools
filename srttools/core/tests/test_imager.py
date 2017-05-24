@@ -7,7 +7,7 @@ import numpy as np
 import numpy.random as ra
 import matplotlib.pyplot as plt
 from astropy.table import Table
-from ..imager import ScanSet
+from ..imager import ScanSet, main_imager
 from ..simulate import simulate_map, save_scan
 from ..global_fit import display_intermediate
 from ..calibration import CalibratorTable
@@ -92,10 +92,10 @@ class TestScanSet(object):
         mkdir_p(klass.obsdir_dec)
         # First off, simulate a beamed observation  -------
 
-        # print('Setting up simulated data.')
-        # sim_config_file(klass.config_file)
-        # print('Fake map: Point-like (but Gaussian beam shape), 0.5 Jy.')
-        # sim_map(klass.obsdir_ra, klass.obsdir_dec)
+        print('Setting up simulated data.')
+        sim_config_file(klass.config_file)
+        print('Fake map: Point-like (but Gaussian beam shape), 0.5 Jy.')
+        sim_map(klass.obsdir_ra, klass.obsdir_dec)
 
         caltable = CalibratorTable()
         caltable.from_scans(glob.glob(os.path.join(klass.caldir,
@@ -115,6 +115,11 @@ class TestScanSet(object):
 
     def test_0_prepare(self):
         pass
+
+    def test_use_command_line(self):
+        main_imager(('-c {} -u Jy/beam '.format(self.config_file) +
+                     '--calibrate {}'.format(self.calfile) +
+                     ' -o bubu.hdf5').split(' '))
 
     def test_1_meta_saved_and_loaded_correctly(self):
         scanset = ScanSet('test.hdf5',
@@ -268,6 +273,7 @@ class TestScanSet(object):
         os.unlink('test.hdf5')
         os.unlink('test_scan_list.txt')
         os.unlink('img_scrunch_sdev.png')
+        os.unlink('bubu.hdf5')
         for d in klass.config['list_of_directories']:
             hfiles = \
                 glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
