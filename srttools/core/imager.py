@@ -261,7 +261,7 @@ class ScanSet(Table):
         self['y'].meta['altaz'] = altaz
 
     def calculate_images(self, scrunch=False, no_offsets=False, altaz=False,
-                         calibration=None):
+                         calibration=None, elevation=None):
         """Obtain image from all scans.
 
         scrunch:         sum all channels
@@ -291,6 +291,9 @@ class ScanSet(Table):
                 feed = 0
             else:
                 feed = feeds[0]
+
+            if elevation is None:
+                elevation = np.mean(self['el'][:, feed])
 
             if '{}-filt'.format(ch) in self.keys():
                 good = self['{}-filt'.format(ch)]
@@ -325,7 +328,7 @@ class ScanSet(Table):
 
         self.images = images
         if calibration is not None:
-            self.calibrate_images(calibration)
+            self.calibrate_images(calibration, elevation=elevation)
 
         if scrunch:
             # Filter the part of the image whose value of exposure is higher
@@ -379,7 +382,7 @@ class ScanSet(Table):
         self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
                               altaz=altaz, calibration=calibration)
 
-    def calibrate_images(self, calibration):
+    def calibrate_images(self, calibration, elevation=np.pi/4):
         """Calibrate the images."""
         if not hasattr(self, 'images'):
             self.calculate_images()
@@ -391,7 +394,7 @@ class ScanSet(Table):
         for ch in self.chan_columns:
             Jy_over_counts, Jy_over_counts_err = \
                 caltable.Jy_over_counts(channel=ch,
-                                        elevation=np.pi / 8) * \
+                                        elevation=elevation) * \
                     u.Jy / u.ct / u.steradian
 
             if np.isnan(Jy_over_counts):
