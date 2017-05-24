@@ -36,10 +36,6 @@ def gauss_src_func(x, y):
     return 50 * _2d_gauss(x, y, sigma=3 / 60)
 
 
-def calibrator_scan_func(x):
-    return 100 * _2d_gauss(x, 0, sigma=3 / 60)
-
-
 def sim_config_file(filename):
     """Create a sample config file, to be modified by hand."""
     string = """
@@ -75,38 +71,6 @@ def sim_map(obsdir_ra, obsdir_dec):
                  spacing=0.5, srcname='Dummy')
 
 
-def sim_calibrators(ncross, caldir):
-    src_ra = 185
-    src_dec = 75
-    timedelta = 0
-    speed = 2.  # arcmin/s
-    dt = 0.04
-    dtheta = speed * dt
-    scan_values = np.arange(-2, 2, dtheta/60)
-    zero_values = np.zeros_like(scan_values)
-
-    for i in tqdm(range(ncross)):
-        ras = src_ra + scan_values / np.cos(np.radians(src_dec))
-        decs = src_dec + zero_values
-        times = np.arange(scan_values.size) * dt + timedelta
-
-        scan = calibrator_scan_func(scan_values) + \
-               ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
-                  filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
-                  src_ra=src_ra, src_dec=src_dec, srcname='DummyCal')
-        timedelta = times[-1] + 1
-
-        ras = src_ra + zero_values
-        decs = src_dec + scan_values
-        times = np.arange(scan_values.size) * dt + timedelta
-
-        scan = calibrator_scan_func(scan_values) + \
-               ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
-                  filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
-                  src_ra=src_ra, src_dec=src_dec, srcname='DummyCal')
-        timedelta = times[-1] + 1
 
 
 class TestScanSet(object):
@@ -126,13 +90,10 @@ class TestScanSet(object):
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
         mkdir_p(klass.obsdir_ra)
         mkdir_p(klass.obsdir_dec)
-        mkdir_p(klass.caldir)
         # First off, simulate a beamed observation  -------
 
         print('Setting up simulated data.')
         sim_config_file(klass.config_file)
-        print('Fake calibrators: DummyCal, 1 Jy.')
-        sim_calibrators(5, klass.caldir)
         print('Fake map: Point-like (but Gaussian beam shape), 0.5 Jy.')
         sim_map(klass.obsdir_ra, klass.obsdir_dec)
 
