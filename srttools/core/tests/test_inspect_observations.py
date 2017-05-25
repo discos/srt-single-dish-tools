@@ -131,7 +131,7 @@ class TestRun(object):
         main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')))
         out, err = capsys.readouterr()
         assert 'Dummy' in out
-        assert 'gauss_dec/' in out
+        assert 'gauss_dec' in out
 
     @classmethod
     def teardown_class(cls):

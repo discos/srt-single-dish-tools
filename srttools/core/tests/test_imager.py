@@ -110,9 +110,11 @@ class TestScanSet(object):
 
 
         klass.config = read_config(klass.config_file)
-        klass.scanset = ScanSet(klass.config_file, norefilt=False)
-
-        klass.scanset.write('test.hdf5', overwrite=True)
+        if os.path.exists('test.hdf5'):
+            klass.scanset = ScanSet('test.hdf5')
+        else:
+            klass.scanset = ScanSet(klass.config_file, norefilt=False)
+            klass.scanset.write('test.hdf5', overwrite=True)
 
         plt.ioff()
 
@@ -120,7 +122,7 @@ class TestScanSet(object):
         pass
 
     def test_use_command_line(self):
-        main_imager(('-c {} -u Jy/beam '.format(self.config_file) +
+        main_imager(('test.hdf5 -u Jy/beam '.format(self.config_file) +
                      '--calibrate {}'.format(self.calfile) +
                      ' -o bubu.hdf5').split(' '))
 
@@ -154,7 +156,7 @@ class TestScanSet(object):
     def test_3_rough_image_altaz(self):
         '''Test image production.'''
 
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
         images = scanset.calculate_images(altaz=True)
@@ -171,7 +173,7 @@ class TestScanSet(object):
     def test_4_image_stdev(self):
         '''Test image production.'''
 
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
         images = scanset.calculate_images()
@@ -188,7 +190,7 @@ class TestScanSet(object):
     def test_5_image_scrunch(self):
         '''Test image production.'''
 
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
         images = scanset.calculate_images(scrunch=True)
@@ -210,7 +212,7 @@ class TestScanSet(object):
         plt.close(fig)
 
     def test_6a_calibrate_image_pixel(self):
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
         scanset.calculate_images()
@@ -225,7 +227,7 @@ class TestScanSet(object):
         assert np.allclose(np.sum(images['Ch0'][good]), 0.5, 0.05)
 
     def test_6b_calibrate_image_beam(self):
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
         scanset.calculate_images()
@@ -235,7 +237,7 @@ class TestScanSet(object):
         assert np.allclose(np.max(images['Ch0']), 0.5, atol=0.05)
 
     def test_6c_calibrate_image_sr(self):
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
         scanset.calculate_images()
@@ -261,7 +263,7 @@ class TestScanSet(object):
     def test_8_global_fit_image(self):
         '''Test image production.'''
 
-        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+        scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
         images = scanset.calculate_images()
         nx, ny = images['Ch0'].shape
