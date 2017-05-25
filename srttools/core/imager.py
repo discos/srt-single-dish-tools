@@ -668,6 +668,16 @@ class ScanSet(Table):
         hdulist = fits.HDUList()
 
         header = self.wcs.to_header()
+        if map_unit == "Jy/beam" and calibration is not None:
+            caltable = CalibratorTable.read(calibration)
+            beam, beam_err = caltable.beam_width()
+            std_to_fwhm = np.sqrt(8 * np.log(2))
+            header['bmaj'] = np.degrees(beam) * std_to_fwhm
+            header['bmin'] = np.degrees(beam) * std_to_fwhm
+            header['bpa'] = 0
+
+        if calibration is not None:
+            header['bunit'] = map_unit
 
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
@@ -682,13 +692,6 @@ class ScanSet(Table):
 
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
-
-        if map_unit == "Jy/beam" and calibration is not None:
-            caltable = CalibratorTable.read(calibration)
-            beam, beam_err = caltable.beam_width()
-            hdulist[0].header['bmaj'] = beam
-            hdulist[0].header['bmin'] = beam
-            hdulist[0].header['bpa'] = 0
 
         hdulist.writeto(fname, clobber=True)
 
@@ -768,7 +771,7 @@ def main_imager(args=None):  # pragma: no cover
     outfile = args.outfile
 
     if args.file is not None:
-        scanset = ScanSet().load(args.file)
+        scanset = ScanSet(args.file)
         infile = args.file
         if outfile is None:
             outfile = infile
