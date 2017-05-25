@@ -73,10 +73,11 @@ matrix:
         # Old matplotlib
         - python: 3.4
           env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
-        - python: 2.7
-          env: NUMPY_VERSION=1.7 SETUP_CMD='test'
-        - python: 2.7
-          env: NUMPY_VERSION=1.6 SETUP_CMD='test'
+        # Try older numpy versions
+        - python: 3.4
+          env: NUMPY_VERSION=1.9 SETUP_CMD='test'
+        - python: 3.4
+          env: NUMPY_VERSION=1.8 SETUP_CMD='test'
         - python: 3.6
           env: SETUP_CMD='test' PIP_DEPENDENCIES=''
 
