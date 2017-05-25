@@ -4,7 +4,14 @@ from __future__ import (absolute_import, division,
                         print_function)
 from .scan import contiguous_regions
 
-from numba import jit, vectorize
+try:
+    from numba import jit, vectorize
+except:
+    def jit(fun):
+        return fun
+    def vectorize(fun):
+        return fun
+
 from .histograms import histogram2d
 import numpy as np
 
