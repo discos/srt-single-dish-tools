@@ -71,8 +71,6 @@ def sim_map(obsdir_ra, obsdir_dec):
                  spacing=0.5, srcname='Dummy')
 
 
-
-
 class TestScanSet(object):
     @classmethod
     def setup_class(klass):
@@ -88,14 +86,18 @@ class TestScanSet(object):
             os.path.abspath(os.path.join(klass.datadir, 'sim',
                                          'test_config_sim.ini'))
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
-        mkdir_p(klass.obsdir_ra)
-        mkdir_p(klass.obsdir_dec)
         # First off, simulate a beamed observation  -------
 
-        print('Setting up simulated data.')
-        sim_config_file(klass.config_file)
-        print('Fake map: Point-like (but Gaussian beam shape), 0.5 Jy.')
-        sim_map(klass.obsdir_ra, klass.obsdir_dec)
+        if not os.path.exists(klass.config_file):
+            print('Setting up simulated data.')
+            sim_config_file(klass.config_file)
+
+        if (not os.path.exists(klass.obsdir_ra)) or \
+                (not os.path.exists(klass.obsdir_dec)):
+            mkdir_p(klass.obsdir_ra)
+            mkdir_p(klass.obsdir_dec)
+            print('Fake map: Point-like (but Gaussian beam shape), 0.5 Jy.')
+            sim_map(klass.obsdir_ra, klass.obsdir_dec)
 
         caltable = CalibratorTable()
         caltable.from_scans(glob.glob(os.path.join(klass.caldir,
