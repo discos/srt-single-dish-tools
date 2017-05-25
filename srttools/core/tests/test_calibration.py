@@ -79,9 +79,10 @@ class TestCalibration(object):
 
         klass.config = read_config(klass.config_file)
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
-        mkdir_p(klass.caldir)
-        print('Fake calibrators: DummyCal, 1 Jy.')
-        sim_calibrators(5, klass.caldir)
+        if not os.path.exists(klass.caldir):
+            print('Fake calibrators: DummyCal, 1 Jy.')
+            mkdir_p(klass.caldir)
+            sim_calibrators(5, klass.caldir)
 
         klass.scan_list = \
             list_scans(klass.caldir, ['./'])
