@@ -51,7 +51,7 @@ def _constant(x, p):
 def _get_flux_quantity(map_unit):
     if map_unit == "Jy/beam":
         return "Flux"
-    elif map_unit == "Jy/pixel":
+    elif map_unit in ["Jy/pixel", "Jy/sr"]:
         return "Flux Integral"
     else:
         raise ValueError("Incorrect map_unit for flux conversion. Use one of"

@@ -15,6 +15,7 @@ from ..io import mkdir_p
 import os
 import glob
 import subprocess as sp
+import astropy.units as u
 
 try:
     from tqdm import tqdm
@@ -223,7 +224,6 @@ class TestScanSet(object):
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
         assert np.allclose(np.sum(images['Ch0'][good]), 0.5, 0.05)
 
-
     def test_6b_calibrate_image_beam(self):
         scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
                           config_file=self.config_file)
@@ -232,7 +232,23 @@ class TestScanSet(object):
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/beam")
 
-        assert np.allclose(np.max(images['Ch0']), 0.5, 0.05)
+        assert np.allclose(np.max(images['Ch0']), 0.5, atol=0.05)
+
+    def test_6c_calibrate_image_sr(self):
+        scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
+                          config_file=self.config_file)
+
+        scanset.calculate_images()
+        images = scanset.calculate_images(calibration=self.calfile,
+                                          map_unit="Jy/sr")
+
+        images_pix = scanset.calculate_images(calibration=self.calfile,
+                                              map_unit="Jy/pixel")
+
+        pixel_area = scanset.meta['pixel_size'] ** 2
+        assert np.allclose(images['Ch0'],
+                           images_pix['Ch0'] / pixel_area.to(u.sr).value,
+                           rtol=0.05)
 
     def test_7_ds9_image(self):
         '''Test image production.'''
