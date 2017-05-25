@@ -110,9 +110,11 @@ class TestScanSet(object):
 
 
         klass.config = read_config(klass.config_file)
-        klass.scanset = ScanSet(klass.config_file, norefilt=False)
-
-        klass.scanset.write('test.hdf5', overwrite=True)
+        if os.path.exists('test.hdf5'):
+            klass.scanset = ScanSet('test.hdf5')
+        else:
+            klass.scanset = ScanSet(klass.config_file, norefilt=False)
+            klass.scanset.write('test.hdf5', overwrite=True)
 
         plt.ioff()
 
