@@ -40,7 +40,7 @@ Then:
 That's it. After installation has ended, you can verify that software is
 installed by executing:
 
-    (py3) $ SDTlcurve -h
+    (py3) $ SDTimage -h
 
 If the help message appears, you're done!
 
