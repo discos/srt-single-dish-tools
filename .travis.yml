@@ -89,6 +89,11 @@ matrix:
         # No pyyaml
         - python: 3.6
           env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels numba'
+        # Test Astropy LTS version
+        - python: 2.7
+          env: SETUP_CMD='test' ASTROPY_VERSION=lts
+        - python: 3.6
+          env: SETUP_CMD='test' ASTROPY_VERSION=lts
 
 
 
