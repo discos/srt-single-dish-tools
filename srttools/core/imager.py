@@ -396,7 +396,7 @@ class ScanSet(Table):
 
         if map_unit == "Jy/beam":
             conversion_units = u.Jy / u.ct
-        elif map_unit == "Jy/pixel":
+        elif map_unit in ["Jy/pixel", "Jy/sr"]:
             conversion_units = u.Jy / u.ct / u.steradian
         else:
             raise ValueError("Unit for calibration not recognized")
@@ -430,16 +430,21 @@ class ScanSet(Table):
 
             if map_unit == "Jy/beam":
                 area_conversion = 1
+                final_unit = u.Jy
+            elif map_unit == "Jy/sr":
+                area_conversion = 1
+                final_unit = u.Jy / u.sr
             elif map_unit == "Jy/pixel":
                 area_conversion = self.meta['pixel_size'] ** 2
+                final_unit = u.Jy
 
             C = A * area_conversion * Jy_over_counts
 
-            self.images[ch] = C.to(u.Jy).value
+            self.images[ch] = C.to(final_unit).value
 
             eC = C * (eA / A + eB / B)
 
-            self.images['{}-Sdev'.format(ch)] = eC.to(u.Jy).value
+            self.images['{}-Sdev'.format(ch)] = eC.to(final_unit).value
 
     def interactive_display(self, ch=None, recreate=False):
         """Modify original scans from the image display."""
