@@ -86,9 +86,6 @@ matrix:
         # Try older numpy versions
         - python: 3.4
           env: NUMPY_VERSION=1.9 SETUP_CMD='test'
-        # No NUMBA
-        - python: 3.6
-          env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
         # No statsmodels
         - python: 3.6
           env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba'
