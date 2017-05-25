@@ -2,7 +2,7 @@ language: python
 
 python:
     - 2.7
-    - 3.4
+    - 3.6
     # This is just for "egg_info".  All other builds are explicitly given in the matrix
 
 # Setting sudo to false opts in to Travis-CI container-based builds.
@@ -25,10 +25,9 @@ env:
         # The following versions are the 'default' for tests, unless
         # overidden underneath. They are defined here in order to save having
         # to repeat them for all configurations.
-        - NUMPY_VERSION=1.10
         - ASTROPY_VERSION=stable
-        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py numba pandas'
-        - PIP_DEPENDENCIES='statsmodels patsy'
+        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels'
+        - PIP_DEPENDENCIES='patsy'
         - MAIN_CMD='python setup.py'
         - SETUP_XVFB=True
     matrix:
@@ -36,34 +35,27 @@ env:
         - SETUP_CMD='egg_info'
 
 matrix:
+    fast_finish: true
     include:
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
         # Try all python versions with the latest numpy
         - python: 2.7
           env: SETUP_CMD='test --coverage'
-        - python: 3.4
+        - python: 3.6
           env: SETUP_CMD='test --coverage' USE_NUMBA=yes
-        - python: 3.5
-          env: SETUP_CMD='test'
         # No statsmodels
-        - python: 2.7
-          env: SETUP_CMD='test' PIP_DEPENDENCIES=''
-        - python: 3.5
+        - python: 3.6
           env: SETUP_CMD='test' PIP_DEPENDENCIES=''
         # Test Astropy LTS version
         - python: 2.7
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
-        - python: 3.4
-          env: SETUP_CMD='test' ASTROPY_VERSION=lts
-        - python: 3.5
+        - python: 3.6
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
         # Try Astropy development version
         - python: 2.7
           env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.4
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.5
+        - python: 3.6
           env: ASTROPY_VERSION=development SETUP_CMD='test'
         - python: 2.7
           env: SETUP_CMD='build_sphinx -w'
@@ -75,30 +67,19 @@ matrix:
           env: NUMPY_VERSION=1.9 SETUP_CMD='test'
         - python: 3.4
           env: NUMPY_VERSION=1.8 SETUP_CMD='test'
-        - python: 2.7
-          env: NUMPY_VERSION=1.7 SETUP_CMD='test'
-        - python: 2.7
-          env: NUMPY_VERSION=1.6 SETUP_CMD='test'
-
     allow_failures:
         - python: 2.7
           env: SETUP_CMD='build_sphinx -w'
+        # Old matplotlib
         - python: 3.4
-          env: NUMPY_VERSION=1.8 SETUP_CMD='test'
+          env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
         - python: 2.7
           env: NUMPY_VERSION=1.7 SETUP_CMD='test'
         - python: 2.7
           env: NUMPY_VERSION=1.6 SETUP_CMD='test'
-        - python: 2.7
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.4
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.5
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.5
-          env: SETUP_CMD='test' ASTROPY_VERSION=lts
-        - python: 3.4
-          env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
+        - python: 3.6
+          env: SETUP_CMD='test' PIP_DEPENDENCIES=''
+
 
 before_install:
 #    - sudo wget https://gist.githubusercontent.com/dmitriy-kiriyenko/974392/raw/337a72368029046f28f0391c914c02d0ef3ad9d7/xvfb -O /etc/init.d/xvfb
