@@ -230,6 +230,8 @@ class TestScanSet(object):
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/beam")
 
+        assert np.allclose(np.max(images['Ch0']), 0.5, 0.05)
+
     def test_7_ds9_image(self):
         '''Test image production.'''
 

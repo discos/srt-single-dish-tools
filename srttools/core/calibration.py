@@ -410,7 +410,7 @@ class CalibratorTable(SourceTable):
             (etotal / total + eflux / flux +
              2 * ewidth / width) * flux_integral_over_counts
 
-        flux_over_counts = flux / ecounts
+        flux_over_counts = flux / counts
         flux_over_counts_err = \
             (ecounts / counts + eflux / flux) * flux_over_counts
 
