@@ -2,6 +2,11 @@
 # Windows.
 # Copied shamelessly from Astropy
 
+branches:
+  only:
+    - "master"
+
+
 environment:
   global:
       PYTHON: "C:\\conda"
