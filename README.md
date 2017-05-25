@@ -1,6 +1,6 @@
 # SRT Single dish tools #
-![status](https://gitlab.com/matteobachetti/srt-single-dish-tools/badges/master/build.svg)
-![coverage](https://gitlab.com/matteobachetti/srt-single-dish-tools/badges/master/coverage.svg)
+[![status](https://travis-ci.org/matteobachetti/srt-single-dish-tools.svg?branch=master)](https://travis-ci.org/matteobachetti/srt-single-dish-tools)
+[![Coverage Status](https://coveralls.io/repos/github/matteobachetti/srt-single-dish-tools/badge.svg?branch=master)](https://coveralls.io/github/matteobachetti/srt-single-dish-tools?branch=master)
 
 ## Installation
 
