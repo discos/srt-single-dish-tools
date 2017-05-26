@@ -102,7 +102,7 @@ class TestScanSet(object):
 
         caltable = CalibratorTable()
         caltable.from_scans(glob.glob(os.path.join(klass.caldir,
-                                                   '*.fits')))
+                                                   '*.fits')), debug=True)
 
         caltable.update()
         klass.calfile = os.path.join(klass.datadir, 'calibrators.hdf5')
@@ -113,7 +113,8 @@ class TestScanSet(object):
         if os.path.exists('test.hdf5'):
             klass.scanset = ScanSet('test.hdf5')
         else:
-            klass.scanset = ScanSet(klass.config_file, norefilt=False)
+            klass.scanset = ScanSet(klass.config_file, norefilt=False,
+                                    debug=True)
             klass.scanset.write('test.hdf5', overwrite=True)
 
         plt.ioff()
@@ -124,7 +125,7 @@ class TestScanSet(object):
     def test_use_command_line(self):
         main_imager(('test.hdf5 -u Jy/beam '.format(self.config_file) +
                      '--calibrate {}'.format(self.calfile) +
-                     ' -o bubu.hdf5').split(' '))
+                     ' -o bubu.hdf5 --debug').split(' '))
 
     def test_1_meta_saved_and_loaded_correctly(self):
         scanset = ScanSet('test.hdf5',
