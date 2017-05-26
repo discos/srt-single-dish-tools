@@ -265,7 +265,7 @@ class Scan(Table):
     """Class containing a single scan."""
 
     def __init__(self, data=None, config_file=None, norefilt=True,
-                 interactive=False, nosave=False, verbose=True,
+                 interactive=False, nosave=False, debug=False,
                  freqsplat=None, nofilt=False, nosub=False, **kwargs):
         """Initialize a Scan object.
 
@@ -284,7 +284,7 @@ class Scan(Table):
         else:  # if data is a filename
             if os.path.exists(root_name(data) + '.hdf5') and norefilt:
                 data = root_name(data) + '.hdf5'
-            if verbose:
+            if debug:
                 logging.info('Loading file {}'.format(data))
             table = read_data(data)
             Table.__init__(self, table, masked=True, **kwargs)
@@ -297,7 +297,8 @@ class Scan(Table):
             self.check_order()
 
             self.clean_and_splat(freqsplat=freqsplat, nofilt=nofilt,
-                                 noise_threshold=self.meta['noise_threshold'])
+                                 noise_threshold=self.meta['noise_threshold'],
+                                 debug=debug)
 
             if interactive:
                 self.interactive_filter()
@@ -391,7 +392,7 @@ class Scan(Table):
                     noise_threshold=noise_threshold,
                     debug=debug, nofilt=nofilt,
                     outfile=root_name(self.meta['filename']),
-                    label=ic)
+                    label="{}".format(ic))
 
             if results is None:
                 continue

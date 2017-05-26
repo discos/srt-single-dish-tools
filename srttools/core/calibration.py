@@ -177,9 +177,12 @@ class SourceTable(Table):
             if n not in self.keys():
                 self.add_column(Column(name=n, dtype=d))
 
-    def from_scans(self, scan_list=None, verbose=False, freqsplat=None,
-                   config_file=None, nofilt=False, plot=True):
+    def from_scans(self, scan_list=None, debug=False, freqsplat=None,
+                   config_file=None, nofilt=False, plot=False):
         """Load source table from a list of scans."""
+
+        if debug is True:
+            plot = True
 
         if scan_list is None:
             if config_file is None:
@@ -202,7 +205,7 @@ class SourceTable(Table):
                 # For now, use nosave. HDF5 doesn't store meta, essential for
                 # this
                 # TODO: experiment with serialize_meta!
-                scan = Scan(s, norefilt=True, nosave=True, verbose=verbose,
+                scan = Scan(s, norefilt=True, nosave=True, debug=debug,
                             freqsplat=freqsplat, nofilt=nofilt)
             except KeyError as e:
                 warnings.warn("Missing key. Bad file? {}: {}".format(s,
@@ -277,8 +280,8 @@ class SourceTable(Table):
                     if plot:
                         ax0.axvline(pnt_ra.to(u.deg).value, label="RA Pnt",
                                     ls="--")
-                    ax0.set_xlim([fit_ra - 2, fit_ra + 2])
-                    ax1.set_xlabel('RA')
+                        ax0.set_xlim([fit_ra - 2, fit_ra + 2])
+                        ax1.set_xlabel('RA')
 
                 elif scan_type.startswith("Dec"):
                     fit_ra = None
@@ -291,10 +294,10 @@ class SourceTable(Table):
                     if plot:
                         ax0.axvline(pnt_dec.to(u.deg).value, label="Dec Pnt",
                                     ls="--")
-                    ax0.set_xlim([fit_dec - 2, fit_dec + 2])
-                    ax1.set_xlabel('Dec')
-                ax0.set_ylabel("Counts")
-                ax1.set_ylabel("Residual (cts)")
+                        ax0.set_xlim([fit_dec - 2, fit_dec + 2])
+                        ax1.set_xlabel('Dec')
+                        ax0.set_ylabel("Counts")
+                        ax1.set_ylabel("Residual (cts)")
                 index = pnames.index("amplitude_1")
 
                 counts_err = uncert[index]

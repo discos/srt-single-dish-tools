@@ -54,7 +54,7 @@ def decide_symbol(values):
 
 
 def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
-               verbose=True, freqsplat=None):
+               debug=True, freqsplat=None):
     """Get fluxes from all scans in path."""
     # dname = os.path.basename(scandir)
     scan_list = \
@@ -93,7 +93,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
         sname = os.path.basename(s)
         try:
             # For now, use nosave. HDF5 doesn't store meta, essential for this
-            scan = Scan(s, norefilt=True, nosave=True, verbose=verbose,
+            scan = Scan(s, norefilt=True, nosave=True, debug=debug,
                         freqsplat=freqsplat)
         except:
             warnings.warn('{} is an invalid file'.format(s))
@@ -215,7 +215,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
 
 
 def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
-                   picklefile=None, verbose=True, freqsplat=None):
+                   picklefile=None, debug=True, freqsplat=None):
     """Get all fluxes in the directories specified by the config file."""
     config = read_config(config_file)
 
@@ -229,7 +229,7 @@ def get_full_table(config_file, channel='Ch0', feed=0, plotall=False,
         print('\n-----------------\n')
 
         output_table = get_fluxes(config['datadir'], d, channel=channel,
-                                  feed=feed, plotall=plotall, verbose=verbose,
+                                  feed=feed, plotall=plotall, debug=debug,
                                   freqsplat=freqsplat)
         tables[d] = output_table
 
