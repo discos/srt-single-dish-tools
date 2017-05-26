@@ -181,6 +181,9 @@ class SourceTable(Table):
                    config_file=None, nofilt=False, plot=False):
         """Load source table from a list of scans."""
 
+        if debug is True:
+            plot = True
+
         if scan_list is None:
             if config_file is None:
                 config_file = get_config_file()
