@@ -109,14 +109,14 @@ class Test2_Scan(object):
     def test_scan(self):
         '''Test that data are read.'''
 
-        scan = Scan(self.fname)
+        scan = Scan(self.fname, debug=True)
 
         scan.write('scan.hdf5', overwrite=True)
         scan.baseline_subtract('rough')
 
     @pytest.mark.parametrize('fname', ['srt_data.fits'])
     def test_coordinate_conversion_works(self, fname):
-        scan = Scan(os.path.join(self.datadir, 'spectrum', fname))
+        scan = Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
         idx = 1 if '_multif' in fname else 0
         ref_coords = SkyCoord(ra=scan['ra'][:, idx],

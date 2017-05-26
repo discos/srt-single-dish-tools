@@ -754,6 +754,9 @@ def main_imager(args=None):  # pragma: no cover
                         help='Unit of the calibrated image. Jy/beam or '
                              'Jy/pixel')
 
+    parser.add_argument("--debug", action='store_true', default=False,
+                        help='Plot stuff and be verbose')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -779,7 +782,7 @@ def main_imager(args=None):  # pragma: no cover
         assert args.config is not None, "Please specify the config file!"
         scanset = ScanSet(args.config, norefilt=not args.refilt,
                           freqsplat=args.splat, nosub=not args.sub,
-                          nofilt=args.nofilt)
+                          nofilt=args.nofilt, debug=args.debug)
         infile = args.config
 
         if outfile is None:
@@ -838,6 +841,9 @@ def main_preprocess(args=None):  # pragma: no cover
     parser.add_argument("--nofilt", action='store_true', default=False,
                         help='Do not filter noisy channels')
 
+    parser.add_argument("--debug", action='store_true', default=False,
+                        help='Plot stuff and be verbose')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -851,12 +857,14 @@ def main_preprocess(args=None):  # pragma: no cover
     if args.files is not None:
         for f in args.files:
             scan = Scan(f, freqsplat=args.splat,
-                        nosub=not args.sub, norefilt=False)
+                        nosub=not args.sub, norefilt=False,
+                        debug=args.debug)
     else:
         assert args.config is not None, "Please specify the config file!"
         scanset = ScanSet(args.config, norefilt=False,
                           freqsplat=args.splat, nosub=not args.sub,
-                          nofilt=args.nofilt)
+                          nofilt=args.nofilt,
+                          debug=args.debug)
 
     if args.interactive:
         scanset.interactive_display()
