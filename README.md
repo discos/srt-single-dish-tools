@@ -6,7 +6,6 @@
 ## Installation
 
 ### Anaconda and virtual environment (recommended but optional)
-
 We strongly suggest to install the
 [Anaconda](https://www.continuum.io/downloads) Python distribution.
 Once the installation has finished, you should have a working `conda`
