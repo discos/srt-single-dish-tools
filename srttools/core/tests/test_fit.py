@@ -49,7 +49,7 @@ class TestFit(object):
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[12:] == series[12:])
 
-        assert np.all((series2[10:12] > series[9])&
+        assert np.all((series2[10:12] > series[9]) &
                       (series2[10:12] < series[12]))
 
     def test_outliers_bell(self):
@@ -107,50 +107,3 @@ class TestFit(object):
 
         np.testing.assert_allclose(qs, [-60, 60], atol=3)
         np.testing.assert_allclose(ms, [0.3, -0.8], atol=0.05)
-
-
-# class TestOutliersWithMedian(object):
-#     @classmethod
-#     def setup_class(cls):
-#         cls.series = np.random.normal(0, 0.1, 1000)
-#         cls.t = np.arange(0, len(cls.series)/10, 0.1)
-#
-#     def test_outliers1(self):
-#         """Test that outlier detection works."""
-#         series = np.copy(self.series)
-#         series[10] = 2
-#         series2 = purge_outliers(series, use_mad=True)
-#         assert np.all(series2[:10] == series[:10])
-#         assert np.all(series2[11:] == series[11:])
-#         np.testing.assert_almost_equal(series2[10],
-#                                        (series[9] + series[11]) / 2)
-#
-#     def test_outliers2(self):
-#         """Test that outlier detection works."""
-#         series = np.copy(self.series)
-#         series[10] = -2
-#         series2 = purge_outliers(series, use_mad=True)
-#         assert np.all(series2[:10] == series[:10])
-#         assert np.all(series2[11:] == series[11:])
-#         np.testing.assert_almost_equal(series2[10],
-#                                        (series[9] + series[11]) / 2)
-#
-#     def test_outliers3(self):
-#         """Test that outlier detection works."""
-#         series = np.copy(self.series)
-#         series[10] = 20
-#         series[11] = 20
-#         series2 = purge_outliers(series, use_mad=True)
-#
-#         assert np.all(series2 == series)
-#
-#     def test_outliers_bell(self):
-#         """Test that outlier detection works."""
-#         series = np.copy(self.series) + _test_shape(self.t) / 10
-#         series[10] = 2
-#         series2 = purge_outliers(series, use_mad=True)
-#         assert np.all(series2[:10] == series[:10])
-#         assert np.all(series2[11:] == series[11:])
-#         np.testing.assert_almost_equal(series2[10],
-#                                        (series[9] + series[11]) / 2)
-

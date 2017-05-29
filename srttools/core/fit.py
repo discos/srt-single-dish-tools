@@ -162,8 +162,8 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=False):
 
 def purge_outliers(y, window_size=5):
     """Remove obvious outliers.
-    
-    Attention: This is known to throw false positives on bona fide, very strong 
+
+    Attention: This is known to throw false positives on bona fide, very strong
     Gaussian peaks
     """
 

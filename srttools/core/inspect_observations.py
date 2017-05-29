@@ -83,7 +83,8 @@ def split_observation_table(info, max_calibrator_delay=0.4,
                             max_calibrator_delay=max_calibrator_delay,
                             max_source_delay=max_source_delay)
 
-        label = ','.join([standard_string(start_row[e]) for e in group_by_entries])
+        label = ','.join([standard_string(start_row[e])
+                          for e in group_by_entries])
 
         groups[label] = s
 
