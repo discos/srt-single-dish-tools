@@ -2,7 +2,7 @@
 
 from __future__ import (absolute_import, division,
                         print_function)
-from .scan import contiguous_regions
+from .fit import contiguous_regions
 import warnings
 
 try:
