@@ -2,9 +2,55 @@
 from __future__ import (absolute_import, division,
                         print_function)
 from scipy.optimize import curve_fit
+from scipy.ndimage import median_filter
 import numpy as np
 import traceback
 import warnings
+
+try:
+    from statsmodels.robust import mad
+except ImportError:
+    def mad(data, axis=None):
+        return np.median(np.abs(data - np.median(data, axis)), axis)
+
+
+def contiguous_regions(condition):
+    """Find contiguous True regions of the boolean array "condition".
+
+    Return a 2D array where the first column is the start index of the region
+    and the second column is the end index.
+
+    Parameters
+    ----------
+    condition : boolean array
+
+    Returns
+    -------
+    idx : [[i0_0, i0_1], [i1_0, i1_1], ...]
+        A list of integer couples, with the start and end of each True blocks
+        in the original array
+
+    Notes
+    -----
+    From http://stackoverflow.com/questions/4494404/
+        find-large-number-of-consecutive-values-fulfilling-
+        condition-in-a-numpy-array
+    """  # NOQA
+    # Find the indicies of changes in "condition"
+    diff = np.diff(condition)
+    idx, = diff.nonzero()
+    # We need to start things after the change in "condition". Therefore,
+    # we'll shift the index by 1 to the right.
+    idx += 1
+    if condition[0]:
+        # If the start of condition is True prepend a 0
+        idx = np.r_[0, idx]
+    if condition[-1]:
+        # If the end of condition is True, append the length of the array
+        idx = np.r_[idx, condition.size]
+    # Reshape the result into two columns
+    idx.shape = (-1, 2)
+    return idx
 
 
 def _rolling_window(a, window):
@@ -28,6 +74,13 @@ def ref_std(array, window):
         return (np.std(np.diff(array)))
 
     return np.min(np.std(_rolling_window(array, window), 1))
+
+
+def ref_mad(array, window):
+    """Rolling MAD of an array, rolling median-subtracted."""
+    if len(array) < window*3:
+        return mad(array)
+    return np.median(mad(_rolling_window(array, window), axis=1))
 
 
 def linear_fun(x, q, m):
@@ -107,24 +160,37 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=False):
         return lc
 
 
-def purge_outliers(y):
+def purge_outliers(y, window_size=5):
+    """Remove obvious outliers.
+    
+    Attention: This is known to throw false positives on bona fide, very strong 
+    Gaussian peaks
+    """
+
     y = y.copy()
-    idxs = np.arange(len(y))
 
-    min_diff = ref_std(y, np.max([len(y) // 15, 30]))
-    diffs = np.diff(y)
-    diffs = np.append([0], diffs)
-    diffs_before = np.array(diffs)[:-1]
-    diffs_after = np.array(diffs)[1:]
-    sign_rule = np.sign(diffs_before) != np.sign(diffs_after)
-    outliers = (np.abs(diffs_before) > 10 * min_diff) & \
-               (np.abs(diffs_after) > 10 * min_diff) & sign_rule
-    outlier_idxs = idxs[:-1][outliers]
-    for i in outlier_idxs:
-        y[i] = (y[i - 1] + y[i + 1]) / 2
+    diffs = y - median_filter(y, window_size)
+    min_diff = mad(diffs)
 
-    if len(outlier_idxs) > 0:
-        warnings.warn("Found {} outliers".format(len(outlier_idxs)))
+    outliers = np.abs(diffs) > 10 * min_diff
+    if not np.any(outliers):
+        return y
+
+    bad = contiguous_regions(outliers)
+    for b in bad:
+        if b[0] == 0:
+            y[b[0]] = y[b[1]]
+        elif b[1] >= len(y):
+            y[b[0]:] = y[b[0] - 1]
+        else:
+            previous = y[b[0] - 1]
+            next = y[b[1]]
+            dx = b[1] - b[0]
+            y[b[0]:b[1]] = \
+                (next - previous)/(dx + 1) * \
+                np.arange(1, b[1] - b[0] + 1) + previous
+
+    warnings.warn("Found {} outliers".format(len(diffs[outliers])))
 
     return y
 
