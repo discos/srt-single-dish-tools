@@ -24,7 +24,6 @@ except ImportError:
         return x
 
 
-
 np.random.seed(1241347)
 
 
@@ -107,7 +106,6 @@ class TestScanSet(object):
         caltable.update()
         klass.calfile = os.path.join(klass.datadir, 'calibrators.hdf5')
         caltable.write(klass.calfile, overwrite=True)
-
 
         klass.config = read_config(klass.config_file)
         if os.path.exists('test.hdf5'):

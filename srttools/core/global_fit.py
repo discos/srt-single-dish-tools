@@ -12,6 +12,7 @@ except:
 
     def jit(fun):
         return fun
+
     def vectorize(*args, **kwargs):
         return jit
 
