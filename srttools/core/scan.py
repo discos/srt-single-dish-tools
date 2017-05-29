@@ -5,7 +5,7 @@ from __future__ import (absolute_import, division,
 from .io import read_data, root_name
 import glob
 from .read_config import read_config, get_config_file
-from .fit import ref_std
+from .fit import ref_std, contiguous_regions
 import os
 import numpy as np
 from astropy.table import Table, Column
@@ -207,45 +207,6 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         plt.close(fig)
 
     return results
-
-
-def contiguous_regions(condition):
-    """Find contiguous True regions of the boolean array "condition".
-
-    Return a 2D array where the first column is the start index of the region
-    and the second column is the end index.
-
-    Parameters
-    ----------
-    condition : boolean array
-
-    Returns
-    -------
-    idx : [[i0_0, i0_1], [i1_0, i1_1], ...]
-        A list of integer couples, with the start and end of each True blocks
-        in the original array
-
-    Notes
-    -----
-    From http://stackoverflow.com/questions/4494404/
-        find-large-number-of-consecutive-values-fulfilling-
-        condition-in-a-numpy-array
-    """  # NOQA
-    # Find the indicies of changes in "condition"
-    diff = np.diff(condition)
-    idx, = diff.nonzero()
-    # We need to start things after the change in "condition". Therefore,
-    # we'll shift the index by 1 to the right.
-    idx += 1
-    if condition[0]:
-        # If the start of condition is True prepend a 0
-        idx = np.r_[0, idx]
-    if condition[-1]:
-        # If the end of condition is True, append the length of the array
-        idx = np.r_[idx, condition.size]
-    # Reshape the result into two columns
-    idx.shape = (-1, 2)
-    return idx
 
 
 chan_re = re.compile(r'^Ch[0-9]+$')
