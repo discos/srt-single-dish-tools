@@ -119,7 +119,8 @@ class TestRun(object):
         klass.datadir = os.path.join(klass.curdir, 'data')
 
     def test_run_dump_default(self):
-        main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) + ['-d'])
+        main_inspector(
+            glob.glob(os.path.join(self.datadir, 'gauss_*/')) + ['-d'])
         assert os.path.exists('CCB_TP_Dummy_Obs0.ini')
 
     def test_run_dump(self):

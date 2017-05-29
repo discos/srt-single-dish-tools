@@ -261,7 +261,7 @@ class SourceTable(Table):
                 if plot:
                     fig = plt.figure("Fit information")
                     import matplotlib as mpl
-                    gs = mpl.gridspec.GridSpec(2, 1, height_ratios=(3,1))
+                    gs = mpl.gridspec.GridSpec(2, 1, height_ratios=(3, 1))
                     ax0 = plt.subplot(gs[0])
                     ax1 = plt.subplot(gs[1], sharex=ax0)
 
@@ -420,7 +420,7 @@ class CalibratorTable(SourceTable):
         self['Flux/Counts'][:] = \
             flux_over_counts.to(u.Jy / u.ct).value
         self['Flux/Counts Err'][:] = \
-                flux_over_counts_err.to(u.Jy / u.ct).value
+            flux_over_counts_err.to(u.Jy / u.ct).value
 
         self['Flux Integral/Counts'][:] = \
             flux_integral_over_counts.to(u.Jy / u.ct / u.steradian).value
@@ -589,14 +589,13 @@ class CalibratorTable(SourceTable):
 
         return fc, fce
 
-
     def beam_width(self, channel=None):
         goodch = np.ones(len(self), dtype=bool)
         if channel is not None:
             goodch = self["Chan"] == channel
         allwidths = self[goodch]['Width']
         allwidth_errs = self[goodch]['Width Err']
-        good = (allwidth_errs > 0)&(allwidth_errs == allwidth_errs)
+        good = (allwidth_errs > 0) & (allwidth_errs == allwidth_errs)
         allwidths = allwidths[good]
         allwidth_errs = allwidth_errs[good]
 
@@ -605,7 +604,6 @@ class CalibratorTable(SourceTable):
 
         width_err = np.sqrt(np.sum(allwidth_errs ** 2))
         return np.radians(width), np.radians(width_err)
-
 
     def counts_over_Jy(self, channel=None, elevation=None):
         """Get the conversion from Jy to counts."""
