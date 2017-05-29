@@ -858,7 +858,7 @@ def main_preprocess(args=None):  # pragma: no cover
         for f in args.files:
             scan = Scan(f, freqsplat=args.splat,
                         nosub=not args.sub, norefilt=False,
-                        debug=args.debug)
+                        debug=args.debug, interactive=args.interactive)
     else:
         assert args.config is not None, "Please specify the config file!"
         scanset = ScanSet(args.config, norefilt=False,
@@ -866,5 +866,5 @@ def main_preprocess(args=None):  # pragma: no cover
                           nofilt=args.nofilt,
                           debug=args.debug)
 
-    if args.interactive:
-        scanset.interactive_display()
+        if args.interactive:
+            scanset.interactive_display()
