@@ -231,7 +231,6 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
     plt.close(fig)
 
-
     fig = plt.figure()
     delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing,
                           spacing) / 60

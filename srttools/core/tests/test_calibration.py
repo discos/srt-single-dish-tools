@@ -46,7 +46,7 @@ def sim_calibrators(ncross, caldir):
         times = np.arange(scan_values.size) * dt + timedelta
 
         scan = calibrator_scan_func(scan_values) + \
-               ra.normal(0, 0.2, scan_values.size)
+            ra.normal(0, 0.2, scan_values.size)
         save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
                   filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname='DummyCal')
@@ -57,7 +57,7 @@ def sim_calibrators(ncross, caldir):
         times = np.arange(scan_values.size) * dt + timedelta
 
         scan = calibrator_scan_func(scan_values) + \
-               ra.normal(0, 0.2, scan_values.size)
+            ra.normal(0, 0.2, scan_values.size)
         save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
                   filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname='DummyCal')
@@ -135,7 +135,6 @@ class TestCalibration(object):
 
         beam, beam_err = caltable.beam_width()
         assert np.all(beam - np.radians(3/60) < 3 * beam_err)
-
 
     def test_calibration_plot(self):
         """Simple calibration from scans."""

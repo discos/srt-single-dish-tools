@@ -405,7 +405,7 @@ class ScanSet(Table):
             Jy_over_counts, Jy_over_counts_err = \
                 caltable.Jy_over_counts(channel=ch,
                                         elevation=elevation) * \
-                    conversion_units
+                conversion_units
 
             if np.isnan(Jy_over_counts):
                 warnings.warn("The Jy/counts factor is nan")
