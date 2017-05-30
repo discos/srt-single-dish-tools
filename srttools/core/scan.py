@@ -30,7 +30,7 @@ def _split_freq_splat(freqsplat):
 
 def interpret_frequency_range(freqsplat, bandwidth, nbin):
     """Interpret the frequency range specified in freqsplat.
-    
+
     Examples
     --------
     >>> interpret_frequency_range(None, 1024, 512)
@@ -125,9 +125,9 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     median_spectral_var = np.median(mod_spectral_var[freqmask])
     stdref = ref_mad(mod_spectral_var[freqmask], 20)
 
-    # Calculate baseline of spectral var
-    lam = 10**(-6.2 + np.log2(nbin) * 1.2)  # Empyrical formula, with no
-                                            # physical meaning
+    # Calculate baseline of spectral var ---------------
+    # Empyrical formula, with no physical meaning
+    lam = 10**(-6.2 + np.log2(nbin) * 1.2)
     _, baseline = baseline_als(np.arange(binmax - binmin),
                                np.array(mod_spectral_var[binmin:binmax]),
                                return_baseline=True,
@@ -172,7 +172,7 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                 cleaned_meanspec ** 2)
     cleaned_spectral_var = \
         np.sqrt(np.sum((cleaned_dynamical_spectrum - cleaned_meanspec) ** 2,
-                   axis=0) / dynspec_len) / cleaned_meanspec
+                       axis=0) / dynspec_len) / cleaned_meanspec
 
     mean_varimg = np.mean(cleaned_varimg[:, freqmask])
     std_varimg = np.std(cleaned_varimg[:, freqmask])
