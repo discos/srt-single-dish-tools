@@ -21,17 +21,35 @@ import logging
 import traceback
 
 
-def _interpret_frequency_range(freqsplat, bandwidth, nbin):
-    """Interpret the frequency range specified in freqsplat."""
-    try:
-        freqmin, freqmax = \
-            [float(f) for f in freqsplat.split(':')]
-    except:
-        freqsplat = ":"
+def _split_freq_splat(freqsplat):
+    freqmin, freqmax = \
+        [float(f) for f in freqsplat.split(':')]
+    return freqmin, freqmax
 
-    if freqsplat == ":" or freqsplat == "all" or freqsplat is None:
-        freqmin = 0
-        freqmax = bandwidth
+
+def interpret_frequency_range(freqsplat, bandwidth, nbin):
+    """Interpret the frequency range specified in freqsplat.
+    
+    Examples
+    --------
+    >>> interpret_frequency_range(None, 1024, 512)
+    (102.4, 921.6, 51, 459)
+    >>> interpret_frequency_range('default', 1024, 512)
+    (102.4, 921.6, 51, 459)
+    >>> interpret_frequency_range(':', 1024, 512)
+    (0, 1024, 0, 511)
+    >>> interpret_frequency_range('all', 1024, 512)
+    (0, 1024, 0, 511)
+    >>> interpret_frequency_range('200:800', 1024, 512)
+    (200.0, 800.0, 100, 399)
+    """
+
+    if freqsplat is None or freqsplat == 'default':
+        freqmin, freqmax = bandwidth / 10, bandwidth * 0.9
+    elif freqsplat in ['all', ':']:
+        freqmin, freqmax = 0, bandwidth
+    else:
+        freqmin, freqmax = _split_freq_splat(freqsplat)
 
     binmin = int(nbin * freqmin / bandwidth)
     binmax = int(nbin * freqmax / bandwidth) - 1
@@ -63,22 +81,27 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     freqmask = np.ones(len(meanspec), dtype=bool)
 
     freqmin, freqmax, binmin, binmax = \
-        _interpret_frequency_range(freqsplat, bandwidth, nbin)
+        interpret_frequency_range(freqsplat, bandwidth, nbin)
     freqmask[0:binmin] = False
     freqmask[binmax:] = False
 
     if debug:
         fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
-        gs = GridSpec(4, 2, hspace=0, height_ratios=(1.5, 1.5, 1.5, 1.5),
+        gs = GridSpec(4, 2, hspace=0, wspace=0,
+                      height_ratios=(1.5, 1.5, 1.5, 1.5),
                       width_ratios=(3, 1.5))
         ax_meanspec = plt.subplot(gs[0, 0])
         ax_dynspec = plt.subplot(gs[1, 0], sharex=ax_meanspec)
         ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec)
         ax_lc = plt.subplot(gs[1, 1], sharey=ax_dynspec)
-        ax_cleanlc = plt.subplot(gs[2, 1], sharey=ax_dynspec)
+        ax_cleanlc = plt.subplot(gs[2, 1], sharey=ax_dynspec, sharex=ax_lc)
         ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
         ax_meanspec.plot(allbins[1:], meanspec[1:], label="Unfiltered")
         ax_var.plot(allbins[1:], spectral_var[1:], label="Spectral rms")
+        ax_meanspec.set_ylabel('Counts')
+        ax_dynspec.set_ylabel('Sample')
+        ax_cleanspec.set_ylabel('Sample')
+        ax_var.set_ylabel('r.m.s.')
 
     if good_mask is not None:
         meanspec[good_mask] = 0
@@ -188,9 +211,10 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
         ax_lc.plot(lc, lcbins, color="grey")
         ax_lc.plot(lc_mask, lcbins, color="b")
-        ax_lc.set_xlim([np.min(lc), max(lc)])
         ax_cleanlc.plot(lc_mask, lcbins, color="grey")
         ax_cleanlc.plot(lc_corr, lcbins, color="k")
+        dlc = max(lc_corr) - min(lc_corr)
+        ax_lc.set_xlim([np.min(lc_corr) - dlc / 10, max(lc_corr) + dlc / 10])
         ax_var.axvline(freqmin)
         ax_var.axvline(freqmax)
         ax_var.plot(allbins[mask], spectral_var[mask])
@@ -274,7 +298,7 @@ class Scan(Table):
 
     def interpret_frequency_range(self, freqsplat, bandwidth, nbin):
         """Interpret the frequency range specified in freqsplat."""
-        return _interpret_frequency_range(freqsplat, bandwidth, nbin)
+        return interpret_frequency_range(freqsplat, bandwidth, nbin)
 
     def make_single_channel(self, freqsplat, masks=None):
         """Transform a spectrum into a single-channel count rate."""
