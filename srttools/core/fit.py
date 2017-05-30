@@ -177,9 +177,9 @@ def purge_outliers(y, window_size=5, up=True, down=True):
     min_diff = mad(diffs)
 
     outliers = np.zeros(len(y), dtype=bool)
-    if up:
-        outliers = np.logical_or(outliers, -diffs > 10 * min_diff)
     if down:
+        outliers = np.logical_or(outliers, -diffs > 10 * min_diff)
+    if up:
         outliers = np.logical_or(outliers, diffs > 10 * min_diff)
 
     if not np.any(outliers):
