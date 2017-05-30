@@ -823,7 +823,7 @@ def main_preprocess(args=None):  # pragma: no cover
                    'and preprocess them, or preprocess a single scan.')
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("files", nargs='+',
+    parser.add_argument("files", nargs='*',
                         help="Single files to preprocess",
                         default=None, type=str)
 
@@ -836,7 +836,7 @@ def main_preprocess(args=None):  # pragma: no cover
 
     parser.add_argument("--interactive", default=False,
                         action='store_true',
-                        help='Open the interactive display')
+                        help='Open the interactive display for each scan')
 
     parser.add_argument("--nofilt", action='store_true', default=False,
                         help='Do not filter noisy channels')
@@ -864,7 +864,4 @@ def main_preprocess(args=None):  # pragma: no cover
         scanset = ScanSet(args.config, norefilt=False,
                           freqsplat=args.splat, nosub=not args.sub,
                           nofilt=args.nofilt,
-                          debug=args.debug)
-
-        if args.interactive:
-            scanset.interactive_display()
+                          debug=args.debug, interactive=args.interactive)

@@ -5,7 +5,7 @@ from __future__ import (absolute_import, division,
 from .io import read_data, root_name
 import glob
 from .read_config import read_config, get_config_file
-from .fit import ref_std, contiguous_regions
+from .fit import ref_mad, contiguous_regions
 import os
 import numpy as np
 from astropy.table import Table, Column
@@ -14,6 +14,7 @@ from matplotlib.gridspec import GridSpec
 
 from .fit import baseline_rough, baseline_als, linear_fun, _rolling_window
 from .interactive_filter import select_data
+from astropy import stats
 
 import re
 import warnings
@@ -21,22 +22,59 @@ import logging
 import traceback
 
 
-def _interpret_frequency_range(freqsplat, bandwidth, nbin):
-    """Interpret the frequency range specified in freqsplat."""
-    try:
-        freqmin, freqmax = \
-            [float(f) for f in freqsplat.split(':')]
-    except:
-        freqsplat = ":"
+def _split_freq_splat(freqsplat):
+    freqmin, freqmax = \
+        [float(f) for f in freqsplat.split(':')]
+    return freqmin, freqmax
 
-    if freqsplat == ":" or freqsplat == "all" or freqsplat is None:
-        freqmin = 0
-        freqmax = bandwidth
+
+def interpret_frequency_range(freqsplat, bandwidth, nbin):
+    """Interpret the frequency range specified in freqsplat.
+
+    Examples
+    --------
+    >>> interpret_frequency_range(None, 1024, 512)
+    (102.4, 921.6, 51, 459)
+    >>> interpret_frequency_range('default', 1024, 512)
+    (102.4, 921.6, 51, 459)
+    >>> interpret_frequency_range(':', 1024, 512)
+    (0, 1024, 0, 511)
+    >>> interpret_frequency_range('all', 1024, 512)
+    (0, 1024, 0, 511)
+    >>> interpret_frequency_range('200:800', 1024, 512)
+    (200.0, 800.0, 100, 399)
+    """
+
+    if freqsplat is None or freqsplat == 'default':
+        freqmin, freqmax = bandwidth / 10, bandwidth * 0.9
+    elif freqsplat in ['all', ':']:
+        freqmin, freqmax = 0, bandwidth
+    else:
+        freqmin, freqmax = _split_freq_splat(freqsplat)
 
     binmin = int(nbin * freqmin / bandwidth)
     binmax = int(nbin * freqmax / bandwidth) - 1
 
     return freqmin, freqmax, binmin, binmax
+
+
+def _clean_dyn_spec(dynamical_spectrum, bad_intervals):
+    cleaned_dynamical_spectrum = dynamical_spectrum.copy()
+    for b in bad_intervals:
+        if b[0] == 0:
+            fill_lc = np.array(dynamical_spectrum[:, b[1]])
+        elif b[1] >= dynamical_spectrum.shape[1]:
+            fill_lc = np.array(dynamical_spectrum[:, b[0]])
+        else:
+            previous = np.array(dynamical_spectrum[:, b[0] - 1])
+            next = np.array(dynamical_spectrum[:, b[1]])
+            fill_lc = (previous + next) / 2
+
+        for bsub in range(b[0], np.min([b[1], dynamical_spectrum.shape[1]])):
+            cleaned_dynamical_spectrum[:, bsub] = fill_lc
+        if b[0] == 0 or b[1] >= dynamical_spectrum.shape[1]:
+            continue
+    return cleaned_dynamical_spectrum
 
 
 def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
@@ -45,90 +83,86 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                   outfile="out", label=""):
     if len(dynamical_spectrum.shape) == 1:
         return None
-    _, nbin = dynamical_spectrum.shape
+    dynspec_len, nbin = dynamical_spectrum.shape
 
-    dynspec_len = dynamical_spectrum.shape[0]
+    # Calculate first light curve
+
     times = length * np.arange(dynspec_len) / dynspec_len
     lc = np.sum(dynamical_spectrum, axis=1)
     lc = baseline_als(times, lc)
     lcbins = np.arange(len(lc))
-    meanspec = np.sum(dynamical_spectrum, axis=0) / len(dynamical_spectrum)
+
+    # Calculate spectral variability curve
+
+    meanspec = np.sum(dynamical_spectrum, axis=0) / dynspec_len
     spectral_var = \
-        np.mean(np.sqrt((dynamical_spectrum - meanspec) ** 2 / meanspec ** 2),
-                axis=0)
+        np.sqrt(np.sum((dynamical_spectrum - meanspec) ** 2,
+                       axis=0) / dynspec_len) / meanspec
 
     df = bandwidth / len(meanspec)
     allbins = np.arange(len(meanspec)) * df
 
-    freqmask = np.ones(len(meanspec), dtype=bool)
+    # Mask frequencies -- avoid those excluded from splat
 
+    freqmask = np.ones(len(meanspec), dtype=bool)
     freqmin, freqmax, binmin, binmax = \
-        _interpret_frequency_range(freqsplat, bandwidth, nbin)
+        interpret_frequency_range(freqsplat, bandwidth, nbin)
     freqmask[0:binmin] = False
     freqmask[binmax:] = False
 
-    if debug:
-        fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
-        gs = GridSpec(4, 2, hspace=0, height_ratios=(1.5, 1.5, 1.5, 1.5),
-                      width_ratios=(3, 1.5))
-        ax_meanspec = plt.subplot(gs[0, 0])
-        ax_dynspec = plt.subplot(gs[1, 0], sharex=ax_meanspec)
-        ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec)
-        ax_lc = plt.subplot(gs[1, 1], sharey=ax_dynspec)
-        ax_cleanlc = plt.subplot(gs[2, 1], sharey=ax_dynspec)
-        ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
-        ax_meanspec.plot(allbins[1:], meanspec[1:], label="Unfiltered")
-        ax_var.plot(allbins[1:], spectral_var[1:], label="Spectral rms")
+    # Calculate the variability image
 
-    if good_mask is not None:
-        meanspec[good_mask] = 0
+    varimg = np.sqrt((dynamical_spectrum - meanspec) ** 2) / meanspec
 
-    cleaned_dynamical_spectrum = dynamical_spectrum.copy()
-    varimg = np.sqrt((dynamical_spectrum - meanspec) ** 2 / meanspec ** 2)
-    mean_varimg = np.mean(varimg[:, freqmask])
-    std_varimg = np.std(varimg[:, freqmask])
-
-    stdref = ref_std(spectral_var[freqmask], np.max([nbin // 20, 20]))
+    # Set up corrected spectral var
 
     mod_spectral_var = spectral_var.copy()
     mod_spectral_var[0:binmin] = spectral_var[binmin]
     mod_spectral_var[binmax:] = spectral_var[binmax]
 
-    _, baseline = baseline_als(np.arange(len(spectral_var)),
-                               mod_spectral_var, return_baseline=True,
-                               lam=1000, p=0.001, offset_correction=True,
-                               outlier_purging=False)
+    # Some statistical information on spectral var
+
+    median_spectral_var = np.median(mod_spectral_var[freqmask])
+    stdref = ref_mad(mod_spectral_var[freqmask], 20)
+
+    # Calculate baseline of spectral var ---------------
+    # Empyrical formula, with no physical meaning
+    lam = 10**(-6.2 + np.log2(nbin) * 1.2)
+    _, baseline = baseline_als(np.arange(binmax - binmin),
+                               np.array(mod_spectral_var[binmin:binmax]),
+                               return_baseline=True,
+                               lam=lam,
+                               p=0.001, offset_correction=False,
+                               outlier_purging=(False, True), niter=30)
+
+    baseline = \
+        np.concatenate((np.zeros(binmin) + baseline[0],
+                        baseline,
+                        np.zeros(nbin - binmax) + baseline[-1]
+                        ))
+
+    # Set threshold
+
     if not nofilt:
         threshold = baseline + 2 * noise_threshold * stdref
     else:
         threshold = np.zeros_like(baseline) + 1e32
 
+    # Set mask
+
     mask = spectral_var < threshold
+    wholemask = freqmask & mask & np.logical_not(good_mask)
 
-    wholemask = freqmask & mask
-    lc_mask = np.sum(dynamical_spectrum[:, freqmask], axis=1)
-    lc_mask = baseline_als(times, lc_mask)
-
-    lc_corr = np.sum(dynamical_spectrum[:, wholemask], axis=1)
+    # Calculate frequency-masked lc
+    lc_masked = np.sum(dynamical_spectrum[:, freqmask], axis=1)
+    lc_masked = baseline_als(times, lc_masked, outlier_purging=False)
 
     bad_intervals = contiguous_regions(np.logical_not(wholemask))
 
-    total_fill_lc = 0
-    for b in bad_intervals:
-        if b[0] == 0:
-            fill_lc = np.array(dynamical_spectrum[:, b[1]])
-        elif b[1] >= len(spectral_var):
-            fill_lc = np.array(dynamical_spectrum[:, b[0]])
-        else:
-            previous = np.array(dynamical_spectrum[:, b[0] - 1])
-            next = np.array(dynamical_spectrum[:, b[1]])
-            fill_lc = (previous + next) / 2
+    # Calculate cleaned dynamical spectrum
 
-        for bsub in range(b[0], np.min([b[1], len(spectral_var)])):
-            cleaned_dynamical_spectrum[:, bsub] = fill_lc
-        if b[0] == 0 or b[1] >= len(spectral_var):
-            continue
-        total_fill_lc += fill_lc * (b[1] - b[0])
+    cleaned_dynamical_spectrum = \
+        _clean_dyn_spec(dynamical_spectrum, bad_intervals)
 
     cleaned_meanspec = \
         np.sum(cleaned_dynamical_spectrum,
@@ -137,75 +171,112 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         np.sqrt((cleaned_dynamical_spectrum - cleaned_meanspec) ** 2 /
                 cleaned_meanspec ** 2)
     cleaned_spectral_var = \
-        np.mean(np.sqrt((dynamical_spectrum - cleaned_meanspec) ** 2 /
-                        cleaned_meanspec ** 2), axis=0)
+        np.sqrt(np.sum((cleaned_dynamical_spectrum - cleaned_meanspec) ** 2,
+                       axis=0) / dynspec_len) / cleaned_meanspec
 
-    lc_corr += total_fill_lc
+    mean_varimg = np.mean(cleaned_varimg[:, freqmask])
+    std_varimg = np.std(cleaned_varimg[:, freqmask])
 
-    lc_corr = baseline_als(times, lc_corr)
+    lc_corr = np.sum(cleaned_dynamical_spectrum[:, freqmask], axis=1)
+    lc_corr = baseline_als(times, lc_corr, outlier_purging=False)
 
     results = type('test', (), {})()  # create empty object
     results.lc = lc_corr
     results.freqmin = freqmin
     results.freqmax = freqmax
 
-    if debug:
-        ax_meanspec.plot(allbins[1:], meanspec[1:], label="Whitelist applied")
-        ax_meanspec.axvline(freqmin)
-        ax_meanspec.axvline(freqmax)
-        ax_meanspec.plot(allbins[mask], meanspec[mask],
-                         label="Final mask")
-        # ax_meanspec.legend()
+    if not debug:
+        return results
 
-        try:
-            cmap = plt.get_cmap("magma")
-        except:
-            cmap = plt.get_cmap("gnuplot2")
-        ax_dynspec.imshow(varimg, origin="lower", aspect='auto',
-                          cmap=cmap,
-                          vmin=mean_varimg - 5 * std_varimg,
-                          vmax=mean_varimg + 5 * std_varimg,
-                          extent=(0, bandwidth,
-                                  0, varimg.shape[0]), interpolation='none')
+    # Now, PLOT IT ALL --------------------------------
+    # Prepare subplots
+    fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+    gs = GridSpec(4, 3, hspace=0, wspace=0,
+                  height_ratios=(1.5, 1.5, 1.5, 1.5),
+                  width_ratios=(3, 0.3, 1.2))
+    ax_meanspec = plt.subplot(gs[0, 0])
+    ax_dynspec = plt.subplot(gs[1, 0], sharex=ax_meanspec)
+    ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec)
+    ax_lc = plt.subplot(gs[1, 2], sharey=ax_dynspec)
+    ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
+    ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
+    ax_varhist = plt.subplot(gs[3, 1], sharey=ax_var)
+    ax_meanspec.set_ylabel('Counts')
+    ax_dynspec.set_ylabel('Sample')
+    ax_cleanspec.set_ylabel('Sample')
+    ax_var.set_ylabel('r.m.s.')
+    ax_var.set_xlabel('Frequency (MHz)')
+    ax_cleanlc.set_xlabel('Counts')
 
-        ax_cleanspec.imshow(cleaned_varimg, origin="lower", aspect='auto',
-                            cmap=cmap,
-                            vmin=mean_varimg - 5 * std_varimg,
-                            vmax=mean_varimg + 5 * std_varimg,
-                            extent=(0, bandwidth,
-                                    0, varimg.shape[0]), interpolation='none')
+    # Plot mean spectrum
 
-        for b in bad_intervals:
-            maxsp = np.max(meanspec)
-            ax_meanspec.plot(b * df, [maxsp] * 2, color='k', lw=2)
-            middleimg = [varimg.shape[0] / 2]
-            ax_dynspec.plot(b * df, [middleimg] * 2, color='k', lw=2)
-            maxsp = np.max(spectral_var)
-            ax_var.plot(b * df, [maxsp] * 2, color='k', lw=2)
+    ax_meanspec.plot(allbins[1:], meanspec[1:], label="Unfiltered")
+    # ax_meanspec.plot(allbins[1:], meanspec[1:], label="Whitelist applied")
+    ax_meanspec.plot(allbins[wholemask], meanspec[wholemask],
+                     label="Final mask")
+    ax_meanspec.set_ylim([np.min(cleaned_meanspec),
+                          np.max(cleaned_meanspec)])
 
-        ax_dynspec.axvline(freqmin)
-        ax_dynspec.axvline(freqmax)
+    try:
+        cmap = plt.get_cmap("magma")
+    except:
+        cmap = plt.get_cmap("gnuplot2")
+    ax_dynspec.imshow(varimg, origin="lower", aspect='auto',
+                      cmap=cmap,
+                      vmin=mean_varimg - 5 * std_varimg,
+                      vmax=mean_varimg + 5 * std_varimg,
+                      extent=(0, bandwidth,
+                              0, varimg.shape[0]), interpolation='none')
 
-        ax_lc.plot(lc, lcbins, color="grey")
-        ax_lc.plot(lc_mask, lcbins, color="b")
-        ax_lc.set_xlim([np.min(lc), max(lc)])
-        ax_cleanlc.plot(lc_mask, lcbins, color="grey")
-        ax_cleanlc.plot(lc_corr, lcbins, color="k")
-        ax_var.axvline(freqmin)
-        ax_var.axvline(freqmax)
-        ax_var.plot(allbins[mask], spectral_var[mask])
-        ax_var.plot(allbins[mask], cleaned_spectral_var[mask],
-                    zorder=10, color="k")
-        ax_var.plot(allbins[1:], baseline[1:])
-        ax_var.plot(allbins[1:], baseline[1:] + 2 * noise_threshold * stdref)
-        minb = np.min(baseline[1:])
-        ax_var.set_ylim([minb, minb + 4 * noise_threshold * stdref])
-        ax_var.semilogy()
+    ax_cleanspec.imshow(cleaned_varimg, origin="lower", aspect='auto',
+                        cmap=cmap,
+                        vmin=mean_varimg - 5 * std_varimg,
+                        vmax=mean_varimg + 5 * std_varimg,
+                        extent=(0, bandwidth,
+                                0, varimg.shape[0]), interpolation='none')
 
-        plt.savefig(
-            "{}_{}.pdf".format(outfile, label))
-        plt.close(fig)
+    # Plot variability
 
+    ax_var.plot(allbins[1:], spectral_var[1:], label="Spectral rms")
+    ax_var.plot(allbins[mask], spectral_var[mask])
+    ax_var.plot(allbins, cleaned_spectral_var,
+                zorder=10, color="k")
+    ax_var.plot(allbins[1:], baseline[1:])
+    ax_var.plot(allbins[1:], baseline[1:] + 2 * noise_threshold * stdref)
+    minb = np.min(baseline[1:])
+    ax_var.set_ylim([minb, median_spectral_var + 10 * stdref])
+
+    # Plot light curves
+
+    ax_lc.plot(lc, lcbins, color="grey")
+    ax_lc.plot(lc_masked, lcbins, color="b")
+    ax_cleanlc.plot(lc_masked, lcbins, color="grey")
+    ax_cleanlc.plot(lc_corr, lcbins, color="k")
+    dlc = max(lc_corr) - min(lc_corr)
+    ax_lc.set_xlim([np.min(lc_corr) - dlc / 10, max(lc_corr) + dlc / 10])
+
+    # Indicate bad intervals
+
+    for b in bad_intervals:
+        maxsp = np.max(meanspec)
+        ax_meanspec.plot(b * df, [maxsp] * 2, color='k', lw=2)
+        middleimg = [varimg.shape[0] / 2]
+        ax_dynspec.plot(b * df, [middleimg] * 2, color='k', lw=2)
+        maxsp = np.max(spectral_var)
+        ax_var.plot(b * df, [maxsp] * 2, color='k', lw=2)
+
+    # Indicate freqmin and freqmax
+
+    ax_dynspec.axvline(freqmin)
+    ax_dynspec.axvline(freqmax)
+    ax_var.axvline(freqmin)
+    ax_var.axvline(freqmax)
+    ax_meanspec.axvline(freqmin)
+    ax_meanspec.axvline(freqmax)
+
+    plt.savefig(
+        "{}_{}.pdf".format(outfile, label))
+    plt.close(fig)
     return results
 
 
@@ -274,7 +345,7 @@ class Scan(Table):
 
     def interpret_frequency_range(self, freqsplat, bandwidth, nbin):
         """Interpret the frequency range specified in freqsplat."""
-        return _interpret_frequency_range(freqsplat, bandwidth, nbin)
+        return interpret_frequency_range(freqsplat, bandwidth, nbin)
 
     def make_single_channel(self, freqsplat, masks=None):
         """Transform a spectrum into a single-channel count rate."""
