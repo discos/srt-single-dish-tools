@@ -6,6 +6,7 @@ from scipy.ndimage import median_filter
 import numpy as np
 import traceback
 import warnings
+import collections
 
 try:
     from statsmodels.robust import mad
@@ -160,19 +161,27 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=False):
         return lc
 
 
-def purge_outliers(y, window_size=5):
+def purge_outliers(y, window_size=5, up=True, down=True):
     """Remove obvious outliers.
 
     Attention: This is known to throw false positives on bona fide, very strong
     Gaussian peaks
     """
 
+    if not (up or down):
+        return y
+
     y = y.copy()
 
     diffs = y - median_filter(y, window_size)
     min_diff = mad(diffs)
 
-    outliers = np.abs(diffs) > 10 * min_diff
+    outliers = np.zeros(len(y), dtype=bool)
+    if up:
+        outliers = np.logical_or(outliers, -diffs > 10 * min_diff)
+    if down:
+        outliers = np.logical_or(outliers, diffs > 10 * min_diff)
+
     if not np.any(outliers):
         return y
 
@@ -223,18 +232,16 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
                  outlier_purging=True):
     """Baseline Correction with Asymmetric Least Squares Smoothing."""
 
+    if not isinstance(outlier_purging, collections.Iterable):
+        outlier_purging = (outlier_purging, outlier_purging)
     if lam is None:
         lam = 1e11
     if p is None:
         p = 0.001
 
-    if outlier_purging:
-        y = purge_outliers(y)
+    y = purge_outliers(y, up=outlier_purging[0], down=outlier_purging[1])
 
     z = _als(y, lam, p, niter=niter)
-
-    # _, z2 = baseline_rough(x, y - z, return_baseline=True)
-    # z += z2
 
     ysub = y - z
     offset = 0
