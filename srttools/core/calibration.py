@@ -529,7 +529,7 @@ class CalibratorTable(SourceTable):
         channel : str
             Name of the data channel
 
-        Results
+        Returns
         -------
         fc : float
             flux density /count ratio

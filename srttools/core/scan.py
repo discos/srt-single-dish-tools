@@ -128,6 +128,7 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     # Calculate baseline of spectral var ---------------
     # Empyrical formula, with no physical meaning
     lam = 10**(-6.2 + np.log2(nbin) * 1.2)
+
     _, baseline = baseline_als(np.arange(binmax - binmin),
                                np.array(mod_spectral_var[binmin:binmax]),
                                return_baseline=True,
