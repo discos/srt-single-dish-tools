@@ -78,8 +78,11 @@ matrix:
         - python: 3.6
           env: SETUP_CMD='test' ASTROPY_VERSION=lts
     allow_failures:
+        # Try Astropy development version
         - python: 2.7
-          env: SETUP_CMD='build_sphinx -w'
+          env: ASTROPY_VERSION=development SETUP_CMD='test'
+        - python: 3.6
+          env: ASTROPY_VERSION=development SETUP_CMD='test'
         # Old matplotlib
         - python: 3.4
           env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
