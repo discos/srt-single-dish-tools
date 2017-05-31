@@ -128,10 +128,10 @@ class Test2_Scan(object):
 
         diff = np.abs(
             (altaz.az.to(u.rad) - scan['az'][:, idx]).to(u.arcsec).value)
-        assert np.all(diff < 5)
+        assert np.all(diff < 1)
         diff = np.abs(
             (altaz.alt.to(u.rad) - scan['el'][:, idx]).to(u.arcsec).value)
-        assert np.all(diff < 5)
+        assert np.all(diff < 1)
 
     @classmethod
     def teardown_class(klass):
