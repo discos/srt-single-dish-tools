@@ -114,7 +114,7 @@ class Test2_Scan(object):
         scan.write('scan.hdf5', overwrite=True)
         scan.baseline_subtract('rough')
 
-    @pytest.mark.parametrize('fname', ['srt_data.fits', 'srt_LLP_dirty.fits'])
+    @pytest.mark.parametrize('fname', ['srt_data.fits'])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
@@ -128,10 +128,10 @@ class Test2_Scan(object):
 
         diff = np.abs(
             (altaz.az.to(u.rad) - scan['az'][:, idx]).to(u.arcsec).value)
-        assert np.all(diff < 5)
+        assert np.all(diff < 1)
         diff = np.abs(
             (altaz.alt.to(u.rad) - scan['el'][:, idx]).to(u.arcsec).value)
-        assert np.all(diff < 5)
+        assert np.all(diff < 1)
 
     @classmethod
     def teardown_class(klass):
