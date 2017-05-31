@@ -79,9 +79,7 @@ SDTinspect
 
 ::
 
-    usage: SDTinspect [-h] [-g GROUP_BY [GROUP_BY ...]]
-                      [-d DUMP_CONFIG_FILES [DUMP_CONFIG_FILES ...]]
-                      [--config-values CONFIG_VALUES [CONFIG_VALUES ...]]
+    usage: SDTinspect [-h] [-g GROUP_BY [GROUP_BY ...]] [-s]
                       directories [directories ...]
 
     From a given list of directories, read the relevant information and link
@@ -93,8 +91,9 @@ SDTinspect
     optional arguments:
       -h, --help            show this help message and exit
       -g GROUP_BY [GROUP_BY ...], --group-by GROUP_BY [GROUP_BY ...]
-      -d DUMP_CONFIG_FILES [DUMP_CONFIG_FILES ...], --dump-config-files DUMP_CONFIG_FILES [DUMP_CONFIG_FILES ...]
-      --config-values CONFIG_VALUES [CONFIG_VALUES ...]
+      -s, --split-by-source
+                            Split output so that it contains a list of
+                            observations and calibrators for each source
 
 
 
