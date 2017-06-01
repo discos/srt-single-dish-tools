@@ -12,6 +12,8 @@ from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
+from .utils import standard_string, standard_byte
+
 import os
 import sys
 import glob
@@ -382,7 +384,7 @@ class CalibratorTable(SourceTable):
             return
 
         for it, t in enumerate(self['Time']):
-            source = self['Source'][it].decode("utf-8")
+            source = standard_string(self['Source'][it])
             frequency = self['Frequency'][it] / 1000
             bandwidth = self['Bandwidth'][it] / 1000
             flux, eflux = \
@@ -493,8 +495,7 @@ class CalibratorTable(SourceTable):
 
         flux_quantity = _get_flux_quantity(map_unit)
 
-        if hasattr(channel, 'encode'):
-            channel = channel.encode()
+        channel = standard_byte(channel)
 
         if channel not in self.calibration.keys():
             self.compute_conversion_function(map_unit)
@@ -537,8 +538,7 @@ class CalibratorTable(SourceTable):
             uncertainty on `fc`
         """
 
-        if hasattr(channel, 'encode'):
-            channel = channel.encode()
+        channel = standard_byte(channel)
 
         self.check_up_to_date()
 
@@ -678,11 +678,8 @@ class CalibratorTable(SourceTable):
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
         for ic, channel in enumerate(channels):
             # Ugly workaround for python 2-3 compatibility
-            if type(channel) == bytes and not type(channel) == str:
-                print("DEcoding")
-                channel_str = channel.decode()
-            else:
-                channel_str = channel
+            channel_str = standard_string(channel)
+
             color = colors[ic]
             self.plot_two_columns('Elevation', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax00,
@@ -765,7 +762,7 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     """
     import io
     coefftable = conf["CoeffTable"]["coeffs"]
-    fobj = io.BytesIO(coefftable.encode())
+    fobj = io.BytesIO(standard_byte(coefftable))
     table = Table.read(fobj, format='ascii.csv')
 
     idx = np.argmin(np.abs(np.longdouble(table["time"]) - time))
