@@ -11,23 +11,12 @@ from astropy.table import Table, Column
 from .io import read_data
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
-import sys
+from .utils import standard_string
+
 try:
     from ConfigParser import ConfigParser
 except ImportError:
     from configparser import ConfigParser
-
-
-def standard_string(s):
-    if sys.version_info >= (3, 0, 0):
-        # for Python 3
-        if isinstance(s, bytes):
-            s = s.decode('ascii')  # or  s = str(s)[2:-1]
-    else:
-        # for Python 2
-        if isinstance(s, unicode):
-            s = str(s)
-    return s
 
 
 def inspect_directories(directories):
