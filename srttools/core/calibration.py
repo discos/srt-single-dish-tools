@@ -12,6 +12,8 @@ from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
+from .utils import standard_string, standard_byte, compare_strings
+
 import os
 import sys
 import glob
@@ -382,7 +384,7 @@ class CalibratorTable(SourceTable):
             return
 
         for it, t in enumerate(self['Time']):
-            source = self['Source'][it].decode("utf-8")
+            source = standard_string(self['Source'][it])
             frequency = self['Frequency'][it] / 1000
             bandwidth = self['Bandwidth'][it] / 1000
             flux, eflux = \
@@ -440,16 +442,16 @@ class CalibratorTable(SourceTable):
             for channel in channels:
                 fc, fce = self.Jy_over_counts_rough(channel=channel,
                                                     map_unit=map_unit)
-                self.calibration_coeffs[channel] = [fc, 0, 0]
-                self.calibration_uncerts[channel] = [fce, 0, 0]
-                self.calibration[channel] = None
+                self.calibration_coeffs[standard_string(channel)] = [fc, 0, 0]
+                self.calibration_uncerts[standard_string(channel)] = [fce, 0, 0]
+                self.calibration[standard_string(channel)] = None
             return
 
         flux_quantity = _get_flux_quantity(map_unit)
 
         channels = list(set(self["Chan"]))
         for channel in channels:
-            good_chans = self["Chan"] == channel
+            good_chans = compare_strings(self["Chan"], channel)
 
             f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
             f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
@@ -475,10 +477,10 @@ class CalibratorTable(SourceTable):
             model = sm.RLM(y_to_fit, X)
             results = model.fit()
 
-            self.calibration_coeffs[channel] = results.params
-            self.calibration_uncerts[channel] = \
+            self.calibration_coeffs[standard_string(channel)] = results.params
+            self.calibration_uncerts[standard_string(channel)] = \
                 results.cov_params().diagonal()**0.5
-            self.calibration[channel] = results
+            self.calibration[standard_string(channel)] = results
 
     def Jy_over_counts(self, channel, elevation=None, map_unit="Jy/beam"):
         rough = False
@@ -493,10 +495,7 @@ class CalibratorTable(SourceTable):
 
         flux_quantity = _get_flux_quantity(map_unit)
 
-        if hasattr(channel, 'encode'):
-            channel = channel.encode()
-
-        if channel not in self.calibration.keys():
+        if standard_string(channel) not in self.calibration.keys():
             self.compute_conversion_function(map_unit)
 
         if elevation is None or rough is True:
@@ -511,9 +510,9 @@ class CalibratorTable(SourceTable):
         X = np.column_stack((np.ones(np.array(elevation).size),
                              np.array(elevation)))
 
-        fc = self.calibration[channel].predict(X)
+        fc = self.calibration[standard_string(channel)].predict(X)
 
-        goodch = self["Chan"] == channel
+        goodch = compare_strings(self["Chan"], channel)
         fce = np.mean(self[flux_quantity + " Err"][goodch]) + np.zeros_like(fc)
 
         if len(fc) == 1:
@@ -537,14 +536,11 @@ class CalibratorTable(SourceTable):
             uncertainty on `fc`
         """
 
-        if hasattr(channel, 'encode'):
-            channel = channel.encode()
-
         self.check_up_to_date()
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:
-            good_chans = self['Chan'] == channel
+            good_chans = compare_strings(self['Chan'], channel)
 
         flux_quantity = _get_flux_quantity(map_unit)
 
@@ -678,11 +674,8 @@ class CalibratorTable(SourceTable):
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
         for ic, channel in enumerate(channels):
             # Ugly workaround for python 2-3 compatibility
-            if type(channel) == bytes and not type(channel) == str:
-                print("DEcoding")
-                channel_str = channel.decode()
-            else:
-                channel_str = channel
+            channel_str = standard_string(channel)
+
             color = colors[ic]
             self.plot_two_columns('Elevation', "Flux/Counts",
                                   yerrcol="Flux/Counts Err", ax=ax00,
@@ -765,7 +758,7 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     """
     import io
     coefftable = conf["CoeffTable"]["coeffs"]
-    fobj = io.BytesIO(coefftable.encode())
+    fobj = io.BytesIO(standard_byte(coefftable))
     table = Table.read(fobj, format='ascii.csv')
 
     idx = np.argmin(np.abs(np.longdouble(table["time"]) - time))
