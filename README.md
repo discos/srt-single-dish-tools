@@ -7,7 +7,8 @@
 
 ## Installation
 
-### Anaconda and virtual environment (recommended but optional)
+### Preparation and dependencies
+#### Anaconda and virtual environment (recommended)
 We strongly suggest to install the
 [Anaconda](https://www.continuum.io/downloads) Python distribution.
 Once the installation has finished, you should have a working `conda`
@@ -19,20 +20,25 @@ load the new environment:
 
     $ source activate py3
 
-and install the dependencies:
+and install the dependencies (including a few optional but recommended):
 
-    (py3) $ conda install matplotlib h5py astropy scipy numpy
+    (py3) $ conda install astropy scipy numpy matplotlib pyyaml h5py statsmodels numba
+
+#### Other Python distributions
+Install the dependencies with pip (including a few optional but recommended):
+
+    $ pip install astropy scipy numpy matplotlib pyyaml h5py statsmodels numba
 
 ### Cloning and installation
 
 Clone the repository:
 
     (py3) $ cd /my/software/directory/
-    (py3) $ git clone https://matteobachetti@gitlab.com/matteobachetti/srt-single-dish-tools.git
+    (py3) $ git clone https://github.com/matteobachetti/srt-single-dish-tools.git
 
 or if you have deployed your SSH key to Gitlab:
 
-    (py3) $ git git@gitlab.com:matteobachetti/srt-single-dish-tools.git
+    (py3) $ git clone git@github.com:matteobachetti/srt-single-dish-tools.git
 
 Then:
 
