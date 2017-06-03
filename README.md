@@ -36,7 +36,7 @@ Clone the repository:
     (py3) $ cd /my/software/directory/
     (py3) $ git clone https://github.com/matteobachetti/srt-single-dish-tools.git
 
-or if you have deployed your SSH key to Gitlab:
+or if you have deployed your SSH key to Github:
 
     (py3) $ git clone git@github.com:matteobachetti/srt-single-dish-tools.git
 
