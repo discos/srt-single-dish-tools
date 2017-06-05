@@ -23,4 +23,3 @@ except ImportError:
 
     def vectorize(*args, **kwargs):
         return jit
-

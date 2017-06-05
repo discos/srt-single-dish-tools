@@ -10,7 +10,7 @@ from .calibration import _get_calibrator_flux
 
 try:
     import cPickle as pickle
-except:
+except ImportError:
     import pickle
 
 import numpy as np
@@ -82,7 +82,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
             # For now, use nosave. HDF5 doesn't store meta, essential for this
             scan = Scan(s, norefilt=True, nosave=True, debug=debug,
                         freqsplat=freqsplat)
-        except:
+        except Exception:
             warnings.warn('{} is an invalid file'.format(s))
             continue
         ras = np.degrees(scan['ra'][:, feed])
@@ -138,7 +138,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
 
         try:
             uncert = fit_info['param_cov'].diagonal() ** 0.5
-        except:
+        except Exception:
             warnings.warn("Fit failed in scan {s}".format(s=s))
             continue
 

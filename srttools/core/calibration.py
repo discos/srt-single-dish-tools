@@ -246,7 +246,7 @@ class SourceTable(Table):
 
                 try:
                     uncert = fit_info['param_cov'].diagonal() ** 0.5
-                except:
+                except Exception:
                     message = fit_info['message']
                     warnings.warn(
                         "Fit failed in scan {s}: {m}".format(s=s,

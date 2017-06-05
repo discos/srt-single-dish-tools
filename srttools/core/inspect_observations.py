@@ -47,7 +47,7 @@ def inspect_directories(directories):
                 info.add_row([d, f, source, receiver, backend,
                               time, frequency, bandwidth])
                 break
-            except:
+            except Exception:
                 continue
 
     return(info)

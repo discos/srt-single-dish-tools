@@ -134,14 +134,14 @@ def read_config(fname=None):
         config_output['list_of_directories'] = \
             [s for s in analysis_params['list_of_directories'].splitlines()
              if s.strip()]  # This last instruction eliminates blank lines
-    except:
+    except Exception:
         warnings.warn("Invalid list_of_directories in config file")
 
     try:
         config_output['calibrator_directories'] = \
             [s for s in analysis_params['calibrator_directories'].splitlines()
              if s.strip()]  # This last instruction eliminates blank lines
-    except:
+    except Exception:
         warnings.warn("Invalid calibrator_directories in config file")
 
     # If the list of directories is not specified, or if a '*' symbol is used,
