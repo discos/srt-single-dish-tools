@@ -596,13 +596,14 @@ class CalibratorTable(SourceTable):
 
         return fc, fce
 
-    def calculate_src_flux(self, channel=None, elevation=None,
+    def calculate_src_flux(self, channel=None,
                            map_unit="Jy/beam", source=None):
         if source is None:
             good = np.ones_like(self['Flux'], dtype=bool)
         else:
             good = compare_strings(self['Source'], source)
         non_source = np.logical_not(good)
+        elevation = self['Elevation'][good]
         fc, fce = self.Jy_over_counts(channel=channel, elevation=elevation,
                                       map_unit=map_unit,
                                       good_mask=non_source)
@@ -622,6 +623,28 @@ class CalibratorTable(SourceTable):
 
         return np.mean(calculated_flux), \
                np.sqrt(np.mean(calculated_flux_err ** 2))
+
+    def check_consistency(self, channel=None, epsilon=0.05):
+        is_cal = self['Flux'] > 0
+        calibrators = list(set(self['Source'][is_cal]))
+        for cal in calibrators:
+            self.calculate_src_flux(channel=channel, source=cal)
+
+        calc_fluxes = self['Calculated Flux'][is_cal]
+        biblio_fluxes = self['Flux'][is_cal]
+        names = self['Source'][is_cal]
+        times = self['Time'][is_cal]
+
+        consistent = \
+            np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
+        for n, t, b, c, in zip(names, times,
+                                      biblio_fluxes, calc_fluxes):
+            consistent = np.abs(b - c) < epsilon * b
+            if not consistent:
+                warnings.warn("{}, MJD {}: Expected {}, "
+                              "measured {}".format(n, t, b, c))
+
+        return consistent
 
     def beam_width(self, channel=None):
         goodch = np.ones(len(self), dtype=bool)
@@ -845,6 +868,9 @@ def main(args=None):
     parser.add_argument("--show", action='store_true', default=False,
                         help='Show calibration summary')
 
+    parser.add_argument("--check", action='store_true', default=False,
+                        help='Check consistency of calibration')
+
     args = parser.parse_args(args)
 
     if args.sample_config:
@@ -876,6 +902,9 @@ def main(args=None):
     caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt)
     caltable.update()
 
+    if args.check:
+        for chan in list(set(caltable['Chan'])):
+            caltable.check_consistency(chan)
     if args.show:
         caltable.show()
 

@@ -85,11 +85,16 @@ class TestCalibration(object):
 
         klass.config = read_config(klass.config_file)
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
+        klass.caldir2 = os.path.join(klass.datadir, 'sim', 'calibration2')
         klass.crossdir = os.path.join(klass.datadir, 'sim', 'crossscans')
         if not os.path.exists(klass.caldir):
             print('Fake calibrators: DummyCal, 1 Jy.')
             mkdir_p(klass.caldir)
             sim_crossscans(5, klass.caldir)
+        if not os.path.exists(klass.caldir2):
+            print('Fake calibrators: DummyCal2, 1 Jy.')
+            mkdir_p(klass.caldir2)
+            sim_crossscans(5, klass.caldir2, srcname='DummyCal2')
         if not os.path.exists(klass.crossdir):
             print('Fake cross scans: DummySrc, 0.52 Jy.')
             mkdir_p(klass.crossdir)
@@ -98,6 +103,7 @@ class TestCalibration(object):
 
         klass.scan_list = \
             list_scans(klass.caldir, ['./']) + \
+            list_scans(klass.caldir2, ['./']) + \
             list_scans(klass.crossdir, ['./'])
 
         klass.scan_list.sort()
@@ -163,6 +169,11 @@ class TestCalibration(object):
         dummy_flux, dummy_flux_err = \
             caltable.calculate_src_flux(source='DummySrc')
         assert (dummy_flux - 0.52) < 3 * dummy_flux_err
+
+    def test_check_consistency(self):
+        caltable = CalibratorTable.read(self.calfile)
+        res = caltable.check_consistency(channel='Ch0')
+        assert np.all(res)
 
 
     @classmethod
