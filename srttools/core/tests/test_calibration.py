@@ -1,5 +1,5 @@
 from __future__ import division, print_function
-from ..calibration import CalibratorTable
+from ..calibration import CalibratorTable, main_lcurve
 from ..read_config import read_config
 from ..scan import list_scans
 from ..simulate import save_scan
@@ -167,13 +167,18 @@ class TestCalibration(object):
     def test_calibrated_crossscans(self):
         caltable = CalibratorTable.read(self.calfile)
         dummy_flux, dummy_flux_err = \
-            caltable.calculate_src_flux(source='DummySrc')
-        assert (dummy_flux - 0.52) < 3 * dummy_flux_err
+            caltable.calculate_src_flux(source='DummySrc', channel='Ch0')
+        # Correction for bandwidth
+        assert (dummy_flux - 0.54) < 0.01
 
     def test_check_consistency(self):
         caltable = CalibratorTable.read(self.calfile)
         res = caltable.check_consistency(channel='Ch0')
         assert np.all(res)
+
+    def test_lcurve(self):
+        main_lcurve([self.calfile, '-s', 'DummySrc'])
+        assert os.path.exists('DummySrc.csv')
 
     @classmethod
     def teardown_class(klass):
