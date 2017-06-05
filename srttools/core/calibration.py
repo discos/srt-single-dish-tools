@@ -189,7 +189,10 @@ class SourceTable(Table):
                 config_file = get_config_file()
             config = read_config(config_file)
             scan_list = \
-                list_scans(config['datadir'], config['list_of_directories'])
+                list_scans(config['datadir'],
+                           config['list_of_directories']) + \
+                list_scans(config['datadir'],
+                           config['calibrator_directories'])
             scan_list.sort()
         nscan = len(scan_list)
 
@@ -322,6 +325,7 @@ class SourceTable(Table):
                                              "Feed{}_chan{}.png".format(feed,
                                                                         nch)))
                     plt.close(fig)
+
 
     def write(self, fname, *args, **kwargs):
         if fname.endswith('.hdf5'):
@@ -518,7 +522,8 @@ class CalibratorTable(SourceTable):
         fc = self.calibration[standard_string(channel)].predict(X)
 
         goodch = compare_strings(self["Chan"], channel)
-        fce = np.mean(self[flux_quantity + " Err"][goodch]) + np.zeros_like(fc)
+        good = good_mask & goodch
+        fce = np.mean(self[flux_quantity + " Err"][good]) + np.zeros_like(fc)
 
         if len(fc) == 1:
             fc, fce = fc[0], fce[0]
@@ -599,44 +604,58 @@ class CalibratorTable(SourceTable):
     def calculate_src_flux(self, channel=None,
                            map_unit="Jy/beam", source=None):
         if source is None:
-            good = np.ones_like(self['Flux'], dtype=bool)
+            good_source = np.ones_like(self['Flux'], dtype=bool)
         else:
-            good = compare_strings(self['Source'], source)
-        non_source = np.logical_not(good)
-        elevation = self['Elevation'][good]
-        fc, fce = self.Jy_over_counts(channel=channel, elevation=elevation,
-                                      map_unit=map_unit,
-                                      good_mask=non_source)
+            good_source = compare_strings(self['Source'], source)
+        non_source = np.logical_not(good_source)
 
-        calculated_flux = np.array(self['Calculated Flux'])
-        calculated_flux_err = np.array(self['Calculated Flux Err'])
-        counts = np.array(self['Counts'])
-        counts_err = np.array(self['Counts Err'])
+        if channel is None:
+            channels = list(set(self['Chan']))
+        else:
+            channels = [channel]
 
-        calculated_flux[good] = counts[good] * fc
-        calculated_flux_err[good] = \
-            (counts[good] / counts_err[good] + fce / fc) * \
-            calculated_flux[good]
 
-        self['Calculated Flux'][:] = calculated_flux
-        self['Calculated Flux Err'][:] = calculated_flux_err
+        for channel in channels:
+            good_chan = compare_strings(self['Chan'], channel)
+            good = good_source & good_chan
+            elevation = self['Elevation'][good]
+            fc, fce = self.Jy_over_counts(channel=channel, elevation=elevation,
+                                          map_unit=map_unit,
+                                          good_mask=non_source)
 
-        return np.mean(calculated_flux), \
-            np.sqrt(np.mean(calculated_flux_err ** 2))
+            calculated_flux = np.array(self['Calculated Flux'])
+            calculated_flux_err = np.array(self['Calculated Flux Err'])
+            counts = np.array(self['Counts'])
+            counts_err = np.array(self['Counts Err'])
+
+            calculated_flux[good] = counts[good] * fc
+            calculated_flux_err[good] = \
+                (counts_err[good] / counts[good] + fce / fc) * \
+                calculated_flux[good]
+
+            self['Calculated Flux'][:] = calculated_flux
+            self['Calculated Flux Err'][:] = calculated_flux_err
+
+            return np.mean(calculated_flux[good]), \
+                np.sqrt(np.mean(calculated_flux_err[good] ** 2))
 
     def check_consistency(self, channel=None, epsilon=0.05):
         is_cal = self['Flux'] > 0
         calibrators = list(set(self['Source'][is_cal]))
         for cal in calibrators:
             self.calculate_src_flux(channel=channel, source=cal)
-
-        calc_fluxes = self['Calculated Flux'][is_cal]
-        biblio_fluxes = self['Flux'][is_cal]
-        names = self['Source'][is_cal]
-        times = self['Time'][is_cal]
+        if channel is None:
+            good_chan = np.ones_like(self['Chan'], dtype=bool)
+        else:
+            good_chan = compare_strings(self['Chan'], channel)
+        calc_fluxes = self['Calculated Flux'][is_cal & good_chan]
+        biblio_fluxes = self['Flux'][is_cal & good_chan]
+        names = self['Source'][is_cal & good_chan]
+        times = self['Time'][is_cal & good_chan]
 
         consistent = \
             np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
+
         for n, t, b, c, in zip(names, times, biblio_fluxes, calc_fluxes):
             consistent = np.abs(b - c) < epsilon * b
             if not consistent:
@@ -838,8 +857,8 @@ def main(args=None):
     """Main function."""
     import argparse
 
-    description = ('Load a series of scans from a config file '
-                   'and produce a map.')
+    description = ('Load a series of cross scans from a config file '
+                   'and use them as calibrators.')
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument("file", nargs='?', help="Input calibration file",
@@ -911,4 +930,70 @@ def main(args=None):
 
 
 def main_lcurve(args=None):
-    pass
+    """Main function."""
+    import argparse
+
+    description = ('Load a series of cross scans from a config file '
+                   'and obtain a calibrated curve.')
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument("file", nargs='?', help="Input calibration file",
+                        default=None, type=str)
+    parser.add_argument("-s", "--source", nargs='+', type=str, default=None,
+                        help='Source or list of sources')
+    parser.add_argument("--sample-config", action='store_true', default=False,
+                        help='Produce sample config file')
+
+    parser.add_argument("--nofilt", action='store_true', default=False,
+                        help='Do not filter noisy channels')
+
+    parser.add_argument("-c", "--config", type=str, default=None,
+                        help='Config file')
+
+    parser.add_argument("--splat", type=str, default=None,
+                        help=("Spectral scans will be scrunched into a single "
+                              "channel containing data in the given frequency "
+                              "range, starting from the frequency of the first"
+                              " bin. E.g. '0:1000' indicates 'from the first "
+                              "bin of the spectrum up to 1000 MHz above'. ':' "
+                              "or 'all' for all the channels."))
+
+    parser.add_argument("-o", "--output", type=str, default=None,
+                        help='Output file containing the calibration')
+
+    args = parser.parse_args(args)
+
+    if args.sample_config:
+        sample_config_file()
+        sys.exit()
+
+    if args.file is not None:
+        caltable = CalibratorTable.read(args.file)
+        caltable.update()
+    else:
+        assert args.config is not None, "Please specify the config file!"
+        caltable = CalibratorTable()
+        caltable.from_scans(config_file=args.config)
+        caltable.update()
+
+        outfile = args.output
+        if outfile is None:
+            outfile = args.config.replace(".ini", "_cal.hdf5")
+
+        caltable.write(outfile, overwrite=True)
+
+    sources = args.source
+    if args.source is None:
+        sources = list(set(caltable['Source']))
+
+    for s in sources:
+        print(s)
+        caltable.calculate_src_flux(source=s)
+        good = compare_strings(caltable['Source'], s)
+        lctable = Table()
+        lctable.add_column(Column(name="Time", dtype=float))
+        lctable['Time'] = caltable['Time'][good]
+        lctable['Flux'] = caltable['Calculated Flux'][good]
+        lctable['Flux Err'] = caltable['Calculated Flux Err'][good]
+        lctable['Chan'] = caltable['Chan'][good]
+        lctable.write(s.replace(' ', '_') + '.csv', overwrite=True)
