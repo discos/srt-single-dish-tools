@@ -175,7 +175,6 @@ class TestCalibration(object):
         res = caltable.check_consistency(channel='Ch0')
         assert np.all(res)
 
-
     @classmethod
     def teardown_class(klass):
         """Clean up the mess."""

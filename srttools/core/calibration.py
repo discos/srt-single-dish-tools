@@ -457,7 +457,7 @@ class CalibratorTable(SourceTable):
 
         channels = list(set(self["Chan"]))
         for channel in channels:
-            good_chans = compare_strings(self["Chan"], channel)&good_mask
+            good_chans = compare_strings(self["Chan"], channel) & good_mask
 
             f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
             f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
@@ -551,7 +551,7 @@ class CalibratorTable(SourceTable):
         if channel is not None:
             good_chans = compare_strings(self['Chan'], channel)
 
-        good_chans = good_chans&good_mask
+        good_chans = good_chans & good_mask
 
         flux_quantity = _get_flux_quantity(map_unit)
 
@@ -616,13 +616,13 @@ class CalibratorTable(SourceTable):
         calculated_flux[good] = counts[good] * fc
         calculated_flux_err[good] = \
             (counts[good] / counts_err[good] + fce / fc) * \
-                calculated_flux[good]
+            calculated_flux[good]
 
         self['Calculated Flux'][:] = calculated_flux
         self['Calculated Flux Err'][:] = calculated_flux_err
 
         return np.mean(calculated_flux), \
-               np.sqrt(np.mean(calculated_flux_err ** 2))
+            np.sqrt(np.mean(calculated_flux_err ** 2))
 
     def check_consistency(self, channel=None, epsilon=0.05):
         is_cal = self['Flux'] > 0
@@ -637,8 +637,7 @@ class CalibratorTable(SourceTable):
 
         consistent = \
             np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
-        for n, t, b, c, in zip(names, times,
-                                      biblio_fluxes, calc_fluxes):
+        for n, t, b, c, in zip(names, times, biblio_fluxes, calc_fluxes):
             consistent = np.abs(b - c) < epsilon * b
             if not consistent:
                 warnings.warn("{}, MJD {}: Expected {}, "
