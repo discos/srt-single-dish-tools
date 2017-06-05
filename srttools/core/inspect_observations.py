@@ -4,7 +4,6 @@ from __future__ import (absolute_import, division,
                         print_function)
 import os
 import glob
-import warnings
 import logging
 import numpy as np
 from astropy.table import Table, Column

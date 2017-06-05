@@ -26,18 +26,21 @@ from scipy.optimize import curve_fit
 import logging
 import astropy.units as u
 
-try:
-    import cPickle as pickle
-except:
-    import pickle
-
 import numpy as np
-from astropy.table import Table, vstack, Column
+from astropy.table import Table, Column
 # For Python 2 and 3 compatibility
 try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
+
+try:
+    import statsmodels.api as sm
+    HAS_STATSM = True
+except:
+    warnings.warn("Statsmodels is not installed. "
+                  "Reverting to rough mode.")
+    HAS_STATSM = False
 
 CALIBRATOR_CONFIG = None
 
@@ -435,15 +438,14 @@ class CalibratorTable(SourceTable):
         Try to get a meaningful fit over elevation. Revert to the rough
         function `Jy_over_counts_rough` in case `statsmodels` is not installed.
         """
-        try:
-            import statsmodels.api as sm
-        except:
+        if not HAS_STATSM:
             channels = list(set(self["Chan"]))
             for channel in channels:
                 fc, fce = self.Jy_over_counts_rough(channel=channel,
                                                     map_unit=map_unit)
                 self.calibration_coeffs[standard_string(channel)] = [fc, 0, 0]
-                self.calibration_uncerts[standard_string(channel)] = [fce, 0, 0]
+                self.calibration_uncerts[standard_string(channel)] = \
+                    [fce, 0, 0]
                 self.calibration[standard_string(channel)] = None
             return
 
@@ -484,13 +486,7 @@ class CalibratorTable(SourceTable):
 
     def Jy_over_counts(self, channel, elevation=None, map_unit="Jy/beam"):
         rough = False
-        try:
-            import statsmodels.api as sm
-            from statsmodels.sandbox.regression.predstd import \
-                wls_prediction_std
-        except:
-            warnings.warn("Statsmodels is not installed. "
-                          "Reverting to rough mode.")
+        if not HAS_STATSM:
             rough = True
 
         flux_quantity = _get_flux_quantity(map_unit)
@@ -777,7 +773,6 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
 def main(args=None):
     """Main function."""
     import argparse
-    import os
 
     description = ('Load a series of scans from a config file '
                    'and produce a map.')
