@@ -4,7 +4,6 @@ from astropy.table import Table, Column
 import numpy as np
 import os
 import glob
-import pytest
 
 try:
     from ConfigParser import ConfigParser
@@ -138,7 +137,6 @@ class TestRun(object):
     def teardown_class(cls):
         """Cleanup."""
         import os
-        import glob
         os.unlink('TP_Dummy_Obs0.ini')
         os.unlink('CCB_TP_Dummy_Obs0.ini')
         os.unlink('table.csv')

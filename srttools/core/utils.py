@@ -7,7 +7,7 @@ import numpy as np
 
 def standard_string(s):
     """Standard string representation for a given Python version
-    
+
     Examples
     --------
     >>> standard_string(b'a')
@@ -35,7 +35,7 @@ def standard_string(s):
 
 def standard_byte(s):
     """Standard byte representation for a given Python version
-    
+
     Examples
     --------
     >>> standard_byte(b'a') == b'a'
@@ -53,12 +53,12 @@ def standard_byte(s):
 
 def compare_strings(s1, s2):
     """Compare strings, that might be bytes and unicode in some cases.
-    
+
     Parameters
     ----------
     s1: string, byte or array of str/bytes
     s2 : string or byte
-    
+
     Examples
     --------
     >>> compare_strings(b'a', 'a')

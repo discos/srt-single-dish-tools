@@ -171,7 +171,7 @@ class ScanSet(Table):
         of the source
         """
         from astropy.time import Time
-        from astropy.coordinates import SkyCoord, AltAz
+        from astropy.coordinates import SkyCoord
 
         from .io import locations
         obstimes = Time((self['time']) * u.day, format='mjd', scale='utc')
@@ -635,7 +635,6 @@ class ScanSet(Table):
 
     def load(self, fname, **kwargs):
         """Set default path and call Table.read."""
-        import os
         self.read(fname)
 
         self.scan_list = []
@@ -856,12 +855,10 @@ def main_preprocess(args=None):  # pragma: no cover
 
     if args.files is not None:
         for f in args.files:
-            scan = Scan(f, freqsplat=args.splat,
-                        nosub=not args.sub, norefilt=False,
-                        debug=args.debug, interactive=args.interactive)
+            Scan(f, freqsplat=args.splat, nosub=not args.sub, norefilt=False,
+                 debug=args.debug, interactive=args.interactive)
     else:
         assert args.config is not None, "Please specify the config file!"
-        scanset = ScanSet(args.config, norefilt=False,
-                          freqsplat=args.splat, nosub=not args.sub,
-                          nofilt=args.nofilt,
-                          debug=args.debug, interactive=args.interactive)
+        ScanSet(args.config, norefilt=False, freqsplat=args.splat,
+                nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
+                interactive=args.interactive)
