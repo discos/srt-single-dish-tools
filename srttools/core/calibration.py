@@ -154,12 +154,14 @@ class SourceTable(Table):
                  "Elevation", "Azimuth",
                  "Flux/Counts", "Flux/Counts Err",
                  "Flux Integral/Counts", "Flux Integral/Counts Err",
+                 "Calculated Flux", "Calculated Flux Err",
                  "RA", "Dec",
                  "Fit RA", "Fit Dec",
                  "RA err", "Dec err"]
 
         dtype = ['S200', 'S200', 'S200', 'S200',
                  'S200', np.int, np.double,
+                 np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
@@ -235,8 +237,6 @@ class SourceTable(Table):
                 pnt_dec = np.degrees(scan.meta['Dec'])
                 frequency = scan[channel].meta['frequency']
                 bandwidth = scan[channel].meta['bandwidth']
-                flux_density, flux_density_err = 0, 0
-                flux_over_counts, flux_over_counts_err = 0, 0
 
                 y = scan[channel]
 
@@ -302,12 +302,17 @@ class SourceTable(Table):
                 index = pnames.index("stddev_1")
                 width_err = uncert[index]
 
+                flux_density, flux_density_err = 0, 0
+                flux_over_counts, flux_over_counts_err = 0, 0
+                calculated_flux, calculated_flux_err = 0, 0
+
                 self.add_row([scandir, sname, scan_type, source, channel, feed,
                               time, frequency, bandwidth, counts, counts_err,
                               fit_width, width_err,
                               flux_density, flux_density_err, el, az,
                               flux_over_counts, flux_over_counts_err,
                               flux_over_counts, flux_over_counts_err,
+                              calculated_flux, calculated_flux_err,
                               pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
                               dec_err])
 
@@ -425,7 +430,7 @@ class CalibratorTable(SourceTable):
         self['Flux Integral/Counts Err'][:] = \
             flux_integral_over_counts_err.to(u.Jy / u.ct / u.steradian).value
 
-    def compute_conversion_function(self, map_unit="Jy/beam"):
+    def compute_conversion_function(self, map_unit="Jy/beam", good_mask=None):
         """Compute the conversion between Jy and counts.
 
         Try to get a meaningful fit over elevation. Revert to the rough
@@ -435,7 +440,8 @@ class CalibratorTable(SourceTable):
             channels = list(set(self["Chan"]))
             for channel in channels:
                 fc, fce = self.Jy_over_counts_rough(channel=channel,
-                                                    map_unit=map_unit)
+                                                    map_unit=map_unit,
+                                                    good_mask=None)
                 self.calibration_coeffs[standard_string(channel)] = [fc, 0, 0]
                 self.calibration_uncerts[standard_string(channel)] = \
                     [fce, 0, 0]
@@ -444,11 +450,14 @@ class CalibratorTable(SourceTable):
         else:
             import statsmodels.api as sm
 
+        if good_mask is None:
+            good_mask = self['Flux'] > 0
+
         flux_quantity = _get_flux_quantity(map_unit)
 
         channels = list(set(self["Chan"]))
         for channel in channels:
-            good_chans = compare_strings(self["Chan"], channel)
+            good_chans = compare_strings(self["Chan"], channel)&good_mask
 
             f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
             f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
@@ -479,20 +488,25 @@ class CalibratorTable(SourceTable):
                 results.cov_params().diagonal()**0.5
             self.calibration[standard_string(channel)] = results
 
-    def Jy_over_counts(self, channel, elevation=None, map_unit="Jy/beam"):
+    def Jy_over_counts(self, channel=None, elevation=None,
+                       map_unit="Jy/beam", good_mask=None):
         rough = False
         if not HAS_STATSM:
             rough = True
 
+        if good_mask is None:
+            good_mask = self['Flux'] > 0
+
         flux_quantity = _get_flux_quantity(map_unit)
 
         if standard_string(channel) not in self.calibration.keys():
-            self.compute_conversion_function(map_unit)
+            self.compute_conversion_function(map_unit, good_mask=good_mask)
 
-        if elevation is None or rough is True:
+        if elevation is None or rough is True or channel is None:
             elevation = np.array(elevation)
             fc, fce = self.Jy_over_counts_rough(channel=channel,
-                                                map_unit=map_unit)
+                                                map_unit=map_unit,
+                                                good_mask=good_mask)
             if elevation.size > 1:
                 fc = np.zeros_like(elevation) + fc
                 fce = np.zeros_like(elevation) + fce
@@ -511,7 +525,8 @@ class CalibratorTable(SourceTable):
 
         return fc, fce
 
-    def Jy_over_counts_rough(self, channel=None, map_unit="Jy/beam"):
+    def Jy_over_counts_rough(self, channel=None, map_unit="Jy/beam",
+                             good_mask=None):
         """Get the conversion from counts to Jy.
 
         Other parameters
@@ -529,9 +544,14 @@ class CalibratorTable(SourceTable):
 
         self.check_up_to_date()
 
+        if good_mask is None:
+            good_mask = np.ones(len(self["Time"]), dtype=bool)
+
         good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:
             good_chans = compare_strings(self['Chan'], channel)
+
+        good_chans = good_chans&good_mask
 
         flux_quantity = _get_flux_quantity(map_unit)
 
@@ -575,6 +595,33 @@ class CalibratorTable(SourceTable):
         fce = np.sqrt(pcov[0, 0])
 
         return fc, fce
+
+    def calculate_src_flux(self, channel=None, elevation=None,
+                           map_unit="Jy/beam", source=None):
+        if source is None:
+            good = np.ones_like(self['Flux'], dtype=bool)
+        else:
+            good = compare_strings(self['Source'], source)
+        non_source = np.logical_not(good)
+        fc, fce = self.Jy_over_counts(channel=channel, elevation=elevation,
+                                      map_unit=map_unit,
+                                      good_mask=non_source)
+
+        calculated_flux = np.array(self['Calculated Flux'])
+        calculated_flux_err = np.array(self['Calculated Flux Err'])
+        counts = np.array(self['Counts'])
+        counts_err = np.array(self['Counts Err'])
+
+        calculated_flux[good] = counts[good] * fc
+        calculated_flux_err[good] = \
+            (counts[good] / counts_err[good] + fce / fc) * \
+                calculated_flux[good]
+
+        self['Calculated Flux'][:] = calculated_flux
+        self['Calculated Flux Err'][:] = calculated_flux_err
+
+        return np.mean(calculated_flux), \
+               np.sqrt(np.mean(calculated_flux_err ** 2))
 
     def beam_width(self, channel=None):
         goodch = np.ones(len(self), dtype=bool)
@@ -833,3 +880,7 @@ def main(args=None):
         caltable.show()
 
     caltable.write(outfile, overwrite=True)
+
+
+def main_lcurve(args=None):
+    pass
