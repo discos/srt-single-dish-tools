@@ -19,7 +19,12 @@ def standard_string(s):
     --------
     >>> standard_string(b'a')
     'a'
+    >>> standard_string(None) is None
+    True
     """
+    if s is None:
+        return None
+
     if sys.version_info >= (3, 0, 0):
         # for Python 3
         # This indexing should work for both lists of strings, and strings
