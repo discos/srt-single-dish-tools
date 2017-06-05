@@ -353,7 +353,7 @@ def select_data(xs, ys, masks=None, title=None, xlabel=None):
     """Open a DataSelector window."""
     try:
         xs.keys()
-    except:
+    except Exception:
         xs = {'Ch': xs}
         ys = {'Ch': ys}
 

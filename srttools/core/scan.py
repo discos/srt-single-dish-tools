@@ -218,7 +218,7 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     try:
         cmap = plt.get_cmap("magma")
-    except:
+    except Exception:
         cmap = plt.get_cmap("gnuplot2")
     ax_dynspec.imshow(varimg, origin="lower", aspect='auto',
                       cmap=cmap,

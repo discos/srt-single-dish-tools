@@ -546,11 +546,11 @@ class ScanSet(Table):
             sname = self.scan_list[sid]
             try:
                 s = Scan(sname)
-            except:
+            except Exception:
                 continue
             try:
                 chan_mask = s['{}-filt'.format(ch)]
-            except:
+            except Exception:
                 chan_mask = np.zeros_like(s[ch])
 
             scan_ids[sname] = sid
@@ -582,7 +582,7 @@ class ScanSet(Table):
         mask = self['Scan_id'] == sid
         try:
             s = Scan(sname)
-        except:
+        except Exception:
             return
 
         if len(zap_info.xs) > 0:
@@ -604,7 +604,7 @@ class ScanSet(Table):
             s.meta['backsub'] = True
             try:
                 self[ch][mask][:] = s[ch]
-            except:
+            except Exception:
                 warnings.warn("Something while treating {}".format(sname))
 
                 plt.figure("DEBUG")
@@ -645,7 +645,7 @@ class ScanSet(Table):
             with open(txtfile, 'r') as fobj:
                 for i in fobj.readlines():
                     self.scan_list.append(i.strip())
-        except:
+        except Exception:
             self.meta['scan_list_file'] = None
         return self
 
