@@ -12,14 +12,12 @@ from astropy.table import Table, Column
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-from .fit import baseline_rough, baseline_als, linear_fun, _rolling_window
+from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
-from astropy import stats
 
 import re
 import warnings
 import logging
-import traceback
 
 
 def _split_freq_splat(freqsplat):
@@ -201,7 +199,7 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_lc = plt.subplot(gs[1, 2], sharey=ax_dynspec)
     ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
     ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
-    ax_varhist = plt.subplot(gs[3, 1], sharey=ax_var)
+    # ax_varhist = plt.subplot(gs[3, 1], sharey=ax_var)
     ax_meanspec.set_ylabel('Counts')
     ax_dynspec.set_ylabel('Sample')
     ax_cleanspec.set_ylabel('Sample')

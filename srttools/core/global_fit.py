@@ -93,6 +93,7 @@ def counter(initial_value=0):
         yield count
         count += 1
 
+
 ITERATION_COUNT = counter(0)
 CURR_CHANNEL = "Ch0"
 
