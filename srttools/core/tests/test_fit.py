@@ -4,7 +4,6 @@ from __future__ import (absolute_import, division,
                         print_function)
 from srttools.core.fit import fit_baseline_plus_bell, purge_outliers, align
 import numpy as np
-import matplotlib.pyplot as plt
 
 np.random.seed(1231636)
 

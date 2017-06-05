@@ -7,12 +7,7 @@ import numpy as np
 import traceback
 import warnings
 import collections
-
-try:
-    from statsmodels.robust import mad
-except ImportError:
-    def mad(data, axis=None):
-        return np.median(np.abs(data - np.median(data, axis)), axis)
+from .utils import mad
 
 
 def contiguous_regions(condition):

@@ -18,12 +18,12 @@ except ImportError:
     def tqdm(x):
         return x
 
+np.random.seed(1241347)
+
 
 def _2d_gauss(x, y, sigma=3 / 60.):
     """A Gaussian beam"""
     return np.exp(-(x ** 2 + y ** 2) / (2 * sigma**2))
-
-np.random.seed(1241347)
 
 
 def calibrator_scan_func(x):

@@ -2,19 +2,16 @@
 
 from __future__ import (absolute_import, division,
                         print_function)
-from ..read_config import read_config, SRT_tools_config
+from ..read_config import read_config
 import numpy as np
-import numpy.random as ra
 import matplotlib.pyplot as plt
-from astropy.table import Table
 from ..imager import ScanSet, main_imager
-from ..simulate import simulate_map, save_scan
+from ..simulate import simulate_map
 from ..global_fit import display_intermediate
 from ..calibration import CalibratorTable
 from ..io import mkdir_p
 import os
 import glob
-import subprocess as sp
 import astropy.units as u
 
 try:
