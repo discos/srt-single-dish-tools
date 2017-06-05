@@ -212,7 +212,7 @@ def read_data_fitszilla(fname):
     # Check. If backend is not specified, use Total Power
     try:
         backend = lchdulist[0].header['HIERARCH BACKEND NAME']
-    except:
+    except Exception:
         backend = 'TP'
 
     # ----------- Read the list of channel ids ------------------

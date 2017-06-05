@@ -171,7 +171,7 @@ class ScanSet(Table):
         of the source
         """
         from astropy.time import Time
-        from astropy.coordinates import SkyCoord, AltAz
+        from astropy.coordinates import SkyCoord
 
         from .io import locations
         obstimes = Time((self['time']) * u.day, format='mjd', scale='utc')
@@ -546,11 +546,11 @@ class ScanSet(Table):
             sname = self.scan_list[sid]
             try:
                 s = Scan(sname)
-            except:
+            except Exception:
                 continue
             try:
                 chan_mask = s['{}-filt'.format(ch)]
-            except:
+            except Exception:
                 chan_mask = np.zeros_like(s[ch])
 
             scan_ids[sname] = sid
@@ -582,7 +582,7 @@ class ScanSet(Table):
         mask = self['Scan_id'] == sid
         try:
             s = Scan(sname)
-        except:
+        except Exception:
             return
 
         if len(zap_info.xs) > 0:
@@ -604,7 +604,7 @@ class ScanSet(Table):
             s.meta['backsub'] = True
             try:
                 self[ch][mask][:] = s[ch]
-            except:
+            except Exception:
                 warnings.warn("Something while treating {}".format(sname))
 
                 plt.figure("DEBUG")
@@ -635,7 +635,6 @@ class ScanSet(Table):
 
     def load(self, fname, **kwargs):
         """Set default path and call Table.read."""
-        import os
         self.read(fname)
 
         self.scan_list = []
@@ -646,7 +645,7 @@ class ScanSet(Table):
             with open(txtfile, 'r') as fobj:
                 for i in fobj.readlines():
                     self.scan_list.append(i.strip())
-        except:
+        except Exception:
             self.meta['scan_list_file'] = None
         return self
 
@@ -856,12 +855,10 @@ def main_preprocess(args=None):  # pragma: no cover
 
     if args.files is not None:
         for f in args.files:
-            scan = Scan(f, freqsplat=args.splat,
-                        nosub=not args.sub, norefilt=False,
-                        debug=args.debug, interactive=args.interactive)
+            Scan(f, freqsplat=args.splat, nosub=not args.sub, norefilt=False,
+                 debug=args.debug, interactive=args.interactive)
     else:
         assert args.config is not None, "Please specify the config file!"
-        scanset = ScanSet(args.config, norefilt=False,
-                          freqsplat=args.splat, nosub=not args.sub,
-                          nofilt=args.nofilt,
-                          debug=args.debug, interactive=args.interactive)
+        ScanSet(args.config, norefilt=False, freqsplat=args.splat,
+                nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
+                interactive=args.interactive)

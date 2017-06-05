@@ -1,33 +1,20 @@
 from .scan import Scan, list_scans
-from .read_config import read_config, sample_config_file, get_config_file
+from .read_config import read_config, sample_config_file
 from .fit import fit_baseline_plus_bell
-from .io import mkdir_p
 
 import os
 import sys
-import glob
-import re
 import warnings
-import traceback
-from matplotlib.gridspec import GridSpec
 import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
-import logging
-import six
 from .calibration import _get_calibrator_flux
 
 try:
     import cPickle as pickle
-except:
+except ImportError:
     import pickle
 
 import numpy as np
-from astropy.table import Table, vstack, Column
-# For Python 2 and 3 compatibility
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
+from astropy.table import Table, vstack
 
 CALIBRATOR_CONFIG = None
 
@@ -95,7 +82,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
             # For now, use nosave. HDF5 doesn't store meta, essential for this
             scan = Scan(s, norefilt=True, nosave=True, debug=debug,
                         freqsplat=freqsplat)
-        except:
+        except Exception:
             warnings.warn('{} is an invalid file'.format(s))
             continue
         ras = np.degrees(scan['ra'][:, feed])
@@ -151,7 +138,7 @@ def get_fluxes(basedir, scandir, channel='Ch0', feed=0, plotall=False,
 
         try:
             uncert = fit_info['param_cov'].diagonal() ** 0.5
-        except:
+        except Exception:
             warnings.warn("Fit failed in scan {s}".format(s=s))
             continue
 
@@ -417,8 +404,8 @@ def test_calibration_roach():
         os.path.abspath(os.path.join(curdir, '..', '..',
                                      'TEST_DATASET',
                                      'test_calib_roach.ini'))
-    full_table = get_full_table(config_file, plotall=True,
-                                picklefile='data_r2.pickle')
+    get_full_table(config_file, plotall=True,
+                   picklefile='data_r2.pickle')
 
     with open('data_r2.pickle', 'rb') as f:
         full_table = pickle.load(f)
@@ -464,9 +451,9 @@ def main(args=None):
     assert args.config is not None, "Please specify the config file!"
 
     if not os.path.exists(args.pickle_file):
-        full_table = get_full_table(args.config, plotall=True,
-                                    picklefile=args.pickle_file,
-                                    freqsplat=args.splat)
+        get_full_table(args.config, plotall=True,
+                       picklefile=args.pickle_file,
+                       freqsplat=args.splat)
 
     with open(args.pickle_file, 'rb') as f:
         full_table = pickle.load(f)

@@ -8,9 +8,8 @@ import numpy.random as ra
 import os
 from astropy.io import fits
 from astropy.table import Table, vstack
-from .scan import Scan
 from .io import mkdir_p, locations
-from astropy.coordinates import EarthLocation, AltAz, SkyCoord
+from astropy.coordinates import SkyCoord
 from astropy.time import Time
 import astropy.units as u
 import six
@@ -76,8 +75,10 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     srcname : str
         Name of the source
     """
-    if src_ra is None: src_ra = np.mean(ra)
-    if src_dec is None: src_dec = np.mean(dec)
+    if src_ra is None:
+        src_ra = np.mean(ra)
+    if src_dec is None:
+        src_dec = np.mean(dec)
 
     curdir = os.path.abspath(os.path.dirname(__file__))
     template = os.path.abspath(os.path.join(curdir, '..', 'data',

@@ -4,7 +4,6 @@ from __future__ import (absolute_import, division,
                         print_function)
 import os
 import glob
-import warnings
 import logging
 import numpy as np
 from astropy.table import Table, Column
@@ -48,7 +47,7 @@ def inspect_directories(directories):
                 info.add_row([d, f, source, receiver, backend,
                               time, frequency, bandwidth])
                 break
-            except:
+            except Exception:
                 continue
 
     return(info)
