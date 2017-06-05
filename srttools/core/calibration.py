@@ -28,19 +28,12 @@ import astropy.units as u
 
 import numpy as np
 from astropy.table import Table, Column
+from . import HAS_STATSM
 # For Python 2 and 3 compatibility
 try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
-
-try:
-    import statsmodels.api as sm
-    HAS_STATSM = True
-except:
-    warnings.warn("Statsmodels is not installed. "
-                  "Reverting to rough mode.")
-    HAS_STATSM = False
 
 CALIBRATOR_CONFIG = None
 
@@ -448,6 +441,8 @@ class CalibratorTable(SourceTable):
                     [fce, 0, 0]
                 self.calibration[standard_string(channel)] = None
             return
+        else:
+            import statsmodels.api as sm
 
         flux_quantity = _get_flux_quantity(map_unit)
 
