@@ -5,6 +5,13 @@ import sys
 import numpy as np
 
 
+try:
+    from statsmodels.robust import mad
+except ImportError:
+    def mad(data, axis=None):
+        return np.median(np.abs(data - np.median(data, axis)), axis)
+
+
 def standard_string(s):
     """Standard string representation for a given Python version
 

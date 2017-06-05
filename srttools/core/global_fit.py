@@ -3,18 +3,7 @@
 from __future__ import (absolute_import, division,
                         print_function)
 from .fit import contiguous_regions
-import warnings
-
-try:
-    from numba import jit, vectorize
-except:
-    warnings.warn("Numba not installed. Faking it")
-
-    def jit(fun):
-        return fun
-
-    def vectorize(*args, **kwargs):
-        return jit
+from . import jit, vectorize
 
 from .histograms import histogram2d
 import numpy as np
