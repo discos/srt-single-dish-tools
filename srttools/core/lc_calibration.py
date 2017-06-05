@@ -416,6 +416,8 @@ def main(args=None):
     """Main function."""
     import argparse
     import os
+    warnings.warn("This script is currently in the process of being"
+                  " heavily modified. As such, results cannot be trusted.")
 
     description = ('Load a series of scans from a config file '
                    'and produce a map.')
