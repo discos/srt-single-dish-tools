@@ -133,9 +133,6 @@ class TestScanSet(object):
     def test_2_rough_image(self):
         '''Test image production.'''
 
-        # scanset = ScanSet(Table.read('test.hdf5', path='scanset'),
-        #                   config_file=self.config_file)
-
         scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
@@ -272,12 +269,53 @@ class TestScanSet(object):
                              parfile="out_iter_Ch0_002.txt")
         os.path.exists("out_iter_Ch1_002.png")
 
-    def test_9_find_scan_through_pixel(self):
+    def test_9a_find_scan_through_pixel(self):
         scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
 
         scanset.calculate_images()
-        scanset.find_scans_through_pixel(125, 125, test=True)
+        _, _, _, _, _, _, _, coord = \
+            scanset.find_scans_through_pixel(62, 62, test=True)
+
+        dec_scan = ('/Users/meo/devel/spyder_projects/srt-single-dish-tools/' 
+                    'srttools/core/tests/data/sim/gauss_dec/Dec99.fits')
+        assert dec_scan in coord
+        assert coord[dec_scan] == 'dec'
+        ra_scan = ('/Users/meo/devel/spyder_projects/srt-single-dish-tools/' 
+                    'srttools/core/tests/data/sim/gauss_ra/Ra100.fits')
+        assert ra_scan in coord
+        assert coord[ra_scan] == 'ra'
+
+    def test_9b_find_scan_through_pixel(self):
+        scanset = ScanSet('test.hdf5',
+                          config_file=self.config_file)
+
+        scanset.calculate_images()
+        _, _, _, _, _, _, _, coord = \
+            scanset.find_scans_through_pixel(62, 0, test=True)
+
+        dec_scan = ('/Users/meo/devel/spyder_projects/srt-single-dish-tools/' 
+                    'srttools/core/tests/data/sim/gauss_dec/Dec99.fits')
+        assert dec_scan in coord
+        assert coord[dec_scan] == 'dec'
+        ra_scan = ('/Users/meo/devel/spyder_projects/srt-single-dish-tools/' 
+                    'srttools/core/tests/data/sim/gauss_ra/Ra0.fits')
+        assert ra_scan in coord
+        assert coord[ra_scan] == 'ra'
+
+
+    def test_9c_find_scan_through_invalid_pixel(self):
+        scanset = ScanSet('test.hdf5',
+                          config_file=self.config_file)
+
+        scanset.calculate_images()
+        _, _, _, _, _, _, _, coord = \
+            scanset.find_scans_through_pixel(62, -2, test=True)
+        assert coord == {}
+        _, _, _, _, _, _, _, coord = \
+            scanset.find_scans_through_pixel(62, 64, test=True)
+        assert coord == {}
+
 
     @classmethod
     def teardown_class(klass):
