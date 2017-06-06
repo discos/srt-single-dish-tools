@@ -177,9 +177,16 @@ class TestCalibration(object):
         res = caltable.check_consistency(channel='Ch1')
         assert np.all(res)
 
-    def test_lcurve(self):
+    def test_lcurve_with_single_source(self):
         main_lcurve([self.calfile, '-s', 'DummySrc'])
         assert os.path.exists('DummySrc.csv')
+        os.unlink('DummySrc.csv')
+
+    def test_lcurve_with_all_sources(self):
+        main_lcurve(['-c', self.config_file])
+        assert os.path.exists('DummySrc.csv')
+        assert os.path.exists('DummyCal.csv')
+        assert os.path.exists('DummyCal2.csv')
 
     @classmethod
     def teardown_class(klass):

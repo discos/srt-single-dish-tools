@@ -983,10 +983,9 @@ def main_lcurve(args=None):
 
     sources = args.source
     if args.source is None:
-        sources = list(set(caltable['Source']))
+        sources = [standard_string(s) for s in set(caltable['Source'])]
 
     for s in sources:
-        print(s)
         caltable.calculate_src_flux(source=s)
         good = compare_strings(caltable['Source'], s)
         lctable = Table()
