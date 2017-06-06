@@ -168,12 +168,13 @@ class TestCalibration(object):
         caltable = CalibratorTable.read(self.calfile)
         dummy_flux, dummy_flux_err = \
             caltable.calculate_src_flux(source='DummySrc', channel='Ch0')
-        # Correction for bandwidth
-        assert (dummy_flux - 0.54) < 0.01
+        assert (dummy_flux - 0.52) < dummy_flux_err * 3
 
     def test_check_consistency(self):
         caltable = CalibratorTable.read(self.calfile)
         res = caltable.check_consistency(channel='Ch0')
+        assert np.all(res)
+        res = caltable.check_consistency(channel='Ch1')
         assert np.all(res)
 
     def test_lcurve(self):
