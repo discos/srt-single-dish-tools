@@ -403,7 +403,7 @@ class ScanSet(Table):
 
         for ch in self.chan_columns:
             Jy_over_counts, Jy_over_counts_err = \
-                caltable.Jy_over_counts(channel=ch,
+                caltable.Jy_over_counts(channel=ch, map_unit=map_unit,
                                         elevation=elevation) * \
                 conversion_units
 

@@ -522,7 +522,8 @@ class CalibratorTable(SourceTable):
 
         goodch = compare_strings(self["Chan"], channel)
         good = good_mask & goodch
-        fce = np.mean(self[flux_quantity + " Err"][good]) + np.zeros_like(fc)
+        fce = np.sqrt(np.mean(
+            self[flux_quantity + "/Counts Err"][good]**2)) + np.zeros_like(fc)
 
         if len(fc) == 1:
             fc, fce = fc[0], fce[0]
@@ -602,6 +603,27 @@ class CalibratorTable(SourceTable):
 
     def calculate_src_flux(self, channel=None,
                            map_unit="Jy/beam", source=None):
+        """Calculate source flux and error, pointing by pointing.
+
+        Updates the calibrator table and returns the average flux
+
+        Parameters
+        ----------
+        channel : str or list of str
+            Data channel
+        map_unit : str
+            Units in the map (default Jy/beam)
+        source : str
+            Source name. Must match one of the sources in the table.
+            Default
+
+        Returns
+        -------
+        mean_flux : array of floats
+            Array with as many channels as the input ones
+        mean_flux_err : array of floats
+            Uncertainties corresponding to mean_flux
+        """
         if source is None:
             good_source = np.ones_like(self['Flux'], dtype=bool)
         else:
@@ -609,10 +631,12 @@ class CalibratorTable(SourceTable):
         non_source = np.logical_not(good_source)
 
         if channel is None:
-            channels = list(set(self['Chan']))
+            channels = [standard_string(s) for s in set(self['Chan'])]
         else:
-            channels = [channel]
+            channels = [standard_string(channel)]
 
+        mean_flux = []
+        mean_flux_err = []
         for channel in channels:
             good_chan = compare_strings(self['Chan'], channel)
             good = good_source & good_chan
@@ -634,8 +658,11 @@ class CalibratorTable(SourceTable):
             self['Calculated Flux'][:] = calculated_flux
             self['Calculated Flux Err'][:] = calculated_flux_err
 
-            return np.mean(calculated_flux[good]), \
-                np.sqrt(np.mean(calculated_flux_err[good] ** 2))
+            mean_flux.append(np.mean(calculated_flux[good]))
+            mean_flux_err.append(
+                np.sqrt(np.mean(calculated_flux_err[good] ** 2)))
+
+        return mean_flux, mean_flux_err
 
     def check_consistency(self, channel=None, epsilon=0.05):
         is_cal = self['Flux'] > 0
