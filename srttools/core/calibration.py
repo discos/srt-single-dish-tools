@@ -522,7 +522,8 @@ class CalibratorTable(SourceTable):
 
         goodch = compare_strings(self["Chan"], channel)
         good = good_mask & goodch
-        fce = np.mean(self[flux_quantity + " Err"][good]) + np.zeros_like(fc)
+        fce = np.sqrt(np.mean(
+            self[flux_quantity + "/Counts Err"][good]**2)) + np.zeros_like(fc)
 
         if len(fc) == 1:
             fc, fce = fc[0], fce[0]
