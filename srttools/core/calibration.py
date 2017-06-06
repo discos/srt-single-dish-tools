@@ -609,10 +609,12 @@ class CalibratorTable(SourceTable):
         non_source = np.logical_not(good_source)
 
         if channel is None:
-            channels = list(set(self['Chan']))
+            channels = [standard_string(s) for s in set(self['Chan'])]
         else:
-            channels = [channel]
+            channels = [standard_string(channel)]
 
+        mean_flux = []
+        mean_flux_err = []
         for channel in channels:
             good_chan = compare_strings(self['Chan'], channel)
             good = good_source & good_chan
@@ -634,8 +636,11 @@ class CalibratorTable(SourceTable):
             self['Calculated Flux'][:] = calculated_flux
             self['Calculated Flux Err'][:] = calculated_flux_err
 
-            return np.mean(calculated_flux[good]), \
-                np.sqrt(np.mean(calculated_flux_err[good] ** 2))
+            mean_flux.append(np.mean(calculated_flux[good]))
+            mean_flux_err.append(
+                np.sqrt(np.mean(calculated_flux_err[good] ** 2)))
+
+        return mean_flux, mean_flux_err
 
     def check_consistency(self, channel=None, epsilon=0.05):
         is_cal = self['Flux'] > 0
