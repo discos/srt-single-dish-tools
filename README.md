@@ -1,7 +1,7 @@
 # SRT Single dish tools #
 [![Travis CI status](https://travis-ci.org/matteobachetti/srt-single-dish-tools.svg?branch=master)](https://travis-ci.org/matteobachetti/srt-single-dish-tools)
 [![Appveyor build status](https://ci.appveyor.com/api/projects/status/m7ll5da3w8ukkrjd/branch/master?svg=true)](https://ci.appveyor.com/project/matteobachetti/srt-single-dish-tools/branch/master)
-[![Coverage Status](https://coveralls.io/repos/github/matteobachetti/srt-single-dish-tools/badge.svg?branch=master&bust=1)](https://coveralls.io/github/matteobachetti/srt-single-dish-tools?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/matteobachetti/srt-single-dish-tools/badge.svg?branch=master)](https://coveralls.io/github/matteobachetti/srt-single-dish-tools?branch=master)
 [![Powered by Astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
 [![Documentation Status](https://readthedocs.org/projects/srt-single-dish-tools/badge/?version=latest)](http://srt-single-dish-tools.readthedocs.io/en/latest/?badge=latest)
 
@@ -65,10 +65,10 @@ Please follow the [Astropy contribution guidelines](http://docs.astropy.org/en/s
 
 ### If you use this code
 
+First of all... **This code is under development!**... so, it might well be that something does not work as expected. For any inquiries, bug reports, or suggestions, please use the [Issues](https://github.com/matteobachetti/srt-single-dish-tools/issues) page.
+
 If you used this software package to reduce data for a publication, please write in the acknowledgements something along these lines:
 
     This work makes use of the SRT Single Dish Tools developed by Matteo Bachetti.
     
 We will submit it to the [Astrophysics Source Code Library](www.ascl.net) soon, and update the text accordingly.
-
-For any inquiries, bug reports, or suggestions, please use the [Issues](https://github.com/matteobachetti/srt-single-dish-tools/issues) page.
