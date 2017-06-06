@@ -6,10 +6,16 @@ import numpy as np
 
 
 try:
-    from statsmodels.robust import mad
+    from statsmodels.robust import mad as mad
 except ImportError:
-    def mad(data, axis=None):
-        return np.median(np.abs(data - np.median(data, axis)), axis)
+    def mad(data, c=0.6745, axis=None):
+        """Straight from statsmodels's source code, adapted"""
+        data = np.asarray(data)
+        if axis is not None:
+            center = np.apply_over_axes(np.median, data, axis)
+        else:
+            center = np.median(data)
+        return np.median((np.fabs(data - center)) / c, axis=axis)
 
 
 def standard_string(s):
