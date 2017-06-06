@@ -602,6 +602,27 @@ class CalibratorTable(SourceTable):
 
     def calculate_src_flux(self, channel=None,
                            map_unit="Jy/beam", source=None):
+        """Calculate source flux and error, pointing by pointing.
+
+        Updates the calibrator table and returns the average flux
+
+        Parameters
+        ----------
+        channel : str or list of str
+            Data channel
+        map_unit : str
+            Units in the map (default Jy/beam)
+        source : str
+            Source name. Must match one of the sources in the table.
+            Default
+
+        Returns
+        -------
+        mean_flux : array of floats
+            Array with as many channels as the input ones
+        mean_flux_err : array of floats
+            Uncertainties corresponding to mean_flux
+        """
         if source is None:
             good_source = np.ones_like(self['Flux'], dtype=bool)
         else:
