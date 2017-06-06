@@ -58,6 +58,9 @@ matrix:
           env: ASTROPY_VERSION=development SETUP_CMD='test'
         - python: 3.6
           env: ASTROPY_VERSION=development SETUP_CMD='test'
+        # No statsmodels
+        - python: 3.6
+          env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba' SETUP_CMD='test --coverage'
         - python: 2.7
           env: SETUP_CMD='build_sphinx -w'
         # Old matplotlib
@@ -66,9 +69,6 @@ matrix:
         # Try older numpy versions
         - python: 3.4
           env: NUMPY_VERSION=1.9 SETUP_CMD='test'
-        # No statsmodels
-        - python: 3.6
-          env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba'
         # No pyyaml
         - python: 3.6
           env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels numba'
@@ -89,9 +89,6 @@ matrix:
         # Try older numpy versions
         - python: 3.4
           env: NUMPY_VERSION=1.9 SETUP_CMD='test'
-        # No statsmodels
-        - python: 3.6
-          env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba'
         # No pyyaml
         - python: 3.6
           env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels numba'
