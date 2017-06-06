@@ -818,8 +818,9 @@ def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
 
     fs = np.linspace(f0, f1, 21)
     df = np.diff(fs)[0]
+    fmean = (fs[:-1] + fs[1:])/2
 
-    logf = np.log10(fs)
+    logf = np.log10(fmean)
     logS = a0 + a1 * logf + a2 * logf**2 + a3 * logf**3
     elogS = a0e + a1e * logf + a2e * logf**2 + a3e * logf**3
 
