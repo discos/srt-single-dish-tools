@@ -6,10 +6,10 @@ import numpy as np
 
 
 try:
-    from statsmodels.robust import stand_mad as mad
+    from statsmodels.robust import mad as mad
 except ImportError:
     def mad(data, c=0.6745, axis=None):
-        """Straight from statsmodels's source code"""
+        """Straight from statsmodels's source code, adapted"""
         data = np.asarray(data)
         center = np.apply_over_axes(np.median, data, axis)
         return np.median((np.fabs(data - center)) / c, axis=axis)
