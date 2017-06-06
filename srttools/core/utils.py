@@ -11,7 +11,10 @@ except ImportError:
     def mad(data, c=0.6745, axis=None):
         """Straight from statsmodels's source code, adapted"""
         data = np.asarray(data)
-        center = np.apply_over_axes(np.median, data, axis)
+        if axis is not None:
+            center = np.apply_over_axes(np.median, data, axis)
+        else:
+            center = np.median(data)
         return np.median((np.fabs(data - center)) / c, axis=axis)
 
 
