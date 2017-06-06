@@ -299,7 +299,6 @@ class TestScanSet(object):
         assert ra_scan in coord
         assert coord[ra_scan] == 'ra'
 
-
     def test_9c_find_scan_through_invalid_pixel(self):
         scanset = ScanSet('test.hdf5',
                           config_file=self.config_file)
@@ -311,7 +310,6 @@ class TestScanSet(object):
         _, _, _, _, _, _, _, coord = \
             scanset.find_scans_through_pixel(62, 64, test=True)
         assert coord == {}
-
 
     @classmethod
     def teardown_class(klass):
