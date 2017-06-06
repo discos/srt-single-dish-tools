@@ -277,12 +277,10 @@ class TestScanSet(object):
         _, _, _, _, _, _, _, coord = \
             scanset.find_scans_through_pixel(62, 62, test=True)
 
-        dec_scan = ('/Users/meo/devel/spyder_projects/srt-single-dish-tools/' 
-                    'srttools/core/tests/data/sim/gauss_dec/Dec99.fits')
+        dec_scan = os.path.join(self.obsdir_dec, 'Dec99.fits')
         assert dec_scan in coord
         assert coord[dec_scan] == 'dec'
-        ra_scan = ('/Users/meo/devel/spyder_projects/srt-single-dish-tools/' 
-                    'srttools/core/tests/data/sim/gauss_ra/Ra100.fits')
+        ra_scan = os.path.join(self.obsdir_ra, 'Ra100.fits')
         assert ra_scan in coord
         assert coord[ra_scan] == 'ra'
 
@@ -294,12 +292,10 @@ class TestScanSet(object):
         _, _, _, _, _, _, _, coord = \
             scanset.find_scans_through_pixel(62, 0, test=True)
 
-        dec_scan = ('/Users/meo/devel/spyder_projects/srt-single-dish-tools/' 
-                    'srttools/core/tests/data/sim/gauss_dec/Dec99.fits')
+        dec_scan = os.path.join(self.obsdir_dec, 'Dec99.fits')
         assert dec_scan in coord
         assert coord[dec_scan] == 'dec'
-        ra_scan = ('/Users/meo/devel/spyder_projects/srt-single-dish-tools/' 
-                    'srttools/core/tests/data/sim/gauss_ra/Ra0.fits')
+        ra_scan = os.path.join(self.obsdir_ra, 'Ra0.fits')
         assert ra_scan in coord
         assert coord[ra_scan] == 'ra'
 
