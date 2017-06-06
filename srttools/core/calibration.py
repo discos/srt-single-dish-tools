@@ -326,7 +326,6 @@ class SourceTable(Table):
                                                                         nch)))
                     plt.close(fig)
 
-
     def write(self, fname, *args, **kwargs):
         if fname.endswith('.hdf5'):
             Table.write(self, fname, *args, path='table', **kwargs)
@@ -613,7 +612,6 @@ class CalibratorTable(SourceTable):
             channels = list(set(self['Chan']))
         else:
             channels = [channel]
-
 
         for channel in channels:
             good_chan = compare_strings(self['Chan'], channel)
