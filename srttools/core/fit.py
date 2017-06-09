@@ -64,7 +64,25 @@ def _rolling_window(a, window):
 
 
 def ref_std(array, window):
-    """Minimum standard deviation along an array."""
+    """Minimum standard deviation along an array.
+
+    If a data series is noisy, it is difficult to determine the underlying
+    standard deviation of the original series. Here, the standard deviation is
+    calculated in a rolling window, and the minimum is saved, because it will
+    likely be the interval with less noise.
+
+    Parameters
+    ----------
+    array : ``numpy.array`` object or list
+        Input data
+    window : int or float
+        Number of bins of the window
+
+    Returns
+    -------
+    ref_std : float
+        The reference Standard Deviation
+    """
 
     if len(array) < window*5:
         return (np.std(np.diff(array)))
@@ -73,22 +91,69 @@ def ref_std(array, window):
 
 
 def ref_mad(array, window):
-    """Rolling MAD of an array, rolling median-subtracted."""
+    """Ref. Median Absolute Deviation of an array, rolling median-subtracted.
+
+    If a data series is noisy, it is difficult to determine the underlying
+    statistics of the original series. Here, the MAD is calculated in a rolling
+    window, and the minimum is saved, because it will likely be the interval
+    with less noise.
+
+    Parameters
+    ----------
+    array : ``numpy.array`` object or list
+        Input data
+    window : int or float
+        Number of bins of the window
+
+    Returns
+    -------
+    ref_std : float
+        The reference MAD
+    """
     if len(array) < window*3:
         return mad(array)
     return np.median(mad(_rolling_window(array, window), axis=1))
 
 
 def linear_fun(x, q, m):
-    """A linear function."""
+    """A linear function.
+
+    Parameters
+    ----------
+    x : float or array
+        The independent variable
+    m : float
+        The slope
+    q : float
+        The intercept
+
+    Returns
+    -------
+    y : float or array
+        The dependent variable
+    """
     return m * x + q
 
 
-def linear_fit(time, lc, start_pars, return_err=False):
-    """A linear fit with any set of data. Return the parameters."""
-    par, pcov = curve_fit(linear_fun, time, lc, start_pars,
+def linear_fit(x, y, start_pars, return_err=False):
+    """A linear fit with any set of data.
+
+    Parameters
+    ----------
+    x : array-like
+    y : array-like
+    start_pars : [q0, m0], floats
+        Intercept and slope of linear function
+
+    Returns
+    -------
+    par : [q, m], floats
+        Fitted intercept and slope of the linear function
+    """
+    par, pcov = curve_fit(linear_fun, x, y, start_pars,
                           maxfev=6000)
     if return_err:
+        warnings.warn("return_err not implemented yet in linear_fit")
         pass
     else:
         return par
@@ -99,28 +164,63 @@ def offset(x, off):
     return off
 
 
-def offset_fit(time, lc, offset_start=0, return_err=False):
-    """A linear fit with any set of data. Return the parameters."""
-    par, pcov = curve_fit(offset, time, lc, [offset_start],
+def offset_fit(x, y, offset_start=0, return_err=False):
+    """Fit a constant offset to the data.
+
+    Parameters
+    ----------
+    x : array-like
+    y : array-like
+    offset_start : float
+        Constant offset, initial value
+
+    Returns
+    -------
+    offset : float
+        Fitted offset
+    """
+    par, pcov = curve_fit(offset, x, y, [offset_start],
                           maxfev=6000)
     if return_err:
+        warnings.warn("return_err not implemented yet in offset_fit")
         pass
     else:
         return par[0]
 
 
-def baseline_rough(time, lc, start_pars=None, return_baseline=False):
-    """Rough function to subtract the baseline."""
+def baseline_rough(x, y, start_pars=None, return_baseline=False):
+    """Rough function to subtract the baseline.
+
+    Parameters
+    ----------
+    x : array-like
+        the sample time/number/position
+    y : array-like
+        the data series corresponding to x
+    start_pars : [q0, m0], floats
+        Intercept and slope of linear function
+
+    Other Parameters
+    ----------------
+    return_baseline : bool
+        return the baseline?
+
+    Returns
+    -------
+    y_subtracted : array-like, same size as y
+        The initial time series, subtracted from the trend
+    baseline : array-like, same size as y
+        Fitted baseline
+    """
     if start_pars is None:
         m0 = 0
-        q0 = min(lc)
+        q0 = min(y)
         start_pars = [q0, m0]
 
-    nbin = len(time)
+    nbin = len(x)
 
-    #    bins = np.arange(nbin, dtype=int)
-    lc = lc.copy()
-    time = time.copy()
+    lc = y.copy()
+    time = x.copy()
 
     total_trend = 0
 
@@ -133,9 +233,7 @@ def baseline_rough(time, lc, start_pars=None, return_baseline=False):
         sorted_els = np.argsort(lc_to_fit)
         # Select the lowest half elements
         good = sorted_els[: int(nbin * percentage)]
-        #    good = np.logical_or(bins <= nbin / 4, bins >= nbin / 4 * 3)
 
-        print(np.std(lc_to_fit[good]), local_std)
         if np.std(lc_to_fit[good]) < 2 * local_std:
             good = np.ones(len(lc_to_fit), dtype=bool)
 
@@ -209,6 +307,29 @@ def _als(y, lam, p, niter=10):
     The Python translation is partly from
     http://stackoverflow.com/questions/29156532/
         python-baseline-correction-library
+
+    Parameters
+    ----------
+    y : array-like
+        the data series corresponding to x
+    lam : float
+        the lambda parameter of the ALS method. This control how much the
+        baseline can adapt to local changes. A higher value corresponds to a
+        stiffer baseline
+    p : float
+        the asymmetry parameter of the ALS method. This controls the overall
+        slope tollerated for the baseline. A higher value correspond to a
+        higher possible slope
+
+    Other parameters
+    ----------------
+    niter : int
+        The number of iterations to perform
+
+    Returns
+    -------
+    z : array-like, same size as y
+        Fitted baseline.
     """
     from scipy import sparse
     L = len(y)
@@ -225,7 +346,44 @@ def _als(y, lam, p, niter=10):
 def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
                  offset_correction=True,
                  outlier_purging=True):
-    """Baseline Correction with Asymmetric Least Squares Smoothing."""
+    """Baseline Correction with Asymmetric Least Squares Smoothing.
+
+    Parameters
+    ----------
+    x : array-like
+        the sample time/number/position
+    y : array-like
+        the data series corresponding to x
+    lam : float
+        the lambda parameter of the ALS method. This control how much the
+        baseline can adapt to local changes. A higher value corresponds to a
+        stiffer baseline
+    p : float
+        the asymmetry parameter of the ALS method. This controls the overall
+        slope tollerated for the baseline. A higher value correspond to a
+        higher possible slope
+
+    Other parameters
+    ----------------
+    niter : int
+        The number of iterations to perform
+
+    Other Parameters
+    ----------------
+    return_baseline : bool
+        return the baseline?
+    offset_correction : bool
+        also correct for an offset to align with the running mean of the scan
+    outlier_purging : bool
+        Purge outliers before the fit?
+
+    Returns
+    -------
+    y_subtracted : array-like, same size as y
+        The initial time series, subtracted from the trend
+    baseline : array-like, same size as y
+        Fitted baseline. Only returned if return_baseline is True
+    """
 
     if not isinstance(outlier_purging, collections.Iterable):
         outlier_purging = (outlier_purging, outlier_purging)
@@ -256,7 +414,26 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
 def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     """Fit a function composed of a linear baseline plus a bell function.
 
-    kind:     'gauss' or 'lorentz'
+    Parameters
+    ----------
+    x : array-like
+        the sample time/number/position
+    y : array-like
+        the data series corresponding to x
+
+    Other parameters
+    ----------------
+    ye : array-like
+        the errors on the data series
+    kind: str
+        Can be 'gauss' or 'lorentz'
+
+    Returns
+    -------
+    mod_out : ``Astropy.modeling.model`` object
+        The fitted model
+    fit_info : dict
+        Fit info from the Astropy fitting routine.
     """
     assert kind in ['gauss', 'lorentz'], \
         'kind has to be one of: gauss, lorentz'
@@ -291,11 +468,25 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     return mod_out, fit.fit_info
 
 
-def minimize_align(xs, ys, params):
+def total_variance(xs, ys, params):
     """Calculate the total variance of a series of scans.
 
     This functions subtracts a linear function from each of the scans
     (excluding the first one) and calculates the total variance.
+
+    Parameters
+    ----------
+    xs : list of array-like [array1, array2, ...]
+        list of arrays containing the x values of each scan
+    ys : list of array-like [array1, array2, ...]
+        list of arrays containing the y values of each scan
+    params : list of array-like [[q0, m0], [q1, m1], ...]
+        list of arrays containing the parameters [m, q] for each scan.
+
+    Returns
+    -------
+    total_variance : float
+        The total variance of the baseline-subtracted scans.
     """
     params = np.array(params).flatten()
     qs = params[:len(xs) - 1]
@@ -325,25 +516,40 @@ def minimize_align(xs, ys, params):
     return value
 
 
-def objective_function(params, args):
+def _objective_function(params, args):
     """Put the parameters in the right order to use with scipy's minimize."""
-    return minimize_align(args[0], args[1], params)
+    return total_variance(args[0], args[1], params)
 
 
 def align(xs, ys):
-    """Given the first scan, it aligns all the others to that."""
+    """Given the first scan, it aligns all the others to that.
+
+    Parameters
+    ----------
+    xs : list of array-like [array1, array2, ...]
+        list of arrays containing the x values of each scan
+    ys : list of array-like [array1, array2, ...]
+        list of arrays containing the y values of each scan
+
+    Returns
+    -------
+    qs : array-like
+        The list of intercepts maximising the alignment, one for each scan
+    ms : array-like
+        The list of slopes maximising the alignment, one  for each scan
+    """
     from scipy.optimize import minimize
 
     qs = np.zeros(len(xs) - 1)
     ms = np.zeros(len(xs) - 1)
 
-    result = minimize(objective_function, [qs, ms], args=[xs, ys],
+    result = minimize(_objective_function, [qs, ms], args=[xs, ys],
                       options={'disp': True})
 
     qs = result.x[:len(xs) - 1]
     ms = np.zeros(len(xs) - 1)
 
-    result = minimize(objective_function, [qs, ms], args=[xs, ys],
+    result = minimize(_objective_function, [qs, ms], args=[xs, ys],
                       options={'disp': True})
 
     qs = result.x[:len(xs) - 1]
