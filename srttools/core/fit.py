@@ -33,7 +33,7 @@ def contiguous_regions(condition):
         condition-in-a-numpy-array
     """  # NOQA
     # Find the indicies of changes in "condition"
-    diff = np.diff(condition)
+    diff = np.logical_xor(condition[1:], condition[:-1])
     idx, = diff.nonzero()
     # We need to start things after the change in "condition". Therefore,
     # we'll shift the index by 1 to the right.
