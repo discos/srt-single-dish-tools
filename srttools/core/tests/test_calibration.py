@@ -128,6 +128,12 @@ class TestCalibration(object):
         caltable = CalibratorTable.read(self.calfile)
         assert caltable.check_up_to_date()
 
+    def test_Jy_over_counts_and_back(self):
+        caltable = CalibratorTable.read(self.calfile)
+        Jc, Jce = caltable.Jy_over_counts(channel='Ch0')
+        Cj, Cje = caltable.counts_over_Jy(channel='Ch0')
+        np.testing.assert_allclose(Jc, 1 / Cj)
+
     def test_bad_file(self):
         caltable = CalibratorTable()
         with pytest.warns(UserWarning) as record:
