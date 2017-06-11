@@ -89,16 +89,20 @@ def read_calibrator_config():
         Dictionary containing the configuration for each calibrator. Each key
         is the name of a calibrator. Each entry is another dictionary, with
         the following keys:
-        'Kind' : 'FreqList' or 'CoeffTable', depending on how the data are
-        stored.
-        If 'Kind' is 'FreqList', the other keys are
-        - 'Frequencies' : list of observing frequencies in GHz
-        - 'Bandwidths' : list of bandwidths in GHz
-        - 'Fluxes' : flux densities in Jy from the literature
-        - 'Flux Errors' : uncertainties.
-        If 'Kind' is 'CoeffTable', the other key is 'CoeffTable' and
-        contains a dictionary with the table of coefficients a la
-        Perley & Butler ApJS 204, 19 (2013), as a comma-separated string.
+
+        'Kind' : 'FreqList' or 'CoeffTable'
+        'Frequencies' : array-like
+            List of observing frequencies in GHz (if 'Kind' is 'FreqList')
+        'Bandwidths' : array-like
+            List of bandwidths in GHz (if 'Kind' is 'FreqList')
+        'Fluxes' : array-like
+            Flux densities in Jy from the literature (if 'Kind' is 'FreqList')
+        'Flux Errors' : array-like
+            Uncertainties on fluxes. (if 'Kind' is 'FreqList')
+        'CoeffTable': dict
+            contains a dictionary with the table of coefficients a la
+            Perley & Butler ApJS 204, 19 (2013), as a comma-separated string.
+            (if 'Kind' is 'CoeffTable')
 
     See Also
     --------
