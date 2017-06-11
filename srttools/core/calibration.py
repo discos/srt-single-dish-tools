@@ -90,19 +90,19 @@ def read_calibrator_config():
         is the name of a calibrator. Each entry is another dictionary, with
         the following keys:
         'Kind' : 'FreqList' or 'CoeffTable', depending on how the data are
-            stored.
+        stored.
         If 'Kind' is 'FreqList', the other keys are
-            'Frequencies' : list of observing frequencies in GHz
-            'Bandwidths' : list of bandwidths in GHz
-            'Fluxes' : flux densities in Jy from the literature
-            'Flux Errors' : uncertainties.
-        If 'Kind' is 'CoeffTable', the other key is 'CoeffTable' and contains
-            a dictionary with the table of coefficients a la
-            Perley & Butler ApJS 204, 19 (2013), as a comma-separated string.
+        - 'Frequencies' : list of observing frequencies in GHz
+        - 'Bandwidths' : list of bandwidths in GHz
+        - 'Fluxes' : flux densities in Jy from the literature
+        - 'Flux Errors' : uncertainties.
+        If 'Kind' is 'CoeffTable', the other key is 'CoeffTable' and
+        contains a dictionary with the table of coefficients a la
+        Perley & Butler ApJS 204, 19 (2013), as a comma-separated string.
 
     See Also
     --------
-    ``flux_function``
+    srttools.core.calibration.flux_function
 
     Examples
     --------
@@ -471,19 +471,20 @@ class CalibratorTable(Table):
         cross scan belonging to a calibrator:
 
         + 'Flux/Counts' and 'Flux/Counts Err': Tabulated flux density divided
-        by the _height_ of the fitted Gaussian. This is used, e.g. to calibrate
-        images in Jy/beam, as it calibrates the local amplitude to the flux
-        density
+          by the _height_ of the fitted Gaussian. This is used, e.g. to calibrate
+          images in Jy/beam, as it calibrates the local amplitude to the flux
+          density
 
         + 'Flux Integral/Counts' and 'Flux Integral/Counts Err': Tabulated flux
-        density divided by the _volume_ of the 2D Gaussian corresponding to the
-        fitted cross scans, assuming a symmetrical beam (which is generally not
-        the case, but a good approximation). This is used, e.g., to perform the
-        calibration in Jy/pixel: Each pixel will be normalized to the expected
-        total flux in the corresponding pixel area.
+          density divided by the _volume_ of the 2D Gaussian corresponding to the
+          fitted cross scans, assuming a symmetrical beam (which is generally not
+          the case, but a good approximation). This is used, e.g., to perform the
+          calibration in Jy/pixel: Each pixel will be normalized to the expected
+          total flux in the corresponding pixel area.
 
-        See Also the documentation of ``CalibratorTable.from_scans()`` for
-        details on how the scan is performed.
+        See Also
+        --------
+        srttools.core.calibration.CalibratorTable.from_scans
         """
         if not self.check_not_empty():
             return
