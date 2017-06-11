@@ -4,6 +4,8 @@ Produce calibrated light curves.
 ``SDTlcurve`` is a script that, given a list of cross scans from different
 sources, is able to recognize calibrators and use them to convert the observed
 counts into a density flux value in Jy.
+
+
 """
 from __future__ import (absolute_import, division,
                         print_function)
@@ -46,14 +48,17 @@ def _constant(x, p):
     return p
 
 
+FLUX_QUANTITIES = {"Jy/beam": "Flux",
+                   "Jy/pixel": "Flux Integral",
+                   "Jy/sr": "Flux Integral"}
+
+
 def _get_flux_quantity(map_unit):
-    if map_unit == "Jy/beam":
-        return "Flux"
-    elif map_unit in ["Jy/pixel", "Jy/sr"]:
-        return "Flux Integral"
-    else:
-        raise ValueError("Incorrect map_unit for flux conversion. Use one of"
-                         "Jy/beam, Jy/pixel")
+    try:
+        return FLUX_QUANTITIES[map_unit]
+    except Exception:
+        raise ValueError("Incorrect map_unit for flux conversion. Use one "
+                         "of {}".format(list(FLUX_QUANTITIES.keys())))
 
 
 def _scantype(ras, decs):
@@ -76,7 +81,38 @@ def _scantype(ras, decs):
 
 
 def read_calibrator_config():
-    """Read the configuration of calibrators in data/calibrators."""
+    """Read the configuration of calibrators in data/calibrators.
+
+    Returns
+    -------
+    configs : dict
+        Dictionary containing the configuration for each calibrator. Each key
+        is the name of a calibrator. Each entry is another dictionary, in one
+        of the following formats:
+        1) {'Kind' : 'FreqList', 'Frequencies' : [...], 'Bandwidths' : [...],
+        'Fluxes' : [...], 'Flux Errors' : [...]}
+        where 'Frequencies' is the list of observing frequencies in GHz,
+        'Bandwidths' is the list of bandwidths in GHz, 'Fluxes' is the list of
+        flux densities in Jy from the literature and 'Flux Errors' are the
+        uncertainties on those fluxes.
+        2) {'Kind' : 'CoeffTable', 'CoeffTable':
+        {'coeffs' : 'time, a0, a0e, a1, a1e, a2, a2e, a3, a3e\n2010.0,0 ...}}
+        where the 'coeffs' key contains a dictionary with the table of
+        coefficients a la Perley & Butler ApJS 204, 19 (2013), as a
+        comma-separated string.
+
+    See Also
+    --------
+    srttools.core.calibration.flux_function
+
+    Examples
+    --------
+    >>> calibs = read_calibrator_config()
+    >>> calibs['DummyCal']['Kind']
+    'CoeffTable'
+    >>> 'coeffs' in calibs['DummyCal']['CoeffTable']
+    True
+    """
     flux_re = re.compile(r'^Flux')
     curdir = os.path.dirname(__file__)
     calibdir = os.path.join(curdir, '..', 'data', 'calibrators')
@@ -138,13 +174,15 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
 
-class SourceTable(Table):
-    """Class containing all information and functions about sources."""
+class CalibratorTable(Table):
+    """Table composed of fitted and tabulated fluxes."""
 
     def __init__(self, *args, **kwargs):
         """Initialize the object."""
         Table.__init__(self, *args, **kwargs)
-
+        self.calibration_coeffs = {}
+        self.calibration_uncerts = {}
+        self.calibration = {}
         names = ["Dir", "File", "Scan Type", "Source",
                  "Chan", "Feed", "Time",
                  "Frequency", "Bandwidth",
@@ -179,7 +217,42 @@ class SourceTable(Table):
 
     def from_scans(self, scan_list=None, debug=False, freqsplat=None,
                    config_file=None, nofilt=False, plot=False):
-        """Load source table from a list of scans."""
+        """Load source table from a list of scans.
+
+        For each scan, a fit is performed. Since we are assuming point-like
+        sources here, the fit is a Gaussian plus a slope. The centroid, width
+        and amplitude of the fit fill out new rows of the CalibratorTable
+        ('Fit RA' or 'Fit Dec', 'Width' and 'Counts' respectively).
+
+        Parameters
+        ----------
+        scan_list : list of str
+            List of files containing cross scans to be fitted
+        config_file : str
+            File containing the configuration (list of directories etc.)
+
+        Other parameters
+        ----------------
+        debug : bool
+            Throw debug information
+        freqsplat : str
+            List of frequencies to be merged into one. See
+            :func:`srttools.core.scan.interpret_frequency_range`
+        nofilt : bool
+            Do not filter the noisy channels of the scan. See
+            :class:`srttools.core.scan.clean_scan_using_variability`
+        plot : bool
+            Plot diagnostic plots? Default False, True if debug is True.
+
+        Returns
+        -------
+        retval : bool
+            True if at least one scan was correctly processed
+
+        See Also
+        --------
+        srttools.core.scan.interpret_frequency_range
+        """
 
         if debug is True:
             plot = True
@@ -196,6 +269,7 @@ class SourceTable(Table):
             scan_list.sort()
         nscan = len(scan_list)
 
+        retval = False
         for i_s, s in enumerate(scan_list):
             logging.info('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
             scandir, sname = os.path.split(s)
@@ -207,7 +281,6 @@ class SourceTable(Table):
             try:
                 # For now, use nosave. HDF5 doesn't store meta, essential for
                 # this
-                # TODO: experiment with serialize_meta!
                 scan = Scan(s, norefilt=True, nosave=True, debug=debug,
                             freqsplat=freqsplat, nofilt=nofilt)
             except KeyError as e:
@@ -325,23 +398,16 @@ class SourceTable(Table):
                                              "Feed{}_chan{}.png".format(feed,
                                                                         nch)))
                     plt.close(fig)
+            retval = True
+
+        return retval
 
     def write(self, fname, *args, **kwargs):
+        """Same as Table.write, but adds path information for HDF5."""
         if fname.endswith('.hdf5'):
             Table.write(self, fname, *args, path='table', **kwargs)
         else:
             Table.write(self, fname, *args, **kwargs)
-
-
-class CalibratorTable(SourceTable):
-    """Class containing all information and functions about calibrators."""
-
-    def __init__(self, *args, **kwargs):
-        """Initialize the object."""
-        SourceTable.__init__(self, *args, **kwargs)
-        self.calibration_coeffs = {}
-        self.calibration_uncerts = {}
-        self.calibration = {}
 
     def check_not_empty(self):
         """Check that table is not empty.
@@ -374,7 +440,11 @@ class CalibratorTable(SourceTable):
         return True
 
     def update(self):
-        """Update the calibration information."""
+        """Update the calibration information.
+
+        Execute ``get_fluxes``, ``calibrate`` and
+        ``compute_conversion_function``
+        """
         if not self.check_not_empty():
             return
 
@@ -383,7 +453,10 @@ class CalibratorTable(SourceTable):
         self.compute_conversion_function()
 
     def get_fluxes(self):
-        """Get the tabulated flux of the calibrator."""
+        """Get the tabulated flux of the source, if listed as calibrators.
+
+        Updates the table.
+        """
         if not self.check_not_empty():
             return
 
@@ -398,7 +471,28 @@ class CalibratorTable(SourceTable):
             self['Flux Err'][it] = eflux
 
     def calibrate(self):
-        """Calculate the calibration constants."""
+        """Calculate the calibration constants.
+
+        The following conversion functions are calculated for each tabulated
+        cross scan belonging to a calibrator:
+
+        + 'Flux/Counts' and 'Flux/Counts Err': Tabulated flux density divided
+          by the _height_ of the fitted Gaussian. This is used, e.g. to
+          calibrate images in Jy/beam, as it calibrates the local amplitude to
+          the flux density
+
+        + 'Flux Integral/Counts' and 'Flux Integral/Counts Err': Tabulated flux
+          density divided by the _volume_ of the 2D Gaussian corresponding to
+          the fitted cross scans, assuming a symmetrical beam (which is
+          generally not the case, but a good approximation). This is used,
+          e.g., to perform the calibration in Jy/pixel: Each pixel will be
+          normalized to the expected total flux in the corresponding pixel
+          area
+
+        See Also
+        --------
+        srttools.core.calibration.CalibratorTable.from_scans
+        """
         if not self.check_not_empty():
             return
 
@@ -436,8 +530,16 @@ class CalibratorTable(SourceTable):
     def compute_conversion_function(self, map_unit="Jy/beam", good_mask=None):
         """Compute the conversion between Jy and counts.
 
-        Try to get a meaningful fit over elevation. Revert to the rough
-        function `Jy_over_counts_rough` in case `statsmodels` is not installed.
+        Try to get a meaningful second-degree polynomial fit over elevation.
+        Revert to the rough function `Jy_over_counts_rough` in case
+        `statsmodels` is not installed. In this latter case, only the baseline
+        value is given for flux conversion and error.
+        These values are saved in the ``calibration_coeffs`` and
+        ``calibration_uncerts`` attributes of ``CalibratorTable``, and a
+        dictionary called ``calibration`` is also created. For each channel,
+        this dictionary contains either None or an object. This object is the
+        output of a ``fit`` procedure in ``statsmodels``. The method
+        object.predict(X) returns the calibration corresponding to elevation X.
         """
         if not HAS_STATSM:
             channels = list(set(self["Chan"]))
@@ -493,6 +595,28 @@ class CalibratorTable(SourceTable):
 
     def Jy_over_counts(self, channel=None, elevation=None,
                        map_unit="Jy/beam", good_mask=None):
+        """Compute the Jy/Counts conversion corresponding to a given map unit.
+
+        Parameters
+        ----------
+        channel : str
+            Channel name (e.g. 'Ch0', 'Ch1' etc.)
+        elevation : float or array-like
+            The elevation or a list of elevations
+        map_unit : str
+            A valid unit for the calibrated map (See the keys of
+            FLUX_QUANTITIES)
+        good_mask : array of bools, default None
+            This mask can be used to specify the valid entries of the table.
+            If None, the mask is set to an array of True values
+
+        Returns
+        -------
+        fc : float or array-like
+            One conversion value for each elevation
+        fce : float or array-like
+            the uncertainties corresponding to each ``fc``
+        """
         rough = False
         if not HAS_STATSM:
             rough = True
@@ -538,6 +662,12 @@ class CalibratorTable(SourceTable):
         ----------------
         channel : str
             Name of the data channel
+        map_unit : str
+            A valid unit for the calibrated map (See the keys of
+            FLUX_QUANTITIES)
+        good_mask : array of bools, default None
+            This mask can be used to specify the valid entries of the table.
+            If None, the mask is set to an array of True values
 
         Returns
         -------
@@ -605,6 +735,9 @@ class CalibratorTable(SourceTable):
                            map_unit="Jy/beam", source=None):
         """Calculate source flux and error, pointing by pointing.
 
+        Uses the conversion factors calculated from the tabulated fluxes for
+        all sources but the current, and the fitted Gaussian amplitude for the
+        current source.
         Updates the calibrator table and returns the average flux
 
         Parameters
@@ -665,6 +798,18 @@ class CalibratorTable(SourceTable):
         return mean_flux, mean_flux_err
 
     def check_consistency(self, channel=None, epsilon=0.05):
+        """Check the consistency of calculated and fitted flux densities.
+
+        For each source in the ``srttools``' calibrator list, use
+        ``calculate_src_flux`` to calculate the source flux ignoring the
+        tabulated value, and compare the calculated and tabulated values.
+
+        Returns
+        -------
+        retval : bool
+            True if, for all calibrators, the tabulated and calculated values
+            of the flux are consistent. False otherwise.
+        """
         is_cal = self['Flux'] > 0
         calibrators = list(set(self['Source'][is_cal]))
         for cal in calibrators:
@@ -690,6 +835,10 @@ class CalibratorTable(SourceTable):
         return consistent
 
     def beam_width(self, channel=None):
+        """Calculate the (weighted) mean beam width, in radians.
+
+        Checks for invalid (nan and such) values.
+        """
         goodch = np.ones(len(self), dtype=bool)
         if channel is not None:
             goodch = self["Chan"] == channel
@@ -831,7 +980,19 @@ class CalibratorTable(SourceTable):
 
 
 def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
-    """Flux function from Perley & Butler ApJS 204, 19 (2013)."""
+    """Flux function from Perley & Butler ApJS 204, 19 (2013) (PB13).
+
+    Parameters
+    ----------
+    start_frequency : float
+        Starting frequency of the data, in GHz
+    bandwidth : float
+        Bandwidth, in GHz
+    coeffs : list of floats
+        Parameters of the PB13 interpolation
+    ecoeffs : list of floats
+        Uncertainties of the PB13 interpolation
+    """
     a0, a1, a2, a3 = coeffs
 
     if np.all(ecoeffs < 1e10):

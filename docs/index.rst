@@ -9,62 +9,92 @@ Welcome to SRT Single Dish Tools's documentation!
 Installation
 ------------
 
-Anaconda and virtual environment (recommended but optional)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Anaconda and virtual environment (recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We strongly suggest to install the [Anaconda](https://www.continuum.io/downloads)
-Python distribution. Once the installation has finished, you should have a working
-``conda`` command in your shell. First of all, create a new environment::
+We strongly suggest to install the
+`Anaconda <https://www.continuum.io/downloads>`__ Python distribution.
+Once the installation has finished, you should have a working ``conda``
+command in your shell. First of all, create a new environment:
 
-    $ conda create -n py35 python=3.5
+::
 
-load the new environment::
+    $ conda create -n py3 python=3
 
-    $ source activate py35
+load the new environment:
 
-and install the dependencies::
+::
 
-    (py35) $ conda install matplotlib h5py astropy scipy numpy
+    $ source activate py3
+
+and install the dependencies (including a few optional but recommended):
+
+::
+
+    (py3) $ conda install astropy scipy numpy matplotlib pyyaml h5py statsmodels numba
+
+
+Other Python distributions
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Install the dependencies with pip (including a few optional but
+recommended):
+
+::
+
+    $ pip install astropy scipy numpy matplotlib pyyaml h5py statsmodels numba
 
 Cloning and installation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Clone the repository::
+Clone the repository:
 
-    (py35) $ cd /my/software/directory/
-    (py35) $ git clone https://username@bitbucket.org/mbachett/srt-single-dish-tools.git
+::
 
-or if you have deployed your SSH key to Bitbucket::
+    (py3) $ cd /my/software/directory/
+    (py3) $ git clone https://github.com/matteobachetti/srt-single-dish-tools.git
 
-    (py35) $ git clone git@bitbucket.org:mbachett/srt-single-dish-tools.git
+or if you have deployed your SSH key to Github:
 
-Then::
+::
 
-    (py35) $ cd srt-single-dish-tools
-    (py35) $ python setup.py install
+    (py3) $ git clone git@github.com:matteobachetti/srt-single-dish-tools.git
 
-That's it. After installation has ended, you can verify that software is installed
-by executing::
+Then:
 
-    (py35) $ SDTlcurve -h
+::
+
+    (py3) $ cd srt-single-dish-tools
+    (py3) $ python setup.py install
+
+That's it. After installation has ended, you can verify that software is
+installed by executing:
+
+::
+
+    (py3) $ SDTimage -h
 
 If the help message appears, you're done!
 
 Updating
 ~~~~~~~~
 
-To update the code, simply run ``git pull`` and reinstall::
+To update the code, simply run ``git pull`` and reinstall:
 
-    (py35) $ git pull
-    (py35) $ python setup.py install
+::
+
+    (py3) $ git pull
+    (py3) $ python setup.py install
+
 
 Quick introduction
 ------------------
-Calibrated light curves (OUTDATED)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Calibrated light curves
+^^^^^^^^^^^^^^^^^^^^^^^
 Go to a directory close to your data set. For example::
 
-    (py35) $ ls
+    (py3) $ ls
     observation1/
     observation2/
     calibrator1/
@@ -80,49 +110,44 @@ to them in the configuration file as explained below.
 
 Produce a dummy calibration file, to be modified, with::
 
-    (py35) $ SDTlcurve --sample-config
+    (py3) $ SDTlcurve --sample-config
 
 This produces a boilerplate configuration file, that we modify to point to our
 observations, and give the correct information to our program::
 
-    (py35) $ mv sample_config_file.ini MySource.ini  # give a meaningful name!
-    (py35) $ emacs MySource.ini
+    (py3) $ mv sample_config_file.ini MySource.ini  # give a meaningful name!
+    (py3) $ emacs MySource.ini
 
     (... modify file...)
 
-    (py35) $ cat sample_config_file.ini
-    [local]
-    ; the directory where the analysis will be executed.
-        workdir : .
-    ; the root directory of the data repository.
-        datadir : .
-
+    (py3) $ cat sample_config_file.ini
+    (...)
     [analysis]
-        projection : ARC
-        interpolation : spline
-        prefix : test_
-        list_of_directories :
-            observation1/
-            observation2/
-            calibrator1/
-            calibrator2/
-            observation3/
-            calibrator3/
-            calibrator4/
+    (...)
+    list_of_directories :
+    ;;Two options: either a list of directories:
+        dir1
+        dir2
+        dir3
+    calibrator_directories :
+        cal1
+        cal2
+    noise_threshold : 5
+
     ;; Channels to save from RFI filtering. It might indicate known strong spectral
     ;; lines
-        goodchans :
+    goodchans :
 
 Finally, execute the light curve creation. If data were taken with a Total
 Power-like instrument and they do not contain spectral information, it is
 sufficient to run::
 
-    (py35) $ SDTlcurve -c MySource.ini
+    (py3) $ SDTlcurve -c MySource.ini
 
 Otherwise, specify the minimum and maximum frequency to select in the spectrum,
 with the ``--splat`` option::
 
-    (py35) $ SDTlcurve -c MySource.ini --splat <freqmin>:<freqmax>
+    (py3) $ SDTlcurve -c MySource.ini --splat <freqmin>:<freqmax>
 
 where ``freqmin``, ``freqmax`` are in MHz referred to the *minimum* frequency
 of the interval. E.g. if our local oscillator is at 6900 MHz and we want to cut
@@ -133,15 +158,7 @@ The above command will:
 
 + Clean them up with a rough but functional algorithm for RFI removal that makes use of the spectral information
 
-+ Diplay the following products:
-
-  1.  The calibrated light curve with statistical error bars arising from the fit + a grey band indicating the systematic error that might arise from the normalization of the tabulated calibrator fluxes.
-
-  2. Plots of counts-to-Jansky conversion versus elevation: there will often be a linear trend here.
-
-  3. Plots of source misalignment w.r.t. elevation: this will often be surprisingly high
-
-  4. All fitted scans, on a per-source basis.
++ Create a csv file for each source, containing three columns: time, flux, flux error for each cross scan
 
 The light curve will also be saved in a text file.
 
@@ -150,7 +167,7 @@ Images from OTF maps
 The procedure is mostly the same as for light curves.
 Go to a directory close to your data set. For example::
 
-    (py35) $ ls
+    (py3) $ ls
     observation1/
     observation2/
     observation3/
@@ -162,11 +179,11 @@ to them in the configuration file as explained below.
 
 Produce a dummy calibration file, to be modified, with::
 
-    (py35) $ SDTimage --sample-config
+    (py3) $ SDTimage --sample-config
 
 This produces a boilerplate configuration file. Give it a meaningful name::
 
-    (py35) $ mv sample_config_file.ini MySource.ini
+    (py3) $ mv sample_config_file.ini MySource.ini
 
 Modify the file point to our observations, and give the correct information to
 our program. Follow the same indentation as in the examples. Comments are done
@@ -174,11 +191,11 @@ with a semicolon.
 Pay particular attention to the `pixel_size` and to the `list_of_directories`,
 pointing to the directories containing scans.::
 
-    (py35) $ emacs MySource.ini
+    (py3) $ emacs MySource.ini
 
     (... modify file...)
 
-    (py35) $ cat MySource.ini
+    (py3) $ cat MySource.ini
     [local]
     ; the directory where the analysis will be executed.
         workdir : .
@@ -214,12 +231,12 @@ Finally, execute the map calculation. If data were taken with a Total
 Power-like instrument and they do not contain spectral information, it is
 sufficient to run::
 
-    (py35) $ SDTimage -c MySource.ini
+    (py3) $ SDTimage -c MySource.ini
 
 Otherwise, specify the minimum and maximum frequency to select in the spectrum,
 with the ``--splat`` option::
 
-    (py35) $ SDTimage -c MySource.ini --splat <freqmin>:<freqmax>
+    (py3) $ SDTimage -c MySource.ini --splat <freqmin>:<freqmax>
 
 where ``freqmin``, ``freqmax`` are in MHz referred to the *minimum* frequency
 of the interval. E.g. if our local oscillator is at 6900 MHz and we want to cut
@@ -240,7 +257,7 @@ The automatic RFI removal procedure is often unable to clean all the data.
 The map might have some residual "stripes" due to bad scans. No worries! Launch
 the above command with the ``--interactive`` option::
 
-    (py35) $ SDTimage -c MySource.ini --splat <freqmin>:<freqmax> --interactive
+    (py3) $ SDTimage -c MySource.ini --splat <freqmin>:<freqmax> --interactive
 
 This will open a screen like this:
 
@@ -262,7 +279,7 @@ Calibration of images
 ~~~~~~~~~~~~~~~~~~~~~
 First of all, call::
 
-    (py35) $ SDTcal  --sample-config
+    (py3) $ SDTcal  --sample-config
 
 Modify the configuration file adding calibrator directories below `calibrator_directories`::
 
@@ -273,11 +290,11 @@ Modify the configuration file adding calibrator directories below `calibrator_di
 Then, call again ``SDTcal`` with the ``--splat`` option, using **the same frequency range**
 of the sources.::
 
-    (py35) $ SDTcal -c MyCalibrators.ini --splat <freqmin>:<freqmax> -o calibration.hdf5
+    (py3) $ SDTcal -c MyCalibrators.ini --splat <freqmin>:<freqmax> -o calibration.hdf5
 
-Then, call ``SDTimage`` with the ``--calibrate`` option, as follows::
+Then, call ``SDTimage`` with the ``--calibrate`` option, e.g.::
 
-    (py35) $ SDTimage --calibrate calibration.hdf5 -c MySource.ini --splat <freqmin>:<freqmax> --interactive
+    (py3) $ SDTimage --calibrate calibration.hdf5 -c MySource.ini --splat <freqmin>:<freqmax> --interactive
 
 ... and that's it!
 
