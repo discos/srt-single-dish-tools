@@ -29,6 +29,30 @@ def _split_freq_splat(freqsplat):
 def interpret_frequency_range(freqsplat, bandwidth, nbin):
     """Interpret the frequency range specified in freqsplat.
 
+    Parameters
+    ----------
+    freqsplat : str
+        Frequency specification. If None, it defaults to the interval 10%-90%
+        of the bandwidth. If ':', it considers the full bandwidth. If 'f0:f1',
+        where f0 and f1 are floats/ints, f0 and f1 are interpreted as start and
+        end frequency in MHz, *referred to the local oscillator* (LO; e.g., if
+        '100:400', at 6.9 GHz this will mean the interval 7.0-7.3 GHz)
+    bandwidth : float
+        The bandwidth in MHz
+    nbin : int
+        The number of bins in the spectrum
+
+    Returns
+    -------
+    freqmin : float
+        The minimum frequency in the band (ref. to LO), in MHz
+    freqmax : float
+        The maximum frequency in the band (ref. to LO), in MHz
+    binmin : int
+        The minimum spectral bin
+    binmax : int
+        The maximum spectral bin
+
     Examples
     --------
     >>> interpret_frequency_range(None, 1024, 512)
@@ -75,10 +99,71 @@ def _clean_dyn_spec(dynamical_spectrum, bad_intervals):
     return cleaned_dynamical_spectrum
 
 
-def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
-                                  good_mask=None, freqsplat=None,
-                                  noise_threshold=5, debug=True, nofilt=False,
-                                  outfile="out", label=""):
+def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
+                                 good_mask=None, freqsplat=None,
+                                 noise_threshold=5, debug=True, nofilt=False,
+                                 outfile="out", label=""):
+    """Clean a spectroscopic scan using the difference of channel variability.
+
+    From the dynamical spectrum, i.e. the list of spectra obtained in each
+    sample of a scan, we calculate the rms variability of each frequency
+    channel. This forms a sort of rms spectrum. We calculate the baseline of
+    this spectrum, and all channels whose rms is above above noise_threshold
+    times the reference median absolute deviation
+    (:func:`srttools.core.fit.ref_mad`), calculated
+    with a minimum window of 20 samples, are cut and assigned an interpolated
+    value between the closest valid points.
+    The baseline is calculated with
+    :func:`srttools.core.fit.baseline_als`, using a lambda value depending on
+    the number of channels, with a formula that has been shown to work in a few
+    standard cases but might be modified in the future.
+
+    Parameters
+    ----------
+    dynamical_spectrum : 2-d array
+        Array of shape MxN, with M spectra of N elements each.
+    length : float
+        Duration in seconds of the scan (assumed to have constant sample time)
+    bandwidth : float
+        Bandwidth in MHz
+
+    Other parameters
+    ----------------
+    good_mask : boolean array
+        this mask specifies channels that should never be discarded as
+        RFI, for example because they contain spectral lines
+    freqsplat : str
+        List of frequencies to be merged into one. See
+        :func:`srttools.core.scan.interpret_frequency_range`
+    noise_threshold : float
+        The threshold, in sigmas, over which a given channel is
+        considered noisy
+    debug : bool
+        Print out debugging information
+    nofilt : bool
+        Do not filter noisy channels (set noise_threshold to 1e32)
+    outfile : str
+        Root file name for the diagnostics plots (outfile_label.png)
+    label : str
+        Label to append to the filename (outfile_label.png)
+
+    Returns
+    -------
+    results : object
+        The attributes of this object are:
+
+        lc : array-like
+            The cleaned light curve
+        freqmin : float
+            Minimum frequency in MHz, referred to local oscillator
+        freqmax : float
+            Maximum frequency in MHz, referred to local oscillator
+
+    See Also
+    --------
+    srttools.core.fit.baseline_als
+    srttools.core.fit.ref_mad
+    """
     if len(dynamical_spectrum.shape) == 1:
         return None
     dynspec_len, nbin = dynamical_spectrum.shape
@@ -150,7 +235,8 @@ def _clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     # Set mask
 
     mask = spectral_var < threshold
-    wholemask = freqmask & mask & np.logical_not(good_mask)
+    wholemask = freqmask & mask
+    wholemask[good_mask] = 1
 
     # Calculate frequency-masked lc
     lc_masked = np.sum(dynamical_spectrum[:, freqmask], axis=1)
@@ -298,10 +384,32 @@ class Scan(Table):
     def __init__(self, data=None, config_file=None, norefilt=True,
                  interactive=False, nosave=False, debug=False,
                  freqsplat=None, nofilt=False, nosub=False, **kwargs):
-        """Initialize a Scan object.
+        """Load a Scan object
 
-        Freqsplat is a string, freqmin:freqmax, and gives the limiting
-        frequencies of the interval to splat in a single channel.
+        Parameters
+        ----------
+        data : str or None
+            data can be one of the following: None, in which case an empty Scan
+            object is created; a FITS or HDF5 archive, containing an on-the-fly or
+            cross scan in one of the accepted formats; another `Scan` or
+            `astropy.Table` object
+        config_file : str
+            Config file containing the parameters for the images and the
+            directories containing the image and calibration data
+        norefilt : bool
+            If an HDF5 archive is present with the same basename as the input FITS
+            file, do not re-run the filtering (default True)
+        freqsplat : str
+            See :class:`srttools.core.scan.interpret_frequency_range`
+        nofilt : bool
+            See :class:`srttools.core.scan.clean_scan_using_variability`
+        nosub : bool
+            Do not run the baseline subtraction.
+
+        Other Parameters
+        ----------------
+        kwargs : additional arguments
+            These will be passed to `astropy.Table` initializer
         """
         if config_file is None:
             config_file = get_config_file()
@@ -343,11 +451,23 @@ class Scan(Table):
                 self.save()
 
     def interpret_frequency_range(self, freqsplat, bandwidth, nbin):
-        """Interpret the frequency range specified in freqsplat."""
+        """Interpret the frequency range specified in freqsplat.
+
+        Uses :class:`srttools.core.scan.interpret_frequency_range`
+        """
         return interpret_frequency_range(freqsplat, bandwidth, nbin)
 
     def make_single_channel(self, freqsplat, masks=None):
-        """Transform a spectrum into a single-channel count rate."""
+        """Transform a spectrum into a single-channel count rate.
+
+        Parameters
+        ----------
+        freqsplat : str
+            See :class:`srttools.core.scan.interpret_frequency_range`
+        masks : list of boolean arrays
+            List of masks to apply to each IF channel before summing the
+            spectrum into a single light curve.
+        """
         for ic, ch in enumerate(self.chan_columns()):
             if len(self[ch].shape) == 1:
                 continue
@@ -387,11 +507,12 @@ class Scan(Table):
         good_mask : boolean array
             this mask specifies intervals that should never be discarded as
             RFI, for example because they contain spectral lines
+        freqsplat : str
+            List of frequencies to be merged into one. See
+            :func:`srttools.core.scan.interpret_frequency_range`
         noise_threshold : float
             The threshold, in sigmas, over which a given channel is
             considered noisy
-        freqsplat : str
-            Specification of frequency interval to merge into a single channel
 
         Returns
         -------
@@ -405,6 +526,9 @@ class Scan(Table):
             Save the spectrum into a 'ChX_spec' column
         debug : bool, default True
             Save images with quicklook information on single scans
+        nofilt : bool
+            Do not filter noisy channels (see
+            :func:`clean_scan_using_variability`)
         """
         logging.debug("Noise threshold:", noise_threshold)
 
@@ -415,7 +539,7 @@ class Scan(Table):
         chans = self.chan_columns()
         for ic, ch in enumerate(chans):
             results = \
-                _clean_scan_using_variability(
+                clean_scan_using_variability(
                     self[ch], self['time'],
                     self[ch].meta['bandwidth'],
                     good_mask=good_mask,
@@ -441,7 +565,24 @@ class Scan(Table):
             self[ch].meta['bandwidth'] = freqmax - freqmin
 
     def baseline_subtract(self, kind='als', plot=False):
-        """Subtract the baseline."""
+        """Subtract the baseline.
+
+        Parameters
+        ----------
+        kind : str
+            If 'als', use the Asymmetric Least Square fitting in
+            :func:`srttools.core.fit.baseline_als`, using a very stiff baseline
+            (lam=1e11). If 'rough', use
+            :func:`srttools.core.fit.baseline_rough` instead.
+
+        Other parameters
+        ----------------
+        plot : bool
+            Plot diagnostic information in an image with the same basename as
+            the fits file, an additional label corresponding to the channel, in
+            PNG format.
+
+        """
         for ch in self.chan_columns():
             if plot:
                 fig = plt.figure("Sub" + ch)
@@ -452,6 +593,8 @@ class Scan(Table):
                 self[ch] = baseline_als(self['time'], self[ch])
             elif kind == 'rough':
                 self[ch] = baseline_rough(self['time'], self[ch])
+            else:
+                raise ValueError('Unknown baseline technique')
 
             if plot:
                 plt.plot(self['time'], self[ch])
@@ -461,10 +604,6 @@ class Scan(Table):
                 plt.close(fig)
         self.meta['backsub'] = True
 
-    def zap_birdies(self):
-        """Zap bad intervals."""
-        pass
-
     def __repr__(self):
         """Give the print() function something to print."""
         reprstring = \
@@ -472,11 +611,14 @@ class Scan(Table):
         reprstring += repr(Table(self))
         return reprstring
 
-    def write(self, fname, **kwargs):
-        """Set default path and call Table.write."""
+    def write(self, fname, *args, **kwargs):
+        """Same as Table.write, but adds path information for HDF5."""
         logging.info('Saving to {}'.format(fname))
-
-        Table.write(self, fname, path='scan', serialize_meta=True, **kwargs)
+        if fname.lower().endswith('.hdf5'):
+            Table.write(self, fname, *args, path='scan', serialize_meta=True,
+                        **kwargs)
+        else:
+            Table.write(self, fname, *args, **kwargs)
 
     def check_order(self):
         """Check that times in a scan are monotonically increasing."""
