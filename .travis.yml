@@ -58,7 +58,7 @@ matrix:
           env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba' SETUP_CMD='test --coverage'
         # Documentation
         - python: 2.7
-          env: SETUP_CMD='build_sphinx -w'
+          env: SETUP_CMD='build_docs -w'
 
         # From here on, they are allowed to fail
         # Try Astropy development version
