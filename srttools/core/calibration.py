@@ -239,10 +239,11 @@ class CalibratorTable(Table):
         debug : bool
             Throw debug information
         freqsplat : str
-            List of frequencies to be merged into one. See ``Scan``'s
-            documentation
+            List of frequencies to be merged into one. See
+            :func:`srttools.core.scan.interpret_frequency_range`
         nofilt : bool
-            Do not filter the Scan. See ``Scan``'s documentation
+            Do not filter the Scan. See
+            :class:`srttools.core.scan.Scan`
         plot : bool
             Plot diagnostic plots? Default False, True if debug is True.
 
@@ -250,6 +251,10 @@ class CalibratorTable(Table):
         -------
         retval : bool
             True if at least one scan was correctly processed
+
+        See Also
+        --------
+        srttools.core.scan.interpret_frequency_range
         """
 
         if debug is True:

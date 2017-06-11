@@ -46,13 +46,13 @@ class ScanSet(Table):
         Config file containing the parameters for the images and the
         directories containing the image and calibration data
     norefilt : bool
-        See Scan documentation
+        See :class:`srttools.core.scan.Scan`
     freqsplat : str
-        See Scan documentation
+        See :class:`srttools.core.scan.Scan`
     nofilt : bool
-        See Scan documentation
+        See :class:`srttools.core.scan.Scan`
     nosub : bool
-        See Scan documentation
+        See :class:`srttools.core.scan.Scan`
 
     Other Parameters
     ----------------
