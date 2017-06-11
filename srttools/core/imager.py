@@ -48,9 +48,9 @@ class ScanSet(Table):
     norefilt : bool
         See :class:`srttools.core.scan.Scan`
     freqsplat : str
-        See :class:`srttools.core.scan.Scan`
+        See :class:`srttools.core.scan.interpret_frequency_range`
     nofilt : bool
-        See :class:`srttools.core.scan.Scan`
+        See :class:`srttools.core.scan.clean_scan_using_variability`
     nosub : bool
         See :class:`srttools.core.scan.Scan`
 
@@ -658,7 +658,11 @@ class ScanSet(Table):
         s.save()
 
     def write(self, fname, **kwargs):
-        """Set default path and call Table.write."""
+        """Same as Table.write, but adds path information for HDF5.
+
+        Moreover, saves the scan list to a txt file, that will be read when
+        data are reloaded. This is a *temporary solution*
+        """
         import os
         f, ext = os.path.splitext(fname)
         txtfile = f + '_scan_list.txt'
@@ -667,7 +671,6 @@ class ScanSet(Table):
             for i in self.scan_list:
                 print(i, file=fobj)
 
-        # t = Table(self)
         Table.write(self, fname, path='scanset', serialize_meta=True, **kwargs)
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
