@@ -292,7 +292,7 @@ of the sources.::
 
     (py3) $ SDTcal -c MyCalibrators.ini --splat <freqmin>:<freqmax> -o calibration.hdf5
 
-Then, call ``SDTimage`` with the ``--calibrate`` option, as follows::
+Then, call ``SDTimage`` with the ``--calibrate`` option, e.g.::
 
     (py3) $ SDTimage --calibrate calibration.hdf5 -c MySource.ini --splat <freqmin>:<freqmax> --interactive
 
