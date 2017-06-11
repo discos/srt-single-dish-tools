@@ -87,22 +87,19 @@ def read_calibrator_config():
     -------
     configs : dict
         Dictionary containing the configuration for each calibrator. Each key
-        is the name of a calibrator. Each entry is another dictionary, with
-        the following keys:
-
-        'Kind' : 'FreqList' or 'CoeffTable'
-        'Frequencies' : array-like
-            List of observing frequencies in GHz (if 'Kind' is 'FreqList')
-        'Bandwidths' : array-like
-            List of bandwidths in GHz (if 'Kind' is 'FreqList')
-        'Fluxes' : array-like
-            Flux densities in Jy from the literature (if 'Kind' is 'FreqList')
-        'Flux Errors' : array-like
-            Uncertainties on fluxes. (if 'Kind' is 'FreqList')
-        'CoeffTable': dict
-            contains a dictionary with the table of coefficients a la
-            Perley & Butler ApJS 204, 19 (2013), as a comma-separated string.
-            (if 'Kind' is 'CoeffTable')
+        is the name of a calibrator. Each entry is another dictionary, in one
+        of the following formats:
+        1) {'Kind' : 'FreqList', 'Frequencies' : [...], 'Bandwidths' : [...],
+        'Fluxes' : [...], 'Flux Errors' : [...]}
+        where 'Frequencies' is the list of observing frequencies in GHz,
+        'Bandwidths' is the list of bandwidths in GHz, 'Fluxes' is the list of
+        flux densities in Jy from the literature and 'Flux Errors' are the
+        uncertainties on those fluxes.
+        2) {'Kind' : 'CoeffTable', 'CoeffTable':
+        {'coeffs' : 'time, a0, a0e, a1, a1e, a2, a2e, a3, a3e\n2010.0,0 ...}}
+        where the 'coeffs' key contains a dictionary with the table of
+        coefficients a la Perley & Butler ApJS 204, 19 (2013), as a
+        comma-separated string.
 
     See Also
     --------
@@ -242,8 +239,8 @@ class CalibratorTable(Table):
             List of frequencies to be merged into one. See
             :func:`srttools.core.scan.interpret_frequency_range`
         nofilt : bool
-            Do not filter the Scan. See
-            :class:`srttools.core.scan.Scan`
+            Do not filter the noisy channels of the scan. See
+            :class:`srttools.core.scan.clean_scan_using_variability`
         plot : bool
             Plot diagnostic plots? Default False, True if debug is True.
 
