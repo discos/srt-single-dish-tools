@@ -471,16 +471,17 @@ class CalibratorTable(Table):
         cross scan belonging to a calibrator:
 
         + 'Flux/Counts' and 'Flux/Counts Err': Tabulated flux density divided
-          by the _height_ of the fitted Gaussian. This is used, e.g. to calibrate
-          images in Jy/beam, as it calibrates the local amplitude to the flux
-          density
+          by the _height_ of the fitted Gaussian. This is used, e.g. to
+          calibrate images in Jy/beam, as it calibrates the local amplitude to
+          the flux density
 
         + 'Flux Integral/Counts' and 'Flux Integral/Counts Err': Tabulated flux
-          density divided by the _volume_ of the 2D Gaussian corresponding to the
-          fitted cross scans, assuming a symmetrical beam (which is generally not
-          the case, but a good approximation). This is used, e.g., to perform the
-          calibration in Jy/pixel: Each pixel will be normalized to the expected
-          total flux in the corresponding pixel area.
+          density divided by the _volume_ of the 2D Gaussian corresponding to
+          the fitted cross scans, assuming a symmetrical beam (which is
+          generally not the case, but a good approximation). This is used,
+          e.g., to perform the calibration in Jy/pixel: Each pixel will be
+          normalized to the expected total flux in the corresponding pixel
+          area
 
         See Also
         --------
