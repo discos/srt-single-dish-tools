@@ -363,13 +363,10 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
         slope tollerated for the baseline. A higher value correspond to a
         higher possible slope
 
-    Other parameters
+    Other Parameters
     ----------------
     niter : int
         The number of iterations to perform
-
-    Other Parameters
-    ----------------
     return_baseline : bool
         return the baseline?
     offset_correction : bool
