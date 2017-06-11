@@ -1,4 +1,4 @@
-"""Produce calibrated light curves.
+"""Produce calibrated images.
 
 ``SDTimage`` is a script that, given a list of cross scans composing an
 on-the-fly map, is able to calculate the map and save it in FITS format after
@@ -30,11 +30,48 @@ import six
 
 
 class ScanSet(Table):
-    """Class containing a set of scans."""
+    """Class obtained by a set of scans.
+
+    Once the scans are loaded, this class contains all functionality that will
+    be used to produce (calibrated or uncalibrated) maps with WCS information.
+
+    Parameters
+    ----------
+    data : str or None
+        data can be one of the following:
+        + a config file, containing the information on the scans to load
+        + an HDF5 archive, containing a former scanset
+        + another ScanSet or an Astropy Table
+    config_file : str
+        Config file containing the parameters for the images and the
+        directories containing the image and calibration data
+    norefilt : bool
+        See :class:`srttools.core.scan.Scan`
+    freqsplat : str
+        See :class:`srttools.core.scan.interpret_frequency_range`
+    nofilt : bool
+        See :class:`srttools.core.scan.clean_scan_using_variability`
+    nosub : bool
+        See :class:`srttools.core.scan.Scan`
+
+    Other Parameters
+    ----------------
+    kwargs : additional arguments
+        These will be passed to Scan initializers
+
+    Examples
+    --------
+    >>> scanset = ScanSet()  # An empty scanset
+    >>> isinstance(scanset, ScanSet)
+    True
+    """
 
     def __init__(self, data=None, norefilt=True, config_file=None,
                  freqsplat=None, nofilt=False, nosub=False, **kwargs):
-        """Initialize a ScanSet object."""
+        """Initialize a ScanSet object. """
+        if data is None and config_file is None:
+            Table.__init__(self, data, **kwargs)
+            return
         self.norefilt = norefilt
         self.freqsplat = freqsplat
 
@@ -621,7 +658,11 @@ class ScanSet(Table):
         s.save()
 
     def write(self, fname, **kwargs):
-        """Set default path and call Table.write."""
+        """Same as Table.write, but adds path information for HDF5.
+
+        Moreover, saves the scan list to a txt file, that will be read when
+        data are reloaded. This is a *temporary solution*
+        """
         import os
         f, ext = os.path.splitext(fname)
         txtfile = f + '_scan_list.txt'
@@ -630,24 +671,7 @@ class ScanSet(Table):
             for i in self.scan_list:
                 print(i, file=fobj)
 
-        # t = Table(self)
         Table.write(self, fname, path='scanset', serialize_meta=True, **kwargs)
-
-    def load(self, fname, **kwargs):
-        """Set default path and call Table.read."""
-        self.read(fname)
-
-        self.scan_list = []
-
-        try:
-            txtfile = self.meta['scan_list_file']
-
-            with open(txtfile, 'r') as fobj:
-                for i in fobj.readlines():
-                    self.scan_list.append(i.strip())
-        except Exception:
-            self.meta['scan_list_file'] = None
-        return self
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
