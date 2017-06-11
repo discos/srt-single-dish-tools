@@ -228,6 +228,11 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
         Initial parameters -- slope and intercept for linear trends to be
         subtracted from the scans
 
+    Returns
+    -------
+    new_counts : array-like
+        The new Counts column for scanset, where a baseline has been subtracted
+        from each scan to produce the cleanest image background.
     """
     from scipy.optimize import minimize
     global EXPOMAP, XBUFFER, YBUFFER, ITERATION_COUNT, CURR_CHANNEL
@@ -286,7 +291,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
 def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None,
                          parfile=None, factor=1):
-    """Get a clean image by subtracting linear trends from the initial scans.
+    """Display the intermediate steps of global_fitting.
 
     Parameters
     ----------
