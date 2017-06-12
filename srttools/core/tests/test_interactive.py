@@ -113,11 +113,11 @@ class TestDataSelector(object):
         assert "I plotted all" in record[0].message.args[0]
 
     def test_flag(self):
-        assert self.selector.info['scan1.fits']['FLAG'] == False
+        assert self.selector.info['scan1.fits']['FLAG'] is False
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('x', 1, 3)
         self.selector.on_key(fake_event)
-        assert self.selector.info['scan1.fits']['FLAG'] == True
+        assert self.selector.info['scan1.fits']['FLAG'] is True
 
     def test_unflag(self):
         fake_event = type('event', (), {})()
@@ -125,21 +125,19 @@ class TestDataSelector(object):
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('v', 1, 3)
         self.selector.on_key(fake_event)
-        assert self.selector.info['scan1.fits']['FLAG'] == False
+        assert self.selector.info['scan1.fits']['FLAG'] is False
 
     def test_reset(self):
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('b', 1, 3)
-        with pytest.warns(TestWarning) as record:
-            self.selector.on_key(fake_event)
+        self.selector.on_key(fake_event)
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('z', 1, 3)
-        with pytest.warns(TestWarning) as record:
-            self.selector.on_key(fake_event)
+        self.selector.on_key(fake_event)
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('r', 1, 3)
         self.selector.on_key(fake_event)
-        assert self.selector.info['scan1.fits']['FLAG'] == False
+        assert self.selector.info['scan1.fits']['FLAG'] is False
         assert self.selector.info['scan1.fits']['base'].xs == []
         assert self.selector.info['scan1.fits']['zap'].xs == []
         assert self.selector.info['scan1.fits']['fitpars'][0] == 0
@@ -178,8 +176,6 @@ class TestDataSelector(object):
         with pytest.warns(TestWarning) as record:
             self.selector.on_key(fake_event)
         assert "I aligned all" in record[0].message.args[0]
-
-
 
     def test_select_data(self):
         info = select_data(self.xs, self.ys, test=True)

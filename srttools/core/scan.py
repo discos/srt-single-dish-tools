@@ -390,15 +390,15 @@ class Scan(Table):
         ----------
         data : str or None
             data can be one of the following: None, in which case an empty Scan
-            object is created; a FITS or HDF5 archive, containing an on-the-fly or
-            cross scan in one of the accepted formats; another `Scan` or
+            object is created; a FITS or HDF5 archive, containing an on-the-fly
+            or cross scan in one of the accepted formats; another `Scan` or
             `astropy.Table` object
         config_file : str
             Config file containing the parameters for the images and the
             directories containing the image and calibration data
         norefilt : bool
-            If an HDF5 archive is present with the same basename as the input FITS
-            file, do not re-run the filtering (default True)
+            If an HDF5 archive is present with the same basename as the input
+            FITS file, do not re-run the filtering (default True)
         freqsplat : str
             See :class:`srttools.core.scan.interpret_frequency_range`
         nofilt : bool
