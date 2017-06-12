@@ -9,6 +9,14 @@ from .fit import linear_fit, linear_fun, align
 import warnings
 
 
+class TestWarning(UserWarning):
+    pass
+
+
+class PlotWarning(UserWarning):
+    pass
+
+
 def mask(xs, border_xs, invert=False):
     """Create mask from a list of interval borders.
 
@@ -113,9 +121,6 @@ class DataSelector:
 
     def zap(self, event):
         """Create a zap interval."""
-        if self.test:
-            warnings.warn("I select a zap interval at {}".format(event.xdata),
-                          UserWarning)
         key = self.current
         if key is None:
             return
@@ -130,6 +135,9 @@ class DataSelector:
         line = self.ax2.axvline(event.xdata, color=color, ls=ls)
         self.lines.append(line)
         plt.draw()
+        if self.test:
+            warnings.warn("I select a zap interval at {}".format(event.xdata),
+                          TestWarning)
 
     def base(self, event):
         """Add an interval to the ones that will be used by baseline sub."""
@@ -149,7 +157,7 @@ class DataSelector:
         plt.draw()
         if self.test:
             warnings.warn("I put a baseline mark at {}".format(event.xdata),
-                          UserWarning)
+                          TestWarning)
 
     def on_key(self, event):
         """Do something when the keyboard is used."""
@@ -183,7 +191,7 @@ class DataSelector:
                 self.info[current]['zap'].clear()
                 self.info[current]['base'].clear()
                 self.info[current]['fitpars'] = np.array([0, 0])
-            self.plot_all()
+            self.plot_all(silent=True)
         elif event.key == 'q':
             plt.close(self.ax1.figure)
         else:
@@ -202,9 +210,9 @@ class DataSelector:
                                                    self.ys[key][good],
                                                    self.info[key]['fitpars'])
 
-        self.plot_all()
+        self.plot_all(silent=True)
         if self.test:
-            warnings.warn("I subtracted the baseline", UserWarning)
+            warnings.warn("I subtracted the baseline", TestWarning)
 
     def subtract_model(self, channel):
         """Subtract the model from the scan."""
@@ -257,19 +265,19 @@ class DataSelector:
                 continue
             self.info[key]['fitpars'] = np.array([qs[ik - 1], ms[ik - 1]])
 
-        self.plot_all()
+        self.plot_all(silent=True)
         if self.test:
             warnings.filterwarnings("default")
-            warnings.warn("I aligned all", UserWarning)
+            warnings.warn("I aligned all", TestWarning)
 
     def on_pick(self, event):
         """Do this when I pick a line in the plot."""
         thisline = event.artist
 
         self.current = (thisline._label)
-        self.plot_all()
+        self.plot_all(silent=True)
 
-    def plot_all(self):
+    def plot_all(self, silent=False):
         """Plot everything."""
         for l in self.lines:
             l.remove()
@@ -324,6 +332,8 @@ class DataSelector:
         if self.xlabel is not None:
             self.ax2.set_xlabel(self.xlabel)
         plt.draw()
+        if self.test and not silent:
+            warnings.warn("I plotted all", PlotWarning)
 
     def print_instructions(self):
         """Print to terminal some instructions for the interactive window."""
