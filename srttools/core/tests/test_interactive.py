@@ -2,6 +2,7 @@ from __future__ import (absolute_import, division,
                         print_function)
 import numpy as np
 from ..interactive_filter import ImageSelector, DataSelector, select_data
+from ..interactive_filter import TestWarning, PlotWarning
 import warnings
 import pytest
 
@@ -18,7 +19,7 @@ class TestImageSelector(object):
 
         def fun(x, y, key):
             warnings.warn("It is working: {}, {}, {}".format(x, y, key),
-                          UserWarning)
+                          TestWarning)
         klass.selector = ImageSelector(klass.data, klass.ax, test=True,
                                        fun=fun)
 
@@ -43,7 +44,7 @@ class TestImageSelector(object):
         fake_event.key = 'b'
         fake_event.xdata, fake_event.ydata = (130, 30)
 
-        with pytest.warns(UserWarning) as record:
+        with pytest.warns(TestWarning) as record:
             retval = self.selector.on_key(fake_event)
         assert "It is working: 130, 30, b" in record[0].message.args[0]
         assert retval == (130, 30, 'b')
@@ -70,45 +71,115 @@ class TestDataSelector(object):
 
     def test_interactive_zap(self):
         fake_event = type('event', (), {})()
-        fake_event.key = 'z'
-        fake_event.xdata, fake_event.ydata = (1, 3)
-        with pytest.warns(UserWarning) as record:
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('z', 1, 3)
+        with pytest.warns(TestWarning) as record:
             self.selector.on_key(fake_event)
-        assert "I select a zap interval at 1" in record[0].message.args[0]
-        assert self.selector.info['scan1.fits']['zap'].xs == \
-            [fake_event.xdata]
-        assert self.selector.info['scan1.fits']['zap'].ys == \
-            [fake_event.ydata]
-        assert self.selector.zcounter == 1
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('z', 4, 3)
+        with pytest.warns(TestWarning) as record:
+            self.selector.on_key(fake_event)
+        assert "I select a zap interval at 4" in record[0].message.args[0]
+        assert self.selector.info['scan1.fits']['zap'].xs == [1, 4]
+        assert self.selector.info['scan1.fits']['zap'].ys == [3, 3]
+        assert self.selector.zcounter == 2
 
     def test_interactive_base(self):
         fake_event = type('event', (), {})()
-        fake_event.key = 'b'
-        fake_event.xdata, fake_event.ydata = (1, 3)
-        with pytest.warns(UserWarning) as record:
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('b', 1, 3)
+        with pytest.warns(TestWarning) as record:
             self.selector.on_key(fake_event)
-        assert "I put a baseline mark at 1" in record[0].message.args[0]
-        assert self.selector.info['scan1.fits']['base'].xs == \
-            [fake_event.xdata]
-        assert self.selector.info['scan1.fits']['base'].ys == \
-            [fake_event.ydata]
-        assert self.selector.bcounter == 1
-
-    def test_subtract_baseline(self):
         fake_event = type('event', (), {})()
-        fake_event.key = 'B'
-        fake_event.xdata, fake_event.ydata = (1, 3)
-        with pytest.warns(UserWarning) as record:
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('b', 4, 3)
+        with pytest.warns(TestWarning) as record:
+            self.selector.on_key(fake_event)
+        assert "I put a baseline mark at 4" in record[0].message.args[0]
+        assert self.selector.info['scan1.fits']['base'].xs == [1, 4]
+        assert self.selector.info['scan1.fits']['base'].ys == [3, 3]
+        assert self.selector.bcounter == 2
+
+    def test_print_instructions(self, capsys):
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('h', 1, 3)
+        self.selector.on_key(fake_event)
+        out, err = capsys.readouterr()
+        assert "Interactive plotter." in out
+        assert 'z     create zap intervals' in out
+
+    def test_update(self):
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('u', 1, 3)
+        with pytest.warns(PlotWarning) as record:
+            self.selector.on_key(fake_event)
+        assert "I plotted all" in record[0].message.args[0]
+
+    def test_flag(self):
+        assert self.selector.info['scan1.fits']['FLAG'] == False
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('x', 1, 3)
+        self.selector.on_key(fake_event)
+        assert self.selector.info['scan1.fits']['FLAG'] == True
+
+    def test_unflag(self):
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('x', 1, 3)
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('v', 1, 3)
+        self.selector.on_key(fake_event)
+        assert self.selector.info['scan1.fits']['FLAG'] == False
+
+    def test_reset(self):
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('b', 1, 3)
+        with pytest.warns(TestWarning) as record:
+            self.selector.on_key(fake_event)
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('z', 1, 3)
+        with pytest.warns(TestWarning) as record:
+            self.selector.on_key(fake_event)
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('r', 1, 3)
+        self.selector.on_key(fake_event)
+        assert self.selector.info['scan1.fits']['FLAG'] == False
+        assert self.selector.info['scan1.fits']['base'].xs == []
+        assert self.selector.info['scan1.fits']['zap'].xs == []
+        assert self.selector.info['scan1.fits']['fitpars'][0] == 0
+
+    def test_subtract_baseline_one_interval(self):
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('b', 1, 3)
+        self.selector.on_key(fake_event)
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('b', 4, 3)
+        self.selector.on_key(fake_event)
+
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('B', 1, 3)
+        with pytest.warns(TestWarning) as record:
             self.selector.on_key(fake_event)
         assert "I subtract" in record[0].message.args[0]
+        assert self.selector.info['scan1.fits']['fitpars'][1] != 0
+
+    def test_subtract_baseline_no_interval(self):
+        # Reset all
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('r', 1, 3)
+        self.selector.on_key(fake_event)
+        # Then fit
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('B', 1, 3)
+        with pytest.warns(TestWarning) as record:
+            self.selector.on_key(fake_event)
+        assert "I subtract" in record[0].message.args[0]
+        assert self.selector.info['scan1.fits']['fitpars'][1] == 0
 
     def test_align_all(self):
         fake_event = type('event', (), {})()
-        fake_event.key = 'A'
-        fake_event.xdata, fake_event.ydata = (1, 3)
-        with pytest.warns(UserWarning) as record:
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('A', 1, 3)
+        with pytest.warns(TestWarning) as record:
             self.selector.on_key(fake_event)
         assert "I aligned all" in record[0].message.args[0]
+
+
 
     def test_select_data(self):
         info = select_data(self.xs, self.ys, test=True)
