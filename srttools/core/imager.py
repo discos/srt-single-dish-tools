@@ -27,6 +27,7 @@ import logging
 import traceback
 from .global_fit import fit_full_image
 import six
+import functools
 
 
 class ScanSet(Table):
@@ -515,8 +516,8 @@ class ScanSet(Table):
             self.current = ch
             bad = np.logical_or(img == 0, img != img)
             img[bad] = np.mean(img[np.logical_not(bad)])
-
-            imgsel = ImageSelector(img, ax, fun=self.rerun_scan_analysis,
+            fun = functools.partial(self.rerun_scan_analysis, test=test)
+            imgsel = ImageSelector(img, ax, fun=fun,
                                    test=test)
         return imgsel
 
@@ -539,7 +540,7 @@ class ScanSet(Table):
             self.find_scans_through_pixel(x, y, test=test)
 
         info = select_data(ra_xs, ra_ys, masks=ra_masks,
-                           xlabel="RA", title="RA")
+                           xlabel="RA", title="RA", test=test)
 
         for sname in info.keys():
             self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
@@ -554,7 +555,8 @@ class ScanSet(Table):
                              info[sname]['zap'],
                              info[sname]['fitpars'], info[sname]['FLAG'])
 
-        self.interactive_display(ch=ch, recreate=True, test=test)
+        display = self.interactive_display(ch=ch, recreate=True, test=test)
+        return display
 
     def find_scans_through_pixel(self, x, y, test=False):
         """Find scans passing through a pixel."""
