@@ -460,39 +460,6 @@ class Scan(Table):
         """
         return interpret_frequency_range(freqsplat, bandwidth, nbin)
 
-    def make_single_channel(self, freqsplat, masks=None):
-        """Transform a spectrum into a single-channel count rate.
-
-        Parameters
-        ----------
-        freqsplat : str
-            See :class:`srttools.core.scan.interpret_frequency_range`
-        masks : list of boolean arrays
-            List of masks to apply to each IF channel before summing the
-            spectrum into a single light curve.
-        """
-        for ic, ch in enumerate(self.chan_columns()):
-            if len(self[ch].shape) == 1:
-                continue
-
-            _, nbin = self[ch].shape
-
-            freqmin, freqmax, binmin, binmax = \
-                self.interpret_frequency_range(freqsplat,
-                                               self[ch].meta['bandwidth'],
-                                               nbin)
-
-            if masks is not None:
-                self[ch][:, np.logical_not(masks[ch])] = 0
-
-            self[ch + 'TEMP'] = \
-                Column(np.sum(self[ch][:, binmin:binmax], axis=1))
-
-            self[ch + 'TEMP'].meta.update(self[ch].meta)
-            self.remove_column(ch)
-            self[ch + 'TEMP'].name = ch
-            self[ch].meta['bandwidth'] = freqmax - freqmin
-
     def chan_columns(self):
         """List columns containing samples."""
         return np.array([i for i in self.columns
