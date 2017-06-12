@@ -236,6 +236,9 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     mask = spectral_var < threshold
     wholemask = freqmask & mask
+
+    if good_mask is None:
+        good_mask = np.zeros_like(freqmask, dtype=bool)
     wholemask[good_mask] = 1
 
     # Calculate frequency-masked lc
@@ -390,15 +393,15 @@ class Scan(Table):
         ----------
         data : str or None
             data can be one of the following: None, in which case an empty Scan
-            object is created; a FITS or HDF5 archive, containing an on-the-fly or
-            cross scan in one of the accepted formats; another `Scan` or
+            object is created; a FITS or HDF5 archive, containing an on-the-fly
+            or cross scan in one of the accepted formats; another `Scan` or
             `astropy.Table` object
         config_file : str
             Config file containing the parameters for the images and the
             directories containing the image and calibration data
         norefilt : bool
-            If an HDF5 archive is present with the same basename as the input FITS
-            file, do not re-run the filtering (default True)
+            If an HDF5 archive is present with the same basename as the input
+            FITS file, do not re-run the filtering (default True)
         freqsplat : str
             See :class:`srttools.core.scan.interpret_frequency_range`
         nofilt : bool
@@ -456,39 +459,6 @@ class Scan(Table):
         Uses :class:`srttools.core.scan.interpret_frequency_range`
         """
         return interpret_frequency_range(freqsplat, bandwidth, nbin)
-
-    def make_single_channel(self, freqsplat, masks=None):
-        """Transform a spectrum into a single-channel count rate.
-
-        Parameters
-        ----------
-        freqsplat : str
-            See :class:`srttools.core.scan.interpret_frequency_range`
-        masks : list of boolean arrays
-            List of masks to apply to each IF channel before summing the
-            spectrum into a single light curve.
-        """
-        for ic, ch in enumerate(self.chan_columns()):
-            if len(self[ch].shape) == 1:
-                continue
-
-            _, nbin = self[ch].shape
-
-            freqmin, freqmax, binmin, binmax = \
-                self.interpret_frequency_range(freqsplat,
-                                               self[ch].meta['bandwidth'],
-                                               nbin)
-
-            if masks is not None:
-                self[ch][:, np.logical_not(masks[ch])] = 0
-
-            self[ch + 'TEMP'] = \
-                Column(np.sum(self[ch][:, binmin:binmax], axis=1))
-
-            self[ch + 'TEMP'].meta.update(self[ch].meta)
-            self.remove_column(ch)
-            self[ch + 'TEMP'].name = ch
-            self[ch].meta['bandwidth'] = freqmax - freqmin
 
     def chan_columns(self):
         """List columns containing samples."""
@@ -625,7 +595,7 @@ class Scan(Table):
         assert np.all(self['time'] == np.sort(self['time'])), \
             'The order of times in the table is wrong'
 
-    def interactive_filter(self, save=True):
+    def interactive_filter(self, save=True, test=False):
         """Run the interactive filter."""
         for ch in self.chan_columns():
             # Temporary, waiting for AstroPy's metadata handling improvements
@@ -648,7 +618,7 @@ class Scan(Table):
 
             # ------- CALL INTERACTIVE FITTER ---------
             info = select_data(self[dim][:, feed], self[ch],
-                               xlabel=dim)
+                               xlabel=dim, test=test)
 
             # -----------------------------------------
 
@@ -665,10 +635,8 @@ class Scan(Table):
             if len(info['Ch']['fitpars']) > 1:
                 self[ch] -= linear_fun(self[dim][:, feed],
                                        *info['Ch']['fitpars'])
-            # TODO: make it channel-independent
                 self.meta['backsub'] = True
 
-            # TODO: make it channel-independent
             if info['Ch']['FLAG']:
                 self.meta['FLAG'] = True
         if save:
