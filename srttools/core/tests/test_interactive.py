@@ -15,6 +15,7 @@ class TestImageSelector(object):
         import matplotlib.pyplot as plt
         klass.data = np.zeros((100, 100))
         klass.ax = plt.subplot()
+
         def fun(x, y, key):
             warnings.warn("It is working: {}, {}, {}".format(x, y, key),
                           UserWarning)
@@ -75,9 +76,9 @@ class TestDataSelector(object):
             self.selector.on_key(fake_event)
         assert "I select a zap interval at 1" in record[0].message.args[0]
         assert self.selector.info['scan1.fits']['zap'].xs == \
-               [fake_event.xdata]
+            [fake_event.xdata]
         assert self.selector.info['scan1.fits']['zap'].ys == \
-               [fake_event.ydata]
+            [fake_event.ydata]
         assert self.selector.zcounter == 1
 
     def test_interactive_base(self):
@@ -88,9 +89,9 @@ class TestDataSelector(object):
             self.selector.on_key(fake_event)
         assert "I put a baseline mark at 1" in record[0].message.args[0]
         assert self.selector.info['scan1.fits']['base'].xs == \
-               [fake_event.xdata]
+            [fake_event.xdata]
         assert self.selector.info['scan1.fits']['base'].ys == \
-               [fake_event.ydata]
+            [fake_event.ydata]
         assert self.selector.bcounter == 1
 
     def test_subtract_baseline(self):
