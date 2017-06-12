@@ -524,7 +524,7 @@ class ScanSet(Table):
         """Rerun the analysis of single scans."""
         logging.debug(x, y, key)
         if key == 'a':
-            self.reprocess_scans_through_pixel(x, y,test=test)
+            self.reprocess_scans_through_pixel(x, y, test=test)
         elif key == 'h':
             pass
         elif key == 'v':
