@@ -236,6 +236,9 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     mask = spectral_var < threshold
     wholemask = freqmask & mask
+
+    if good_mask is None:
+        good_mask = np.zeros_like(freqmask, dtype=bool)
     wholemask[good_mask] = 1
 
     # Calculate frequency-masked lc
