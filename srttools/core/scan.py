@@ -595,7 +595,7 @@ class Scan(Table):
         assert np.all(self['time'] == np.sort(self['time'])), \
             'The order of times in the table is wrong'
 
-    def interactive_filter(self, save=True):
+    def interactive_filter(self, save=True, test=False):
         """Run the interactive filter."""
         for ch in self.chan_columns():
             # Temporary, waiting for AstroPy's metadata handling improvements
@@ -618,7 +618,7 @@ class Scan(Table):
 
             # ------- CALL INTERACTIVE FITTER ---------
             info = select_data(self[dim][:, feed], self[ch],
-                               xlabel=dim)
+                               xlabel=dim, test=test)
 
             # -----------------------------------------
 
@@ -635,10 +635,8 @@ class Scan(Table):
             if len(info['Ch']['fitpars']) > 1:
                 self[ch] -= linear_fun(self[dim][:, feed],
                                        *info['Ch']['fitpars'])
-            # TODO: make it channel-independent
                 self.meta['backsub'] = True
 
-            # TODO: make it channel-independent
             if info['Ch']['FLAG']:
                 self.meta['FLAG'] = True
         if save:
