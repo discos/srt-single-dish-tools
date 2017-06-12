@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from matplotlib import gridspec
 import numpy as np
 from .fit import linear_fit, linear_fun, align
+import warnings
 
 
 def mask(xs, border_xs, invert=False):
@@ -64,10 +65,12 @@ class intervals():
 class DataSelector:
     """Plot and process scans interactively."""
 
-    def __init__(self, xs, ys, ax1, ax2, masks=None, xlabel=None, title=None):
+    def __init__(self, xs, ys, ax1, ax2, masks=None, xlabel=None, title=None,
+                 test=False):
         """Initialize."""
         self.xs = xs
         self.ys = ys
+        self.test = test
         if masks is None:
             masks = dict(list(zip(self.xs.keys(),
                                   [np.ones(len(self.xs[k]), dtype=bool)
@@ -86,18 +89,23 @@ class DataSelector:
             self.info[key]['base'] = intervals()
             self.info[key]['fitpars'] = np.array([0, 0])
         self.lines = []
-        self.print_instructions()
+        if not test:
+            self.print_instructions()
         self.current = None
-        ax1.figure.canvas.mpl_connect('button_press_event', self.on_click)
-        ax1.figure.canvas.mpl_connect('key_press_event', self.on_key)
-        ax1.figure.canvas.mpl_connect('pick_event', self.on_pick)
-        ax2.figure.canvas.mpl_connect('button_press_event', self.on_click)
-        ax2.figure.canvas.mpl_connect('key_press_event', self.on_key)
-        ax2.figure.canvas.mpl_connect('pick_event', self.on_pick)
+
+        if not test:
+            ax1.figure.canvas.mpl_connect('button_press_event', self.on_click)
+            ax1.figure.canvas.mpl_connect('key_press_event', self.on_key)
+            ax1.figure.canvas.mpl_connect('pick_event', self.on_pick)
+            ax2.figure.canvas.mpl_connect('button_press_event', self.on_click)
+            ax2.figure.canvas.mpl_connect('key_press_event', self.on_key)
+            ax2.figure.canvas.mpl_connect('pick_event', self.on_pick)
+
         self.plot_all()
         self.zcounter = 0
         self.bcounter = 0
-        plt.show()
+        if not test:
+            plt.show()
 
     def on_click(self, event):
         """Dummy function, in case I want to do something with a click."""
@@ -105,6 +113,9 @@ class DataSelector:
 
     def zap(self, event):
         """Create a zap interval."""
+        if self.test:
+            warnings.warn("I select a zap interval at {}".format(event.xdata),
+                          UserWarning)
         key = self.current
         if key is None:
             return
@@ -136,6 +147,9 @@ class DataSelector:
         line = self.ax2.axvline(event.xdata, color=color, ls=ls)
         self.lines.append(line)
         plt.draw()
+        if self.test:
+            warnings.warn("I put a baseline mark at {}".format(event.xdata),
+                          UserWarning)
 
     def on_key(self, event):
         """Do something when the keyboard is used."""
@@ -189,6 +203,8 @@ class DataSelector:
                                                    self.info[key]['fitpars'])
 
         self.plot_all()
+        if self.test:
+            warnings.warn("I subtracted the baseline", UserWarning)
 
     def subtract_model(self, channel):
         """Subtract the model from the scan."""
@@ -197,6 +213,10 @@ class DataSelector:
 
     def align_all(self):
         """Given the selected scan, aligns all the others to that."""
+
+        # During tests, let's suppress all unwanted warnings
+        if self.test:
+            warnings.filterwarnings("ignore")
         reference = self.current
 
         x = np.array(self.xs[reference])
@@ -238,6 +258,9 @@ class DataSelector:
             self.info[key]['fitpars'] = np.array([qs[ik - 1], ms[ik - 1]])
 
         self.plot_all()
+        if self.test:
+            warnings.filterwarnings("default")
+            warnings.warn("I aligned all", UserWarning)
 
     def on_pick(self, event):
         """Do this when I pick a line in the plot."""
@@ -349,7 +372,7 @@ Actions:
             print('  Fit pars:      ', self.info[key]['fitpars'])
 
 
-def select_data(xs, ys, masks=None, title=None, xlabel=None):
+def select_data(xs, ys, masks=None, title=None, xlabel=None, test=False):
     """Open a DataSelector window."""
     try:
         xs.keys()
@@ -367,7 +390,7 @@ def select_data(xs, ys, masks=None, title=None, xlabel=None):
     ax2 = plt.subplot(gs[1], sharex=ax1)
 
     datasel = DataSelector(xs, ys, ax1, ax2, masks=masks, title=title,
-                           xlabel=xlabel)
+                           xlabel=xlabel, test=test)
 
     return datasel.info
 
@@ -386,7 +409,7 @@ class ImageSelector():
         arguments: `x`, `y` and `key`
     """
 
-    def __init__(self, data, ax, fun=None):
+    def __init__(self, data, ax, fun=None, test=False):
         """
         Initialize an ImageSelector class.
 
@@ -404,8 +427,9 @@ class ImageSelector():
         self.ax = ax
         self.fun = fun
         self.plot_img()
-        ax.figure.canvas.mpl_connect('key_press_event', self.on_key)
-        plt.show()
+        if not test:
+            ax.figure.canvas.mpl_connect('key_press_event', self.on_key)
+            plt.show()
 
     def on_key(self, event):
         """Do this when the keyboard is pressed."""
