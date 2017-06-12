@@ -19,10 +19,8 @@ documented in the Astropy Coding Guidelines. Automatic tests cover
 a significant fraction of the code, and are launched each time a commit
 is pushed to the (private, for the time being) `Github`_ repository.
 The Continuous Integration service `Travis CI`_ is used for that.
-It will be released to the public as an Open Source library once a number of
-items in the roadmap will be accomplished (see below), but it is
-already available upon request. The current version is 0.2-dev, indicating
-a pre-release of the 0.2 version.
+The current version is 0.3-dev, indicating the development version of 0.3.
+See below the tentative roadmap.
 
 In the current implementation, spectroscopic and total-power on-the-fly
 scans are supported, both as part of standalone flux measurements through
