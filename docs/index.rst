@@ -31,7 +31,7 @@ of a map. Maps are formed through a series of scans that swipe the source
 region.
 
 .. figure:: images/otf_vs_xsc.jpg
-   :scale: 50 %
+   :width: 80 %
    :alt: otf vs xscan
    :align: center
 
@@ -62,6 +62,9 @@ Tentative Roadmap
 Installation
 ------------
 
+Prerequisites
+~~~~~~~~~~~~~
+
 Anaconda and virtual environment (recommended)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -70,19 +73,19 @@ We strongly suggest to install the
 Once the installation has finished, you should have a working ``conda``
 command in your shell. First of all, create a new environment:
 
-::
+.. code-block:: console
 
     $ conda create -n py3 python=3
 
 load the new environment:
 
-::
+.. code-block:: console
 
     $ source activate py3
 
 and install the dependencies (including a few optional but recommended):
 
-::
+.. code-block:: console
 
     (py3) $ conda install astropy scipy numpy matplotlib pyyaml h5py statsmodels numba
 
@@ -93,7 +96,7 @@ Other Python distributions
 Install the dependencies with pip (including a few optional but
 recommended):
 
-::
+.. code-block:: console
 
     $ pip install astropy scipy numpy matplotlib pyyaml h5py statsmodels numba
 
@@ -102,20 +105,20 @@ Cloning and installation
 
 Clone the repository:
 
-::
+.. code-block:: console
 
     (py3) $ cd /my/software/directory/
     (py3) $ git clone https://github.com/matteobachetti/srt-single-dish-tools.git
 
 or if you have deployed your SSH key to Github:
 
-::
+.. code-block:: console
 
     (py3) $ git clone git@github.com:matteobachetti/srt-single-dish-tools.git
 
 Then:
 
-::
+.. code-block:: console
 
     (py3) $ cd srt-single-dish-tools
     (py3) $ python setup.py install
@@ -123,7 +126,7 @@ Then:
 That's it. After installation has ended, you can verify that software is
 installed by executing:
 
-::
+.. code-block:: console
 
     (py3) $ SDTimage -h
 
@@ -134,7 +137,7 @@ Updating
 
 To update the code, simply run ``git pull`` and reinstall:
 
-::
+.. code-block:: console
 
     (py3) $ git pull
     (py3) $ python setup.py install
@@ -165,7 +168,7 @@ of directories:
 
 .. code-block:: console
 
-    (py35) $ ls
+    (py3) $ ls
     2016-05-04-220022_Src1/
     2016-05-04-223001_Src1/
     2016-05-04-230001_Cal1/
@@ -181,7 +184,7 @@ on observing time, backend, receiver, etc.:
 
 .. code-block:: console
 
-    (py35) $ SDTinspect */
+    (py3) $ SDTinspect */
     Group 0, Backend = ROACH2, Receiver = CCB
     ------------------
     Src1, observation 0
@@ -211,10 +214,10 @@ a set of config files ready for the next step in the analysis:
 
 .. code-block:: console
 
-    (py35) $ SDTinspect */
+    (py3) $ SDTinspect */
     Group 0, Backend = ROACH2, Receiver = CCB
     (.....)
-    (py35) $ ls -alrt
+    (py3) $ ls -alrt
     CCB_ROACH_Src1_Obs0.ini
     KKG_ROACH_Src1_Obs1.ini
 
@@ -225,8 +228,8 @@ you can generate a boilerplate config file with:
 
 .. code-block:: console
 
-    (py35) $ SDTlcurve --sample-config
-    (py35) $ ls
+    (py3) $ SDTlcurve --sample-config
+    (py3) $ ls
     (...)
     sample_config_file.ini
 
@@ -238,7 +241,7 @@ equals signs being changed to semicolons):
 
 .. code-block:: console
 
-    (py35) $ cat CCB_ROACH_Src1_Obs0.ini
+    (py3) $ cat CCB_ROACH_Src1_Obs0.ini
     [local]
     workdir = .
     datadir = .
@@ -279,8 +282,7 @@ Preprocess the files
 ~~~~~~~~~~~~~~~~~~~~
 
 .. figure:: images/filtered_scan.png
-   :scale: 50 %
-   :figwidth: 60 %
+   :width: 80 %
    :alt: scan filtering
    :align: center
 
@@ -317,7 +319,7 @@ steps:
 
 .. code-block:: console
 
-    (py35) $ SDTimage -c CCB_TP_Src1_Obs0.ini --splat 80:1100
+    (py3) $ SDTimage -c CCB_TP_Src1_Obs0.ini --splat 80:1100
 
 2. The single channels that are produced at step 1, or alternatively the single
    channels of a non-spectroscopic backend, will now be processed by a baseline
@@ -342,20 +344,26 @@ Let's produce some images now!
 
 Finally, let us execute the map calculation. If data were taken with a Total
 Power-like instrument and they do not contain spectral information, it is
-sufficient to run::
+sufficient to run
 
-    (py35) $ SDTimage -c CCB_TP_Src1_Obs0.ini
+.. code-block:: console
+
+    (py3) $ SDTimage -c CCB_TP_Src1_Obs0.ini
 
 where CCB_TP_Src1_Obs0.ini should be substituted with the wanted config file.
-*This is also valid for spectroscopic scans that have already been preprocessed*::
+*This is also valid for spectroscopic scans that have already been preprocessed*
 
-    (py35) $ SDTimage -c CCB_ROACH_Src1_Obs0.ini
+.. code-block:: console
+
+    (py3) $ SDTimage -c CCB_ROACH_Src1_Obs0.ini
 
 Otherwise, if preprocessing were not executed before, specify the minimum and
 maximum frequency to select in the spectrum,
-with the ``--splat`` option (same as before)::
+with the ``--splat`` option (same as before)
 
-    (py35) $ SDTimage -c CCB_ROACH_Src1_Obs0.ini --splat <freqmin>:<freqmax>
+.. code-block:: console
+
+    (py3) $ SDTimage -c CCB_ROACH_Src1_Obs0.ini --splat <freqmin>:<freqmax>
 
 The above command will:
 
@@ -399,11 +407,10 @@ x,y=30,33 with radius 10 pixels, run
 
 .. code-block:: console
 
-    (py35) $ SDTimage -g -e 30 33 10 (...additional options)
+    (py3) $ SDTimage -g -e 30 33 10 (...additional options)
 
 .. figure:: images/map.png
-   :scale: 50 %
-   :figwidth: 60 %
+   :width: 80 %
    :alt: map
    :align: center
 
@@ -413,7 +420,9 @@ Advanced imaging (TBC)
 ~~~~~~~~~~~~~~~~~~~~~~
 The automatic RFI removal procedure is often unable to clean all the data.
 The map might have some residual "stripes" due to bad scans. No worries! Launch
-the above command with the ``--interactive`` option::
+the above command with the ``--interactive`` option
+
+.. code-block:: console
 
     (py3) $ SDTimage -c MySource.ini --splat <freqmin>:<freqmax> --interactive
 
@@ -441,31 +450,39 @@ can construct an alternative config file with
 
 .. code-block:: console
 
-    (py35) $ SDTcal  --sample-config
+    (py3) $ SDTcal  --sample-config
 
 and modify the configuration file adding calibrator directories
-below `calibrator_directories`::
+below `calibrator_directories`
+
+.. code-block:: console
 
    calibrator_directories :
       datestring1-3C295/
       datestring2-3C295/
 
 Then, call again ``SDTcal`` with the ``--splat`` option, using **the same frequency range**
-of the sources.::
+of the sources.
 
-    (py35) $ SDTcal -c CCB_ROACH_Src1_Obs0.ini--splat <freqmin>:<freqmax> -o calibration.hdf5
+.. code-block:: console
 
-Finally, call ``SDTimage`` with the ``--calibrate`` option, e.g.::
+    (py3) $ SDTcal -c CCB_ROACH_Src1_Obs0.ini--splat <freqmin>:<freqmax> -o calibration.hdf5
 
-    (py35) $ SDTimage --calibrate calibration.hdf5 -c CCB_ROACH_Src1_Obs0.ini --splat <freqmin>:<freqmax> --interactive
+Finally, call ``SDTimage`` with the ``--calibrate`` option, e.g.
+
+.. code-block:: console
+
+    (py3) $ SDTimage --calibrate calibration.hdf5 -c CCB_ROACH_Src1_Obs0.ini --splat <freqmin>:<freqmax> --interactive
 
 ... and that's it! The image values will be expressed in Jy instead of counts, so that
 applying a region with DS9 and calculating the total flux inside the given region will
 return the actual total flux contained in the region.
 
 Calibrated light curves
-^^^^^^^^^^^^^^^^^^^^^^^
-Go to a directory close to your data set. For example::
+~~~~~~~~~~~~~~~~~~~~~~~
+Go to a directory close to your data set. For example
+
+.. code-block:: console
 
     (py3) $ ls
     observation1/
@@ -481,12 +498,16 @@ It is not required that scan files are directly inside ``observation1`` etc.,
 they might be inside subdirectories. The important thing is to correctly point
 to them in the configuration file as explained below.
 
-Produce a dummy calibration file, to be modified, with::
+Produce a dummy calibration file, to be modified, with
+
+.. code-block:: console
 
     (py3) $ SDTlcurve --sample-config
 
 This produces a boilerplate configuration file, that we modify to point to our
-observations, and give the correct information to our program::
+observations, and give the correct information to our program
+
+.. code-block:: console
 
     (py3) $ mv sample_config_file.ini MySource.ini  # give a meaningful name!
     (py3) $ emacs MySource.ini
@@ -513,12 +534,16 @@ observations, and give the correct information to our program::
 
 Finally, execute the light curve creation. If data were taken with a Total
 Power-like instrument and they do not contain spectral information, it is
-sufficient to run::
+sufficient to run
+
+.. code-block:: console
 
     (py3) $ SDTlcurve -c MySource.ini
 
 Otherwise, specify the minimum and maximum frequency to select in the spectrum,
-with the ``--splat`` option::
+with the ``--splat`` option
+
+.. code-block:: console
 
     (py3) $ SDTlcurve -c MySource.ini --splat <freqmin>:<freqmax>
 
