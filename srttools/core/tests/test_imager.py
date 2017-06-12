@@ -117,6 +117,27 @@ class TestScanSet(object):
     def test_0_prepare(self):
         pass
 
+    def test_interactive_quit(self):
+        scanset = ScanSet('test.hdf5',
+                          config_file=self.config_file)
+        imgsel = scanset.interactive_display('Ch0', test=True)
+        fake_event = type('event', (), {})()
+        fake_event.key = 'q'
+        fake_event.xdata, fake_event.ydata = (130, 30)
+
+        retval = imgsel.on_key(fake_event)
+        assert retval == (130, 30, 'q')
+
+    def test_interactive_scans(self):
+        scanset = ScanSet('test.hdf5',
+                          config_file=self.config_file)
+        imgsel = scanset.interactive_display('Ch0', test=True)
+        fake_event = type('event', (), {})()
+        fake_event.key = 'a'
+        fake_event.xdata, fake_event.ydata = (62, 62)
+
+        imgsel.on_key(fake_event)
+
     def test_use_command_line(self):
         main_imager(('test.hdf5 -u Jy/beam '.format(self.config_file) +
                      '--calibrate {}'.format(self.calfile) +

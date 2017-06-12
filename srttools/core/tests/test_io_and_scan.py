@@ -45,14 +45,28 @@ class Test1_Scan(object):
         out, err = capsys.readouterr()
         assert 'bandwidth' in out.lower()
 
+    def test_repr(self):
+        scan = Scan(self.fname)
+        out = repr(scan)
+        assert 'scan from file' in out.lower()
+
+    def test_print(self, capsys):
+        scan = Scan(self.fname)
+        print(scan)
+        out, err = capsys.readouterr()
+        assert 'scan from file' not in out.lower()
+
     def test_scan(self):
         '''Test that data are read.'''
 
         scan = Scan(self.fname)
-
         scan.write('scan.hdf5', overwrite=True)
         scan2 = Scan('scan.hdf5')
         assert scan.meta == scan2.meta
+
+    def test_interactive(self):
+        scan = Scan(self.fname)
+        scan.interactive_filter('Ch0', test=True)
 
     @pytest.mark.parametrize('fname', ['med_data.fits',
                                        'srt_data_tp_multif.fits'])
@@ -112,7 +126,7 @@ class Test2_Scan(object):
         scan = Scan(self.fname, debug=True)
 
         scan.write('scan.hdf5', overwrite=True)
-        scan.baseline_subtract('rough')
+        scan.baseline_subtract('rough', plot=True)
 
     @pytest.mark.parametrize('fname', ['srt_data.fits'])
     def test_coordinate_conversion_works(self, fname):
