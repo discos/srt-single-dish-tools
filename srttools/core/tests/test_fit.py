@@ -4,6 +4,7 @@ from __future__ import (absolute_import, division,
                         print_function)
 from srttools.core.fit import fit_baseline_plus_bell, purge_outliers, align
 import numpy as np
+import pytest
 
 np.random.seed(1231636)
 
@@ -22,7 +23,9 @@ class TestFit(object):
         """Test that outlier detection works."""
         series = np.copy(self.series)
         series[10] = 2
-        series2 = purge_outliers(series)
+        with pytest.warns(UserWarning) as record:
+            series2 = purge_outliers(series)
+        assert "Found 1 outliers" in record[0].message.args[0]
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])
         np.testing.assert_almost_equal(series2[10],
@@ -32,7 +35,9 @@ class TestFit(object):
         """Test that outlier detection works."""
         series = np.copy(self.series)
         series[10] = -2
-        series2 = purge_outliers(series)
+        with pytest.warns(UserWarning) as record:
+            series2 = purge_outliers(series)
+        assert "Found 1 outliers" in record[0].message.args[0]
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])
         np.testing.assert_almost_equal(series2[10],
@@ -43,19 +48,25 @@ class TestFit(object):
         series = np.copy(self.series)
         series[10] = 20
         series[11] = 20
-        series2 = purge_outliers(series)
+        with pytest.warns(UserWarning) as record:
+            series2 = purge_outliers(series)
+        assert "Found 2 outliers" in record[0].message.args[0]
 
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[12:] == series[12:])
 
-        assert np.all((series2[10:12] > series[9]) &
-                      (series2[10:12] < series[12]))
+        lower = np.min([series[9], series[12]])
+        upper = np.max([series[9], series[12]])
+        assert np.all((series2[10:12] > lower) &
+                      (series2[10:12] < upper))
 
     def test_outliers_bell(self):
         """Test that outlier detection works."""
         series = np.copy(self.series) + _test_shape(self.t) / 10
         series[10] = 2
-        series2 = purge_outliers(series)
+        with pytest.warns(UserWarning) as record:
+            series2 = purge_outliers(series)
+        assert "Found 1 outliers" in record[0].message.args[0]
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])
         np.testing.assert_almost_equal(series2[10],
@@ -65,7 +76,9 @@ class TestFit(object):
         """Test that outlier detection works."""
         series = np.copy(self.series) + _test_shape(self.t)
         series[10] = 2
-        series2 = purge_outliers(series)
+        with pytest.warns(UserWarning) as record:
+            series2 = purge_outliers(series)
+        assert "Found 1 outliers" in record[0].message.args[0]
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])
         np.testing.assert_almost_equal(series2[10],
