@@ -20,6 +20,40 @@ except ImportError:
         return x
 
 
+def _default_flat_shape(x):
+    """A flat shape.
+
+    Examples
+    --------
+    >>> _default_flat_shape(4314)
+    100.0
+    >>> _default_flat_shape(np.arange(3))
+    array([ 100.,  100.,  100.])
+    """
+    return 100 + np.zeros(np.asarray(x).shape)
+
+
+def _default_map_shape(x, y):
+    """A flat map shape.
+
+    Examples
+    --------
+    >>> _default_map_shape(4314, 234)
+    100.0
+    >>> _default_map_shape(np.zeros((3, 4)), np.ones((3, 4)))
+    array([[ 100.,  100.,  100.,  100.],
+           [ 100.,  100.,  100.,  100.],
+           [ 100.,  100.,  100.,  100.]])
+    >>> _default_map_shape(np.zeros((3, 4)), np.ones((3, 6)))
+    Traceback (most recent call last):
+    ...
+    ValueError: The shape of x and y must be the same
+    """
+    if np.asarray(x).shape != np.asarray(y).shape:
+        raise ValueError("The shape of x and y must be the same")
+    return 100 + np.zeros(np.asarray(x).shape)
+
+
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
                   noise_amplitude=1., center=0.):
     """Simulate a scan.
@@ -42,7 +76,7 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
         Center coordinate in degrees
     """
     if shape is None:
-        def shape(x): return 100
+        shape = _default_flat_shape
 
     nbins = np.rint(length / speed / dt)
 
@@ -173,7 +207,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     mkdir_p(outdir_dec)
 
     if count_map is None:
-        def count_map(x, y): return 100
+        count_map = _default_map_shape
 
     if baseline == "flat":
         mmin = mmax = 0

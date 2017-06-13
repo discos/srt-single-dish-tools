@@ -8,8 +8,6 @@ np.random.seed(1742956)
 class TestHist(object):
     @classmethod
     def setup_class(klass):
-        global DEBUG_MODE
-        DEBUG_MODE = True
         klass.N = 10000
         klass.a = np.random.poisson(100, klass.N)
         klass.b = np.random.poisson(100, klass.N)

@@ -154,7 +154,7 @@ def linear_fit(x, y, start_pars, return_err=False):
                           maxfev=6000)
     if return_err:
         warnings.warn("return_err not implemented yet in linear_fit")
-        pass
+        return par, None
     else:
         return par
 
@@ -286,10 +286,10 @@ def purge_outliers(y, window_size=5, up=True, down=True):
             y[b[0]:] = y[b[0] - 1]
         else:
             previous = y[b[0] - 1]
-            next = y[b[1]]
+            next_bin = y[b[1]]
             dx = b[1] - b[0]
             y[b[0]:b[1]] = \
-                (next - previous)/(dx + 1) * \
+                (next_bin - previous)/(dx + 1) * \
                 np.arange(1, b[1] - b[0] + 1) + previous
 
     warnings.warn("Found {} outliers".format(len(diffs[outliers])))
