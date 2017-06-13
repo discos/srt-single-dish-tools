@@ -8,6 +8,7 @@
 ## Installation
 
 ### Preparation and dependencies
+
 #### Anaconda and virtual environment (recommended)
 We strongly suggest to install the
 [Anaconda](https://www.continuum.io/downloads) Python distribution.
