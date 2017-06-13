@@ -275,7 +275,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
     data, bx, by = _resample_scans(data_to_fit)
 
-    _, i, x, _, _, expo = data
+    _, i, _, _, _, expo = data
 
     data_idx_resamp = _get_data_idx(par, i)
 
