@@ -593,6 +593,7 @@ class ScanSet(Table):
             try:
                 s = Scan(sname)
             except Exception:
+                warnings.warn("Errors while opening scan {}".format(sname))
                 continue
             try:
                 chan_mask = s['{}-filt'.format(ch)]
@@ -673,7 +674,7 @@ class ScanSet(Table):
         data are reloaded. This is a *temporary solution*
         """
         import os
-        f, ext = os.path.splitext(fname)
+        f, _ = os.path.splitext(fname)
         txtfile = f + '_scan_list.txt'
         self.meta['scan_list_file'] = txtfile
         with open(txtfile, 'w') as fobj:
@@ -702,7 +703,7 @@ class ScanSet(Table):
         header = self.wcs.to_header()
         if map_unit == "Jy/beam" and calibration is not None:
             caltable = CalibratorTable.read(calibration)
-            beam, beam_err = caltable.beam_width()
+            beam, _ = caltable.beam_width()
             std_to_fwhm = np.sqrt(8 * np.log(2))
             header['bmaj'] = np.degrees(beam) * std_to_fwhm
             header['bmin'] = np.degrees(beam) * std_to_fwhm
@@ -716,7 +717,7 @@ class ScanSet(Table):
 
         keys = list(images.keys())
         keys.sort()
-        for ic, ch in enumerate(keys):
+        for ch in keys:
             is_sdev = ch.endswith('Sdev')
 
             if is_sdev and not save_sdev:
@@ -831,10 +832,9 @@ def main_imager(args=None):  # pragma: no cover
         if args.exclude is not None:
             nexc = len(args.exclude)
             if nexc % 3 != 0:
-                raise ValueError(
-                    "Exclusion region has to be specified as "
-                    "centerX0, centerY0, radius0, centerX1, centerY1, radius1,"
-                     " ... (in X,Y coordinates)")
+                raise ValueError("Exclusion region has to be specified as "
+                                 "centerX0, centerY0, radius0, centerX1, "
+                                 "centerY1, radius1, ... (in X,Y coordinates)")
             excluded = \
                 np.array([np.float(e)
                           for e in args.exclude]).reshape((nexc // 3, 3))

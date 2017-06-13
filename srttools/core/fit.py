@@ -150,8 +150,8 @@ def linear_fit(x, y, start_pars, return_err=False):
     par : [q, m], floats
         Fitted intercept and slope of the linear function
     """
-    par, pcov = curve_fit(linear_fun, x, y, start_pars,
-                          maxfev=6000)
+    par, _ = curve_fit(linear_fun, x, y, start_pars,
+                       maxfev=6000)
     if return_err:
         warnings.warn("return_err not implemented yet in linear_fit")
         return par, None
@@ -179,11 +179,11 @@ def offset_fit(x, y, offset_start=0, return_err=False):
     offset : float
         Fitted offset
     """
-    par, pcov = curve_fit(offset, x, y, [offset_start],
-                          maxfev=6000)
+    par, _ = curve_fit(offset, x, y, [offset_start],
+                       maxfev=6000)
     if return_err:
         warnings.warn("return_err not implemented yet in offset_fit")
-        pass
+        return par[0], None
     else:
         return par[0]
 
@@ -292,7 +292,8 @@ def purge_outliers(y, window_size=5, up=True, down=True):
                 (next_bin - previous)/(dx + 1) * \
                 np.arange(1, b[1] - b[0] + 1) + previous
 
-    warnings.warn("Found {} outliers".format(len(diffs[outliers])))
+    warnings.warn("Found {} outliers".format(len(diffs[outliers])),
+                  UserWarning)
 
     return y
 
@@ -335,7 +336,7 @@ def _als(y, lam, p, niter=10):
     L = len(y)
     D = sparse.csc_matrix(np.diff(np.eye(L), 2))
     w = np.ones(L)
-    for i in range(niter):
+    for _ in range(niter):
         W = sparse.spdiags(w, 0, L, L)
         Z = W + lam * D.dot(D.transpose())
         z = sparse.linalg.spsolve(Z, w*y)
