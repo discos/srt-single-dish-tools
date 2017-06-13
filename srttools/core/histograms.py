@@ -99,7 +99,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
     else:
         try:
             # Weights is a 1D-array
-            weights.shape
+            _ = weights.shape
             W = -1
         except (AttributeError, ValueError):
             # Weights is a list of 1D-arrays or None's

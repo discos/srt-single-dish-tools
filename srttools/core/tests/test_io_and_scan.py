@@ -97,9 +97,6 @@ class Test1_Scan(object):
 class Test2_Scan(object):
     @classmethod
     def setup_class(klass):
-        import os
-        global DEBUG_MODE
-        DEBUG_MODE = True
 
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, 'data')

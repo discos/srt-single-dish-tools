@@ -122,7 +122,7 @@ def _obj_fun(par, data, data_idx, excluded, bx, by):
 
     """
 
-    newd_t, newd_i, newd_x, newd_y, newd_c, newd_e = data
+    newd_t, _, newd_x, newd_y, newd_c, newd_e = data
 
     newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
     X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by,
@@ -169,7 +169,7 @@ def _resample_scans(data):
         t_filt = t[good]
         t_filt -= t_filt[0]
 
-        hists, xbins, ybins = \
+        hists, _, _ = \
             histogram2d(x_filt, y_filt, bins=(bx, by),
                         weights=[np.ones(n), t_filt, x_filt, y_filt, c_filt])
         expo, time, X, Y, counts = hists
@@ -197,7 +197,8 @@ def _get_data_idx(par, idx):
     """Get the index in the data arrays corresponding to different scans."""
     data_idx = []
 
-    for i_p, p in enumerate(list(zip(par[:-1:2], par[1::2]))):
+    par_pairs = list(zip(par[:-1:2], par[1::2]))
+    for i_p in range(len(par_pairs)):
         good = idx == i_p
         if not np.any(good):
             continue
@@ -259,7 +260,8 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
     data_idx = _get_data_idx(par, idxs)
 
-    for i_p, p in enumerate(list(zip(par[:-1:2], par[1::2]))):
+    par_pairs = list(zip(par[:-1:2], par[1::2]))
+    for i_p in range(len(par_pairs)):
         good = idxs == i_p
         filt_t = times[good]
         if len(filt_t) == 0:
@@ -273,7 +275,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
 
     data, bx, by = _resample_scans(data_to_fit)
 
-    t, i, x, y, c, expo = data
+    _, i, x, _, _, expo = data
 
     data_idx_resamp = _get_data_idx(par, i)
 

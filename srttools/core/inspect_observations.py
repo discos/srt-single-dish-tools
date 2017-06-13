@@ -11,6 +11,7 @@ from .io import read_data
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
 from .utils import standard_string
+import warnings
 
 try:
     from ConfigParser import ConfigParser
@@ -48,6 +49,7 @@ def inspect_directories(directories):
                               time, frequency, bandwidth])
                 break
             except Exception:
+                warnings.warn("Errors while opening {}".format(f))
                 continue
 
     return(info)
@@ -100,7 +102,7 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
             if i == 0:
                 start_idxs.append(0)
                 continue
-            if filtered_table[i]["Time"] - filtered_table[i-1]["Time"] > \
+            if f["Time"] - filtered_table[i-1]["Time"] > \
                     max_source_delay:
                 start_idxs.append(i)
                 end_idxs.append(i)

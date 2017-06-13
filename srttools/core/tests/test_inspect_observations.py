@@ -14,8 +14,6 @@ except ImportError:
 class TestInspect(object):
     @classmethod
     def setup_class(klass):
-        global DEBUG_MODE
-        DEBUG_MODE = True
 
         klass.curdir = os.path.dirname(__file__)
 
