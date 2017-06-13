@@ -252,8 +252,8 @@ def read_data_fitszilla(fname):
 
         nrows, nbins = data_table_data['spectrum'].shape
         nbin_per_chan = nbins // nchan
-        assert nbin_per_chan * nchan == nbins, \
-            'Something wrong with channel subdivision'
+        if nbin_per_chan * nchan != nbins:
+            raise ValueError('Something wrong with channel subdivision')
         for ic, ch in enumerate(chan_ids):
             data_table_data['Ch{}'.format(ch).lower()] = \
                 data_table_data['spectrum'][:, ic * nbin_per_chan:

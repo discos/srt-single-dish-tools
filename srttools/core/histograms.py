@@ -32,7 +32,7 @@ from numpy import atleast_2d, asarray, zeros, ones, array, atleast_1d, arange,\
 __doctest_skip__ = ['*']
 
 
-def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
+def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
     """
     Compute the multidimensional histogram of some data.
 
@@ -49,7 +49,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
         * The number of bins for each dimension (nx, ny, ... =bins)
         * The number of bins for all dimensions (nx=ny=...=bins).
 
-    range : sequence, optional
+    bin_range : sequence, optional
         A sequence of lower and upper bin edges to be used if the edges are
         not given explicitly in `bins`. Defaults to the minimum and maximum
         values along each dimension.
@@ -134,7 +134,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
 
     # Select range for each dimension
     # Used only if number of bins is given.
-    if range is None:
+    if bin_range is None:
         # Handle empty input. Range can't be determined in that case, use 0-1.
         if N == 0:
             smin = zeros(D)
@@ -146,7 +146,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
         smin = zeros(D)
         smax = zeros(D)
         for i in arange(D):
-            smin[i], smax[i] = range[i]
+            smin[i], smax[i] = bin_range[i]
 
     # Make sure the bins have a finite width.
     for i in arange(len(smin)):
@@ -263,7 +263,7 @@ def histogramdd(sample, bins=10, range=None, normed=False, weights=None):
         return hists, edges
 
 
-def histogram2d(x, y, bins=10, range=None, normed=False, weights=None):
+def histogram2d(x, y, bins=10, bin_range=None, normed=False, weights=None):
     """
     Compute the bi-dimensional histogram of two data samples.
 
@@ -286,7 +286,7 @@ def histogram2d(x, y, bins=10, range=None, normed=False, weights=None):
           * If [array, array], the bin edges in each dimension
             (x_edges, y_edges = bins).
 
-    range : array_like, shape(2,2), optional
+    bin_range : array_like, shape(2,2), optional
         The leftmost and rightmost edges of the bins along each dimension
         (if not specified explicitly in the `bins` parameters):
         ``[[xmin, xmax], [ymin, ymax]]``. All values outside of this range
@@ -395,5 +395,5 @@ def histogram2d(x, y, bins=10, range=None, normed=False, weights=None):
     if N != 1 and N != 2:
         xedges = yedges = asarray(bins, float)
         bins = [xedges, yedges]
-    hist, edges = histogramdd([x, y], bins, range, normed, weights)
+    hist, edges = histogramdd([x, y], bins, bin_range, normed, weights)
     return hist, edges[0], edges[1]

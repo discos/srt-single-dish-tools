@@ -89,8 +89,8 @@ def _clean_dyn_spec(dynamical_spectrum, bad_intervals):
             fill_lc = np.array(dynamical_spectrum[:, b[0]])
         else:
             previous = np.array(dynamical_spectrum[:, b[0] - 1])
-            next = np.array(dynamical_spectrum[:, b[1]])
-            fill_lc = (previous + next) / 2
+            next_bin = np.array(dynamical_spectrum[:, b[1]])
+            fill_lc = (previous + next_bin) / 2
 
         for bsub in range(b[0], np.min([b[1], dynamical_spectrum.shape[1]])):
             cleaned_dynamical_spectrum[:, bsub] = fill_lc
@@ -453,13 +453,6 @@ class Scan(Table):
             if not nosave:
                 self.save()
 
-    def interpret_frequency_range(self, freqsplat, bandwidth, nbin):
-        """Interpret the frequency range specified in freqsplat.
-
-        Uses :class:`srttools.core.scan.interpret_frequency_range`
-        """
-        return interpret_frequency_range(freqsplat, bandwidth, nbin)
-
     def chan_columns(self):
         """List columns containing samples."""
         return np.array([i for i in self.columns
@@ -500,7 +493,7 @@ class Scan(Table):
             Do not filter noisy channels (see
             :func:`clean_scan_using_variability`)
         """
-        logging.debug("Noise threshold:", noise_threshold)
+        logging.debug("Noise threshold: {}".format(noise_threshold))
 
         if self.meta['filtering_factor'] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
@@ -592,8 +585,8 @@ class Scan(Table):
 
     def check_order(self):
         """Check that times in a scan are monotonically increasing."""
-        assert np.all(self['time'] == np.sort(self['time'])), \
-            'The order of times in the table is wrong'
+        if not np.all(self['time'] == np.sort(self['time'])):
+            raise ValueError('The order of times in the table is wrong')
 
     def interactive_filter(self, save=True, test=False):
         """Run the interactive filter."""

@@ -1086,7 +1086,8 @@ def main(args=None):
         caltable = CalibratorTable().read(args.file)
         caltable.show()
         sys.exit()
-    assert args.config is not None, "Please specify the config file!"
+    if args.config is None:
+        raise ValueError("Please specify the config file!")
 
     config = read_config(args.config)
 
@@ -1158,7 +1159,8 @@ def main_lcurve(args=None):
         caltable = CalibratorTable.read(args.file)
         caltable.update()
     else:
-        assert args.config is not None, "Please specify the config file!"
+        if args.config is None:
+            raise ValueError("Please specify the config file!")
         caltable = CalibratorTable()
         caltable.from_scans(config_file=args.config)
         caltable.update()
