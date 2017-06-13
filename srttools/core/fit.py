@@ -180,11 +180,7 @@ def offset_fit(x, y, offset_start=0, return_err=False):
         Fitted offset
     """
     par, _ = curve_fit(offset, x, y, [offset_start],
-<<<<<<< HEAD
-                          maxfev=6000)
-=======
                        maxfev=6000)
->>>>>>> c1affc908ab1cff921fc6e23c272f1a49e2f1acc
     if return_err:
         warnings.warn("return_err not implemented yet in offset_fit")
         return par[0], None
