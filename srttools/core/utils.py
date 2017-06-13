@@ -6,7 +6,7 @@ import numpy as np
 
 
 try:
-    from statsmodels.robust import mad as mad
+    from statsmodels.robust import mad as mad  # pylint: disable=unused-import
 except ImportError:
     def mad(data, c=0.6745, axis=None):
         """Straight from statsmodels's source code, adapted"""
