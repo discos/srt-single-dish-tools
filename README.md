@@ -1,7 +1,7 @@
 # SRT Single dish tools #
 [![Travis CI status](https://travis-ci.org/matteobachetti/srt-single-dish-tools.svg?branch=master)](https://travis-ci.org/matteobachetti/srt-single-dish-tools)
 [![Appveyor build status](https://ci.appveyor.com/api/projects/status/m7ll5da3w8ukkrjd/branch/master?svg=true)](https://ci.appveyor.com/project/matteobachetti/srt-single-dish-tools/branch/master)
-[![Coverage Status](https://coveralls.io/repos/github/matteobachetti/srt-single-dish-tools/badge.svg?branch=master&bust=1&cache-control=no-cache)](https://coveralls.io/github/matteobachetti/srt-single-dish-tools?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/matteobachetti/srt-single-dish-tools/badge.svg?branch=master&cache-control=no-cache)](https://coveralls.io/github/matteobachetti/srt-single-dish-tools?branch=master)
 [![Powered by Astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
 [![Documentation Status](https://readthedocs.org/projects/srt-single-dish-tools/badge/?version=latest)](http://srt-single-dish-tools.readthedocs.io/en/latest/?badge=latest)
 
