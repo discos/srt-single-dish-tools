@@ -45,9 +45,10 @@ def _default_map_shape(x, y):
            [ 100.,  100.,  100.,  100.],
            [ 100.,  100.,  100.,  100.]])
     """
-    if np.asarray(x).shape != np.asarray(y).shape:
-        raise ValueError("The shape of x and y must be the same")
-    return 100 + np.zeros(np.asarray(x).shape)
+    x = np.asarray(x)
+    y = np.asarray(y)
+    # It will raise a ValueError when x and y are not compatible
+    return 100 + np.zeros_like(y) * np.zeros_like(x)
 
 
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
