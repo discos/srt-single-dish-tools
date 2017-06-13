@@ -350,5 +350,4 @@ def read_data(fname):
 
 def root_name(fname):
     """Return the file name without extension."""
-    import os
     return os.path.splitext(fname)[0]
