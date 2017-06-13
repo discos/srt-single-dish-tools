@@ -98,13 +98,13 @@ class ScanSet(Table):
         else:  # data is a config file
             config_file = data
             config = read_config(config_file)
+            self.meta.update(config)
+            self.meta['config_file'] = get_config_file()
 
             scan_list = \
-                self.list_scans(config['datadir'],
-                                config['list_of_directories'])
+                self.list_scans()
 
             scan_list.sort()
-            # nscans = len(scan_list)
 
             tables = []
 
@@ -125,8 +125,6 @@ class ScanSet(Table):
             self.scan_list = scan_list
 
             self.meta['scan_list_file'] = None
-            self.meta.update(config)
-            self.meta['config_file'] = get_config_file()
 
             self.analyze_coordinates(altaz=False)
 
@@ -170,8 +168,11 @@ class ScanSet(Table):
         if 'reference_dec' not in self.meta:
             self.meta['reference_dec'] = self.meta['Dec']
 
-    def list_scans(self, datadir, dirlist):
+    def list_scans(self, datadir=None, dirlist=None):
         """List all scans contained in the directory listed in config."""
+        if datadir is None:
+            datadir = self.meta['datadir']
+            dirlist = self.meta['list_of_directories']
         return list_scans(datadir, dirlist)
 
     def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
@@ -324,7 +325,8 @@ class ScanSet(Table):
         for ch in self.chan_columns:
             feeds = self[ch+'_feed']
             allfeeds = list(set(feeds))
-            assert len(allfeeds) == 1, 'Feeds are mixed up in channels'
+            if not len(allfeeds) == 1:
+                raise ValueError('Feeds are mixed up in channels')
             if no_offsets:
                 feed = 0
             else:
@@ -409,7 +411,8 @@ class ScanSet(Table):
             print("Fitting channel {}".format(ch))
             feeds = self[ch + '_feed']
             allfeeds = list(set(feeds))
-            assert len(allfeeds) == 1, 'Feeds are mixed up in channels'
+            if not len(allfeeds) == 1:
+                raise ValueError('Feeds are mixed up in channels')
             if no_offsets:
                 feed = 0
             else:
@@ -808,7 +811,8 @@ def main_imager(args=None):  # pragma: no cover
         if outfile is None:
             outfile = infile
     else:
-        assert args.config is not None, "Please specify the config file!"
+        if args.config is None:
+            raise ValueError("Please specify the config file!")
         scanset = ScanSet(args.config, norefilt=not args.refilt,
                           freqsplat=args.splat, nosub=not args.sub,
                           nofilt=args.nofilt, debug=args.debug)
@@ -826,10 +830,11 @@ def main_imager(args=None):  # pragma: no cover
         excluded = None
         if args.exclude is not None:
             nexc = len(args.exclude)
-            assert nexc % 3 == 0, \
-                ("Exclusion region has to be specified as centerX0, centerY0, "
-                 "radius0, centerX1, centerY1, radius1, ... "
-                 "(in X,Y coordinates)")
+            if nexc % 3 != 0:
+                raise ValueError(
+                    "Exclusion region has to be specified as "
+                    "centerX0, centerY0, radius0, centerX1, centerY1, radius1,"
+                     " ... (in X,Y coordinates)")
             excluded = \
                 np.array([np.float(e)
                           for e in args.exclude]).reshape((nexc // 3, 3))
@@ -888,7 +893,8 @@ def main_preprocess(args=None):  # pragma: no cover
             Scan(f, freqsplat=args.splat, nosub=not args.sub, norefilt=False,
                  debug=args.debug, interactive=args.interactive)
     else:
-        assert args.config is not None, "Please specify the config file!"
+        if args.config is None:
+            raise ValueError("Please specify the config file!")
         ScanSet(args.config, norefilt=False, freqsplat=args.splat,
                 nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
                 interactive=args.interactive)

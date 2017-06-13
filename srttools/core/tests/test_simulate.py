@@ -1,8 +1,10 @@
 from ..simulate import simulate_map, simulate_scan, save_scan
+from ..simulate import _default_map_shape
 import numpy as np
 import shutil
 from ..io import mkdir_p
 import os
+import pytest
 
 
 class TestSimulate(object):
@@ -23,6 +25,10 @@ class TestSimulate(object):
     def test_sim_map_empty(self):
         """Test the simulation of an empty map."""
         simulate_map(width_ra=2, width_dec=2., outdir=self.emptydir)
+
+    def test_raises_wrong_map_shape(self):
+        with pytest.raises(ValueError):
+            _default_map_shape(np.zeros((3, 4)), np.ones((3, 6)))
 
     @classmethod
     def teardown_class(cls):
