@@ -98,13 +98,13 @@ class ScanSet(Table):
         else:  # data is a config file
             config_file = data
             config = read_config(config_file)
+            self.meta.update(config)
+            self.meta['config_file'] = get_config_file()
 
             scan_list = \
-                self.list_scans(config['datadir'],
-                                config['list_of_directories'])
+                self.list_scans()
 
             scan_list.sort()
-            # nscans = len(scan_list)
 
             tables = []
 
@@ -125,8 +125,6 @@ class ScanSet(Table):
             self.scan_list = scan_list
 
             self.meta['scan_list_file'] = None
-            self.meta.update(config)
-            self.meta['config_file'] = get_config_file()
 
             self.analyze_coordinates(altaz=False)
 
@@ -170,8 +168,11 @@ class ScanSet(Table):
         if 'reference_dec' not in self.meta:
             self.meta['reference_dec'] = self.meta['Dec']
 
-    def list_scans(self, datadir, dirlist):
+    def list_scans(self, datadir=None, dirlist=None):
         """List all scans contained in the directory listed in config."""
+        if datadir is None:
+            datadir = self.meta['datadir']
+            dirlist = self.meta['list_of_directories']
         return list_scans(datadir, dirlist)
 
     def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
