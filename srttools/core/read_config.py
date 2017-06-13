@@ -90,7 +90,8 @@ def read_config(fname=None):
     if fname is None:
         fname = sample_config_file()
     else:
-        assert os.path.exists(fname), "Please specify an existing config file"
+        if not os.path.exists(fname):
+            raise FileNotFoundError("Please specify an existing config file")
 
     SRT_tools_config_file = fname
     Config.read(fname)
