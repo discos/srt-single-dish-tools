@@ -10,8 +10,6 @@ import os
 from astropy.time import Time
 import warnings
 
-DEBUG_MODE = False
-
 locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                   unit=u.m),
              'medicina': EarthLocation(Angle("11:38:49", u.deg),
@@ -36,7 +34,6 @@ def mkdir_p(path):
     Found at
     http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
     """
-    import os
     import errno
     try:
         os.makedirs(path)
@@ -52,20 +49,6 @@ def _check_derotator(derot_angle):
     if np.any(np.abs(derot_angle) > 2*360):
         return False
     return True
-
-
-def _standard_offsets():
-    # Case with fake multibeam data in files. Damn it
-    radius = 0.0006671036
-    # 0 for feed 0, radius for the other six
-    radii = np.array([0] + [radius]*6)
-    # Feeds 1--6 are at angles -60, -120, etc. Here I use angle 0 for
-    # convenience for feed 0, but it has no effect since radii[0] is 0
-    feed_angles = -np.arange(0, 7, 1) * np.pi * 2/6
-
-    xoffsets = radii * np.cos(feed_angles)
-    yoffsets = radii * np.sin(feed_angles)
-    return xoffsets, yoffsets
 
 
 def detect_data_kind(fname):
@@ -187,7 +170,6 @@ def print_obs_info_fitszilla(fname):
 
 def read_data_fitszilla(fname):
     """Open a fitszilla FITS file and read all relevant information."""
-    global DEBUG_MODE
 
     # Open FITS file
     lchdulist = fits.open(fname)
@@ -233,9 +215,6 @@ def read_data_fitszilla(fname):
     xoffsets = feed_input_data['xOffset'] * u.rad
     yoffsets = feed_input_data['yOffset'] * u.rad
 
-    if DEBUG_MODE and len(xoffsets) > 1:
-        xoffsets, yoffsets = _standard_offsets()
-
     relpowers = feed_input_data['relativePower']
 
     # -------------- Read data!-----------------------------------------
@@ -250,7 +229,7 @@ def read_data_fitszilla(fname):
     if is_spectrum:
         nchan = len(chan_ids)
 
-        nrows, nbins = data_table_data['spectrum'].shape
+        _, nbins = data_table_data['spectrum'].shape
         nbin_per_chan = nbins // nchan
         if nbin_per_chan * nchan != nbins:
             raise ValueError('Something wrong with channel subdivision')
@@ -278,10 +257,6 @@ def read_data_fitszilla(fname):
 
     if not _check_derotator(new_table['derot_angle']):
         warnings.warn('Derotator angle looks weird. Setting to 0')
-        new_table['derot_angle'][:] = 0
-
-    if DEBUG_MODE:
-        # Case with fake multibeam data in files. Still damn it
         new_table['derot_angle'][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)
@@ -377,16 +352,3 @@ def root_name(fname):
     """Return the file name without extension."""
     import os
     return os.path.splitext(fname)[0]
-
-
-def profile_coords():
-    """Same test above, with profiling."""
-    global DEBUG_MODE
-    DEBUG_MODE = True
-    curdir = os.path.abspath(os.path.dirname(__file__))
-    datadir = os.path.join(curdir, '..', '..', 'TEST_DATASET')
-
-    fname = os.path.join(datadir, '20150410-001307-scicom-W44',
-                         '20150410-001307-scicom-W44_002_003.fits')
-    new_table = read_data(fname)
-    return new_table
