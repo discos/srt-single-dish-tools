@@ -1,4 +1,5 @@
 # SRT Single dish tools #
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/b0a94fd4ecd64c6791120dadaef8da3e)](https://www.codacy.com/app/matteo/srt-single-dish-tools?utm_source=github.com&utm_medium=referral&utm_content=matteobachetti/srt-single-dish-tools&utm_campaign=badger)
 [![Travis CI status](https://travis-ci.org/matteobachetti/srt-single-dish-tools.svg?branch=master)](https://travis-ci.org/matteobachetti/srt-single-dish-tools)
 [![Appveyor build status](https://ci.appveyor.com/api/projects/status/m7ll5da3w8ukkrjd/branch/master?svg=true)](https://ci.appveyor.com/project/matteobachetti/srt-single-dish-tools/branch/master)
 [![Coverage Status](https://coveralls.io/repos/github/matteobachetti/srt-single-dish-tools/badge.svg?branch=master&cache-control=no-cache)](https://coveralls.io/github/matteobachetti/srt-single-dish-tools?branch=master)
