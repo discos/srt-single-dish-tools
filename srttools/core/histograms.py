@@ -115,12 +115,14 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
     if weights is not None:
         if W == -1:
             weights = asarray(weights)
-            assert weights.shape == (N,)
+            if not weights.shape == (N,):
+                raise ValueError("Wrong shape of weights array")
         else:
             for i in arange(W):
                 if weights[i] is not None:
                     weights[i] = asarray(weights[i])
-                    assert weights[i].shape == (N,)
+                    if not weights[i].shape == (N,):
+                        raise ValueError("Wrong shape of weights array")
 
     try:
         M = len(bins)
