@@ -39,7 +39,7 @@ def _default_map_shape(x, y):
     Examples
     --------
     >>> _default_map_shape(4314, 234)
-    100.0
+    100
     >>> _default_map_shape(np.zeros((3, 4)), np.ones((3, 4)))
     array([[ 100.,  100.,  100.,  100.],
            [ 100.,  100.,  100.,  100.],
