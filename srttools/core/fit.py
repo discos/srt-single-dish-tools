@@ -432,8 +432,8 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     fit_info : dict
         Fit info from the Astropy fitting routine.
     """
-    assert kind in ['gauss', 'lorentz'], \
-        'kind has to be one of: gauss, lorentz'
+    if kind not in ['gauss', 'lorentz']:
+        raise ValueError('kind has to be one of: gauss, lorentz')
     from astropy.modeling import models, fitting
 
     base = models.Linear1D(slope=0, intercept=np.min(y), name='Baseline')

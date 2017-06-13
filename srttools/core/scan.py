@@ -585,8 +585,8 @@ class Scan(Table):
 
     def check_order(self):
         """Check that times in a scan are monotonically increasing."""
-        assert np.all(self['time'] == np.sort(self['time'])), \
-            'The order of times in the table is wrong'
+        if not np.all(self['time'] == np.sort(self['time'])):
+            raise ValueError('The order of times in the table is wrong')
 
     def interactive_filter(self, save=True, test=False):
         """Run the interactive filter."""

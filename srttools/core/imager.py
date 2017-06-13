@@ -325,7 +325,8 @@ class ScanSet(Table):
         for ch in self.chan_columns:
             feeds = self[ch+'_feed']
             allfeeds = list(set(feeds))
-            assert len(allfeeds) == 1, 'Feeds are mixed up in channels'
+            if not len(allfeeds) == 1:
+                raise ValueError('Feeds are mixed up in channels')
             if no_offsets:
                 feed = 0
             else:
@@ -410,7 +411,8 @@ class ScanSet(Table):
             print("Fitting channel {}".format(ch))
             feeds = self[ch + '_feed']
             allfeeds = list(set(feeds))
-            assert len(allfeeds) == 1, 'Feeds are mixed up in channels'
+            if not len(allfeeds) == 1:
+                raise ValueError('Feeds are mixed up in channels')
             if no_offsets:
                 feed = 0
             else:
@@ -809,7 +811,8 @@ def main_imager(args=None):  # pragma: no cover
         if outfile is None:
             outfile = infile
     else:
-        assert args.config is not None, "Please specify the config file!"
+        if args.config is None:
+            raise ValueError("Please specify the config file!")
         scanset = ScanSet(args.config, norefilt=not args.refilt,
                           freqsplat=args.splat, nosub=not args.sub,
                           nofilt=args.nofilt, debug=args.debug)
@@ -827,10 +830,10 @@ def main_imager(args=None):  # pragma: no cover
         excluded = None
         if args.exclude is not None:
             nexc = len(args.exclude)
-            assert nexc % 3 == 0, \
-                ("Exclusion region has to be specified as centerX0, centerY0, "
-                 "radius0, centerX1, centerY1, radius1, ... "
-                 "(in X,Y coordinates)")
+            if nexc % 3 != 0:
+                raise ValueError("Exclusion region has to be specified as "
+                 "centerX0, centerY0, radius0, centerX1, centerY1, radius1, "
+                 "... (in X,Y coordinates)")
             excluded = \
                 np.array([np.float(e)
                           for e in args.exclude]).reshape((nexc // 3, 3))
@@ -889,7 +892,8 @@ def main_preprocess(args=None):  # pragma: no cover
             Scan(f, freqsplat=args.splat, nosub=not args.sub, norefilt=False,
                  debug=args.debug, interactive=args.interactive)
     else:
-        assert args.config is not None, "Please specify the config file!"
+        if args.config is None:
+            raise ValueError("Please specify the config file!")
         ScanSet(args.config, norefilt=False, freqsplat=args.splat,
                 nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
                 interactive=args.interactive)
