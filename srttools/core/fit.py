@@ -151,7 +151,7 @@ def linear_fit(x, y, start_pars, return_err=False):
         Fitted intercept and slope of the linear function
     """
     par, _ = curve_fit(linear_fun, x, y, start_pars,
-                          maxfev=6000)
+                       maxfev=6000)
     if return_err:
         warnings.warn("return_err not implemented yet in linear_fit")
         return par, None
@@ -180,7 +180,7 @@ def offset_fit(x, y, offset_start=0, return_err=False):
         Fitted offset
     """
     par, _ = curve_fit(offset, x, y, [offset_start],
-                          maxfev=6000)
+                       maxfev=6000)
     if return_err:
         warnings.warn("return_err not implemented yet in offset_fit")
         return par[0], None

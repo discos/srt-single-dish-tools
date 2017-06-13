@@ -832,10 +832,9 @@ def main_imager(args=None):  # pragma: no cover
         if args.exclude is not None:
             nexc = len(args.exclude)
             if nexc % 3 != 0:
-                raise ValueError(
-                    "Exclusion region has to be specified as "
-                    "centerX0, centerY0, radius0, centerX1, centerY1, radius1,"
-                     " ... (in X,Y coordinates)")
+                raise ValueError("Exclusion region has to be specified as "
+                                 "centerX0, centerY0, radius0, centerX1, "
+                                 "centerY1, radius1, ... (in X,Y coordinates)")
             excluded = \
                 np.array([np.float(e)
                           for e in args.exclude]).reshape((nexc // 3, 3))
