@@ -44,10 +44,6 @@ def _default_map_shape(x, y):
     array([[ 100.,  100.,  100.,  100.],
            [ 100.,  100.,  100.,  100.],
            [ 100.,  100.,  100.,  100.]])
-    >>> _default_map_shape(np.zeros((3, 4)), np.ones((3, 6)))
-    Traceback (most recent call last):
-    ...
-    ValueError: The shape of x and y must be the same
     """
     if np.asarray(x).shape != np.asarray(y).shape:
         raise ValueError("The shape of x and y must be the same")
