@@ -103,12 +103,10 @@ class TestScanSet(object):
         caltable.write(klass.calfile, overwrite=True)
 
         klass.config = read_config(klass.config_file)
-        if os.path.exists('test.hdf5'):
-            klass.scanset = ScanSet('test.hdf5')
-        else:
-            klass.scanset = ScanSet(klass.config_file, norefilt=False,
-                                    debug=True)
-            klass.scanset.write('test.hdf5', overwrite=True)
+
+        klass.scanset = ScanSet(klass.config_file, norefilt=False,
+                                debug=True)
+        klass.scanset.write('test.hdf5', overwrite=True)
 
         plt.ioff()
 

@@ -86,11 +86,8 @@ class ScanSet(Table):
                 self.scan_list = []
                 for i in fobj.readlines():
                     self.scan_list.append(i.strip())
-            if config_file is not None:
-                config = read_config(config_file)
-                self.meta.update(config)
 
-        elif isinstance(data, Table):
+        if isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
             if config_file is not None:
                 config = read_config(config_file)
@@ -120,6 +117,8 @@ class ScanSet(Table):
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
                 del s.meta['filename']
+                del s.meta['calibrator_directories']
+                del s.meta['list_of_directories']
                 tables.append(s)
 
             scan_table = Table(vstack(tables))
@@ -142,7 +141,6 @@ class ScanSet(Table):
         if 'list_of_directories' in self.meta.keys():
             del self.meta['list_of_directories']
         self.current = None
-        print(self.meta)
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
