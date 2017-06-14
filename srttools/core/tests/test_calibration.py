@@ -194,7 +194,6 @@ class TestCalibration(object):
         res = caltable.check_consistency(channel='Ch0')
         assert not np.all(res)
 
-
     def test_check_consistency(self):
         caltable = CalibratorTable.read(self.calfile)
         res = caltable.check_consistency(channel='Ch0')
