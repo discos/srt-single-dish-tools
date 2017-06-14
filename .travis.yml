@@ -1,9 +1,4 @@
-language: python
-
-python:
-    - 2.7
-    - 3.6
-    # This is just for "egg_info".  All other builds are explicitly given in the matrix
+language: c
 
 # Setting sudo to false opts in to Travis-CI container-based builds.
 sudo: false
@@ -37,8 +32,8 @@ env:
         - SETUP_XVFB=True
         - SETUP_CMD='test'
     matrix:
-        # Make sure that egg_info works without dependencies
-        - SETUP_CMD='egg_info'
+        - PYTHON_VERSION=2.7 SETUP_CMD='egg_info'
+        - PYTHON_VERSION=3.6 SETUP_CMD='egg_info'
 
 matrix:
     fast_finish: true
@@ -46,60 +41,47 @@ matrix:
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
         # Try all python versions with the latest numpy
-        - python: 2.7
-          env: SETUP_CMD='test --coverage'
-        - python: 3.6
-          env: SETUP_CMD='test --coverage'
+        - os: osx
+          env: SETUP_CMD='test'
+               CONDA_DEPENDENCIES=$CONDA_ALL_DEPENDENCIES
+        - env: PYTHON_VERSION=3.7-dev SETUP_CMD='test'
+
+        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage'
         # No NUMBA
-        - python: 3.6
-          env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
         # No statsmodels
-        - python: 3.6
-          env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba' SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba' SETUP_CMD='test --coverage'
         # Documentation
-        - python: 2.7
-          env: SETUP_CMD='build_docs -w'
+        - env: PYTHON_VERSION=2.7 SETUP_CMD='build_docs -w'
 
         # From here on, they are allowed to fail
         # Try Astropy development version
-        - python: 2.7
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.6
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
+        - env: PYTHON_VERSION=2.7 ASTROPY_VERSION=development SETUP_CMD='test'
+        - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
         # Old matplotlib
-        - python: 3.4
-          env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
+        - env: PYTHON_VERSION=3.4 SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
         # Try older numpy versions
-        - python: 3.4
-          env: NUMPY_VERSION=1.9 SETUP_CMD='test'
+        - env: PYTHON_VERSION=3.4 NUMPY_VERSION=1.9 SETUP_CMD='test'
         # No pyyaml
-        - python: 3.6
-          env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels numba'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels numba'
         # Test Astropy LTS version
-        - python: 2.7
-          env: SETUP_CMD='test' ASTROPY_VERSION=lts
-        - python: 3.6
-          env: SETUP_CMD='test' ASTROPY_VERSION=lts
+        - env: PYTHON_VERSION=2.7 SETUP_CMD='test' ASTROPY_VERSION=lts
+        - env: PYTHON_VERSION=3.6 SETUP_CMD='test' ASTROPY_VERSION=lts
     allow_failures:
+        - env: PYTHON_VERSION=3.7-dev SETUP_CMD='test' ASTROPY_VERSION=lts
         # Try Astropy development version
-        - python: 2.7
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.6
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
+        - env: PYTHON_VERSION=2.7 ASTROPY_VERSION=development SETUP_CMD='test'
+        - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
         # Old matplotlib
-        - python: 3.4
-          env: SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
+        - env: PYTHON_VERSION=3.4 SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
         # Try older numpy versions
-        - python: 3.4
-          env: NUMPY_VERSION=1.9 SETUP_CMD='test'
+        - env: PYTHON_VERSION=3.4 NUMPY_VERSION=1.9 SETUP_CMD='test'
         # No pyyaml
-        - python: 3.6
-          env: CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels numba'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels numba'
         # Test Astropy LTS version
-        - python: 2.7
-          env: SETUP_CMD='test' ASTROPY_VERSION=lts
-        - python: 3.6
-          env: SETUP_CMD='test' ASTROPY_VERSION=lts
+        - env: PYTHON_VERSION=2.7 SETUP_CMD='test' ASTROPY_VERSION=lts
+        - env: PYTHON_VERSION=3.6 SETUP_CMD='test' ASTROPY_VERSION=lts
 
 
 
