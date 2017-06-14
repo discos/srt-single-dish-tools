@@ -42,9 +42,7 @@ matrix:
         # may run for a long time
         # Try all python versions with the latest numpy
         - os: osx
-          env: SETUP_CMD='test'
-               CONDA_DEPENDENCIES=$CONDA_ALL_DEPENDENCIES
-        - env: PYTHON_VERSION=3.7-dev SETUP_CMD='test'
+          env: PYTHON_VERSION=3.6 SETUP_CMD='test'
 
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage'
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage'
@@ -69,7 +67,6 @@ matrix:
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test' ASTROPY_VERSION=lts
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test' ASTROPY_VERSION=lts
     allow_failures:
-        - env: PYTHON_VERSION=3.7-dev SETUP_CMD='test' ASTROPY_VERSION=lts
         # Try Astropy development version
         - env: PYTHON_VERSION=2.7 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
