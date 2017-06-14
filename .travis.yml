@@ -42,7 +42,7 @@ matrix:
         # may run for a long time
         # Try all python versions with the latest numpy
         - os: osx
-          env: SETUP_CMD='test'
+          env: PYTHON_VERSION=3.6 SETUP_CMD='test'
                CONDA_DEPENDENCIES=$CONDA_ALL_DEPENDENCIES
         - env: PYTHON_VERSION=3.7-dev SETUP_CMD='test'
 
