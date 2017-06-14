@@ -45,6 +45,7 @@ matrix:
           env: PYTHON_VERSION=3.6 SETUP_CMD='test'
 
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=3.4 SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage'
         # No NUMBA
         - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
