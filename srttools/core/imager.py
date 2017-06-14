@@ -86,8 +86,11 @@ class ScanSet(Table):
                 self.scan_list = []
                 for i in fobj.readlines():
                     self.scan_list.append(i.strip())
+            if config_file is not None:
+                config = read_config(config_file)
+                self.meta.update(config)
 
-        if isinstance(data, Table):
+        elif isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
             if config_file is not None:
                 config = read_config(config_file)
@@ -99,7 +102,7 @@ class ScanSet(Table):
             config_file = data
             config = read_config(config_file)
             self.meta.update(config)
-            self.meta['config_file'] = get_config_file()
+            self.meta['config_file'] = config_file
 
             scan_list = \
                 self.list_scans()
@@ -139,6 +142,7 @@ class ScanSet(Table):
         if 'list_of_directories' in self.meta.keys():
             del self.meta['list_of_directories']
         self.current = None
+        print(self.meta)
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
@@ -807,7 +811,7 @@ def main_imager(args=None):  # pragma: no cover
     outfile = args.outfile
 
     if args.file is not None:
-        scanset = ScanSet(args.file)
+        scanset = ScanSet(args.file, config_file=args.config)
         infile = args.file
         if outfile is None:
             outfile = infile
