@@ -45,7 +45,6 @@ matrix:
           env: PYTHON_VERSION=3.6 SETUP_CMD='test'
 
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage'
-        - env: PYTHON_VERSION=3.4 SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage'
         # No NUMBA
         - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
@@ -58,6 +57,7 @@ matrix:
         # Try Astropy development version
         - env: PYTHON_VERSION=2.7 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
+        - env: PYTHON_VERSION=3.4 SETUP_CMD='test' NUMPY_VERSION=1.11
         # Old matplotlib
         - env: PYTHON_VERSION=3.4 SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
         # Try older numpy versions
@@ -71,6 +71,7 @@ matrix:
         # Try Astropy development version
         - env: PYTHON_VERSION=2.7 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
+        - env: PYTHON_VERSION=3.4 SETUP_CMD='test' NUMPY_VERSION=1.11
         # Old matplotlib
         - env: PYTHON_VERSION=3.4 SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
         # Try older numpy versions
