@@ -138,8 +138,6 @@ class ScanSet(Table):
 
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
-        if 'list_of_directories' in self.meta.keys():
-            del self.meta['list_of_directories']
         self.current = None
 
     def analyze_coordinates(self, altaz=False):

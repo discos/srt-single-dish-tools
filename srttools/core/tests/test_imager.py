@@ -143,6 +143,10 @@ class TestScanSet(object):
             assert np.all(scanset.meta[k] == self.scanset.meta[k])
         assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
         assert scanset.scan_list == self.scanset.scan_list
+        assert scanset.meta['calibrator_directories'] == \
+            list(set(scanset.meta['calibrator_directories']))
+        assert scanset.meta['list_of_directories'] == \
+            list(set(scanset.meta['list_of_directories']))
 
     def test_2_rough_image(self):
         '''Test image production.'''
