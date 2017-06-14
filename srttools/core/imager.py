@@ -99,7 +99,7 @@ class ScanSet(Table):
             config_file = data
             config = read_config(config_file)
             self.meta.update(config)
-            self.meta['config_file'] = get_config_file()
+            self.meta['config_file'] = config_file
 
             scan_list = \
                 self.list_scans()
@@ -117,6 +117,8 @@ class ScanSet(Table):
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
                 del s.meta['filename']
+                del s.meta['calibrator_directories']
+                del s.meta['list_of_directories']
                 tables.append(s)
 
             scan_table = Table(vstack(tables))
@@ -136,8 +138,6 @@ class ScanSet(Table):
 
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
-        if 'list_of_directories' in self.meta.keys():
-            del self.meta['list_of_directories']
         self.current = None
 
     def analyze_coordinates(self, altaz=False):
@@ -807,7 +807,7 @@ def main_imager(args=None):  # pragma: no cover
     outfile = args.outfile
 
     if args.file is not None:
-        scanset = ScanSet(args.file)
+        scanset = ScanSet(args.file, config_file=args.config)
         infile = args.file
         if outfile is None:
             outfile = infile

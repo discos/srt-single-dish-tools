@@ -33,9 +33,9 @@ def gauss_src_func(x, y):
     return 50 * _2d_gauss(x, y, sigma=3 / 60)
 
 
-def sim_config_file(filename):
+def sim_config_file(filename, add_garbage=False, prefix=None):
     """Create a sample config file, to be modified by hand."""
-    string = """
+    string0 = """
 [local]
 workdir : .
 datadir : .
@@ -47,15 +47,39 @@ prefix : test_
 list_of_directories :
     gauss_ra
     gauss_dec
+"""
+    string1 = """
 calibrator_directories :
     calibration
+"""
+    string2 = """
 
 noise_threshold : 5
 
 pixel_size : 0.8
         """
+    if prefix is None:
+        prefix = os.getcwd()
+    import tempfile
+    string = string0
     with open(filename, 'w') as fobj:
-        print(string, file=fobj)
+        print(string0, file=fobj)
+        if add_garbage:
+            for _ in range(100):
+                garbage = '    ' + \
+                    tempfile.NamedTemporaryFile(prefix=prefix).name[1:]
+                print(garbage, file=fobj)
+                string += garbage + '\n'
+        print(string1, file=fobj)
+        string += string1
+        if add_garbage:
+            for _ in range(100):
+                garbage = '    ' + \
+                    tempfile.NamedTemporaryFile(prefix=prefix).name[1:]
+                print(garbage, file=fobj)
+                string += garbage + '\n'
+        print(string2, file=fobj)
+        string += string2
     return string
 
 
@@ -85,7 +109,8 @@ class TestScanSet(object):
 
         if not os.path.exists(klass.config_file):
             print('Setting up simulated data.')
-            sim_config_file(klass.config_file)
+            sim_config_file(klass.config_file, add_garbage=True,
+                            prefix="./")
 
         if (not os.path.exists(klass.obsdir_ra)) or \
                 (not os.path.exists(klass.obsdir_dec)):
@@ -103,12 +128,10 @@ class TestScanSet(object):
         caltable.write(klass.calfile, overwrite=True)
 
         klass.config = read_config(klass.config_file)
-        if os.path.exists('test.hdf5'):
-            klass.scanset = ScanSet('test.hdf5')
-        else:
-            klass.scanset = ScanSet(klass.config_file, norefilt=False,
-                                    debug=True)
-            klass.scanset.write('test.hdf5', overwrite=True)
+
+        klass.scanset = ScanSet(klass.config_file, norefilt=False,
+                                debug=True)
+        klass.scanset.write('test.hdf5', overwrite=True)
 
         plt.ioff()
 
@@ -145,6 +168,10 @@ class TestScanSet(object):
             assert np.all(scanset.meta[k] == self.scanset.meta[k])
         assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
         assert scanset.scan_list == self.scanset.scan_list
+        assert sorted(scanset.meta['calibrator_directories']) == \
+            sorted(list(set(scanset.meta['calibrator_directories'])))
+        assert sorted(scanset.meta['list_of_directories']) == \
+            sorted(list(set(scanset.meta['list_of_directories'])))
 
     def test_2_rough_image(self):
         '''Test image production.'''
