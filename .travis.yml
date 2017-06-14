@@ -81,6 +81,8 @@ matrix:
         # Test Astropy LTS version
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test' ASTROPY_VERSION=lts
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test' ASTROPY_VERSION=lts
+        - os: osx
+          env: PYTHON_VERSION=3.6 SETUP_CMD='test'
 
 
 
