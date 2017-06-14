@@ -69,7 +69,7 @@ matrix:
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test' ASTROPY_VERSION=lts
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test' ASTROPY_VERSION=lts
     allow_failures:
-        - env: PYTHON_VERSION=3.7-dev SETUP_CMD='test' ASTROPY_VERSION=lts
+        - env: PYTHON_VERSION=3.7-dev SETUP_CMD='test'
         # Try Astropy development version
         - env: PYTHON_VERSION=2.7 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
