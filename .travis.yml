@@ -43,9 +43,8 @@ matrix:
         # Try all python versions with the latest numpy
         - os: osx
           env: PYTHON_VERSION=3.6 SETUP_CMD='test'
-        - env: PYTHON_VERSION=3.7-dev SETUP_CMD='test'
-
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=3.4 SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage'
         # No NUMBA
         - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
@@ -68,7 +67,6 @@ matrix:
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test' ASTROPY_VERSION=lts
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test' ASTROPY_VERSION=lts
     allow_failures:
-        - env: PYTHON_VERSION=3.7-dev SETUP_CMD='test'
         # Try Astropy development version
         - env: PYTHON_VERSION=2.7 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
