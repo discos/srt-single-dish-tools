@@ -300,6 +300,8 @@ class DataSelector:
             # Eliminate zapped intervals
             plt.draw()
             good[key] = mask(self.xs[key], zap_xs)
+            if self.info[key]['FLAG'] is True:
+                good[key][:] = 0
             good[key] = good[key] * self.masks[key]
 
             fitpars = list(self.info[key]['fitpars'])
