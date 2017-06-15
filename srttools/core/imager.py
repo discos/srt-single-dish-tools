@@ -622,9 +622,12 @@ class ScanSet(Table):
         return ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, \
             vars_to_filter
 
-    def update_scan(self, sname, sid, dim, zap_info, fit_info, flag_info):
+    def update_scan(self, sname, sid, dim, zap_info, fit_info, flag_info,
+                    test=False):
         """Update a scan in the scanset after filtering."""
         ch = self.current
+        if test:
+            ch = 'Ch0'
         feed = list(set(self[ch+'_feed']))[0]
         mask = self['Scan_id'] == sid
         try:
@@ -650,7 +653,7 @@ class ScanSet(Table):
         # TODO: make it channel-independent
             s.meta['backsub'] = True
             try:
-                self[ch][mask][:] = s[ch]
+                self[ch][mask] = s[ch]
             except Exception:
                 warnings.warn("Something while treating {}".format(sname))
 
@@ -664,6 +667,7 @@ class ScanSet(Table):
             s.meta['FLAG'] = True
             self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
                                                         dtype=bool)
+            s['{}-filt'.format(ch)] = np.zeros(len(s[dim]), dtype=bool)
 
         s.save()
 
