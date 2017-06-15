@@ -421,7 +421,7 @@ class TestScanSet(object):
         assert np.all(before[:10] != after[:10])
         s = Scan(sname)
         assert np.all(np.array(after, dtype=bool) == np.array(s['Ch0-filt'],
-                                                            dtype=bool))
+                                                              dtype=bool))
         os.unlink(sname.replace('fits', 'hdf5'))
 
     @classmethod
