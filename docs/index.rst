@@ -17,9 +17,9 @@ and a set of command-line scripts to soften the learning curve for new users.
 The Python library is written following the modern coding standards
 documented in the Astropy Coding Guidelines. Automatic tests cover
 a significant fraction of the code, and are launched each time a commit
-is pushed to the (private, for the time being) `Github`_ repository.
+is pushed to the `Github`_ repository.
 The Continuous Integration service `Travis CI`_ is used for that.
-The current version is 0.3-dev, indicating the development version of 0.3.
+The current version is 0.3-dev, indicating the development version towards 0.3.
 See below the tentative roadmap.
 
 In the current implementation, spectroscopic and total-power on-the-fly
