@@ -7,9 +7,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ..imager import ScanSet, main_imager
 from ..simulate import simulate_map
+from ..scan import Scan
 from ..global_fit import display_intermediate
 from ..calibration import CalibratorTable
 from ..io import mkdir_p
+from ..interactive_filter import intervals
+import copy
 import os
 import glob
 import astropy.units as u
@@ -133,6 +136,11 @@ class TestScanSet(object):
                                 debug=True)
         klass.scanset.write('test.hdf5', overwrite=True)
 
+        klass.stdinfo = {}
+        klass.stdinfo['FLAG'] = False
+        klass.stdinfo['zap'] = intervals()
+        klass.stdinfo['base'] = intervals()
+        klass.stdinfo['fitpars'] = np.array([0, 0])
         plt.ioff()
 
     def test_0_prepare(self):
@@ -341,6 +349,80 @@ class TestScanSet(object):
         _, _, _, _, _, _, _, coord = \
             scanset.find_scans_through_pixel(62, 64, test=True)
         assert coord == {}
+
+    def test_update_scan_flag(self):
+        scanset = ScanSet('test.hdf5')
+
+        scanset.calculate_images()
+        ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
+            scanset.find_scans_through_pixel(62, 0, test=True)
+
+        sname = list(scan_ids.keys())[0]
+
+        info = {sname: copy.copy(self.stdinfo)}
+        info[sname]['FLAG'] = True
+        sid = scan_ids[sname]
+        mask = scanset['Scan_id'] == sid
+        before = scanset['Ch0-filt'][mask]
+        scanset.update_scan(sname, scan_ids[sname], coord[sname],
+                            info[sname]['zap'],
+                            info[sname]['fitpars'], info[sname]['FLAG'],
+                            test=True)
+        after = scanset['Ch0-filt'][mask]
+        assert np.all(before != after)
+        s = Scan(sname)
+        assert np.all(after == s['Ch0-filt'])
+        os.unlink(sname.replace('fits', 'hdf5'))
+
+    def test_update_scan_fit(self):
+        scanset = ScanSet('test.hdf5')
+
+        scanset.calculate_images()
+        ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
+            scanset.find_scans_through_pixel(62, 0, test=True)
+
+        sname = list(scan_ids.keys())[0]
+
+        info = {sname: copy.copy(self.stdinfo)}
+        info[sname]['fitpars'] = np.array([0.1, 0.3])
+        sid = scan_ids[sname]
+        mask = scanset['Scan_id'] == sid
+        before = scanset['Ch0'][mask]
+        scanset.update_scan(sname, scan_ids[sname], coord[sname],
+                            info[sname]['zap'],
+                            info[sname]['fitpars'], info[sname]['FLAG'],
+                            test=True)
+        after = scanset['Ch0'][mask]
+        assert np.all(before != after)
+        s = Scan(sname)
+        assert np.all(after == s['Ch0'])
+        os.unlink(sname.replace('fits', 'hdf5'))
+
+    def test_update_scan_zap(self):
+        scanset = ScanSet('test.hdf5')
+
+        scanset.calculate_images()
+        ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
+            scanset.find_scans_through_pixel(62, 0, test=True)
+
+        sname = list(dec_xs.keys())[0]
+        s = Scan(sname)
+
+        info = {sname: copy.copy(self.stdinfo)}
+        info[sname]['zap'].xs = [s['dec'][0], s['dec'][10]]
+        sid = scan_ids[sname]
+        mask = scanset['Scan_id'] == sid
+        before = scanset['Ch0-filt'][mask]
+        scanset.update_scan(sname, scan_ids[sname], coord[sname],
+                            info[sname]['zap'],
+                            info[sname]['fitpars'], info[sname]['FLAG'],
+                            test=True)
+        after = scanset['Ch0-filt'][mask]
+        assert np.all(before[:10] != after[:10])
+        s = Scan(sname)
+        assert np.all(np.array(after, dtype=bool) == np.array(s['Ch0-filt'],
+                                                              dtype=bool))
+        os.unlink(sname.replace('fits', 'hdf5'))
 
     @classmethod
     def teardown_class(klass):
