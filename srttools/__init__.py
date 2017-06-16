@@ -8,6 +8,9 @@ This is an Astropy affiliated package.
 # should keep this content at the top.
 # ----------------------------------------------------------------------------
 from ._astropy_init import *
+from .core import ScanSet
+from .core import Scan
+from .core import CalibratorTable
 # ----------------------------------------------------------------------------
 
 # For egg_info test builds to pass, put package imports here.

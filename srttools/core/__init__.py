@@ -32,3 +32,7 @@ except ImportError:
 
     def vectorize(*args, **kwargs):
         return jit
+
+from .scan import Scan
+from .imager import ScanSet
+from .calibration import CalibratorTable
