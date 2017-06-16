@@ -8,7 +8,7 @@ from __future__ import (absolute_import, division,
                         print_function)
 
 from .scan import Scan, chan_re, list_scans
-from .read_config import read_config, get_config_file, sample_config_file
+from .read_config import read_config, sample_config_file
 import numpy as np
 from astropy import wcs
 from astropy.table import Table, vstack, Column
