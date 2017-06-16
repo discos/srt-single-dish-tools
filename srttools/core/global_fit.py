@@ -203,8 +203,9 @@ def _get_data_idx(par, idx):
     for i_p in range(len(par_pairs)):
         good = idx == i_p
         if not np.any(good):
-            continue
-        data_idx.append(contiguous_regions(good)[0])
+            data_idx.append([0,0])
+        else:
+            data_idx.append(contiguous_regions(good)[0])
 
     data_idx = np.array(data_idx, dtype=int)
     return data_idx
