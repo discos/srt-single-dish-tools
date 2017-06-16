@@ -1,10 +1,10 @@
-from srttools.core.simulate import simulate_map, simulate_scan, save_scan
-from srttools.core.simulate import _default_map_shape
 import numpy as np
 import shutil
-from srttools.core.io import mkdir_p
 import os
 import pytest
+from srttools.core.io import mkdir_p
+from srttools.core.simulate import simulate_map, simulate_scan, save_scan
+from srttools.core.simulate import _default_map_shape
 
 
 class TestSimulate(object):

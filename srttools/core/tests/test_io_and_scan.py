@@ -9,7 +9,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 import pytest
 
-from srttools.core.scan import Scan
+from srttools import Scan
 from srttools.core.io import print_obs_info_fitszilla
 from srttools.core.io import locations
 import os

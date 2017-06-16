@@ -1,5 +1,6 @@
 from __future__ import division, print_function
-from srttools.core.calibration import CalibratorTable, main_lcurve
+from srttools import CalibratorTable
+from srttools.core.calibration import main_lcurve
 from srttools.core.read_config import read_config
 from srttools.core.scan import list_scans
 from srttools.core.simulate import save_scan
