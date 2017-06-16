@@ -3,7 +3,7 @@
 from __future__ import (absolute_import, division,
                         print_function)
 from .fit import contiguous_regions
-from . import jit, vectorize
+from .utils import jit, vectorize
 
 from .histograms import histogram2d
 import numpy as np
