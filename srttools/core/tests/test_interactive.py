@@ -122,6 +122,17 @@ class TestDataSelector(object):
         assert "Scan was flagged" in out
         assert self.selector.info['scan1.fits']['FLAG'] is True
 
+    def test_flag_otherscan(self, capsys):
+        self.selector.current = 'scan2.fits'
+        assert self.selector.info['scan2.fits']['FLAG'] is False
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('x', 1, 3)
+        self.selector.on_key(fake_event)
+        out, err = capsys.readouterr()
+        assert "Scan was flagged" in out
+        assert self.selector.info['scan2.fits']['FLAG'] is True
+        self.selector.current = 'scan1.fits'
+
     def test_unflag(self, capsys):
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('x', 1, 3)
@@ -136,13 +147,15 @@ class TestDataSelector(object):
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('b', 1, 3)
         self.selector.on_key(fake_event)
+        self.selector.current = 'scan2.fits'
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('z', 1, 3)
         self.selector.on_key(fake_event)
+        self.selector.current = 'scan1.fits'
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('r', 1, 3)
         self.selector.on_key(fake_event)
-        assert self.selector.info['scan1.fits']['FLAG'] is False
+        assert self.selector.info['scan2.fits']['FLAG'] is False
         assert self.selector.info['scan1.fits']['base'].xs == []
         assert self.selector.info['scan1.fits']['zap'].xs == []
         assert self.selector.info['scan1.fits']['fitpars'][0] == 0

@@ -227,9 +227,10 @@ Actions:
             l.remove()
         for current in self.xs.keys():
             self.lines = []
-            self.info[self.current]['zap'].clear()
-            self.info[self.current]['base'].clear()
-            self.info[self.current]['fitpars'] = np.array([0, 0])
+            self.info[current]['zap'].clear()
+            self.info[current]['base'].clear()
+            self.info[current]['fitpars'] = np.array([0, 0])
+            self.info[current]['FLAG'] = False
         self.plot_all(silent=True)
 
     def quit(self):
