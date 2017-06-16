@@ -12,7 +12,7 @@ from ._astropy_init import *
 
 # For egg_info test builds to pass, put package imports here.
 if not _ASTROPY_SETUP_:
-    from .core.imager import ScanSet
-    from .core.scan import Scan
-    from .core.calibration import CalibratorTable
+    from .core import ScanSet
+    from .core import Scan
+    from .core import CalibratorTable
 
