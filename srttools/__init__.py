@@ -15,4 +15,3 @@ if not _ASTROPY_SETUP_:
     from .core import ScanSet
     from .core import Scan
     from .core import CalibratorTable
-
