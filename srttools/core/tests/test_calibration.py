@@ -1,10 +1,10 @@
 from __future__ import division, print_function
-from ..calibration import CalibratorTable, main_lcurve
-from ..read_config import read_config
-from ..scan import list_scans
-from ..simulate import save_scan
-from ..io import mkdir_p
-from ..utils import compare_strings
+from srttools.core.calibration import CalibratorTable, main_lcurve
+from srttools.core.read_config import read_config
+from srttools.core.scan import list_scans
+from srttools.core.simulate import save_scan
+from srttools.core.io import mkdir_p
+from srttools.core.utils import compare_strings
 import pytest
 
 import os

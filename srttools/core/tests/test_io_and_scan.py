@@ -3,15 +3,15 @@
 from __future__ import (absolute_import, division,
                         print_function)
 
-from ..read_config import read_config
+from srttools.core.read_config import read_config
 from astropy.time import Time
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 import pytest
 
-from ..scan import Scan
-from ..io import print_obs_info_fitszilla
-from ..io import locations
+from srttools.core.scan import Scan
+from srttools.core.io import print_obs_info_fitszilla
+from srttools.core.io import locations
 import os
 import numpy as np
 import glob
