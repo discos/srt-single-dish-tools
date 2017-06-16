@@ -80,6 +80,34 @@ class DataSelector:
     def __init__(self, xs, ys, ax1, ax2, masks=None, xlabel=None, title=None,
                  test=False):
         """Initialize."""
+
+        self.instructions = """
+-------------------------------------------------------------
+
+Interactive plotter.
+
+-------------------------------------------------------------
+
+Choose line to fit: Click on the line
+
+Interval selection: Point mouse + <key>
+    z     create zap intervals
+    b     suggest intervals to use for baseline fit
+
+Flagging actions:
+    x     flag as bad;
+    v     Remove flag;
+
+Actions:
+    P     print current zap list and fit parameters
+    A     align all scans w.r.t. the selected one
+    u     update plots with new selections
+    B     subtract the baseline;
+    r     reset baseline and zapping intervals, and fit parameters;
+    q     quit
+
+-------------------------------------------------------------
+    """
         self.xs = xs
         self.ys = ys
         self.test = test
@@ -165,7 +193,6 @@ class DataSelector:
 
     def on_key(self, event):
         """Do something when the keyboard is used."""
-        current = self.current
         if event.key == 'z':
             self.zap(event)
         elif event.key == 'h':
@@ -177,29 +204,36 @@ class DataSelector:
         elif event.key == 'u':
             self.plot_all()
         elif event.key == 'x':
-            self.info[current]['FLAG'] = True
-            print('Marked as flagged')
+            self.flag()
         elif event.key == 'P':
             self.print_info()
         elif event.key == 'A':
             self.align_all()
         elif event.key == 'v':
-            if self.info[current]['FLAG']:
-                self.info[current]['FLAG'] = False
-                print('Removed flag ()')
+            self.flag(value=False)
         elif event.key == 'r':
-            for l in self.lines:
-                l.remove()
-            for current in self.xs.keys():
-                self.lines = []
-                self.info[current]['zap'].clear()
-                self.info[current]['base'].clear()
-                self.info[current]['fitpars'] = np.array([0, 0])
-            self.plot_all(silent=True)
+            self.reset()
         elif event.key == 'q':
-            plt.close(self.ax1.figure)
+            self.quit()
         else:
             pass
+
+    def flag(self, value=True):
+        self.info[self.current]['FLAG'] = value
+        print('Scan was {}flagged'.format("un" if not value else ""))
+
+    def reset(self):
+        for l in self.lines:
+            l.remove()
+        for current in self.xs.keys():
+            self.lines = []
+            self.info[self.current]['zap'].clear()
+            self.info[self.current]['base'].clear()
+            self.info[self.current]['fitpars'] = np.array([0, 0])
+        self.plot_all(silent=True)
+
+    def quit(self):
+        plt.close(self.ax1.figure)
 
     def subtract_baseline(self):
         """Subtract the baseline based on the selected intervals."""
@@ -344,35 +378,7 @@ class DataSelector:
 
     def print_instructions(self):
         """Print to terminal some instructions for the interactive window."""
-        instructions = """
--------------------------------------------------------------
-
-Interactive plotter.
-
--------------------------------------------------------------
-
-Choose line to fit: Click on the line
-
-Interval selection: Point mouse + <key>
-    z     create zap intervals
-    b     suggest intervals to use for baseline fit
-
-Flagging actions:
-    x     flag as bad;
-    v     Remove flag;
-
-Actions:
-    P     print current zap list and fit parameters
-    A     align all scans w.r.t. the selected one
-    u     update plots with new selections
-    B     subtract the baseline;
-    r     reset baseline and zapping intervals, and fit parameters;
-    q     quit
-
--------------------------------------------------------------
-    """
-
-        print(instructions)
+        print(self.instructions)
 
     def print_info(self):
         """Print info on the current scan.
@@ -398,7 +404,7 @@ def select_data(xs, ys, masks=None, title=None, xlabel=None, test=False):
         ys = {'Ch': ys}
 
     if title is None:
-        title = 'Data selector'
+        title = 'Data selector (press "h" for help)'
 
     plt.figure(title)
     gs = gridspec.GridSpec(2, 1, height_ratios=[3, 2], hspace=0)
