@@ -18,6 +18,9 @@ try:
 except ImportError:
     from configparser import ConfigParser
 
+__all__ = ["inspect_directories", "split_observation_table", "split_by_source",
+           "dump_config_files"]
+
 
 def inspect_directories(directories):
     info = Table()

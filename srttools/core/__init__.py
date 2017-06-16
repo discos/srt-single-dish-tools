@@ -1,38 +1,26 @@
-import warnings
-DEFAULT_MPL_BACKEND = 'TkAgg'
-try:
-    import matplotlib
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-    # This is necessary. Random backends might respond incorrectly.
-    matplotlib.use(DEFAULT_MPL_BACKEND)
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
+"""
+This is an Astropy affiliated package.
+"""
 
-try:
-    import statsmodels.api as sm
-    version = [int(i) for i in sm.version.version.split('.')]
+# Affiliated packages may add whatever they like to this file, but
+# should keep this content at the top.
+# ----------------------------------------------------------------------------
+from ._astropy_init import *  # NOQA
+# ----------------------------------------------------------------------------
 
-    # Minimum version 0.8.0
-    if version < [0, 8, 0]:
-        warnings.warn("Please update statsmodels")
-        raise ImportError
-
-    HAS_STATSM = True
-except ImportError:
-    HAS_STATSM = False
-
-try:
-    from numba import jit, vectorize
-except ImportError:
-    warnings.warn("Numba not installed. Faking it")
-
-    def jit(fun):
-        return fun
-
-    def vectorize(*args, **kwargs):
-        return jit
-
-from .scan import Scan
-from .imager import ScanSet
-from .calibration import CalibratorTable
+# For egg_info test builds to pass, put package imports here.
+if not _ASTROPY_SETUP_:
+    from .calibration import *  # noqa: F401,F403
+    from .fit import *  # noqa: F401,F403
+    from .global_fit import *  # noqa: F401,F403
+    from .histograms import *  # noqa: F401,F403
+    from .imager import *  # noqa: F401,F403
+    from .inspect_observations import *  # noqa: F401,F403
+    from .interactive_filter import *  # noqa: F401,F403
+    from .io import *  # noqa: F401,F403
+    from .read_config import *  # noqa: F401,F403
+    from .scan import *  # noqa: F401,F403
+    from .simulate import *  # noqa: F401,F403
+    from .utils import *  # noqa: F401,F403

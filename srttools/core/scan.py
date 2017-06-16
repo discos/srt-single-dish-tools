@@ -20,6 +20,10 @@ import warnings
 import logging
 
 
+__all__ = ["Scan", "interpret_frequency_range", "clean_scan_using_variability",
+           "list_scans"]
+
+
 def _split_freq_splat(freqsplat):
     freqmin, freqmax = \
         [float(f) for f in freqsplat.split(':')]

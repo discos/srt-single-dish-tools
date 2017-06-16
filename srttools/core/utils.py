@@ -3,6 +3,55 @@ Random utilities
 """
 import sys
 import numpy as np
+import warnings
+
+
+DEFAULT_MPL_BACKEND = 'TKAgg'
+
+
+try:
+    import matplotlib
+
+    # This is necessary. Random backends might respond incorrectly.
+    matplotlib.use(DEFAULT_MPL_BACKEND)
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
+
+try:
+    import statsmodels.api as sm
+    version = [int(i) for i in sm.version.version.split('.')]
+
+    # Minimum version 0.8.0
+    if version < [0, 8, 0]:
+        warnings.warn("Please update statsmodels")
+        raise ImportError
+
+    HAS_STATSM = True
+except ImportError:
+    HAS_STATSM = False
+
+try:
+    from numba import jit, vectorize
+except ImportError:
+    warnings.warn("Numba not installed. Faking it")
+
+    def jit(fun):
+        return fun
+
+    def vectorize(*args, **kwargs):
+        return jit
+
+
+__all__ = ["mad", "standard_string", "standard_byte", "compare_strings",
+           "tqdm", "jit", "vectorize"]
+
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(x):
+        return x
 
 
 try:
@@ -42,7 +91,7 @@ def standard_string(s):
                 s = np.array(s, dtype='U')
     else:
         # for Python 2
-        if isinstance(s[0], unicode):
+        if isinstance(s[0], unicode):  # NOQA
             s = str(s)
         # Try to see if it's a numpy array
         elif hasattr(s, 'dtype') and s.dtype.char == 'U':

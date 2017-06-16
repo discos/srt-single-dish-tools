@@ -9,15 +9,14 @@ import os
 from astropy.io import fits
 from astropy.table import Table, vstack
 from .io import mkdir_p, locations
+from .utils import tqdm
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 import astropy.units as u
 import six
-try:
-    from tqdm import tqdm
-except ImportError:
-    def tqdm(x):
-        return x
+
+
+__all__ = ["simulate_scan", "save_scan", "simulate_map"]
 
 
 def _default_flat_shape(x):

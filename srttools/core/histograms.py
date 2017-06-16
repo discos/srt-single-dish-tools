@@ -29,6 +29,8 @@ from numpy import atleast_2d, asarray, zeros, ones, array, atleast_1d, arange,\
     isscalar, linspace, diff, empty, around, where, bincount, sort, log10,\
     searchsorted
 
+__all__ = ["histogram2d", "histogramdd"]
+
 __doctest_skip__ = ['*']
 
 

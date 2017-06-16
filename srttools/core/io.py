@@ -10,6 +10,12 @@ import os
 from astropy.time import Time
 import warnings
 
+
+__all__ = ["mkdir_p", "detect_data_kind", "correct_offsets", "observing_angle",
+           "get_rest_angle", "print_obs_info_fitszilla", "read_data_fitszilla",
+           "read_data", "root_name"]
+
+
 locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                   unit=u.m),
              'medicina': EarthLocation(Angle("11:38:49", u.deg),

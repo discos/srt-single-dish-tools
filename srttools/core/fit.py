@@ -10,6 +10,12 @@ import collections
 from .utils import mad
 
 
+__all__ = ["contiguous_regions", "ref_std", "ref_mad", "linear_fun",
+           "linear_fit", "offset", "offset_fit", "baseline_rough",
+           "purge_outliers", "baseline_als", "fit_baseline_plus_bell",
+           "total_variance", "align"]
+
+
 def contiguous_regions(condition):
     """Find contiguous True regions of the boolean array "condition".
 

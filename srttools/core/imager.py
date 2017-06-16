@@ -30,6 +30,9 @@ import six
 import functools
 
 
+__all__ = ["ScanSet"]
+
+
 class ScanSet(Table):
     """Class obtained by a set of scans.
 
