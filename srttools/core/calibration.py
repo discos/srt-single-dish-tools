@@ -15,7 +15,7 @@ from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
 from .utils import standard_string, standard_byte, compare_strings
-from . import HAS_STATSM
+from .utils import HAS_STATSM
 
 import os
 import sys
