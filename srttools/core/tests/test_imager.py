@@ -2,14 +2,15 @@
 
 from __future__ import (absolute_import, division,
                         print_function)
-from srttools.core.read_config import read_config
 import numpy as np
 import matplotlib.pyplot as plt
-from srttools.core.imager import ScanSet, main_imager
+from srttools import ScanSet
+from srttools import Scan
+from srttools import CalibratorTable
+from srttools.core.read_config import read_config
+from srttools.core.imager import main_imager
 from srttools.core.simulate import simulate_map
-from srttools.core.scan import Scan
 from srttools.core.global_fit import display_intermediate
-from srttools.core.calibration import CalibratorTable
 from srttools.core.io import mkdir_p
 from srttools.core.interactive_filter import intervals
 import copy

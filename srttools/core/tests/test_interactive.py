@@ -1,7 +1,8 @@
 from __future__ import (absolute_import, division,
                         print_function)
 import numpy as np
-from srttools.core.interactive_filter import ImageSelector, DataSelector, select_data
+from srttools.core.interactive_filter import ImageSelector, DataSelector
+from srttools.core.interactive_filter import select_data
 from srttools.core.interactive_filter import TestWarning, PlotWarning
 import warnings
 import pytest
