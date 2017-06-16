@@ -17,6 +17,7 @@ import copy
 import os
 import glob
 import astropy.units as u
+import shutil
 
 try:
     from tqdm import tqdm
@@ -51,6 +52,7 @@ prefix : test_
 list_of_directories :
     gauss_ra
     gauss_dec
+    defective
 """
     string1 = """
 calibrator_directories :
@@ -103,11 +105,12 @@ class TestScanSet(object):
 
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, 'data')
+        klass.sim_dir = os.path.join(klass.datadir, 'sim')
+
         klass.obsdir_ra = os.path.join(klass.datadir, 'sim', 'gauss_ra')
         klass.obsdir_dec = os.path.join(klass.datadir, 'sim', 'gauss_dec')
         klass.config_file = \
-            os.path.abspath(os.path.join(klass.datadir, 'sim',
-                                         'test_config_sim.ini'))
+            os.path.abspath(os.path.join(klass.sim_dir, 'test_config_sim.ini'))
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
         # First off, simulate a beamed observation  -------
 
@@ -122,6 +125,12 @@ class TestScanSet(object):
             mkdir_p(klass.obsdir_dec)
             print('Fake map: Point-like (but Gaussian beam shape), 0.5 Jy.')
             sim_map(klass.obsdir_ra, klass.obsdir_dec)
+
+        defective_dir = os.path.join(klass.sim_dir, 'defective')
+        if not os.path.exists(defective_dir):
+            shutil.copytree(os.path.join(klass.datadir, 'calibrators'),
+                            defective_dir)
+
 
         caltable = CalibratorTable()
         caltable.from_scans(glob.glob(os.path.join(klass.caldir,
@@ -373,6 +382,7 @@ class TestScanSet(object):
         assert np.all(before != after)
         s = Scan(sname)
         assert np.all(after == s['Ch0-filt'])
+        assert s.meta['FLAG'] is True
         os.unlink(sname.replace('fits', 'hdf5'))
 
     def test_update_scan_fit(self):
