@@ -8,6 +8,8 @@ from . import jit, vectorize
 from .histograms import histogram2d
 import numpy as np
 
+__all__ = ["fit_full_image", "display_intermediate"]
+
 
 @vectorize('(float64(float64,float64,float64,float64))', nopython=True)
 def _align_fast(x, scan, m, q):

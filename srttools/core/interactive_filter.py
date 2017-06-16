@@ -9,6 +9,10 @@ from .fit import linear_fit, linear_fun, align
 import warnings
 
 
+__all__ = ["TestWarning", "PlotWarning", "mask", "intervals", "DataSelector",
+           "ImageSelector", "select_data"]
+
+
 class TestWarning(UserWarning):
     pass
 

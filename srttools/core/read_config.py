@@ -14,6 +14,9 @@ except ImportError:
     import ConfigParser as configparser
 
 
+__all__ = ["sample_config_file", "get_config_file", "read_config"]
+
+
 SRT_tools_config_file = None
 SRT_tools_config = None
 

@@ -15,6 +15,7 @@ from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
 from .utils import standard_string, standard_byte, compare_strings
+from . import HAS_STATSM
 
 import os
 import sys
@@ -30,7 +31,7 @@ import astropy.units as u
 
 import numpy as np
 from astropy.table import Table, Column
-from . import HAS_STATSM
+
 # For Python 2 and 3 compatibility
 try:
     import configparser
@@ -38,6 +39,9 @@ except ImportError:
     import ConfigParser as configparser
 
 CALIBRATOR_CONFIG = None
+
+
+__all__ = ["CalibratorTable", "read_calibrator_config"]
 
 
 def _calibration_function(x, pars):
