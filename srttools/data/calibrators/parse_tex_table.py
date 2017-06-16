@@ -1,8 +1,8 @@
 import sys
+import re
 
 fname = sys.argv[1]
 file = open(fname)
-import re
 good_line = re.compile(r'^.*\&.*\\$')
 
 out_csv = ''
