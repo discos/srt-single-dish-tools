@@ -131,7 +131,6 @@ class TestScanSet(object):
             shutil.copytree(os.path.join(klass.datadir, 'calibrators'),
                             defective_dir)
 
-
         caltable = CalibratorTable()
         caltable.from_scans(glob.glob(os.path.join(klass.caldir,
                                                    '*.fits')), debug=True)
