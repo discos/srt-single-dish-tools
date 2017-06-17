@@ -50,9 +50,11 @@ Tentative Roadmap
 
 + v.0.3: Stabilization of interactive interface
 
-+ v.0.4: Full support of general coordinate systems, including Galactic
++ v.0.4: Generalized, user-supplied scanset filters
 
-+ v.0.5: Improved RFI support, using simple techniques of machine learning
++ v.0.5: Full support of general coordinate systems, including Galactic
+
++ v.0.6: Improved RFI support, using simple techniques of machine learning
 
 + v.1.0: Compatibility with ALMA file format; code release.
 
