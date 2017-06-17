@@ -70,7 +70,7 @@ class TestDataSelector(object):
                                       test=True)
         klass.selector.current = 'scan1.fits'
 
-    def test_interactive_zap(self):
+    def test_interactive_zap_and_print_info(self, capsys):
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('z', 1, 3)
         with pytest.warns(TestWarning) as record:
@@ -83,6 +83,14 @@ class TestDataSelector(object):
         assert self.selector.info['scan1.fits']['zap'].xs == [1, 4]
         assert self.selector.info['scan1.fits']['zap'].ys == [3, 3]
         assert self.selector.zcounter == 2
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('P', 1, 3)
+        self.selector.on_key(fake_event)
+        out, err = capsys.readouterr()
+        assert "scan1.fits" + ":" in out
+        msg_nospace = " ".join(out.split())
+
+        assert "Zap intervals: [(1, 4)]" in msg_nospace
 
     def test_interactive_base(self):
         fake_event = type('event', (), {})()
@@ -194,6 +202,13 @@ class TestDataSelector(object):
         with pytest.warns(TestWarning) as record:
             self.selector.on_key(fake_event)
         assert "I aligned all" in record[0].message.args[0]
+
+    def test_quit(self, capsys):
+        fake_event = type('event', (), {})()
+        fake_event.key, fake_event.xdata, fake_event.ydata = ('q', 1, 3)
+        self.selector.on_key(fake_event)
+        out, err = capsys.readouterr()
+        assert "Closing all figures and quitting." in out
 
     def test_select_data(self):
         info = select_data(self.xs, self.ys, test=True)
