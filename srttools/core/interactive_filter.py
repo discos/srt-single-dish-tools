@@ -234,6 +234,7 @@ Actions:
         self.plot_all(silent=True)
 
     def quit(self):
+        print("Closing all figures and quitting.")
         plt.close(self.ax1.figure)
 
     def subtract_baseline(self):
