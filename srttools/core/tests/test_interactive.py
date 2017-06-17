@@ -88,9 +88,9 @@ class TestDataSelector(object):
         self.selector.on_key(fake_event)
         out, err = capsys.readouterr()
         assert "scan1.fits" + ":" in out
-        msg_nospace = " ".join(out.split())
 
-        assert "Zap intervals: [(1, 4)]" in msg_nospace
+        assert "Zap intervals:" in out
+        assert "[(1, 4)]" in out
 
     def test_interactive_base(self):
         fake_event = type('event', (), {})()
