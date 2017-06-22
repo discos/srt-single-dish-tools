@@ -38,8 +38,9 @@ class ScanSet(Table):
                  freqsplat=None, nofilt=False, nosub=False, **kwargs):
         """Class obtained by a set of scans.
 
-        Once the scans are loaded, this class contains all functionality that will
-        be used to produce (calibrated or uncalibrated) maps with WCS information.
+        Once the scans are loaded, this class contains all functionality that
+        will be used to produce (calibrated or uncalibrated) maps with WCS
+        information.
 
         Parameters
         ----------
