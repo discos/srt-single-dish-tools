@@ -206,22 +206,26 @@ class ScanSet(Table):
             return np.array(np.dstack([self['ra'],
                                        self['dec']]))
 
+    def get_obstimes(self):
+        from astropy.time import Time
+        from .io import locations
+        return Time((self['time']) * u.day, format='mjd', scale='utc',
+                    location=locations[self.meta['site']])
+
     def calculate_delta_altaz(self):
         """Construction of delta altaz coordinates.
 
         Calculate the delta of altazimutal coordinates wrt the position
         of the source
         """
-        from astropy.time import Time
         from astropy.coordinates import SkyCoord
 
         from .io import locations
-        obstimes = Time((self['time']) * u.day, format='mjd', scale='utc')
+
         ref_coords = SkyCoord(ra=self.meta['reference_ra'],
                               dec=self.meta['reference_dec'],
-                              obstime=obstimes,
-                              location=locations[self.meta['site']]
-                              )
+                              obstime=self.get_obstimes(),
+                              location=locations[self.meta['site']])
         ref_altaz_coords = ref_coords.altaz
         ref_az = ref_altaz_coords.az.to(u.rad)
         ref_el = ref_altaz_coords.alt.to(u.rad)
@@ -673,6 +677,11 @@ class ScanSet(Table):
             s['{}-filt'.format(ch)] = np.zeros(len(s[dim]), dtype=bool)
 
         s.save()
+
+    def barycenter_times(self):
+        obstimes_tdb = self.get_obstimes().tdb.mjd
+        self['barytime'] = obstimes_tdb
+        return obstimes_tdb
 
     def write(self, fname, **kwargs):
         """Same as Table.write, but adds path information for HDF5.
