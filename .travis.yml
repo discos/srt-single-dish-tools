@@ -93,6 +93,7 @@ before_install:
 #    - sudo wget https://gist.githubusercontent.com/dmitriy-kiriyenko/974392/raw/337a72368029046f28f0391c914c02d0ef3ad9d7/xvfb -O /etc/init.d/xvfb
 #    - sudo chmod a+x /etc/init.d/xvfb
     - git clone git://github.com/astropy/ci-helpers.git
+    - cp setup_conda_$TRAVIS_OS_NAME.sh ci-helpers/travis/
     - source ci-helpers/travis/setup_conda_$TRAVIS_OS_NAME.sh
 
 
