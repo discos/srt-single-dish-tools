@@ -190,6 +190,17 @@ class TestScanSet(object):
         assert sorted(scanset.meta['list_of_directories']) == \
             sorted(list(set(scanset.meta['list_of_directories'])))
 
+    def test_barycenter_times(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+
+        scanset.barycenter_times()
+
+        assert 'barytime' in scanset.colnames
+        assert np.all(np.abs(scanset['barytime'] -
+                             scanset['time']) < 9 * 60 / 86400)
+
     def test_2_rough_image(self):
         '''Test image production.'''
 
