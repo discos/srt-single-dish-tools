@@ -18,6 +18,7 @@ import os
 import glob
 import astropy.units as u
 import shutil
+import pytest
 
 try:
     from tqdm import tqdm
@@ -169,7 +170,7 @@ class TestScanSet(object):
 
         plt.ioff()
 
-    def test_0_prepare(self):
+    def test_prepare(self):
         pass
 
     def test_interactive_quit(self):
@@ -196,7 +197,7 @@ class TestScanSet(object):
                      '--calibrate {}'.format(self.calfile) +
                      ' -o bubu.hdf5 --debug').split(' '))
 
-    def test_1_meta_saved_and_loaded_correctly(self):
+    def test_meta_saved_and_loaded_correctly(self):
         scanset = ScanSet('test.hdf5')
         for k in scanset.meta.keys():
             assert np.all(scanset.meta[k] == self.scanset.meta[k])
@@ -218,7 +219,26 @@ class TestScanSet(object):
         assert np.all(np.abs(scanset['barytime'] -
                              scanset['time']) < 9 * 60 / 86400)
 
-    def test_2_rough_image(self):
+    def test_apply_bad_user_filt(self):
+        scanset = ScanSet('test.hdf5')
+        with pytest.raises(ValueError):
+            scanset.apply_user_filter()
+
+    def test_apply_user_filt(self):
+        '''Test apply user filts.'''
+
+        def user_fun(scanset):
+            return scanset['barytime'] - np.floor(scanset['barytime'])
+
+        scanset = ScanSet('test.hdf5')
+        scanset.barycenter_times()
+        phase_in_sec = scanset.apply_user_filter(user_fun, 'Phase_in_sec')
+
+        assert np.min(phase_in_sec) >= 0
+        assert np.max(phase_in_sec) <= 1
+        assert np.all(phase_in_sec == scanset['Phase_in_sec'])
+
+    def test_rough_image(self):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
@@ -233,7 +253,7 @@ class TestScanSet(object):
         plt.savefig('img.png')
         plt.close(fig)
 
-    def test_3_rough_image_altaz(self):
+    def test_rough_image_altaz(self):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
@@ -249,7 +269,7 @@ class TestScanSet(object):
         scanset.save_ds9_images(save_sdev=True, altaz=True)
         plt.close(fig)
 
-    def test_4_image_stdev(self):
+    def test_image_stdev(self):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
@@ -265,7 +285,7 @@ class TestScanSet(object):
         plt.savefig('img_sdev.png')
         plt.close(fig)
 
-    def test_5_image_scrunch(self):
+    def test_image_scrunch(self):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
@@ -288,7 +308,7 @@ class TestScanSet(object):
         plt.savefig('img_scrunch_sdev.png')
         plt.close(fig)
 
-    def test_6a_calibrate_image_pixel(self):
+    def test_calibrate_image_pixel(self):
         scanset = ScanSet('test.hdf5')
 
         scanset.calculate_images()
@@ -302,7 +322,7 @@ class TestScanSet(object):
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
         assert np.all(np.abs(np.sum(images['Ch0'][good]) - 0.5) < 0.1)
 
-    def test_6b_calibrate_image_beam(self):
+    def test_calibrate_image_beam(self):
         scanset = ScanSet('test.hdf5')
 
         scanset.calculate_images()
@@ -311,7 +331,7 @@ class TestScanSet(object):
 
         assert np.allclose(np.max(images['Ch0']), 0.5, atol=0.05)
 
-    def test_6c_calibrate_image_sr(self):
+    def test_calibrate_image_sr(self):
         scanset = ScanSet('test.hdf5')
 
         scanset.calculate_images()
@@ -326,14 +346,14 @@ class TestScanSet(object):
                            images_pix['Ch0'] / pixel_area.to(u.sr).value,
                            rtol=0.05)
 
-    def test_7_ds9_image(self):
+    def test_ds9_image(self):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
 
         scanset.save_ds9_images(save_sdev=True)
 
-    def test_8_global_fit_image(self):
+    def test_global_fit_image(self):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
@@ -348,7 +368,7 @@ class TestScanSet(object):
                              parfile="out_iter_Ch0_002.txt")
         os.path.exists("out_iter_Ch1_002.png")
 
-    def test_9a_find_scan_through_pixel(self):
+    def test_find_scan_through_pixel0(self):
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images()
@@ -365,7 +385,7 @@ class TestScanSet(object):
         assert ra_scan in coord
         assert coord[ra_scan] == 'ra'
 
-    def test_9b_find_scan_through_pixel(self):
+    def test_find_scan_through_pixel1(self):
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images()
@@ -381,7 +401,7 @@ class TestScanSet(object):
         assert ra_scan in coord
         assert coord[ra_scan] == 'ra'
 
-    def test_9c_find_scan_through_invalid_pixel(self):
+    def test_find_scan_through_invalid_pixel(self):
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images()

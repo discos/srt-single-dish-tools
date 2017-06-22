@@ -34,45 +34,44 @@ __all__ = ["ScanSet"]
 
 
 class ScanSet(Table):
-    """Class obtained by a set of scans.
-
-    Once the scans are loaded, this class contains all functionality that will
-    be used to produce (calibrated or uncalibrated) maps with WCS information.
-
-    Parameters
-    ----------
-    data : str or None
-        data can be one of the following:
-        + a config file, containing the information on the scans to load
-        + an HDF5 archive, containing a former scanset
-        + another ScanSet or an Astropy Table
-    config_file : str
-        Config file containing the parameters for the images and the
-        directories containing the image and calibration data
-    norefilt : bool
-        See :class:`srttools.core.scan.Scan`
-    freqsplat : str
-        See :class:`srttools.core.scan.interpret_frequency_range`
-    nofilt : bool
-        See :class:`srttools.core.scan.clean_scan_using_variability`
-    nosub : bool
-        See :class:`srttools.core.scan.Scan`
-
-    Other Parameters
-    ----------------
-    kwargs : additional arguments
-        These will be passed to Scan initializers
-
-    Examples
-    --------
-    >>> scanset = ScanSet()  # An empty scanset
-    >>> isinstance(scanset, ScanSet)
-    True
-    """
-
     def __init__(self, data=None, norefilt=True, config_file=None,
                  freqsplat=None, nofilt=False, nosub=False, **kwargs):
-        """Initialize a ScanSet object. """
+        """Class obtained by a set of scans.
+
+        Once the scans are loaded, this class contains all functionality that
+        will be used to produce (calibrated or uncalibrated) maps with WCS
+        information.
+
+        Parameters
+        ----------
+        data : str or None
+            data can be one of the following:
+            + a config file, containing the information on the scans to load
+            + an HDF5 archive, containing a former scanset
+            + another ScanSet or an Astropy Table
+        config_file : str
+            Config file containing the parameters for the images and the
+            directories containing the image and calibration data
+        norefilt : bool
+            See :class:`srttools.core.scan.Scan`
+        freqsplat : str
+            See :class:`srttools.core.scan.interpret_frequency_range`
+        nofilt : bool
+            See :class:`srttools.core.scan.clean_scan_using_variability`
+        nosub : bool
+            See :class:`srttools.core.scan.Scan`
+
+        Other Parameters
+        ----------------
+        kwargs : additional arguments
+            These will be passed to Scan initializers
+
+        Examples
+        --------
+        >>> scanset = ScanSet()  # An empty scanset
+        >>> isinstance(scanset, ScanSet)
+        True
+        """
         if data is None and config_file is None:
             Table.__init__(self, data, **kwargs)
             return
@@ -212,6 +211,30 @@ class ScanSet(Table):
         from .io import locations
         return Time((self['time']) * u.day, format='mjd', scale='utc',
                     location=locations[self.meta['site']])
+
+    def apply_user_filter(self, user_func=None, out_column=None):
+        """Apply a user-supplied function as filter.
+
+        Parameters
+        ----------
+        user_func : function
+            This function needs to accept a `scanset` as only argument.
+            `ScanSet` object. It has to return an array with the same length of
+            a column of `scanset`
+        out_column : str
+            column where the results will be stored
+
+        Returns
+        -------
+        retval : array
+            the result of user_func
+        """
+        if user_func is None:
+            raise ValueError('user_func needs to be specified')
+        retval = user_func(self)
+        if out_column is not None:
+            self[out_column] = retval
+        return retval
 
     def calculate_delta_altaz(self):
         """Construction of delta altaz coordinates.
