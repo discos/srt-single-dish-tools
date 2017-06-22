@@ -143,7 +143,7 @@ class TestScanSet(object):
 
         if not os.path.exists('test.hdf5'):
             klass.scanset = ScanSet(klass.config_file, norefilt=False,
-                                debug=True)
+                                    debug=True)
             klass.scanset.write('test.hdf5', overwrite=True)
         else:
             klass.scanset = ScanSet('test.hdf5')
