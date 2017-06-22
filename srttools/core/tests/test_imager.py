@@ -91,8 +91,8 @@ pixel_size : 0.8
 
 def sim_map(obsdir_ra, obsdir_dec):
     simulate_map(count_map=gauss_src_func,
-                 length_ra=50.,
-                 length_dec=50.,
+                 length_ra=30.,
+                 length_dec=30.,
                  outdir=(obsdir_ra, obsdir_dec), mean_ra=180,
                  mean_dec=70, speed=2.,
                  spacing=0.5, srcname='Dummy')
@@ -141,15 +141,32 @@ class TestScanSet(object):
 
         klass.config = read_config(klass.config_file)
 
-        klass.scanset = ScanSet(klass.config_file, norefilt=False,
-                                debug=True)
-        klass.scanset.write('test.hdf5', overwrite=True)
+        if not os.path.exists('test.hdf5'):
+            klass.scanset = ScanSet(klass.config_file, norefilt=False,
+                                    debug=True)
+            klass.scanset.write('test.hdf5', overwrite=True)
+        else:
+            klass.scanset = ScanSet('test.hdf5')
 
         klass.stdinfo = {}
         klass.stdinfo['FLAG'] = False
         klass.stdinfo['zap'] = intervals()
         klass.stdinfo['base'] = intervals()
         klass.stdinfo['fitpars'] = np.array([0, 0])
+
+        def scan_no(scan_str):
+            basename = os.path.splitext(os.path.basename(scan_str))[0]
+            return int(basename.replace('Dec', '').replace('Ra', ''))
+
+        klass.dec_scans = \
+            dict([(scan_no(s), s)
+                 for s in klass.scanset.scan_list if 'Dec' in s])
+        klass.ra_scans = \
+            dict([(scan_no(s), s)
+                 for s in klass.scanset.scan_list if 'Ra' in s])
+        klass.n_ra_scans = max(list(klass.ra_scans.keys()))
+        klass.n_dec_scans = max(list(klass.dec_scans.keys()))
+
         plt.ioff()
 
     def test_0_prepare(self):
@@ -170,7 +187,7 @@ class TestScanSet(object):
         imgsel = scanset.interactive_display('Ch0', test=True)
         fake_event = type('event', (), {})()
         fake_event.key = 'a'
-        fake_event.xdata, fake_event.ydata = (62, 62)
+        fake_event.xdata, fake_event.ydata = (2, 2)
 
         imgsel.on_key(fake_event)
 
@@ -283,7 +300,7 @@ class TestScanSet(object):
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
-        assert np.allclose(np.sum(images['Ch0'][good]), 0.5, 0.05)
+        assert np.all(np.abs(np.sum(images['Ch0'][good]) - 0.5) < 0.1)
 
     def test_6b_calibrate_image_beam(self):
         scanset = ScanSet('test.hdf5')
@@ -334,25 +351,30 @@ class TestScanSet(object):
     def test_9a_find_scan_through_pixel(self):
         scanset = ScanSet('test.hdf5')
 
-        scanset.calculate_images()
+        images = scanset.calculate_images()
+        ysize, xsize = images['Ch0'].shape
         _, _, _, _, _, _, _, coord = \
-            scanset.find_scans_through_pixel(62, 62, test=True)
+            scanset.find_scans_through_pixel(xsize//2, ysize-1, test=True)
 
-        dec_scan = os.path.join(self.obsdir_dec, 'Dec99.fits')
+        dec_scan = os.path.join(self.obsdir_dec,
+                                self.dec_scans[self.n_dec_scans // 2])
         assert dec_scan in coord
         assert coord[dec_scan] == 'dec'
-        ra_scan = os.path.join(self.obsdir_ra, 'Ra100.fits')
+        ra_scan = os.path.join(self.obsdir_ra,
+                               self.ra_scans[self.n_ra_scans])
         assert ra_scan in coord
         assert coord[ra_scan] == 'ra'
 
     def test_9b_find_scan_through_pixel(self):
         scanset = ScanSet('test.hdf5')
 
-        scanset.calculate_images()
+        images = scanset.calculate_images()
+        ysize, xsize = images['Ch0'].shape
         _, _, _, _, _, _, _, coord = \
-            scanset.find_scans_through_pixel(62, 0, test=True)
+            scanset.find_scans_through_pixel(xsize//2, 0, test=True)
 
-        dec_scan = os.path.join(self.obsdir_dec, 'Dec99.fits')
+        dec_scan = os.path.join(self.obsdir_dec,
+                                self.dec_scans[self.n_dec_scans // 2])
         assert dec_scan in coord
         assert coord[dec_scan] == 'dec'
         ra_scan = os.path.join(self.obsdir_ra, 'Ra0.fits')
@@ -362,20 +384,22 @@ class TestScanSet(object):
     def test_9c_find_scan_through_invalid_pixel(self):
         scanset = ScanSet('test.hdf5')
 
-        scanset.calculate_images()
+        images = scanset.calculate_images()
+        ysize, xsize = images['Ch0'].shape
         _, _, _, _, _, _, _, coord = \
-            scanset.find_scans_through_pixel(62, -2, test=True)
+            scanset.find_scans_through_pixel(xsize//2, -2, test=True)
         assert coord == {}
         _, _, _, _, _, _, _, coord = \
-            scanset.find_scans_through_pixel(62, 64, test=True)
+            scanset.find_scans_through_pixel(xsize//2, ysize + 2, test=True)
         assert coord == {}
 
     def test_update_scan_flag(self):
         scanset = ScanSet('test.hdf5')
 
-        scanset.calculate_images()
+        images = scanset.calculate_images()
+        ysize, xsize = images['Ch0'].shape
         ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
-            scanset.find_scans_through_pixel(62, 0, test=True)
+            scanset.find_scans_through_pixel(xsize//2, 0, test=True)
 
         sname = list(scan_ids.keys())[0]
 
@@ -398,9 +422,10 @@ class TestScanSet(object):
     def test_update_scan_fit(self):
         scanset = ScanSet('test.hdf5')
 
-        scanset.calculate_images()
+        images = scanset.calculate_images()
+        ysize, xsize = images['Ch0'].shape
         ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
-            scanset.find_scans_through_pixel(62, 0, test=True)
+            scanset.find_scans_through_pixel(xsize//2, 0, test=True)
 
         sname = list(scan_ids.keys())[0]
 
@@ -422,9 +447,10 @@ class TestScanSet(object):
     def test_update_scan_zap(self):
         scanset = ScanSet('test.hdf5')
 
-        scanset.calculate_images()
+        images = scanset.calculate_images()
+        ysize, xsize = images['Ch0'].shape
         ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
-            scanset.find_scans_through_pixel(62, 0, test=True)
+            scanset.find_scans_through_pixel(xsize//2, 0, test=True)
 
         sname = list(dec_xs.keys())[0]
         s = Scan(sname)

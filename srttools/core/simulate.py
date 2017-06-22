@@ -157,6 +157,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     # lchdulist.append(datahdu)
     lchdulist[0].header['SOURCE'] = srcname
     lchdulist.writeto(filename, clobber=True)
+    lchdulist.close()
 
 
 def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
