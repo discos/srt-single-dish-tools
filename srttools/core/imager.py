@@ -207,6 +207,7 @@ class ScanSet(Table):
                                        self['dec']]))
 
     def get_obstimes(self):
+        """Get `astropy.Time` object for time at the telescope location."""
         from astropy.time import Time
         from .io import locations
         return Time((self['time']) * u.day, format='mjd', scale='utc',
@@ -679,6 +680,7 @@ class ScanSet(Table):
         s.save()
 
     def barycenter_times(self):
+        """Create barytime column with observing times converted to TDB."""
         obstimes_tdb = self.get_obstimes().tdb.mjd
         self['barytime'] = obstimes_tdb
         return obstimes_tdb
