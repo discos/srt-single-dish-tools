@@ -346,6 +346,36 @@ class TestScanSet(object):
                            images_pix['Ch0'] / pixel_area.to(u.sr).value,
                            rtol=0.05)
 
+    def test_calibrate_scanset_pixel(self):
+        scanset = ScanSet('test.hdf5')
+        images_standard = scanset.calculate_images(calibration=self.calfile,
+                                                   map_unit="Jy/pixel")
+        images = scanset.calculate_images(calibration=self.calfile,
+                                          map_unit="Jy/pixel",
+                                          calibrate_scans=True)
+
+        assert np.allclose(images['Ch0'], images_standard['Ch0'])
+
+    def test_calibrate_scanset_beam(self):
+        scanset = ScanSet('test.hdf5')
+        images_standard = scanset.calculate_images(calibration=self.calfile,
+                                                   map_unit="Jy/beam")
+        images = scanset.calculate_images(calibration=self.calfile,
+                                          map_unit="Jy/beam",
+                                          calibrate_scans=True)
+
+        assert np.allclose(images['Ch0'], images_standard['Ch0'])
+
+    def test_calibrate_scanset_sr(self):
+        scanset = ScanSet('test.hdf5')
+        images_standard = scanset.calculate_images(calibration=self.calfile,
+                                                   map_unit="Jy/sr")
+        images = scanset.calculate_images(calibration=self.calfile,
+                                          map_unit="Jy/sr",
+                                          calibrate_scans=True)
+
+        assert np.allclose(images['Ch0'], images_standard['Ch0'])
+
     def test_ds9_image(self):
         '''Test image production.'''
 

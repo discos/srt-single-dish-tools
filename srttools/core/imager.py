@@ -33,6 +33,20 @@ import functools
 __all__ = ["ScanSet"]
 
 
+def _load_calibration(calibration, map_unit):
+    caltable = CalibratorTable().read(calibration)
+    caltable.update()
+    caltable.compute_conversion_function(map_unit)
+
+    if map_unit == "Jy/beam":
+        conversion_units = u.Jy / u.ct
+    elif map_unit in ["Jy/pixel", "Jy/sr"]:
+        conversion_units = u.Jy / u.ct / u.steradian
+    else:
+        raise ValueError("Unit for calibration not recognized")
+    return caltable, conversion_units
+
+
 class ScanSet(Table):
     def __init__(self, data=None, norefilt=True, config_file=None,
                  freqsplat=None, nofilt=False, nosub=False, **kwargs):
@@ -83,7 +97,6 @@ class ScanSet(Table):
 
             txtfile = data.meta['scan_list_file']
 
-            print("loading scan list")
             with open(txtfile, 'r') as fobj:
                 self.scan_list = []
                 for i in fobj.readlines():
@@ -331,14 +344,14 @@ class ScanSet(Table):
         self['y'].meta['altaz'] = altaz
 
     def calculate_images(self, scrunch=False, no_offsets=False, altaz=False,
-                         calibration=None, elevation=None, map_unit="Jy/beam"):
+                         calibration=None, elevation=None, map_unit="Jy/beam",
+                         calibrate_scans=False):
         """Obtain image from all scans.
 
         scrunch:         sum all channels
         no_offsets:      use positions from feed 0 for all feeds.
         """
         if altaz != self['x'].meta['altaz']:
-            print("Converting")
             self.convert_coordinates(altaz)
 
         images = {}
@@ -375,14 +388,28 @@ class ScanSet(Table):
                                            self['y'][:, feed][good],
                                            bins=[xbins, ybins])
 
+            counts = np.array(self[ch][good])
+
+            if calibration is not None and calibrate_scans:
+                caltable, conversion_units = _load_calibration(calibration,
+                                                               map_unit)
+                area_conversion, final_unit = \
+                    self._calculate_calibration_factors(map_unit)
+                Jy_over_counts, Jy_over_counts_err = conversion_units * \
+                    caltable.Jy_over_counts(channel=ch, map_unit=map_unit,
+                                            elevation=self['el'][:, feed][good])
+                    
+                counts = counts * u.ct * area_conversion * Jy_over_counts
+                counts = counts.to(final_unit).value
+
             img, _, _ = np.histogram2d(self['x'][:, feed][good],
                                        self['y'][:, feed][good],
                                        bins=[xbins, ybins],
-                                       weights=self[ch][good])
+                                       weights=counts)
             img_sq, _, _ = np.histogram2d(self['x'][:, feed][good],
                                           self['y'][:, feed][good],
                                           bins=[xbins, ybins],
-                                          weights=self[ch][good] ** 2)
+                                          weights=counts ** 2)
 
             good = expomap > 0
             mean = img.copy()
@@ -394,11 +421,16 @@ class ScanSet(Table):
             total_sdev += img_sdev.T
             img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
 
-            images['{}-Sdev'.format(ch)] = np.sqrt(img_sdev.T)
+            img_sdev = np.sqrt(img_sdev)
+            if calibration is not None and calibrate_scans:
+                cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts)
+                img_sdev += mean * cal_rel_err
+
+            images['{}-Sdev'.format(ch)] = img_sdev.T
             total_expo += expomap.T
 
         self.images = images
-        if calibration is not None:
+        if calibration is not None and not calibrate_scans:
             self.calibrate_images(calibration, elevation=elevation,
                                   map_unit=map_unit)
 
@@ -456,22 +488,25 @@ class ScanSet(Table):
                               altaz=altaz, calibration=calibration,
                               map_unit=map_unit)
 
+    def _calculate_calibration_factors(self, map_unit):
+        if map_unit == "Jy/beam":
+            area_conversion = 1
+            final_unit = u.Jy
+        elif map_unit == "Jy/sr":
+            area_conversion = 1
+            final_unit = u.Jy / u.sr
+        elif map_unit == "Jy/pixel":
+            area_conversion = self.meta['pixel_size'] ** 2
+            final_unit = u.Jy
+        return area_conversion, final_unit
+
     def calibrate_images(self, calibration, elevation=np.pi/4,
                          map_unit="Jy/beam"):
         """Calibrate the images."""
         if not hasattr(self, 'images'):
             self.calculate_images()
 
-        caltable = CalibratorTable().read(calibration)
-        caltable.update()
-        caltable.compute_conversion_function(map_unit)
-
-        if map_unit == "Jy/beam":
-            conversion_units = u.Jy / u.ct
-        elif map_unit in ["Jy/pixel", "Jy/sr"]:
-            conversion_units = u.Jy / u.ct / u.steradian
-        else:
-            raise ValueError("Unit for calibration not recognized")
+        caltable, conversion_units = _load_calibration(calibration, map_unit)
 
         for ch in self.chan_columns:
             Jy_over_counts, Jy_over_counts_err = \
@@ -500,17 +535,11 @@ class ScanSet(Table):
             B = Jy_over_counts
             eB = Jy_over_counts_err
 
-            if map_unit == "Jy/beam":
-                area_conversion = 1
-                final_unit = u.Jy
-            elif map_unit == "Jy/sr":
-                area_conversion = 1
-                final_unit = u.Jy / u.sr
-            elif map_unit == "Jy/pixel":
-                area_conversion = self.meta['pixel_size'] ** 2
-                final_unit = u.Jy
+            area_conversion, final_unit = \
+                self._calculate_calibration_factors(map_unit)
 
             C = A * area_conversion * Jy_over_counts
+            C[bad] = 0
 
             self.images[ch] = C.to(final_unit).value
 
@@ -726,7 +755,7 @@ class ScanSet(Table):
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
-                        map_unit="Jy/beam"):
+                        map_unit="Jy/beam", calibrate_scans=False):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             tail = '.fits'
@@ -735,7 +764,8 @@ class ScanSet(Table):
             fname = self.meta['config_file'].replace('.ini', tail)
         images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
                                        altaz=altaz, calibration=calibration,
-                                       map_unit=map_unit)
+                                       map_unit=map_unit,
+                                       calibrate_scans=calibrate_scans)
 
         self.create_wcs(altaz)
 
@@ -831,6 +861,10 @@ def main_imager(args=None):  # pragma: no cover
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Plot stuff and be verbose')
 
+    parser.add_argument("--quick", action='store_true', default=False,
+                        help='Calibrate after image creation, for speed '
+                             '(bad when calibration depends on elevation)')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -887,7 +921,7 @@ def main_imager(args=None):  # pragma: no cover
 
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate,
                             map_unit=args.unit,
-                            altaz=args.altaz)
+                            altaz=args.altaz, calibrate_scans=not args.quick)
 
 
 def main_preprocess(args=None):  # pragma: no cover
