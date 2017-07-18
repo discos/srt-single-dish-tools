@@ -295,8 +295,9 @@ def read_data_fitszilla(fname):
 
         xoffs, yoffs = correct_offsets(obs_angle, xoffsets[i], yoffsets[i])
 
-        new_table['el'][:, i] += yoffs
-        new_table['az'][:, i] += xoffs / np.cos(new_table['el'][:, i])
+        new_table['el'][:, i] += yoffs.to(u.rad).value
+        new_table['az'][:, i] += \
+            xoffs.to(u.rad).value / np.cos(new_table['el'][:, i])
 
         obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
 
