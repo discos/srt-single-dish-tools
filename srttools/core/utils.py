@@ -36,8 +36,16 @@ try:
 except ImportError:
     warnings.warn("Numba not installed. Faking it")
 
-    def jit(fun):
-        return fun
+    class jit(object):
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __call__(self, func):
+            def wrapped_f(*args, **kwargs):
+                return func(*args, **kwargs)
+
+            return wrapped_f
 
     def vectorize(*args, **kwargs):
         return jit
