@@ -31,24 +31,26 @@ try:
 except ImportError:
     HAS_STATSM = False
 
+
+def _generic_dummy_decorator(*args, **kwargs):
+    if len(args) == 1 and len(kwargs) == 0 and callable(args[0]):
+        return args[0]
+    else:
+        def decorator(func):
+            def decorated(*args, **kwargs):
+                return func(*args, **kwargs)
+
+            return decorated
+
+        return decorator
+
+
 try:
     from numba import jit, vectorize
 except ImportError:
     warnings.warn("Numba not installed. Faking it")
 
-    class jit(object):
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def __call__(self, func):
-            def wrapped_f(*args, **kwargs):
-                return func(*args, **kwargs)
-
-            return wrapped_f
-
-    def vectorize(*args, **kwargs):
-        return jit
+    jit = vectorize = _generic_dummy_decorator
 
 
 __all__ = ["mad", "standard_string", "standard_byte", "compare_strings",
@@ -73,6 +75,7 @@ except ImportError:
         else:
             center = np.median(data)
         return np.median((np.fabs(data - center)) / c, axis=axis)
+
 
 
 def standard_string(s):
