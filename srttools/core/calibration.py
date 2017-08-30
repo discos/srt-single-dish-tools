@@ -845,7 +845,7 @@ class CalibratorTable(Table):
         """
         goodch = np.ones(len(self), dtype=bool)
         if channel is not None:
-            goodch = self["Chan"] == channel
+            goodch = compare_strings(self['Chan'], channel)
         allwidths = self[goodch]['Width']
         allwidth_errs = self[goodch]['Width Err']
         good = (allwidth_errs > 0) & (allwidth_errs == allwidth_errs)

@@ -123,6 +123,26 @@ class TestCalibration(object):
     def test_0_prepare(self):
         pass
 
+    def test_check_not_empty(self):
+        caltable = CalibratorTable()
+        assert not caltable.check_not_empty()
+
+    def test_check_up_to_date_empty_return_false(self):
+        caltable = CalibratorTable()
+        assert not caltable.check_up_to_date()
+
+    def test_update_empty_return_none(self):
+        caltable = CalibratorTable()
+        assert caltable.update() is None
+
+    def test_get_fluxes_empty_return_none(self):
+        caltable = CalibratorTable()
+        assert caltable.get_fluxes() is None
+
+    def test_calibrate_empty_return_none(self):
+        caltable = CalibratorTable()
+        assert caltable.get_fluxes() is None
+
     def test_check_class(self):
         caltable = CalibratorTable()
         caltable.from_scans(self.scan_list)
@@ -166,13 +186,21 @@ class TestCalibration(object):
         assert np.all(
             np.abs(caltable['Width'] - 3/60.) < 3 * caltable['Width Err'])
 
-        beam, beam_err = caltable.beam_width()
+        beam, beam_err = caltable.beam_width(channel='Ch0')
         assert np.all(beam - np.radians(3/60) < 3 * beam_err)
 
-    def test_calibration_plot(self):
+    def test_calibration_plot_two_cols(self):
         """Simple calibration from scans."""
 
         caltable = CalibratorTable.read(self.calfile)
+        caltable.plot_two_columns('RA', "Flux/Counts", xerrcol="RA err",
+                                  yerrcol="Flux/Counts Err")
+
+    def test_calibration_show(self):
+        """Simple calibration from scans."""
+
+        caltable = CalibratorTable.read(self.calfile)
+
         caltable.show()
 
     def test_calibrated_crossscans(self):
@@ -200,6 +228,8 @@ class TestCalibration(object):
         res = caltable.check_consistency(channel='Ch0')
         assert np.all(res)
         res = caltable.check_consistency(channel='Ch1')
+        assert np.all(res)
+        res = caltable.check_consistency()
         assert np.all(res)
 
     def test_lcurve_with_single_source(self):
