@@ -423,7 +423,8 @@ class ScanSet(Table):
 
             img_sdev = np.sqrt(img_sdev)
             if calibration is not None and calibrate_scans:
-                cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts)
+                cal_rel_err = \
+                    np.mean(Jy_over_counts_err / Jy_over_counts).value
                 img_sdev += mean * cal_rel_err
 
             images['{}-Sdev'.format(ch)] = img_sdev.T
