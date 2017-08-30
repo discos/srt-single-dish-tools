@@ -194,7 +194,7 @@ class TestCalibration(object):
 
         caltable = CalibratorTable.read(self.calfile)
         caltable.plot_two_columns('RA', "Flux/Counts", xerrcol="RA err",
-                                  yerrcol="Flux/Counts Err")
+                                  yerrcol="Flux/Counts Err", test=True)
 
     def test_calibration_show(self):
         """Simple calibration from scans."""

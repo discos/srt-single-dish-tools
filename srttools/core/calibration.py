@@ -868,7 +868,7 @@ class CalibratorTable(Table):
 
     def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None,
                          channel=None,
-                         xfactor=1, yfactor=1, color=None):
+                         xfactor=1, yfactor=1, color=None, test=False):
         """Plot the data corresponding to two given columns."""
         showit = False
         if ax is None:
@@ -908,7 +908,7 @@ class CalibratorTable(Table):
             ax.scatter(x_to_plot, y_to_plot, label=ycol + label,
                        color=color)
 
-        if showit:
+        if showit and not test:
             plt.show()
         return x_to_plot, y_to_plot
 
