@@ -617,6 +617,10 @@ class Scan(Table):
 
             # -----------------------------------------
 
+            if test:
+                info['Ch']['zap'].xs = [-1e32, 1e32]
+                info['Ch']['FLAG'] = True
+
             # Treat zapped intervals
             xs = info['Ch']['zap'].xs
             good = np.ones(len(self[dim]), dtype=bool)
