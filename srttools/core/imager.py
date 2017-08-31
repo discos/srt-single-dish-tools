@@ -391,10 +391,12 @@ class ScanSet(Table):
                                                                map_unit)
                 area_conversion, final_unit = \
                     self._calculate_calibration_factors(map_unit)
+
                 Jy_over_counts, Jy_over_counts_err = conversion_units * \
                     caltable.Jy_over_counts(channel=ch, map_unit=map_unit,
-                                            elevation=self['el'][:, feed][good])
-                    
+                                            elevation=self['el'][:, feed][good]
+                                            )
+
                 counts = counts * u.ct * area_conversion * Jy_over_counts
                 counts = counts.to(final_unit).value
 
