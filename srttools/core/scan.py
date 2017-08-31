@@ -231,15 +231,13 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     # Set threshold
 
-    if not nofilt:
-        threshold = baseline + 2 * noise_threshold * stdref
+    if nofilt:
+        wholemask = freqmask
     else:
-        threshold = np.zeros_like(baseline) + 1e32
+        threshold = baseline + 2 * noise_threshold * stdref
+        mask = spectral_var < threshold
 
-    # Set mask
-
-    mask = spectral_var < threshold
-    wholemask = freqmask & mask
+        wholemask = freqmask & mask
 
     if good_mask is None:
         good_mask = np.zeros_like(freqmask, dtype=bool)

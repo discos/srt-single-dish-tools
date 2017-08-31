@@ -62,6 +62,11 @@ class Test1_Scan(object):
         scan2 = Scan('scan.hdf5')
         assert scan.meta == scan2.meta
 
+    def test_scan_nofilt_executes(self):
+        '''Test that data are read.'''
+
+        scan = Scan(self.fname, nofilt=True)
+
     def test_interactive(self):
         scan = Scan(self.fname)
         scan.interactive_filter('Ch0', test=True)
