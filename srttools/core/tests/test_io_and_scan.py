@@ -67,6 +67,18 @@ class Test1_Scan(object):
 
         scan = Scan(self.fname, nofilt=True)
 
+    def test_scan_from_table(self):
+        '''Test that data are read.'''
+        from astropy.table import Table
+        scan = Scan(self.fname)
+        scan.write('scan.hdf5', overwrite=True)
+        table = Table.read('scan.hdf5', path='scan')
+        scan_from_table = Scan(table)
+        for c in scan.columns:
+            assert np.all(scan_from_table[c] == scan[c])
+        for m in scan_from_table.meta.keys():
+            assert scan_from_table.meta[m] == scan.meta[m]
+
     def test_interactive(self):
         scan = Scan(self.fname)
         scan.interactive_filter('Ch0', test=True)
