@@ -164,17 +164,17 @@ class TestCalibration(object):
             caltable.check_up_to_date()
 
     def test_check_class_from_file(self):
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         assert caltable.check_up_to_date()
 
     def test_Jy_over_counts_and_back(self):
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         Jc, Jce = caltable.Jy_over_counts(channel='Ch0')
         Cj, Cje = caltable.counts_over_Jy(channel='Ch0')
         np.testing.assert_allclose(Jc, 1 / Cj)
 
     def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
 
         flux_quantity = _get_flux_quantity('Jy/beam')
         caltable[flux_quantity + "/Counts"][0] += \
@@ -200,7 +200,7 @@ class TestCalibration(object):
     def test_calibration_counts(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         caltable = caltable[compare_strings(caltable['Source'], 'DummyCal')]
         caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
         assert np.all(
@@ -212,7 +212,7 @@ class TestCalibration(object):
     def test_calibration_width(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
         assert np.all(
             np.abs(caltable_0['Width'] - 3/60.) < 3 * caltable_0['Width Err'])
@@ -226,19 +226,19 @@ class TestCalibration(object):
     def test_calibration_plot_two_cols(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         caltable.plot_two_columns('RA', "Flux/Counts", xerrcol="RA err",
                                   yerrcol="Flux/Counts Err", test=True)
 
     def test_calibration_show(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
 
         caltable.show()
 
     def test_calibrated_crossscans(self):
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         dummy_flux, dummy_flux_err = \
             caltable.calculate_src_flux(source='DummySrc', channel='Ch0')
         assert (dummy_flux[0] - 0.52) < dummy_flux_err[0] * 3
@@ -258,7 +258,7 @@ class TestCalibration(object):
         assert not np.all(res)
 
     def test_check_consistency(self):
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         res = caltable.check_consistency(channel='Ch0')
         assert np.all(res)
         res = caltable.check_consistency(channel='Ch1')

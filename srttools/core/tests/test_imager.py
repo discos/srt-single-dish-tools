@@ -622,7 +622,7 @@ class TestScanSet(object):
         ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
             scanset.find_scans_through_pixel(xsize//2, 0, test=True)
 
-        sname = list(dec_xs.keys())[0]
+        sname = sorted(list(dec_xs.keys()))[0]
         s = Scan(sname)
 
         info = {sname: copy.copy(self.stdinfo)}

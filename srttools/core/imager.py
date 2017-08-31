@@ -34,7 +34,7 @@ __all__ = ["ScanSet"]
 
 
 def _load_calibration(calibration, map_unit):
-    caltable = CalibratorTable().read(calibration)
+    caltable = CalibratorTable().read(calibration, path='table')
     caltable.update()
     caltable.compute_conversion_function(map_unit)
 
@@ -586,7 +586,7 @@ class ScanSet(Table):
 
     def rerun_scan_analysis(self, x, y, key, test=False):
         """Rerun the analysis of single scans."""
-        logging.debug(x, y, key)
+        logging.debug("{} {} {}".format(x, y, key))
         if key == 'a':
             self.reprocess_scans_through_pixel(x, y, test=test)
         elif key == 'h':
@@ -797,7 +797,7 @@ class ScanSet(Table):
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
 
-        hdulist.writeto(fname, clobber=True)
+        hdulist.writeto(fname, overwrite=True)
 
 
 def main_imager(args=None):  # pragma: no cover
