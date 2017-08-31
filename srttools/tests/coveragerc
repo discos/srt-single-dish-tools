@@ -3,6 +3,7 @@ source = {packagename}
 omit =
    {packagename}/_astropy_init*
    {packagename}/conftest*
+   {packagename}/core/histograms.py
    {packagename}/cython_version*
    {packagename}/setup_package*
    {packagename}/*/setup_package*
