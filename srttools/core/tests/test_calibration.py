@@ -21,12 +21,14 @@ except ImportError:
     def tqdm(x):
         return x
 
+
 @pytest.fixture()
 def logger():
     logger = logging.getLogger('Some.Logger')
     logger.setLevel(logging.INFO)
 
     return logger
+
 
 np.random.seed(1241347)
 
