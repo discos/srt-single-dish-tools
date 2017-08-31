@@ -96,7 +96,7 @@ def sim_map(obsdir_ra, obsdir_dec):
                  length_dec=30.,
                  outdir=(obsdir_ra, obsdir_dec), mean_ra=180,
                  mean_dec=70, speed=2.,
-                 spacing=0.5, srcname='Dummy')
+                 spacing=0.5, srcname='Dummy', channel_ratio=0.8)
 
 
 class TestScanSet(object):

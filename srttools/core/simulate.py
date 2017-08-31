@@ -164,7 +164,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                  spacing=0.5, count_map=None, noise_amplitude=1.,
                  width_ra=None, width_dec=None, outdir='sim/',
                  baseline="flat", mean_ra=180, mean_dec=70,
-                 srcname='Dummy'):
+                 srcname='Dummy', channel_ratio=1):
 
     """Simulate a map.
 
@@ -258,7 +258,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         if i_d % 2 != 0:
             actual_ra = actual_ra[::-1]
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
-                  {'Ch0': counts, 'Ch1': counts},
+                  {'Ch0': counts, 'Ch1': counts * channel_ratio},
                   filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
         plt.plot(ra_array, counts)
@@ -288,7 +288,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
             dec_array = dec_array[::-1]
         save_scan(times_dec, np.zeros_like(dec_array) + start_ra,
                   dec_array + mean_dec,
-                  {'Ch0': counts, 'Ch1': counts},
+                  {'Ch0': counts, 'Ch1': counts * channel_ratio},
                   filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
 

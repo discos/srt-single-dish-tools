@@ -64,7 +64,7 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         scan = scan_func(scan_values) + \
             ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
                   filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname)
         timedelta = times[-1] + 1
@@ -75,7 +75,7 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         scan = scan_func(scan_values) + \
             ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
                   filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname)
         timedelta = times[-1] + 1
@@ -202,15 +202,23 @@ class TestCalibration(object):
 
         caltable = CalibratorTable.read(self.calfile)
         caltable = caltable[compare_strings(caltable['Source'], 'DummyCal')]
+        caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
         assert np.all(
-            np.abs(caltable['Counts'] - 100.) < 3 * caltable['Counts Err'])
+            np.abs(caltable_0['Counts'] - 100.) < 3 * caltable_0['Counts Err'])
+        caltable_1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
+        assert np.all(
+            np.abs(caltable_1['Counts'] - 80.) < 3 * caltable_1['Counts Err'])
 
     def test_calibration_width(self):
         """Simple calibration from scans."""
 
         caltable = CalibratorTable.read(self.calfile)
+        caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
         assert np.all(
-            np.abs(caltable['Width'] - 3/60.) < 3 * caltable['Width Err'])
+            np.abs(caltable_0['Width'] - 3/60.) < 3 * caltable_0['Width Err'])
+        caltable_1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
+        assert np.all(
+            np.abs(caltable_1['Width'] - 3/60.) < 3 * caltable_1['Width Err'])
 
         beam, beam_err = caltable.beam_width(channel='Ch0')
         assert np.all(beam - np.radians(3/60) < 3 * beam_err)
