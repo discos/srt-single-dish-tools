@@ -1,12 +1,13 @@
 from __future__ import division, print_function
 from srttools import CalibratorTable
-from srttools.core.calibration import main_lcurve
+from srttools.core.calibration import main_lcurve, _get_flux_quantity
 from srttools.core.read_config import read_config
 from srttools.core.scan import list_scans
 from srttools.core.simulate import save_scan
 from srttools.core.io import mkdir_p
 from srttools.core.utils import compare_strings
 import pytest
+import logging
 
 import os
 import glob
@@ -19,6 +20,13 @@ try:
 except ImportError:
     def tqdm(x):
         return x
+
+@pytest.fixture()
+def logger():
+    logger = logging.getLogger('Some.Logger')
+    logger.setLevel(logging.INFO)
+
+    return logger
 
 np.random.seed(1241347)
 
@@ -131,6 +139,10 @@ class TestCalibration(object):
         caltable = CalibratorTable()
         assert not caltable.check_up_to_date()
 
+    def test_calibrate_empty_return_none(self):
+        caltable = CalibratorTable()
+        assert caltable.calibrate() is None
+
     def test_update_empty_return_none(self):
         caltable = CalibratorTable()
         assert caltable.update() is None
@@ -156,6 +168,18 @@ class TestCalibration(object):
     def test_Jy_over_counts_and_back(self):
         caltable = CalibratorTable.read(self.calfile)
         Jc, Jce = caltable.Jy_over_counts(channel='Ch0')
+        Cj, Cje = caltable.counts_over_Jy(channel='Ch0')
+        np.testing.assert_allclose(Jc, 1 / Cj)
+
+    def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
+        caltable = CalibratorTable.read(self.calfile)
+
+        flux_quantity = _get_flux_quantity('Jy/beam')
+        caltable[flux_quantity + "/Counts"][0] += \
+            caltable[flux_quantity + "/Counts Err"][0] * 20
+        Jc, Jce = caltable.Jy_over_counts_rough(channel='Ch0',
+                                                map_unit='Jy/beam')
+        assert 'Outliers: ' in caplog.text
         Cj, Cje = caltable.counts_over_Jy(channel='Ch0')
         np.testing.assert_allclose(Jc, 1 / Cj)
 
@@ -242,19 +266,19 @@ class TestCalibration(object):
         assert os.path.exists('DummySrc.csv')
         assert os.path.exists('DummyCal.csv')
         assert os.path.exists('DummyCal2.csv')
-
-    @classmethod
-    def teardown_class(klass):
-        """Clean up the mess."""
-        os.unlink('calibration_summary.png')
-        for d in klass.config['list_of_directories']:
-            hfiles = \
-                glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
-            for h in hfiles:
-                os.unlink(h)
-
-            dirs = \
-                glob.glob(os.path.join(klass.config['datadir'], d,
-                                       '*_scanfit'))
-            for dirname in dirs:
-                shutil.rmtree(dirname)
+    #
+    # @classmethod
+    # def teardown_class(klass):
+    #     """Clean up the mess."""
+    #     os.unlink('calibration_summary.png')
+    #     for d in klass.config['list_of_directories']:
+    #         hfiles = \
+    #             glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
+    #         for h in hfiles:
+    #             os.unlink(h)
+    #
+    #         dirs = \
+    #             glob.glob(os.path.join(klass.config['datadir'], d,
+    #                                    '*_scanfit'))
+    #         for dirname in dirs:
+    #             shutil.rmtree(dirname)

@@ -44,10 +44,6 @@ CALIBRATOR_CONFIG = None
 __all__ = ["CalibratorTable", "read_calibrator_config"]
 
 
-def _calibration_function(x, pars):
-    return pars[0] + pars[1] * x + pars[2] * x**2
-
-
 def _constant(x, p):
     return p
 
