@@ -91,7 +91,7 @@ def ref_std(array, window):
     """
 
     if len(array) < window*5:
-        return (np.std(np.diff(array)))
+        return np.std(np.diff(array))
 
     return np.min(np.std(_rolling_window(array, window), 1))
 

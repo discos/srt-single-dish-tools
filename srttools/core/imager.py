@@ -34,7 +34,7 @@ __all__ = ["ScanSet"]
 
 
 def _load_calibration(calibration, map_unit):
-    caltable = CalibratorTable().read(calibration)
+    caltable = CalibratorTable().read(calibration, path='table')
     caltable.update()
     caltable.compute_conversion_function(map_unit)
 
@@ -146,10 +146,6 @@ class ScanSet(Table):
             self.analyze_coordinates(altaz=False)
 
             self.convert_coordinates()
-
-        if 'altaz' not in self["x"].meta:
-            self['x'].meta['altaz'] = False
-            self['y'].meta['altaz'] = False
 
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
@@ -395,10 +391,12 @@ class ScanSet(Table):
                                                                map_unit)
                 area_conversion, final_unit = \
                     self._calculate_calibration_factors(map_unit)
+
                 Jy_over_counts, Jy_over_counts_err = conversion_units * \
                     caltable.Jy_over_counts(channel=ch, map_unit=map_unit,
-                                            elevation=self['el'][:, feed][good])
-                    
+                                            elevation=self['el'][:, feed][good]
+                                            )
+
                 counts = counts * u.ct * area_conversion * Jy_over_counts
                 counts = counts.to(final_unit).value
 
@@ -464,7 +462,8 @@ class ScanSet(Table):
 
         if not hasattr(self, 'images'):
             self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
-                                  altaz=altaz)
+                                  altaz=altaz, calibration=calibration,
+                                  map_unit=map_unit)
 
         if chans is not None:
             chans = chans.split(',')
@@ -587,7 +586,7 @@ class ScanSet(Table):
 
     def rerun_scan_analysis(self, x, y, key, test=False):
         """Rerun the analysis of single scans."""
-        logging.debug(x, y, key)
+        logging.debug("{} {} {}".format(x, y, key))
         if key == 'a':
             self.reprocess_scans_through_pixel(x, y, test=test)
         elif key == 'h':
@@ -798,7 +797,7 @@ class ScanSet(Table):
             hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
             hdulist.append(hdu)
 
-        hdulist.writeto(fname, clobber=True)
+        hdulist.writeto(fname, overwrite=True)
 
 
 def main_imager(args=None):  # pragma: no cover

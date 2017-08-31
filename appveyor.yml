@@ -17,6 +17,7 @@ environment:
                         # to the matrix section.
       CONDA_DEPENDENCIES: "scipy matplotlib pytest pip h5py statsmodels pyyaml numba"
       ASTROPY_VERSION: stable
+      PIP_DEPENDENCIES: "pytest-catchlog"
 
   matrix:
       - PYTHON_VERSION: "3.6"

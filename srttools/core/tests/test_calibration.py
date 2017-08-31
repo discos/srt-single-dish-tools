@@ -1,12 +1,13 @@
 from __future__ import division, print_function
 from srttools import CalibratorTable
-from srttools.core.calibration import main_lcurve
+from srttools.core.calibration import main_lcurve, _get_flux_quantity
 from srttools.core.read_config import read_config
 from srttools.core.scan import list_scans
 from srttools.core.simulate import save_scan
 from srttools.core.io import mkdir_p
 from srttools.core.utils import compare_strings
 import pytest
+import logging
 
 import os
 import glob
@@ -19,6 +20,15 @@ try:
 except ImportError:
     def tqdm(x):
         return x
+
+
+@pytest.fixture()
+def logger():
+    logger = logging.getLogger('Some.Logger')
+    logger.setLevel(logging.INFO)
+
+    return logger
+
 
 np.random.seed(1241347)
 
@@ -54,7 +64,7 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         scan = scan_func(scan_values) + \
             ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
                   filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname)
         timedelta = times[-1] + 1
@@ -65,7 +75,7 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         scan = scan_func(scan_values) + \
             ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan},
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
                   filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname)
         timedelta = times[-1] + 1
@@ -131,6 +141,10 @@ class TestCalibration(object):
         caltable = CalibratorTable()
         assert not caltable.check_up_to_date()
 
+    def test_calibrate_empty_return_none(self):
+        caltable = CalibratorTable()
+        assert caltable.calibrate() is None
+
     def test_update_empty_return_none(self):
         caltable = CalibratorTable()
         assert caltable.update() is None
@@ -150,12 +164,24 @@ class TestCalibration(object):
             caltable.check_up_to_date()
 
     def test_check_class_from_file(self):
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         assert caltable.check_up_to_date()
 
     def test_Jy_over_counts_and_back(self):
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         Jc, Jce = caltable.Jy_over_counts(channel='Ch0')
+        Cj, Cje = caltable.counts_over_Jy(channel='Ch0')
+        np.testing.assert_allclose(Jc, 1 / Cj)
+
+    def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
+        caltable = CalibratorTable.read(self.calfile, path='table')
+
+        flux_quantity = _get_flux_quantity('Jy/beam')
+        caltable[flux_quantity + "/Counts"][0] += \
+            caltable[flux_quantity + "/Counts Err"][0] * 20
+        Jc, Jce = caltable.Jy_over_counts_rough(channel='Ch0',
+                                                map_unit='Jy/beam')
+        assert 'Outliers: ' in caplog.text
         Cj, Cje = caltable.counts_over_Jy(channel='Ch0')
         np.testing.assert_allclose(Jc, 1 / Cj)
 
@@ -174,17 +200,25 @@ class TestCalibration(object):
     def test_calibration_counts(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         caltable = caltable[compare_strings(caltable['Source'], 'DummyCal')]
+        caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
         assert np.all(
-            np.abs(caltable['Counts'] - 100.) < 3 * caltable['Counts Err'])
+            np.abs(caltable_0['Counts'] - 100.) < 3 * caltable_0['Counts Err'])
+        caltable_1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
+        assert np.all(
+            np.abs(caltable_1['Counts'] - 80.) < 3 * caltable_1['Counts Err'])
 
     def test_calibration_width(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
         assert np.all(
-            np.abs(caltable['Width'] - 3/60.) < 3 * caltable['Width Err'])
+            np.abs(caltable_0['Width'] - 3/60.) < 3 * caltable_0['Width Err'])
+        caltable_1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
+        assert np.all(
+            np.abs(caltable_1['Width'] - 3/60.) < 3 * caltable_1['Width Err'])
 
         beam, beam_err = caltable.beam_width(channel='Ch0')
         assert np.all(beam - np.radians(3/60) < 3 * beam_err)
@@ -192,19 +226,19 @@ class TestCalibration(object):
     def test_calibration_plot_two_cols(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         caltable.plot_two_columns('RA', "Flux/Counts", xerrcol="RA err",
                                   yerrcol="Flux/Counts Err", test=True)
 
     def test_calibration_show(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
 
         caltable.show()
 
     def test_calibrated_crossscans(self):
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         dummy_flux, dummy_flux_err = \
             caltable.calculate_src_flux(source='DummySrc', channel='Ch0')
         assert (dummy_flux[0] - 0.52) < dummy_flux_err[0] * 3
@@ -224,7 +258,7 @@ class TestCalibration(object):
         assert not np.all(res)
 
     def test_check_consistency(self):
-        caltable = CalibratorTable.read(self.calfile)
+        caltable = CalibratorTable.read(self.calfile, path='table')
         res = caltable.check_consistency(channel='Ch0')
         assert np.all(res)
         res = caltable.check_consistency(channel='Ch1')
