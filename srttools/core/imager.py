@@ -147,10 +147,6 @@ class ScanSet(Table):
 
             self.convert_coordinates()
 
-        if 'altaz' not in self["x"].meta:
-            self['x'].meta['altaz'] = False
-            self['y'].meta['altaz'] = False
-
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
         self.current = None
@@ -464,7 +460,8 @@ class ScanSet(Table):
 
         if not hasattr(self, 'images'):
             self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
-                                  altaz=altaz)
+                                  altaz=altaz, calibration=calibration,
+                                  map_unit=map_unit)
 
         if chans is not None:
             chans = chans.split(',')

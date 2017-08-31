@@ -173,6 +173,13 @@ class TestScanSet(object):
     def test_prepare(self):
         pass
 
+    def test_load_table_and_config(self):
+        from astropy.table import Table
+        table = Table.read('test.hdf5', path='scanset')
+        scanset = ScanSet(table, config_file=self.config_file)
+        for k in self.config.keys():
+            assert scanset.meta[k] == self.config[k]
+
     def test_interactive_quit(self):
         scanset = ScanSet('test.hdf5')
         imgsel = scanset.interactive_display('Ch0', test=True)
@@ -183,12 +190,16 @@ class TestScanSet(object):
         retval = imgsel.on_key(fake_event)
         assert retval == (130, 30, 'q')
 
-    def test_interactive_scans(self):
+    def test_interactive_scans_all_calibrated_channels(self):
         scanset = ScanSet('test.hdf5')
-        imgsel = scanset.interactive_display('Ch0', test=True)
+        scanset.calibrate_images(calibration=self.calfile)
+        images = scanset.images
+        ysize, xsize = images['Ch0'].shape
+
+        imgsel = scanset.interactive_display(test=True)
         fake_event = type('event', (), {})()
         fake_event.key = 'a'
-        fake_event.xdata, fake_event.ydata = (2, 2)
+        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
 
         imgsel.on_key(fake_event)
 
@@ -237,6 +248,30 @@ class TestScanSet(object):
         assert np.min(phase_in_sec) >= 0
         assert np.max(phase_in_sec) <= 1
         assert np.all(phase_in_sec == scanset['Phase_in_sec'])
+
+    def test_image_fail_mixup_feeds(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+        scanset['Ch0_feed'] = np.random.randint(0, 3, len(scanset['Ch0_feed']))
+        with pytest.raises(ValueError) as excinfo:
+            images = scanset.calculate_images()
+        assert "Feeds are mixed up" in str(excinfo)
+
+    def test_rough_image_nooffsets_nofilt(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+        scanset.remove_column('Ch0-filt')
+        images = scanset.calculate_images(no_offsets=True)
+
+        img = images['Ch0']
+
+        fig = plt.figure('img')
+        plt.imshow(img, origin='lower')
+        plt.colorbar()
+        plt.savefig('img_nooff_nofilt.png')
+        plt.close(fig)
 
     def test_rough_image(self):
         '''Test image production.'''
@@ -308,10 +343,22 @@ class TestScanSet(object):
         plt.savefig('img_scrunch_sdev.png')
         plt.close(fig)
 
+    def test_calc_and_calibrate_image_pixel(self):
+        scanset = ScanSet('test.hdf5')
+
+        scanset.calibrate_images(calibration=self.calfile,
+                                 map_unit="Jy/pixel")
+        images = scanset.images
+        img = images['Ch0']
+        center = img.shape[0] // 2, img.shape[1] // 2
+        shortest_side = np.min(img.shape)
+        X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
+        good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
+        assert np.all(np.abs(np.sum(images['Ch0'][good]) - 0.5) < 0.1)
+
     def test_calibrate_image_pixel(self):
         scanset = ScanSet('test.hdf5')
 
-        scanset.calculate_images()
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/pixel")
 
@@ -330,6 +377,15 @@ class TestScanSet(object):
                                           map_unit="Jy/beam")
 
         assert np.allclose(np.max(images['Ch0']), 0.5, atol=0.05)
+
+    def test_calibrate_image_junk_unit_fails(self):
+        scanset = ScanSet('test.hdf5')
+
+        scanset.calculate_images()
+        with pytest.raises(ValueError) as excinfo:
+            images = scanset.calculate_images(calibration=self.calfile,
+                                              map_unit="junk")
+            assert "Unit for calibration not recognized" in str(excinfo)
 
     def test_calibrate_image_sr(self):
         scanset = ScanSet('test.hdf5')
@@ -383,10 +439,21 @@ class TestScanSet(object):
 
         scanset.save_ds9_images(save_sdev=True)
 
+    def test_ds9_image_not_save_sdev(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+
+        scanset.save_ds9_images(save_sdev=False)
+
     def test_global_fit_image(self):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
+        # It works with no parameters, before calculating images,
+        # with no_offsets
+        scanset.fit_full_images(no_offsets=True)
+        # It works after calculating images
         images = scanset.calculate_images()
         nx, ny = images['Ch0'].shape
         excluded = [[nx//2, ny//2, nx//4]]
@@ -397,6 +464,19 @@ class TestScanSet(object):
         display_intermediate(scanset, chan="Ch0", excluded=excluded,
                              parfile="out_iter_Ch0_002.txt")
         os.path.exists("out_iter_Ch1_002.png")
+
+    def test_global_fit_image_fails_mixup_channels(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+        images = scanset.calculate_images()
+        scanset['Ch0_feed'] = np.random.randint(0, 3, len(scanset['Ch0_feed']))
+        with pytest.raises(ValueError) as excinfo:
+            images = scanset.fit_full_images()
+
+        assert "Feeds are mixed up" in str(excinfo)
+
+        # It works after calculating images
 
     def test_find_scan_through_pixel0(self):
         scanset = ScanSet('test.hdf5')
@@ -417,6 +497,8 @@ class TestScanSet(object):
 
     def test_find_scan_through_pixel1(self):
         scanset = ScanSet('test.hdf5')
+        for i in scanset.chan_columns:
+            scanset.remove_column(i + '-filt')
 
         images = scanset.calculate_images()
         ysize, xsize = images['Ch0'].shape
@@ -442,6 +524,41 @@ class TestScanSet(object):
         _, _, _, _, _, _, _, coord = \
             scanset.find_scans_through_pixel(xsize//2, ysize + 2, test=True)
         assert coord == {}
+
+    def test_find_scan_through_pixel_bad_scan(self):
+        scanset = ScanSet('test.hdf5')
+        images = scanset.calculate_images()
+        ysize, xsize = images['Ch0'].shape
+        x, y = xsize // 2, 0
+        good_entries = np.logical_and(
+                np.abs(scanset['x'][:, 0] - x) < 1,
+                np.abs(scanset['y'][:, 0] - y) < 1)
+
+        sids = list(set(scanset['Scan_id'][good_entries]))
+        scanset.scan_list[sids[0]] = 'skd'
+        with pytest.warns(UserWarning) as record:
+            scanset.find_scans_through_pixel(x, y, test=True)
+            assert np.any(["Errors while opening scan skd" in r.message.args[0]
+                           for r in record])
+
+    def test_update_scan_invalid(self):
+        scanset = ScanSet('test.hdf5')
+
+        images = scanset.calculate_images()
+        ysize, xsize = images['Ch0'].shape
+        ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
+            scanset.find_scans_through_pixel(xsize//2, 0, test=True)
+
+        sname = 'xkd'
+        coord['xkd'] = None
+        scan_ids['xkd'] = None
+
+        info = {sname: copy.copy(self.stdinfo)}
+        info[sname]['FLAG'] = True
+        scanset.update_scan(sname, scan_ids[sname], coord[sname],
+                            info[sname]['zap'],
+                            info[sname]['fitpars'], info[sname]['FLAG'],
+                            test=True)
 
     def test_update_scan_flag(self):
         scanset = ScanSet('test.hdf5')
