@@ -430,7 +430,10 @@ class TestScanSet(object):
                                           map_unit="Jy/sr",
                                           calibrate_scans=True)
 
-        assert np.allclose(images['Ch0'], images_standard['Ch0'])
+        good = images['Ch0'] > 1e-8
+
+        assert np.allclose(images['Ch0'][good],
+                           images_standard['Ch0'][good], rtol=1e-4)
 
     def test_ds9_image(self):
         '''Test image production.'''
