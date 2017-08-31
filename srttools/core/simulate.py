@@ -255,6 +255,9 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
 
         actual_ra = mean_ra + ra_array / np.cos(np.radians(start_dec))
 
+        if i_d % 2 != 0:
+            times_ra = times_ra[::-1]
+            actual_ra = actual_ra[::-1]
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
                   {'Ch0': counts, 'Ch1': counts},
                   filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
@@ -282,6 +285,9 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
             ra.normal(0, noise_amplitude, dec_array.shape) + \
             baseline
 
+        if i_r % 2 != 0:
+            times_dec = times_dec[::-1]
+            dec_array = dec_array[::-1]
         save_scan(times_dec, np.zeros_like(dec_array) + start_ra,
                   dec_array + mean_dec,
                   {'Ch0': counts, 'Ch1': counts},
