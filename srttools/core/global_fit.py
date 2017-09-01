@@ -2,6 +2,13 @@
 
 from __future__ import (absolute_import, division,
                         print_function)
+
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
 from .fit import contiguous_regions
 from .utils import jit, vectorize
 
@@ -316,9 +323,8 @@ def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None,
         File containing the parameters, in the same format saved by _callback
 
     """
-    import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
-
+    if not HAS_MPL:
+        raise ImportError('display_intermediate: matplotlib is not installed')
     X = np.array(scanset['x'][:, feed], dtype=np.float64)
     Y = np.array(scanset['y'][:, feed], dtype=np.float64)
     counts = np.array(scanset[chan], dtype=np.float64) * factor

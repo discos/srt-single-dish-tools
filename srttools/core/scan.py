@@ -9,8 +9,12 @@ from .fit import ref_mad, contiguous_regions
 import os
 import numpy as np
 from astropy.table import Table, Column
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
 
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
@@ -275,7 +279,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     results.freqmin = freqmin
     results.freqmax = freqmax
 
-    if not debug:
+    if not debug or not HAS_MPL:
         return results
 
     # Now, PLOT IT ALL --------------------------------
@@ -549,7 +553,7 @@ class Scan(Table):
 
         """
         for ch in self.chan_columns():
-            if plot:
+            if plot and HAS_MPL:
                 fig = plt.figure("Sub" + ch)
                 plt.plot(self['time'], self[ch] - np.min(self[ch]),
                          alpha=0.5)
@@ -561,7 +565,7 @@ class Scan(Table):
             else:
                 raise ValueError('Unknown baseline technique')
 
-            if plot:
+            if plot and HAS_MPL:
                 plt.plot(self['time'], self[ch])
                 out = self.meta['filename'].replace('.fits',
                                                     '_{}.png'.format(ch))
@@ -583,7 +587,8 @@ class Scan(Table):
             Table.write(self, fname, *args, path='scan', serialize_meta=True,
                         **kwargs)
         else:
-            Table.write(self, fname, *args, **kwargs)
+            raise TypeError("Saving to anything else than HDF5 is not "
+                            "supported at the moment")
 
     def check_order(self):
         """Check that times in a scan are monotonically increasing."""

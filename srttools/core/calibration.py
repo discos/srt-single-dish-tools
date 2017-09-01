@@ -23,8 +23,6 @@ import glob
 import re
 import warnings
 import traceback
-from matplotlib.gridspec import GridSpec
-import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import logging
 import astropy.units as u
@@ -37,6 +35,13 @@ try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
+
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
 
 CALIBRATOR_CONFIG = None
 
@@ -174,6 +179,136 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
 
+def _treat_scan(scan_path, plot=False, **kwargs):
+    scandir, sname = os.path.split(scan_path)
+    if plot and HAS_MPL:
+        outdir = os.path.splitext(sname)[0] + "_scanfit"
+        outdir = os.path.join(scandir, outdir)
+        mkdir_p(outdir)
+
+    try:
+        # For now, use nosave. HDF5 doesn't store meta, essential for
+        # this
+        scan = Scan(scan_path, norefilt=True, nosave=True, **kwargs)
+    except KeyError as e:
+        warnings.warn("Missing key. Bad file? {}: {}".format(sname,
+                                                             str(e)))
+        return False, None
+    except Exception as e:
+        warnings.warn("Error while processing {}: {}".format(sname,
+                                                             str(e)))
+        warnings.warn(traceback.format_exc())
+        return False, None
+
+    feeds = np.arange(scan['ra'].shape[1])
+    chans = scan.chan_columns()
+
+    chan_nums = np.arange(len(chans))
+    F, N = np.meshgrid(feeds, chan_nums)
+    F = F.flatten()
+    N = N.flatten()
+    rows = []
+    for feed, nch in zip(F, N):
+        channel = chans[nch]
+
+        ras = np.degrees(scan['ra'][:, feed])
+        decs = np.degrees(scan['dec'][:, feed])
+        time = np.mean(scan['time'][:])
+        el = np.degrees(np.mean(scan['el'][:, feed]))
+        az = np.degrees(np.mean(scan['az'][:, feed]))
+        source = scan.meta['SOURCE']
+        pnt_ra = np.degrees(scan.meta['RA'])
+        pnt_dec = np.degrees(scan.meta['Dec'])
+        frequency = scan[channel].meta['frequency']
+        bandwidth = scan[channel].meta['bandwidth']
+
+        y = scan[channel]
+
+        x, scan_type = _scantype(ras, decs)
+
+        model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
+
+        try:
+            uncert = fit_info['param_cov'].diagonal() ** 0.5
+        except Exception:
+            message = fit_info['message']
+            warnings.warn(
+                "Fit failed in scan {s}: {m}".format(s=sname,
+                                                     m=message))
+            continue
+        bell = model['Bell']
+        # pars = model.parameters
+        pnames = model.param_names
+        counts = model.amplitude_1.value
+
+        if scan_type.startswith("RA"):
+            fit_ra = bell.mean
+            fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
+            fit_dec = None
+            ra_err = fit_ra * u.degree - pnt_ra
+            dec_err = None
+            fit_mean = fit_ra
+            fit_label = 'RA'
+            pnt = pnt_ra
+        elif scan_type.startswith("Dec"):
+            fit_ra = None
+            fit_dec = bell.mean
+            fit_width = bell.stddev
+            dec_err = fit_dec * u.degree - pnt_dec
+            ra_err = None
+            fit_mean = fit_dec
+            fit_label = 'Dec'
+            pnt = pnt_dec
+        else:
+            raise ValueError("Unknown scan type")
+
+        index = pnames.index("amplitude_1")
+
+        counts_err = uncert[index]
+        index = pnames.index("stddev_1")
+        width_err = uncert[index]
+
+        flux_density, flux_density_err = 0, 0
+        flux_over_counts, flux_over_counts_err = 0, 0
+        calculated_flux, calculated_flux_err = 0, 0
+
+        rows.append([scandir, sname, scan_type, source, channel, feed,
+                     time, frequency, bandwidth, counts, counts_err,
+                     fit_width, width_err,
+                     flux_density, flux_density_err, el, az,
+                     flux_over_counts, flux_over_counts_err,
+                     flux_over_counts, flux_over_counts_err,
+                     calculated_flux, calculated_flux_err,
+                     pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
+                     dec_err])
+
+        if plot and HAS_MPL:
+            fig = plt.figure("Fit information")
+            gs = GridSpec(2, 1, height_ratios=(3, 1))
+            ax0 = plt.subplot(gs[0])
+            ax1 = plt.subplot(gs[1], sharex=ax0)
+
+            ax0.plot(x, y, label="Data")
+            ax0.plot(x, bell(x), label="Fit")
+            ax1.plot(x, y - bell(x))
+
+            ax0.axvline(fit_mean, label=fit_label + " Fit", ls="-")
+            ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt",
+                        ls="--")
+            ax0.set_xlim([min(x), max(x)])
+            ax1.set_xlabel(fit_label)
+            ax0.set_ylabel("Counts")
+            ax1.set_ylabel("Residual (cts)")
+
+            plt.legend()
+            plt.savefig(os.path.join(outdir,
+                                     "Feed{}_chan{}.png".format(feed,
+                                                                nch)))
+            plt.close(fig)
+
+    return True, rows
+
+
 class CalibratorTable(Table):
     """Table composed of fitted and tabulated fluxes."""
 
@@ -269,138 +404,20 @@ class CalibratorTable(Table):
             scan_list.sort()
         nscan = len(scan_list)
 
-        retval = False
+        out_retval = False
         for i_s, s in enumerate(scan_list):
             logging.info('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
-            scandir, sname = os.path.split(s)
-            if plot:
-                outdir = os.path.splitext(sname)[0] + "_scanfit"
-                outdir = os.path.join(scandir, outdir)
-                mkdir_p(outdir)
 
-            try:
-                # For now, use nosave. HDF5 doesn't store meta, essential for
-                # this
-                scan = Scan(s, norefilt=True, nosave=True, debug=debug,
-                            freqsplat=freqsplat, nofilt=nofilt)
-            except KeyError as e:
-                warnings.warn("Missing key. Bad file? {}: {}".format(s,
-                                                                     str(e)))
-                continue
-            except Exception as e:
-                warnings.warn("Error while processing {}: {}".format(s,
-                                                                     str(e)))
-                warnings.warn(traceback.format_exc())
-                continue
+            retval, rows = _treat_scan(s, plot=plot, debug=debug,
+                                       freqsplat=freqsplat, nofilt=nofilt)
 
-            feeds = np.arange(scan['ra'].shape[1])
-            chans = scan.chan_columns()
+            if retval:
+                out_retval = True
 
-            chan_nums = np.arange(len(chans))
-            F, N = np.meshgrid(feeds, chan_nums)
-            F = F.flatten()
-            N = N.flatten()
-            for feed, nch in zip(F, N):
-                channel = chans[nch]
+                for r in rows:
+                    self.add_row(r)
 
-                ras = np.degrees(scan['ra'][:, feed])
-                decs = np.degrees(scan['dec'][:, feed])
-                time = np.mean(scan['time'][:])
-                el = np.degrees(np.mean(scan['el'][:, feed]))
-                az = np.degrees(np.mean(scan['az'][:, feed]))
-                source = scan.meta['SOURCE']
-                pnt_ra = np.degrees(scan.meta['RA'])
-                pnt_dec = np.degrees(scan.meta['Dec'])
-                frequency = scan[channel].meta['frequency']
-                bandwidth = scan[channel].meta['bandwidth']
-
-                y = scan[channel]
-
-                x, scan_type = _scantype(ras, decs)
-
-                model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
-
-                try:
-                    uncert = fit_info['param_cov'].diagonal() ** 0.5
-                except Exception:
-                    message = fit_info['message']
-                    warnings.warn(
-                        "Fit failed in scan {s}: {m}".format(s=s,
-                                                             m=message))
-                    continue
-                bell = model['Bell']
-                # pars = model.parameters
-                pnames = model.param_names
-                counts = model.amplitude_1.value
-                if plot:
-                    fig = plt.figure("Fit information")
-                    import matplotlib as mpl
-                    gs = mpl.gridspec.GridSpec(2, 1, height_ratios=(3, 1))
-                    ax0 = plt.subplot(gs[0])
-                    ax1 = plt.subplot(gs[1], sharex=ax0)
-
-                    ax0.plot(x, y, label="Data")
-                    ax0.plot(x, bell(x), label="Fit")
-                    ax1.plot(x, y - bell(x))
-
-                if scan_type.startswith("RA"):
-                    fit_ra = bell.mean
-                    fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
-                    fit_dec = None
-                    ra_err = fit_ra * u.degree - pnt_ra
-                    dec_err = None
-                    if plot:
-                        ax0.axvline(fit_ra, label="RA Fit", ls="-")
-                    if plot:
-                        ax0.axvline(pnt_ra.to(u.deg).value, label="RA Pnt",
-                                    ls="--")
-                        ax0.set_xlim([fit_ra - 2, fit_ra + 2])
-                        ax1.set_xlabel('RA')
-
-                elif scan_type.startswith("Dec"):
-                    fit_ra = None
-                    fit_dec = bell.mean
-                    fit_width = bell.stddev
-                    dec_err = fit_dec * u.degree - pnt_dec
-                    ra_err = None
-                    if plot:
-                        ax0.axvline(fit_dec, label="Dec Fit", ls="-")
-                    if plot:
-                        ax0.axvline(pnt_dec.to(u.deg).value, label="Dec Pnt",
-                                    ls="--")
-                        ax0.set_xlim([fit_dec - 2, fit_dec + 2])
-                        ax1.set_xlabel('Dec')
-                        ax0.set_ylabel("Counts")
-                        ax1.set_ylabel("Residual (cts)")
-                index = pnames.index("amplitude_1")
-
-                counts_err = uncert[index]
-                index = pnames.index("stddev_1")
-                width_err = uncert[index]
-
-                flux_density, flux_density_err = 0, 0
-                flux_over_counts, flux_over_counts_err = 0, 0
-                calculated_flux, calculated_flux_err = 0, 0
-
-                self.add_row([scandir, sname, scan_type, source, channel, feed,
-                              time, frequency, bandwidth, counts, counts_err,
-                              fit_width, width_err,
-                              flux_density, flux_density_err, el, az,
-                              flux_over_counts, flux_over_counts_err,
-                              flux_over_counts, flux_over_counts_err,
-                              calculated_flux, calculated_flux_err,
-                              pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
-                              dec_err])
-
-                if plot:
-                    plt.legend()
-                    plt.savefig(os.path.join(outdir,
-                                             "Feed{}_chan{}.png".format(feed,
-                                                                        nch)))
-                    plt.close(fig)
-            retval = True
-
-        return retval
+        return out_retval
 
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""

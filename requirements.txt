@@ -1,5 +1,4 @@
 scipy
-matplotlib
 pytest
 pip
 h5py

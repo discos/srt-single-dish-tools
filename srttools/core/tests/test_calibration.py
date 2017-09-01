@@ -5,7 +5,7 @@ from srttools.core.read_config import read_config
 from srttools.core.scan import list_scans
 from srttools.core.simulate import save_scan
 from srttools.core.io import mkdir_p
-from srttools.core.utils import compare_strings
+from srttools.core.utils import compare_strings, HAS_MPL
 import pytest
 import logging
 
@@ -59,6 +59,8 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
     for i in tqdm(range(ncross)):
         ras = src_ra + scan_values / np.cos(np.radians(src_dec))
+        if i % 2 != 0:
+            ras = ras[::-1]
         decs = src_dec + zero_values
         times = np.arange(scan_values.size) * dt + timedelta
 
@@ -71,6 +73,8 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         ras = src_ra + zero_values
         decs = src_dec + scan_values
+        if i % 2 != 0:
+            decs = decs[::-1]
         times = np.arange(scan_values.size) * dt + timedelta
 
         scan = scan_func(scan_values) + \
@@ -227,6 +231,7 @@ class TestCalibration(object):
         beam, beam_err = caltable.beam_width(channel='Ch0')
         assert np.all(beam - np.radians(3/60) < 3 * beam_err)
 
+    @pytest.mark.skipif('not HAS_MPL')
     def test_calibration_plot_two_cols(self):
         """Simple calibration from scans."""
 
@@ -234,6 +239,7 @@ class TestCalibration(object):
         caltable.plot_two_columns('RA', "Flux/Counts", xerrcol="RA err",
                                   yerrcol="Flux/Counts Err", test=True)
 
+    @pytest.mark.skipif('not HAS_MPL')
     def test_calibration_show(self):
         """Simple calibration from scans."""
 
@@ -270,6 +276,7 @@ class TestCalibration(object):
         res = caltable.check_consistency()
         assert np.all(res)
 
+    @pytest.mark.skipif('not HAS_MPL')
     def test_sdtcal_with_calfile(self):
         if os.path.exists("calibration_summary.png"):
             os.unlink("calibration_summary.png")
@@ -278,7 +285,8 @@ class TestCalibration(object):
         assert os.path.exists("calibration_summary.png")
         os.unlink("calibration_summary.png")
 
-    def test_sdtcal_with_config(self):
+    @pytest.mark.skipif('not HAS_MPL')
+    def test_sdtcal_show_with_config(self):
         main_cal(('-c ' + self.config_file + ' --check --show').split(" "))
         assert os.path.exists(self.config_file.replace(".ini", "_cal.hdf5"))
         assert os.path.exists("calibration_summary.png")
@@ -316,7 +324,8 @@ class TestCalibration(object):
     @classmethod
     def teardown_class(klass):
         """Clean up the mess."""
-        os.unlink('calibration_summary.png')
+        if HAS_MPL:
+            os.unlink('calibration_summary.png')
         for d in klass.config['list_of_directories']:
             hfiles = \
                 glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))

@@ -14,8 +14,12 @@ from astropy import wcs
 from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
 import astropy.units as u
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
 
 from .fit import linear_fun
 from .interactive_filter import select_data
@@ -272,16 +276,17 @@ class ScanSet(Table):
                 (self['az'][:, f] - ref_az) * np.cos(ref_el)
             self['delta_el'][:, f] = self['el'][:, f] - ref_el
 
-        fig1 = plt.figure("adsfasdfasd")
-        plt.plot(self['delta_az'], self['delta_el'])
-        plt.savefig('delta_altaz.png')
-        plt.close(fig1)
+        if HAS_MPL:
+            fig1 = plt.figure("adsfasdfasd")
+            plt.plot(self['delta_az'], self['delta_el'])
+            plt.savefig('delta_altaz.png')
+            plt.close(fig1)
 
-        fig2 = plt.figure("adsfasdf")
-        plt.plot(self['az'], self['el'])
-        plt.plot(ref_az, ref_el)
-        plt.savefig('altaz_with_src.png')
-        plt.close(fig2)
+            fig2 = plt.figure("adsfasdf")
+            plt.plot(self['az'], self['el'])
+            plt.plot(ref_az, ref_el)
+            plt.savefig('altaz_with_src.png')
+            plt.close(fig2)
 
     def create_wcs(self, altaz=False):
         """Create a wcs object from the pointing information."""
@@ -550,6 +555,9 @@ class ScanSet(Table):
     def interactive_display(self, ch=None, recreate=False, test=False):
         """Modify original scans from the image display."""
         from .interactive_filter import ImageSelector
+        if not HAS_MPL:
+            raise ImportError('interactive_display: '
+                              'matplotlib is not installed')
 
         if not hasattr(self, 'images') or recreate:
             self.calculate_images()
@@ -712,15 +720,7 @@ class ScanSet(Table):
                                 *fit_info)
         # TODO: make it channel-independent
             s.meta['backsub'] = True
-            try:
-                self[ch][mask] = s[ch]
-            except Exception:
-                warnings.warn("Something while treating {}".format(sname))
-
-                plt.figure("DEBUG")
-                plt.plot(self['ra'][mask], self['dec'][mask])
-                plt.show()
-                raise
+            self[ch][mask] = s[ch]
 
         # TODO: make it channel-independent
         if flag_info:
@@ -881,6 +881,17 @@ def main_imager(args=None):
 
     outfile = args.outfile
 
+    excluded = None
+    if args.exclude is not None:
+        nexc = len(args.exclude)
+        if nexc % 3 != 0:
+            raise ValueError("Exclusion region has to be specified as "
+                             "centerX0, centerY0, radius0, centerX1, "
+                             "centerY1, radius1, ... (in X,Y coordinates)")
+        excluded = \
+            np.array([np.float(e)
+                      for e in args.exclude]).reshape((nexc // 3, 3))
+
     if args.file is not None:
         scanset = ScanSet(args.file, config_file=args.config)
         infile = args.file
@@ -903,17 +914,6 @@ def main_imager(args=None):
         scanset.interactive_display()
 
     if args.global_fit:
-        excluded = None
-        if args.exclude is not None:
-            nexc = len(args.exclude)
-            if nexc % 3 != 0:
-                raise ValueError("Exclusion region has to be specified as "
-                                 "centerX0, centerY0, radius0, centerX1, "
-                                 "centerY1, radius1, ... (in X,Y coordinates)")
-            excluded = \
-                np.array([np.float(e)
-                          for e in args.exclude]).reshape((nexc // 3, 3))
-
         scanset.fit_full_images(excluded=excluded, chans=args.chans,
                                 altaz=args.altaz)
         scanset.write(outfile.replace('.hdf5', '_baselinesub.hdf5'),

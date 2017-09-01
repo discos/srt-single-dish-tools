@@ -14,7 +14,11 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 import astropy.units as u
 import six
-
+try:
+    import matplotlib.pyplot as plt
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
 
 __all__ = ["simulate_scan", "save_scan", "simulate_map"]
 
@@ -193,7 +197,6 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         If a single string, put all files in that directory; if two strings,
         put RA and DEC scans in the two directories.
     """
-    import matplotlib.pyplot as plt
 
     if isinstance(outdir, six.string_types):
         outdir = (outdir, outdir)
@@ -235,7 +238,8 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     if width_ra is None:
         width_ra = length_ra
     # Dec scans
-    fig = plt.figure()
+    if HAS_MPL:
+        fig = plt.figure()
 
     delta_decs = np.arange(-width_dec/2, width_dec/2 + spacing, spacing)/60
     print("Simulating dec scans...")
@@ -261,11 +265,13 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                   {'Ch0': counts, 'Ch1': counts * channel_ratio},
                   filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
-        plt.plot(ra_array, counts)
-    fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
-    plt.close(fig)
+        if HAS_MPL:
+            plt.plot(ra_array, counts)
+    if HAS_MPL:
+        fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
+        plt.close(fig)
 
-    fig = plt.figure()
+        fig = plt.figure()
     delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing,
                           spacing) / 60
     print("Simulating RA scans...")
@@ -292,7 +298,9 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                   filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
 
-        plt.plot(dec_array, counts)
+        if HAS_MPL:
+            plt.plot(dec_array, counts)
 
-    fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
-    plt.close(fig)
+    if HAS_MPL:
+        fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
+        plt.close(fig)
