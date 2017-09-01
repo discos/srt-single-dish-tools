@@ -22,9 +22,28 @@ class TestSimulate(object):
                   {'Ch0': shape, 'Ch1': shape},
                   os.path.join(self.outdir, 'output.fits'))
 
+    def test_sim_scan_other_columns(self):
+        """Test the simulation of a single scan."""
+        times, position, shape = simulate_scan()
+        save_scan(times, position, np.zeros_like(position),
+                  {'Ch0': shape, 'Ch1': shape},
+                  os.path.join(self.outdir, 'output.fits'),
+                  scan_type="Any",
+                  other_columns={'Pippo': np.zeros_like(shape)})
+
     def test_sim_map_empty(self):
         """Test the simulation of an empty map."""
         simulate_map(width_ra=2, width_dec=2., outdir=self.emptydir)
+
+    def test_sim_map_empty_messy(self):
+        """Test the simulation of an empty map."""
+        simulate_map(width_ra=2, width_dec=2., outdir=self.emptydir,
+                     baseline='messy')
+
+    def test_sim_map_empty_slope(self):
+        """Test the simulation of an empty map."""
+        simulate_map(width_ra=2, width_dec=2., outdir=self.emptydir,
+                     baseline='slope')
 
     def test_raises_wrong_map_shape(self):
         with pytest.raises(ValueError):
