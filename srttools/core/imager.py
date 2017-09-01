@@ -800,7 +800,7 @@ class ScanSet(Table):
         hdulist.writeto(fname, overwrite=True)
 
 
-def main_imager(args=None):  # pragma: no cover
+def main_imager(args=None):
     """Main function."""
     import argparse
 
@@ -924,7 +924,7 @@ def main_imager(args=None):  # pragma: no cover
                             altaz=args.altaz, calibrate_scans=not args.quick)
 
 
-def main_preprocess(args=None):  # pragma: no cover
+def main_preprocess(args=None):
     """Preprocess the data."""
     import argparse
 
@@ -963,7 +963,7 @@ def main_preprocess(args=None):  # pragma: no cover
 
     args = parser.parse_args(args)
 
-    if args.files is not None:
+    if args.files is not None and args.files:
         for f in args.files:
             Scan(f, freqsplat=args.splat, nosub=not args.sub, norefilt=False,
                  debug=args.debug, interactive=args.interactive)
