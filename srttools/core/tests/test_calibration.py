@@ -59,6 +59,8 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
     for i in tqdm(range(ncross)):
         ras = src_ra + scan_values / np.cos(np.radians(src_dec))
+        if i % 2 != 0:
+            ras = ras[::-1]
         decs = src_dec + zero_values
         times = np.arange(scan_values.size) * dt + timedelta
 
@@ -71,6 +73,8 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         ras = src_ra + zero_values
         decs = src_dec + scan_values
+        if i % 2 != 0:
+            decs = decs[::-1]
         times = np.arange(scan_values.size) * dt + timedelta
 
         scan = scan_func(scan_values) + \

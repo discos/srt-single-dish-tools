@@ -873,6 +873,17 @@ def main_imager(args=None):
 
     outfile = args.outfile
 
+    excluded = None
+    if args.exclude is not None:
+        nexc = len(args.exclude)
+        if nexc % 3 != 0:
+            raise ValueError("Exclusion region has to be specified as "
+                             "centerX0, centerY0, radius0, centerX1, "
+                             "centerY1, radius1, ... (in X,Y coordinates)")
+        excluded = \
+            np.array([np.float(e)
+                      for e in args.exclude]).reshape((nexc // 3, 3))
+
     if args.file is not None:
         scanset = ScanSet(args.file, config_file=args.config)
         infile = args.file
@@ -895,17 +906,6 @@ def main_imager(args=None):
         scanset.interactive_display()
 
     if args.global_fit:
-        excluded = None
-        if args.exclude is not None:
-            nexc = len(args.exclude)
-            if nexc % 3 != 0:
-                raise ValueError("Exclusion region has to be specified as "
-                                 "centerX0, centerY0, radius0, centerX1, "
-                                 "centerY1, radius1, ... (in X,Y coordinates)")
-            excluded = \
-                np.array([np.float(e)
-                          for e in args.exclude]).reshape((nexc // 3, 3))
-
         scanset.fit_full_images(excluded=excluded, chans=args.chans,
                                 altaz=args.altaz)
         scanset.write(outfile.replace('.hdf5', '_baselinesub.hdf5'),

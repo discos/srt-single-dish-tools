@@ -661,7 +661,7 @@ class TestScanSet(object):
             main_imager([])
         assert "Please specify the config file!" in str(excinfo)
 
-    def test_imager_global_fit(self):
+    def test_imager_global_fit_valid(self):
         '''Test image production.'''
         # Get information on images
         scanset = ScanSet('test.hdf5')
@@ -673,6 +673,12 @@ class TestScanSet(object):
 
         main_imager('test.hdf5 -g '
                     '-e {} {} {}'.format(*(excluded[0])).split(' '))
+
+    def test_imager_global_fit_invalid(self):
+        '''Test image production.'''
+        with pytest.raises(ValueError) as excinfo:
+            main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
+            assert "Exclusion region has to be specified as " in str(excinfo)
 
     def test_imager_sample_config(self):
         if os.path.exists('sample_config_file.ini'):
