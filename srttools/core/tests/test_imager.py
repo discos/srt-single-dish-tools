@@ -8,7 +8,7 @@ from srttools import ScanSet
 from srttools import Scan
 from srttools import CalibratorTable
 from srttools.core.read_config import read_config
-from srttools.core.imager import main_imager
+from srttools.core.imager import main_imager, main_preprocess
 from srttools.core.simulate import simulate_map
 from srttools.core.global_fit import display_intermediate
 from srttools.core.io import mkdir_p
@@ -207,6 +207,9 @@ class TestScanSet(object):
         main_imager(('test.hdf5 -u Jy/beam ' +
                      '--calibrate {}'.format(self.calfile) +
                      ' -o bubu.hdf5 --debug').split(' '))
+
+    def test_use_command_line_config(self):
+        main_imager(['-c', self.config_file])
 
     def test_meta_saved_and_loaded_correctly(self):
         scanset = ScanSet('test.hdf5')
@@ -640,6 +643,43 @@ class TestScanSet(object):
         assert np.all(np.array(after, dtype=bool) == np.array(s['Ch0-filt'],
                                                               dtype=bool))
         os.unlink(sname.replace('fits', 'hdf5'))
+
+    def test_preprocess_no_config(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_preprocess([])
+        assert "Please specify the config file!" in str(excinfo)
+
+    def test_preprocess_single_files(self):
+        files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
+        main_preprocess(files[:2])
+
+    def test_preprocess_config(self):
+        main_preprocess(['-c', self.config_file])
+
+    def test_imager_no_config(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_imager([])
+        assert "Please specify the config file!" in str(excinfo)
+
+    def test_imager_global_fit(self):
+        '''Test image production.'''
+        # Get information on images
+        scanset = ScanSet('test.hdf5')
+        scanset.fit_full_images(no_offsets=True)
+        # It works after calculating images
+        images = scanset.calculate_images()
+        nx, ny = images['Ch0'].shape
+        excluded = [[nx//2, ny//2, nx//4]]
+
+        main_imager('test.hdf5 -g '
+                    '-e {} {} {}'.format(*(excluded[0])).split(' '))
+
+    def test_imager_sample_config(self):
+        if os.path.exists('sample_config_file.ini'):
+            os.unlink('sample_config_file.ini')
+        with pytest.raises(SystemExit):
+            main_imager(['--sample-config'])
+        assert os.path.exists('sample_config_file.ini')
 
     @classmethod
     def teardown_class(klass):
