@@ -1,6 +1,6 @@
 from __future__ import division, print_function
 from srttools import CalibratorTable
-from srttools.core.calibration import main_lcurve, _get_flux_quantity
+from srttools.core.calibration import main_lcurve, _get_flux_quantity, main_cal
 from srttools.core.read_config import read_config
 from srttools.core.scan import list_scans
 from srttools.core.simulate import save_scan
@@ -91,6 +91,10 @@ class TestCalibration(object):
 
         klass.config_file = \
             os.path.abspath(os.path.join(klass.datadir, "calibrators.ini"))
+
+        klass.config_file_empty = \
+            os.path.abspath(os.path.join(klass.datadir,
+                                         "calibrators_nocal.ini"))
 
         klass.config = read_config(klass.config_file)
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
@@ -265,6 +269,38 @@ class TestCalibration(object):
         assert np.all(res)
         res = caltable.check_consistency()
         assert np.all(res)
+
+    def test_sdtcal_with_calfile(self):
+        if os.path.exists("calibration_summary.png"):
+            os.unlink("calibration_summary.png")
+        with pytest.raises(SystemExit):
+            main_cal([self.calfile])
+        assert os.path.exists("calibration_summary.png")
+        os.unlink("calibration_summary.png")
+
+    def test_sdtcal_with_config(self):
+        main_cal(('-c ' + self.config_file + ' --check --show').split(" "))
+        assert os.path.exists(self.config_file.replace(".ini", "_cal.hdf5"))
+        assert os.path.exists("calibration_summary.png")
+
+    def test_sdtcal_with_sample_config(self):
+        if os.path.exists('sample_config_file.ini'):
+            os.unlink('sample_config_file.ini')
+        with pytest.raises(SystemExit):
+            main_cal(['--sample-config'])
+        assert os.path.exists('sample_config_file.ini')
+
+    def test_sdtcal_no_config(self):
+        # ValueError("Please specify the config file!")
+        with pytest.raises(ValueError) as excinfo:
+            main_cal([])
+            assert "Please specify the config file!" in str(excinfo)
+
+    def test_sdtcal_no_config_dir(self):
+        ValueError("No calibrators specified in config file")
+        with pytest.raises(ValueError) as excinfo:
+            main_cal(["-c", self.config_file_empty])
+            assert "No calibrators specified in config file" in str(excinfo)
 
     def test_lcurve_with_single_source(self):
         main_lcurve([self.calfile, '-s', 'DummySrc'])

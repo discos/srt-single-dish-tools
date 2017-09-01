@@ -1040,7 +1040,7 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     return flux_function(frequency, bandwidth, coeffs, ecoeffs)
 
 
-def main(args=None):
+def main_cal(args=None):
     """Main function."""
     import argparse
 
@@ -1086,15 +1086,16 @@ def main(args=None):
         caltable = CalibratorTable().read(args.file)
         caltable.show()
         sys.exit()
+
     if args.config is None:
         raise ValueError("Please specify the config file!")
 
     config = read_config(args.config)
 
     calibrator_dirs = config['calibrator_directories']
-    if calibrator_dirs is None:
-        warnings.warn("No calibrators specified in config file")
-        return
+    if calibrator_dirs is None or not calibrator_dirs:
+        raise ValueError("No calibrators specified in config file")
+
     scan_list = \
         list_scans(config['datadir'],
                    config['calibrator_directories'])
