@@ -23,12 +23,6 @@ import glob
 import re
 import warnings
 import traceback
-try:
-    import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
-    HAS_MPL = True
-except:
-    HAS_MPL = False
 from scipy.optimize import curve_fit
 import logging
 import astropy.units as u
@@ -41,6 +35,13 @@ try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
+
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+    HAS_MPL = True
+except:
+    HAS_MPL = False
 
 CALIBRATOR_CONFIG = None
 
@@ -283,7 +284,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         if plot and HAS_MPL:
             fig = plt.figure("Fit information")
-            gs = mpl.gridspec.GridSpec(2, 1, height_ratios=(3, 1))
+            gs = GridSpec(2, 1, height_ratios=(3, 1))
             ax0 = plt.subplot(gs[0])
             ax1 = plt.subplot(gs[1], sharex=ax0)
 
