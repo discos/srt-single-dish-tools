@@ -672,7 +672,7 @@ class TestScanSet(object):
         excluded = [[nx//2, ny//2, nx//4]]
 
         main_imager('test.hdf5 -g '
-                     '-e {} {} {}'.format(*(excluded[0])).split(' '))
+                    '-e {} {} {}'.format(*(excluded[0])).split(' '))
 
     def test_imager_sample_config(self):
         if os.path.exists('sample_config_file.ini'):
