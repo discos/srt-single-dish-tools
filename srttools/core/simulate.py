@@ -15,7 +15,7 @@ from astropy.time import Time
 import astropy.units as u
 import six
 try:
-    import matplotlib as plt
+    import matplotlib.pyplot as plt
     HAS_MPL = True
 except:
     HAS_MPL = False
