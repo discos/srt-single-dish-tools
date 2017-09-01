@@ -23,8 +23,12 @@ import glob
 import re
 import warnings
 import traceback
-from matplotlib.gridspec import GridSpec
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+    HAS_MPL = True
+except:
+    HAS_MPL = False
 from scipy.optimize import curve_fit
 import logging
 import astropy.units as u
@@ -176,7 +180,7 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
 
 def _treat_scan(scan_path, plot=False, **kwargs):
     scandir, sname = os.path.split(scan_path)
-    if plot:
+    if plot and HAS_MPL:
         outdir = os.path.splitext(sname)[0] + "_scanfit"
         outdir = os.path.join(scandir, outdir)
         mkdir_p(outdir)
@@ -277,9 +281,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
                      pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
                      dec_err])
 
-        if plot:
+        if plot and HAS_MPL:
             fig = plt.figure("Fit information")
-            import matplotlib as mpl
             gs = mpl.gridspec.GridSpec(2, 1, height_ratios=(3, 1))
             ax0 = plt.subplot(gs[0])
             ax1 = plt.subplot(gs[1], sharex=ax0)
