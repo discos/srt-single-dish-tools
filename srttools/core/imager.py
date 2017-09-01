@@ -712,15 +712,7 @@ class ScanSet(Table):
                                 *fit_info)
         # TODO: make it channel-independent
             s.meta['backsub'] = True
-            try:
-                self[ch][mask] = s[ch]
-            except Exception:
-                warnings.warn("Something while treating {}".format(sname))
-
-                plt.figure("DEBUG")
-                plt.plot(self['ra'][mask], self['dec'][mask])
-                plt.show()
-                raise
+            self[ch][mask] = s[ch]
 
         # TODO: make it channel-independent
         if flag_info:
