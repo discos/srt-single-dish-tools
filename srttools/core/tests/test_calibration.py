@@ -316,19 +316,19 @@ class TestCalibration(object):
         assert os.path.exists('DummySrc.csv')
         assert os.path.exists('DummyCal.csv')
         assert os.path.exists('DummyCal2.csv')
-    #
-    # @classmethod
-    # def teardown_class(klass):
-    #     """Clean up the mess."""
-    #     os.unlink('calibration_summary.png')
-    #     for d in klass.config['list_of_directories']:
-    #         hfiles = \
-    #             glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
-    #         for h in hfiles:
-    #             os.unlink(h)
-    #
-    #         dirs = \
-    #             glob.glob(os.path.join(klass.config['datadir'], d,
-    #                                    '*_scanfit'))
-    #         for dirname in dirs:
-    #             shutil.rmtree(dirname)
+
+    @classmethod
+    def teardown_class(klass):
+        """Clean up the mess."""
+        os.unlink('calibration_summary.png')
+        for d in klass.config['list_of_directories']:
+            hfiles = \
+                glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
+            for h in hfiles:
+                os.unlink(h)
+
+            dirs = \
+                glob.glob(os.path.join(klass.config['datadir'], d,
+                                       '*_scanfit'))
+            for dirname in dirs:
+                shutil.rmtree(dirname)
