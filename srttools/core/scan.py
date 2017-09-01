@@ -583,7 +583,8 @@ class Scan(Table):
             Table.write(self, fname, *args, path='scan', serialize_meta=True,
                         **kwargs)
         else:
-            Table.write(self, fname, *args, **kwargs)
+            raise TypeError("Saving to anything else than HDF5 is not "
+                            "supported at the moment")
 
     def check_order(self):
         """Check that times in a scan are monotonically increasing."""
