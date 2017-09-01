@@ -268,14 +268,14 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         calculated_flux, calculated_flux_err = 0, 0
 
         rows.append([scandir, sname, scan_type, source, channel, feed,
-                      time, frequency, bandwidth, counts, counts_err,
-                      fit_width, width_err,
-                      flux_density, flux_density_err, el, az,
-                      flux_over_counts, flux_over_counts_err,
-                      flux_over_counts, flux_over_counts_err,
-                      calculated_flux, calculated_flux_err,
-                      pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
-                      dec_err])
+                     time, frequency, bandwidth, counts, counts_err,
+                     fit_width, width_err,
+                     flux_density, flux_density_err, el, az,
+                     flux_over_counts, flux_over_counts_err,
+                     flux_over_counts, flux_over_counts_err,
+                     calculated_flux, calculated_flux_err,
+                     pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
+                     dec_err])
 
         if plot:
             fig = plt.figure("Fit information")
