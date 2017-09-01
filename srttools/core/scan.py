@@ -13,7 +13,7 @@ try:
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
     HAS_MPL = True
-except:
+except ImportError:
     HAS_MPL = False
 
 from .fit import baseline_rough, baseline_als, linear_fun

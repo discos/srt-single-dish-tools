@@ -40,7 +40,7 @@ try:
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
     HAS_MPL = True
-except:
+except ImportError:
     HAS_MPL = False
 
 CALIBRATOR_CONFIG = None

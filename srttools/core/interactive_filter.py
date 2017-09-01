@@ -6,7 +6,7 @@ try:
     import matplotlib.pyplot as plt
     from matplotlib import gridspec
     HAS_MPL = True
-except:
+except ImportError:
     HAS_MPL = False
 
 import numpy as np

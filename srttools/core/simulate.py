@@ -17,7 +17,7 @@ import six
 try:
     import matplotlib.pyplot as plt
     HAS_MPL = True
-except:
+except ImportError:
     HAS_MPL = False
 
 __all__ = ["simulate_scan", "save_scan", "simulate_map"]
