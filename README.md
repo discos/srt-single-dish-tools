@@ -3,7 +3,6 @@
 [![Travis CI status](https://travis-ci.org/matteobachetti/srt-single-dish-tools.svg?branch=master)](https://travis-ci.org/matteobachetti/srt-single-dish-tools)
 [![Appveyor build status](https://ci.appveyor.com/api/projects/status/m7ll5da3w8ukkrjd/branch/master?svg=true)](https://ci.appveyor.com/project/matteobachetti/srt-single-dish-tools/branch/master)
 [![codecov](https://img.shields.io/codecov/c/github/matteobachetti/srt-single-dish-tools/master.svg?maxAge=0)](https://codecov.io/gh/matteobachetti/srt-single-dish-tools)
-
 [![Powered by Astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
 [![Documentation Status](https://readthedocs.org/projects/srt-single-dish-tools/badge/?version=latest)](http://srt-single-dish-tools.readthedocs.io/en/latest/?badge=latest)
 
