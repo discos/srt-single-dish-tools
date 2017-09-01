@@ -27,7 +27,7 @@ env:
         # to repeat them for all configurations.
         - ASTROPY_VERSION=stable
         - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml numba'
-        - PIP_DEPENDENCIES='patsy pytest-catchlog'
+        - PIP_DEPENDENCIES='patsy pytest-catchlog codecov'
         - MAIN_CMD='python setup.py'
         - SETUP_XVFB=True
         - SETUP_CMD='test'
@@ -114,4 +114,4 @@ after_success:
 #    # If coveralls.io is set up for this package, uncomment the line
 #    # below and replace "packagename" with the name of your package.
 #    # The coveragerc file may be customized as needed for your package.
-   - if [[ $SETUP_CMD == 'test --coverage' ]]; then coveralls --rcfile='srttools/tests/coveragerc'; fi
+   - if [[ $SETUP_CMD == 'test --coverage' ]]; then coveralls --rcfile='srttools/tests/coveragerc'; codecov; fi
