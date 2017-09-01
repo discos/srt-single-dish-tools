@@ -140,6 +140,33 @@ class Test2_Scan(object):
         scan.write('scan.hdf5', overwrite=True)
         scan.baseline_subtract('rough', plot=True)
 
+    def test_scan_baseline_unknown(self):
+        '''Test that data are read.'''
+
+        scan = Scan(self.fname, debug=True)
+
+        scan.write('scan.hdf5', overwrite=True)
+        with pytest.raises(ValueError):
+            scan.baseline_subtract('asdfgh', plot=True)
+
+    def test_scan_write_csv(self):
+        '''Test that data are read.'''
+
+        scan = Scan(self.fname, debug=True)
+
+        scan.write('scan.csv', overwrite=True)
+
+    def test_scan_clean_and_splat(self):
+        '''Test that data are read.'''
+
+        scan = Scan(self.fname, debug=True)
+        scan.meta['filtering_factor'] = 0.7
+        with pytest.warns(UserWarning) as record:
+            scan.clean_and_splat()
+            assert np.any(
+                ["Don't use filtering factors > 0.5" in r.message.args[0]
+                 for r in record])
+
     @pytest.mark.parametrize('fname', ['srt_data.fits'])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
