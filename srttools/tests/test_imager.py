@@ -6,18 +6,18 @@ import numpy as np
 try:
     import matplotlib.pyplot as plt
     HAS_MPL = True
-except:
+except ImportError:
     HAS_MPL = False
 
 from srttools import ScanSet
 from srttools import Scan
 from srttools import CalibratorTable
-from srttools.core.read_config import read_config
-from srttools.core.imager import main_imager, main_preprocess
-from srttools.core.simulate import simulate_map
-from srttools.core.global_fit import display_intermediate
-from srttools.core.io import mkdir_p
-from srttools.core.interactive_filter import intervals
+from srttools.read_config import read_config
+from srttools.imager import main_imager, main_preprocess
+from srttools.simulate import simulate_map
+from srttools.global_fit import display_intermediate
+from srttools.io import mkdir_p
+from srttools.interactive_filter import intervals
 import copy
 import os
 import glob

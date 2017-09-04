@@ -2,9 +2,9 @@ import numpy as np
 import shutil
 import os
 import pytest
-from srttools.core.io import mkdir_p
-from srttools.core.simulate import simulate_map, simulate_scan, save_scan
-from srttools.core.simulate import _default_map_shape
+from srttools.io import mkdir_p
+from srttools.simulate import simulate_map, simulate_scan, save_scan
+from srttools.simulate import _default_map_shape
 
 
 class TestSimulate(object):

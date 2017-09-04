@@ -1,14 +1,14 @@
 from __future__ import (absolute_import, division,
                         print_function)
 import numpy as np
-from srttools.core.interactive_filter import ImageSelector, DataSelector
-from srttools.core.interactive_filter import select_data, HAS_MPL
-from srttools.core.interactive_filter import TestWarning, PlotWarning
+from srttools.interactive_filter import ImageSelector, DataSelector
+from srttools.interactive_filter import select_data, HAS_MPL
+from srttools.interactive_filter import TestWarning, PlotWarning
 import warnings
 import pytest
 
-
 np.random.seed(1241347)
+
 
 @pytest.mark.skipif('not HAS_MPL')
 class TestImageSelector(object):

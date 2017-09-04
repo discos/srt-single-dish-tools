@@ -575,7 +575,7 @@ API documentation
 .. toctree::
   :maxdepth: 2
 
-  srttools/core/modules
+  srttools/modules
 
 
 Indices and tables

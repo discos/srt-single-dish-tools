@@ -1,5 +1,5 @@
 from __future__ import division, print_function
-from srttools.core import histograms as hist
+from srttools import histograms as hist
 import numpy as np
 
 np.random.seed(1742956)
