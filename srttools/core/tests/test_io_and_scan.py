@@ -9,7 +9,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 import pytest
 
-from srttools import Scan
+from srttools.core.scan import Scan, HAS_MPL
 from srttools.core.io import print_obs_info_fitszilla
 from srttools.core.io import locations
 import os
@@ -79,6 +79,7 @@ class Test1_Scan(object):
         for m in scan_from_table.meta.keys():
             assert scan_from_table.meta[m] == scan.meta[m]
 
+    @pytest.mark.skipif('not HAS_MPL')
     def test_interactive(self):
         scan = Scan(self.fname)
         scan.interactive_filter('Ch0', test=True)
@@ -139,6 +140,37 @@ class Test2_Scan(object):
 
         scan.write('scan.hdf5', overwrite=True)
         scan.baseline_subtract('rough', plot=True)
+
+    def test_scan_baseline_unknown(self):
+        '''Test that data are read.'''
+
+        scan = Scan(self.fname, debug=True)
+
+        scan.write('scan.hdf5', overwrite=True)
+        with pytest.raises(ValueError):
+            scan.baseline_subtract('asdfgh', plot=True)
+
+    def test_scan_write_other_than_hdf5_raises(self):
+        '''Test that data are read.'''
+
+        scan = Scan(self.fname, debug=True)
+        with pytest.raises(TypeError):
+            scan.write('scan.fits', overwrite=True)
+        with pytest.raises(TypeError):
+            scan.write('scan.json', overwrite=True)
+        with pytest.raises(TypeError):
+            scan.write('scan.csv', overwrite=True)
+
+    def test_scan_clean_and_splat(self):
+        '''Test that data are read.'''
+
+        scan = Scan(self.fname, debug=True)
+        scan.meta['filtering_factor'] = 0.7
+        with pytest.warns(UserWarning) as record:
+            scan.clean_and_splat()
+            assert np.any(
+                ["Don't use filtering factors > 0.5" in r.message.args[0]
+                 for r in record])
 
     @pytest.mark.parametrize('fname', ['srt_data.fits'])
     def test_coordinate_conversion_works(self, fname):

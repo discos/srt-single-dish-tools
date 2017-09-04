@@ -2,8 +2,13 @@
 from __future__ import (absolute_import, division,
                         print_function)
 
-from matplotlib import pyplot as plt
-from matplotlib import gridspec
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib import gridspec
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
+
 import numpy as np
 from .fit import linear_fit, linear_fun, align
 import warnings
@@ -108,6 +113,8 @@ Actions:
 
 -------------------------------------------------------------
     """
+        if not HAS_MPL:
+            raise ImportError("matplotlib not installed")
         self.xs = xs
         self.ys = ys
         self.test = test
@@ -399,6 +406,8 @@ Actions:
 
 def select_data(xs, ys, masks=None, title=None, xlabel=None, test=False):
     """Open a DataSelector window."""
+    if not HAS_MPL:
+        raise ImportError("matplotlib not installed")
     try:
         xs.keys()
     except Exception:
@@ -448,6 +457,8 @@ class ImageSelector():
             the function to call when a key is pressed. It must accept three
             arguments: `x`, `y` and `key`
         """
+        if not HAS_MPL:
+            raise ImportError("matplotlib not installed")
         self.img = data
         self.ax = ax
         self.fun = fun

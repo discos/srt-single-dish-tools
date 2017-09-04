@@ -116,7 +116,6 @@ package_info['package_data'][PACKAGENAME].extend(c_files)
 # https://groups.google.com/forum/#!topic/astropy-dev/urYO8ckB2uM
 
 install_requires = [
-    'matplotlib',
     'scipy',
     'numpy',
     'astropy'

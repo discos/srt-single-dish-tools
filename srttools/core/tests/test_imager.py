@@ -3,7 +3,12 @@
 from __future__ import (absolute_import, division,
                         print_function)
 import numpy as np
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+    HAS_MPL = True
+except:
+    HAS_MPL = False
+
 from srttools import ScanSet
 from srttools import Scan
 from srttools import CalibratorTable
@@ -168,7 +173,8 @@ class TestScanSet(object):
         klass.n_ra_scans = max(list(klass.ra_scans.keys()))
         klass.n_dec_scans = max(list(klass.dec_scans.keys()))
 
-        plt.ioff()
+        if HAS_MPL:
+            plt.ioff()
 
     def test_prepare(self):
         pass
@@ -180,6 +186,7 @@ class TestScanSet(object):
         for k in self.config.keys():
             assert scanset.meta[k] == self.config[k]
 
+    @pytest.mark.skipif('not HAS_MPL')
     def test_interactive_quit(self):
         scanset = ScanSet('test.hdf5')
         imgsel = scanset.interactive_display('Ch0', test=True)
@@ -190,6 +197,14 @@ class TestScanSet(object):
         retval = imgsel.on_key(fake_event)
         assert retval == (130, 30, 'q')
 
+    @pytest.mark.skipif('HAS_MPL')
+    def test_interactive_quit_raises(self):
+        scanset = ScanSet('test.hdf5')
+        with pytest.raises(ImportError) as excinfo:
+            imgsel = scanset.interactive_display('Ch0', test=True)
+            assert "matplotlib is not installed" in str(excinfo)
+
+    @pytest.mark.skipif('not HAS_MPL')
     def test_interactive_scans_all_calibrated_channels(self):
         scanset = ScanSet('test.hdf5')
         scanset.calibrate_images(calibration=self.calfile)
@@ -269,12 +284,12 @@ class TestScanSet(object):
         images = scanset.calculate_images(no_offsets=True)
 
         img = images['Ch0']
-
-        fig = plt.figure('img')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-        plt.savefig('img_nooff_nofilt.png')
-        plt.close(fig)
+        if HAS_MPL:
+            fig = plt.figure('img')
+            plt.imshow(img, origin='lower')
+            plt.colorbar()
+            plt.savefig('img_nooff_nofilt.png')
+            plt.close(fig)
 
     def test_rough_image(self):
         '''Test image production.'''
@@ -285,11 +300,12 @@ class TestScanSet(object):
 
         img = images['Ch0']
 
-        fig = plt.figure('img')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-        plt.savefig('img.png')
-        plt.close(fig)
+        if HAS_MPL:
+            fig = plt.figure('img')
+            plt.imshow(img, origin='lower')
+            plt.colorbar()
+            plt.savefig('img.png')
+            plt.close(fig)
 
     def test_rough_image_altaz(self):
         '''Test image production.'''
@@ -300,12 +316,13 @@ class TestScanSet(object):
 
         img = images['Ch0']
 
-        fig = plt.figure('img_altaz')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-        plt.savefig('img_altaz.png')
-        scanset.save_ds9_images(save_sdev=True, altaz=True)
-        plt.close(fig)
+        if HAS_MPL:
+            fig = plt.figure('img_altaz')
+            plt.imshow(img, origin='lower')
+            plt.colorbar()
+            plt.savefig('img_altaz.png')
+            scanset.save_ds9_images(save_sdev=True, altaz=True)
+            plt.close(fig)
 
     def test_image_stdev(self):
         '''Test image production.'''
@@ -315,13 +332,13 @@ class TestScanSet(object):
         images = scanset.calculate_images()
 
         img = images['Ch0-Sdev']
-
-        fig = plt.figure('log(img-Sdev)')
-        plt.imshow(np.log10(img), origin='lower')
-        plt.colorbar()
-        plt.ioff()
-        plt.savefig('img_sdev.png')
-        plt.close(fig)
+        if HAS_MPL:
+            fig = plt.figure('log(img-Sdev)')
+            plt.imshow(np.log10(img), origin='lower')
+            plt.colorbar()
+            plt.ioff()
+            plt.savefig('img_sdev.png')
+            plt.close(fig)
 
     def test_image_scrunch(self):
         '''Test image production.'''
@@ -332,19 +349,20 @@ class TestScanSet(object):
 
         img = images['Ch0']
 
-        fig = plt.figure('img - scrunched')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-        img = images['Ch0-Sdev']
-        plt.savefig('img_scrunch.png')
-        plt.close(fig)
+        if HAS_MPL:
+            fig = plt.figure('img - scrunched')
+            plt.imshow(img, origin='lower')
+            plt.colorbar()
+            img = images['Ch0-Sdev']
+            plt.savefig('img_scrunch.png')
+            plt.close(fig)
 
-        fig = plt.figure('img - scrunched - sdev')
-        plt.imshow(img, origin='lower')
-        plt.colorbar()
-        plt.ioff()
-        plt.savefig('img_scrunch_sdev.png')
-        plt.close(fig)
+            fig = plt.figure('img - scrunched - sdev')
+            plt.imshow(img, origin='lower')
+            plt.colorbar()
+            plt.ioff()
+            plt.savefig('img_scrunch_sdev.png')
+            plt.close(fig)
 
     def test_calc_and_calibrate_image_pixel(self):
         scanset = ScanSet('test.hdf5')
@@ -467,8 +485,14 @@ class TestScanSet(object):
         os.path.exists("out_iter_Ch0_002.txt")
         scanset.fit_full_images(excluded=excluded, chans='Ch1')
         os.path.exists("out_iter_Ch1_000.txt")
-        display_intermediate(scanset, chan="Ch0", excluded=excluded,
-                             parfile="out_iter_Ch0_002.txt")
+        if not HAS_MPL:
+            with pytest.raises(ImportError) as excinfo:
+                display_intermediate(scanset, chan="Ch0", excluded=excluded,
+                                     parfile="out_iter_Ch0_002.txt")
+            assert "display_intermediate: matplotlib" in str(excinfo)
+        else:
+            display_intermediate(scanset, chan="Ch0", excluded=excluded,
+                                 parfile="out_iter_Ch0_002.txt")
         os.path.exists("out_iter_Ch1_002.png")
 
     def test_global_fit_image_fails_mixup_channels(self):
@@ -690,15 +714,16 @@ class TestScanSet(object):
     @classmethod
     def teardown_class(klass):
         """Clean up the mess."""
-        os.unlink('img.png')
-        os.unlink('img_altaz.png')
-        os.unlink('img_scrunch.png')
-        os.unlink('delta_altaz.png')
-        os.unlink('altaz_with_src.png')
-        os.unlink('img_sdev.png')
+        if HAS_MPL:
+            os.unlink('img.png')
+            os.unlink('img_altaz.png')
+            os.unlink('img_scrunch.png')
+            os.unlink('delta_altaz.png')
+            os.unlink('altaz_with_src.png')
+            os.unlink('img_sdev.png')
+            os.unlink('img_scrunch_sdev.png')
         os.unlink('test.hdf5')
         os.unlink('test_scan_list.txt')
-        os.unlink('img_scrunch_sdev.png')
         os.unlink('bubu.hdf5')
         for d in klass.config['list_of_directories']:
             hfiles = \
