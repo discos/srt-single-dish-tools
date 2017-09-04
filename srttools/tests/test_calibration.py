@@ -1,11 +1,11 @@
 from __future__ import division, print_function
 from srttools import CalibratorTable
-from srttools.core.calibration import main_lcurve, _get_flux_quantity, main_cal
-from srttools.core.read_config import read_config
-from srttools.core.scan import list_scans
-from srttools.core.simulate import save_scan
-from srttools.core.io import mkdir_p
-from srttools.core.utils import compare_strings, HAS_MPL
+from srttools.calibration import main_lcurve, _get_flux_quantity, main_cal
+from srttools.read_config import read_config
+from srttools.scan import list_scans
+from srttools.simulate import save_scan
+from srttools.io import mkdir_p
+from srttools.utils import compare_strings, HAS_MPL
 import pytest
 import logging
 

@@ -1,6 +1,6 @@
-from srttools.core.inspect_observations import split_observation_table
-from srttools.core.inspect_observations import dump_config_files
-from srttools.core.inspect_observations import main_inspector
+from srttools.inspect_observations import split_observation_table
+from srttools.inspect_observations import dump_config_files
+from srttools.inspect_observations import main_inspector
 from astropy.table import Table, Column
 import numpy as np
 import os

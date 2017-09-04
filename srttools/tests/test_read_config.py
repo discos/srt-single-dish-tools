@@ -5,7 +5,7 @@ from __future__ import (absolute_import, division,
 
 import numpy as np
 
-from srttools.core.read_config import read_config
+from srttools.read_config import read_config
 import os
 import astropy.units as u
 

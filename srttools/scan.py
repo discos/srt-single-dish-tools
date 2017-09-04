@@ -118,11 +118,11 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     channel. This forms a sort of rms spectrum. We calculate the baseline of
     this spectrum, and all channels whose rms is above above noise_threshold
     times the reference median absolute deviation
-    (:func:`srttools.core.fit.ref_mad`), calculated
+    (:func:`srttools.fit.ref_mad`), calculated
     with a minimum window of 20 samples, are cut and assigned an interpolated
     value between the closest valid points.
     The baseline is calculated with
-    :func:`srttools.core.fit.baseline_als`, using a lambda value depending on
+    :func:`srttools.fit.baseline_als`, using a lambda value depending on
     the number of channels, with a formula that has been shown to work in a few
     standard cases but might be modified in the future.
 
@@ -142,7 +142,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         RFI, for example because they contain spectral lines
     freqsplat : str
         List of frequencies to be merged into one. See
-        :func:`srttools.core.scan.interpret_frequency_range`
+        :func:`srttools.scan.interpret_frequency_range`
     noise_threshold : float
         The threshold, in sigmas, over which a given channel is
         considered noisy
@@ -169,8 +169,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     See Also
     --------
-    srttools.core.fit.baseline_als
-    srttools.core.fit.ref_mad
+    srttools.fit.baseline_als
+    srttools.fit.ref_mad
     """
     if len(dynamical_spectrum.shape) == 1:
         return None
@@ -409,9 +409,9 @@ class Scan(Table):
             If an HDF5 archive is present with the same basename as the input
             FITS file, do not re-run the filtering (default True)
         freqsplat : str
-            See :class:`srttools.core.scan.interpret_frequency_range`
+            See :class:`srttools.scan.interpret_frequency_range`
         nofilt : bool
-            See :class:`srttools.core.scan.clean_scan_using_variability`
+            See :class:`srttools.scan.clean_scan_using_variability`
         nosub : bool
             Do not run the baseline subtraction.
 
@@ -478,7 +478,7 @@ class Scan(Table):
             RFI, for example because they contain spectral lines
         freqsplat : str
             List of frequencies to be merged into one. See
-            :func:`srttools.core.scan.interpret_frequency_range`
+            :func:`srttools.scan.interpret_frequency_range`
         noise_threshold : float
             The threshold, in sigmas, over which a given channel is
             considered noisy
@@ -540,9 +540,9 @@ class Scan(Table):
         ----------
         kind : str
             If 'als', use the Asymmetric Least Square fitting in
-            :func:`srttools.core.fit.baseline_als`, using a very stiff baseline
+            :func:`srttools.fit.baseline_als`, using a very stiff baseline
             (lam=1e11). If 'rough', use
-            :func:`srttools.core.fit.baseline_rough` instead.
+            :func:`srttools.fit.baseline_rough` instead.
 
         Other parameters
         ----------------

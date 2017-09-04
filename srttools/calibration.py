@@ -108,7 +108,7 @@ def read_calibrator_config():
 
     See Also
     --------
-    srttools.core.calibration.flux_function
+    srttools.calibration.flux_function
 
     Examples
     --------
@@ -120,7 +120,7 @@ def read_calibrator_config():
     """
     flux_re = re.compile(r'^Flux')
     curdir = os.path.dirname(__file__)
-    calibdir = os.path.join(curdir, '..', 'data', 'calibrators')
+    calibdir = os.path.join(curdir, 'data', 'calibrators')
     calibrator_file_list = glob.glob(os.path.join(calibdir, '*.ini'))
 
     configs = {}
@@ -372,10 +372,10 @@ class CalibratorTable(Table):
             Throw debug information
         freqsplat : str
             List of frequencies to be merged into one. See
-            :func:`srttools.core.scan.interpret_frequency_range`
+            :func:`srttools.scan.interpret_frequency_range`
         nofilt : bool
             Do not filter the noisy channels of the scan. See
-            :class:`srttools.core.scan.clean_scan_using_variability`
+            :class:`srttools.scan.clean_scan_using_variability`
         plot : bool
             Plot diagnostic plots? Default False, True if debug is True.
 
@@ -386,7 +386,7 @@ class CalibratorTable(Table):
 
         See Also
         --------
-        srttools.core.scan.interpret_frequency_range
+        srttools.scan.interpret_frequency_range
         """
 
         if debug is True:
@@ -508,7 +508,7 @@ class CalibratorTable(Table):
 
         See Also
         --------
-        srttools.core.calibration.CalibratorTable.from_scans
+        srttools.calibration.CalibratorTable.from_scans
         """
         if not self.check_not_empty():
             return
