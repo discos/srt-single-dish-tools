@@ -6,7 +6,7 @@ import numpy as np
 try:
     import matplotlib.pyplot as plt
     HAS_MPL = True
-except:
+except ImportError:
     HAS_MPL = False
 
 from srttools import ScanSet

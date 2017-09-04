@@ -7,8 +7,8 @@ from srttools.interactive_filter import TestWarning, PlotWarning
 import warnings
 import pytest
 
-
 np.random.seed(1241347)
+
 
 @pytest.mark.skipif('not HAS_MPL')
 class TestImageSelector(object):
