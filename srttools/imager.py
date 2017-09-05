@@ -301,6 +301,7 @@ class ScanSet(Table):
             self.analyze_coordinates(altaz)
 
         delta_hor = self.meta['max_' + hor] - self.meta['min_' + hor]
+        delta_hor *= np.cos(self.meta['reference_' + ver])
         delta_ver = self.meta['max_' + ver] - self.meta['min_' + ver]
 
         npix_hor = np.ceil(delta_hor / pixel_size)
@@ -308,12 +309,18 @@ class ScanSet(Table):
 
         self.meta['npix'] = np.array([npix_hor, npix_ver])
 
-        self.wcs.wcs.crpix = self.meta['npix'] / 2
+        # the first pixel is starts from 1, 1!
+        self.wcs.wcs.crpix = self.meta['npix'] / 2 + 1
 
         # TODO: check consistency of units
         # Here I'm assuming all angles are radians
-        crval = np.array([self.meta['reference_' + hor].to(u.rad).value,
-                          self.meta['reference_' + ver].to(u.rad).value])
+        # crval = np.array([self.meta['reference_' + hor].to(u.rad).value,
+        #                   self.meta['reference_' + ver].to(u.rad).value])
+        crhor = np.mean([self.meta['max_' + hor].value,
+                         self.meta['min_' + hor].value])
+        crver = np.mean([self.meta['max_' + ver].value,
+                         self.meta['min_' + ver].value])
+        crval = np.array([crhor, crver])
 
         self.wcs.wcs.crval = np.degrees(crval)
 
@@ -710,6 +717,7 @@ class ScanSet(Table):
             if len(xs) >= 2:
                 intervals = list(zip(xs[:-1:2], xs[1::2]))
                 for i in intervals:
+                    i = sorted(i)
                     good[np.logical_and(s[dim][:, feed] >= i[0],
                                         s[dim][:, feed] <= i[1])] = False
             s['{}-filt'.format(ch)] = good

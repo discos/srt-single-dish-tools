@@ -33,17 +33,17 @@ def logger():
 np.random.seed(1241347)
 
 
-def _2d_gauss(x, y, sigma=3 / 60.):
+def _2d_gauss(x, y, sigma=2.5 / 60.):
     """A Gaussian beam"""
     return np.exp(-(x ** 2 + y ** 2) / (2 * sigma**2))
 
 
 def calibrator_scan_func(x):
-    return 100 * _2d_gauss(x, 0, sigma=3 / 60)
+    return 100 * _2d_gauss(x, 0, sigma=2.5 / 60)
 
 
 def source_scan_func(x):
-    return 52 * _2d_gauss(x, 0, sigma=3 / 60)
+    return 52 * _2d_gauss(x, 0, sigma=2.5 / 60)
 
 
 def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
@@ -223,13 +223,13 @@ class TestCalibration(object):
         caltable = CalibratorTable.read(self.calfile, path='table')
         caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
         assert np.all(
-            np.abs(caltable_0['Width'] - 3/60.) < 3 * caltable_0['Width Err'])
+            np.abs(caltable_0['Width'] - 2.5/60.) < 3 * caltable_0['Width Err'])
         caltable_1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
         assert np.all(
-            np.abs(caltable_1['Width'] - 3/60.) < 3 * caltable_1['Width Err'])
+            np.abs(caltable_1['Width'] - 2.5/60.) < 3 * caltable_1['Width Err'])
 
         beam, beam_err = caltable.beam_width(channel='Ch0')
-        assert np.all(beam - np.radians(3/60) < 3 * beam_err)
+        assert np.all(beam - np.radians(2.5/60) < 3 * beam_err)
 
     @pytest.mark.skipif('not HAS_MPL')
     def test_calibration_plot_two_cols(self):

@@ -137,7 +137,7 @@ def _obj_fun(par, data, data_idx, excluded, bx, by):
     X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by,
                                           newd_e)
 
-    good = np.ones_like(img, dtype=bool)
+    good = img != 0.
     if excluded is not None:
         for e in excluded:
             centerx, centery, radius = e
