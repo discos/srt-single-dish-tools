@@ -35,13 +35,13 @@ except ImportError:
 np.random.seed(1241347)
 
 
-def _2d_gauss(x, y, sigma=3 / 60.):
+def _2d_gauss(x, y, sigma=2.5 / 60.):
     """A Gaussian beam"""
     return np.exp(-(x ** 2 + y ** 2) / (2 * sigma**2))
 
 
 def gauss_src_func(x, y):
-    return 50 * _2d_gauss(x, y, sigma=3 / 60)
+    return 50 * _2d_gauss(x, y, sigma=2.5 / 60)
 
 
 def sim_config_file(filename, add_garbage=False, prefix=None):
