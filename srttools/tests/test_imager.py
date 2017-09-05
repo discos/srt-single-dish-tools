@@ -100,8 +100,9 @@ def sim_map(obsdir_ra, obsdir_dec):
                  length_ra=30.,
                  length_dec=30.,
                  outdir=(obsdir_ra, obsdir_dec), mean_ra=180,
-                 mean_dec=70, speed=2.,
-                 spacing=0.5, srcname='Dummy', channel_ratio=0.8)
+                 mean_dec=45, speed=2.,
+                 spacing=0.5, srcname='Dummy', channel_ratio=0.8,
+                 baseline="slope")
 
 
 class TestScanSet(object):
@@ -596,7 +597,7 @@ class TestScanSet(object):
         images = scanset.calculate_images()
         ysize, xsize = images['Ch0'].shape
         ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
-            scanset.find_scans_through_pixel(xsize//2, 0, test=True)
+            scanset.find_scans_through_pixel(xsize//3, 0, test=True)
 
         sname = list(scan_ids.keys())[0]
 
@@ -653,7 +654,7 @@ class TestScanSet(object):
         s = Scan(sname)
 
         info = {sname: copy.copy(self.stdinfo)}
-        info[sname]['zap'].xs = [s['dec'][0], s['dec'][10]]
+        info[sname]['zap'].xs = [np.float(s['dec'][0]), np.float(s['dec'][10])]
         sid = scan_ids[sname]
         mask = scanset['Scan_id'] == sid
         before = scanset['Ch0-filt'][mask]
@@ -662,6 +663,7 @@ class TestScanSet(object):
                             info[sname]['fitpars'], info[sname]['FLAG'],
                             test=True)
         after = scanset['Ch0-filt'][mask]
+
         assert np.all(before[:10] != after[:10])
         s = Scan(sname)
         assert np.all(np.array(after, dtype=bool) == np.array(s['Ch0-filt'],
