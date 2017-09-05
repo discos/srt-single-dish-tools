@@ -223,13 +223,13 @@ class TestCalibration(object):
         caltable = CalibratorTable.read(self.calfile, path='table')
         caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
         assert np.all(
-            np.abs(caltable_0['Width'] - 3/60.) < 3 * caltable_0['Width Err'])
+            np.abs(caltable_0['Width'] - 2.5/60.) < 3 * caltable_0['Width Err'])
         caltable_1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
         assert np.all(
-            np.abs(caltable_1['Width'] - 3/60.) < 3 * caltable_1['Width Err'])
+            np.abs(caltable_1['Width'] - 2.5/60.) < 3 * caltable_1['Width Err'])
 
         beam, beam_err = caltable.beam_width(channel='Ch0')
-        assert np.all(beam - np.radians(3/60) < 3 * beam_err)
+        assert np.all(beam - np.radians(2.5/60) < 3 * beam_err)
 
     @pytest.mark.skipif('not HAS_MPL')
     def test_calibration_plot_two_cols(self):
