@@ -41,7 +41,7 @@ def _2d_gauss(x, y, sigma=2.5 / 60.):
 
 
 def gauss_src_func(x, y):
-    return 50 * _2d_gauss(x, y, sigma=2.5 / 60)
+    return 25 * _2d_gauss(x, y, sigma=2.5 / 60)
 
 
 def sim_config_file(filename, add_garbage=False, prefix=None):
@@ -119,6 +119,7 @@ class TestScanSet(object):
         klass.config_file = \
             os.path.abspath(os.path.join(klass.sim_dir, 'test_config_sim.ini'))
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
+        klass.simulated_flux = 0.25
         # First off, simulate a beamed observation  -------
 
         if not os.path.exists(klass.config_file):
@@ -130,7 +131,8 @@ class TestScanSet(object):
                 (not os.path.exists(klass.obsdir_dec)):
             mkdir_p(klass.obsdir_ra)
             mkdir_p(klass.obsdir_dec)
-            print('Fake map: Point-like (but Gaussian beam shape), 0.5 Jy.')
+            print('Fake map: Point-like (but Gaussian beam shape), '
+                  '{} Jy.'.format(klass.simulated_flux))
             sim_map(klass.obsdir_ra, klass.obsdir_dec)
 
         defective_dir = os.path.join(klass.sim_dir, 'defective')
@@ -376,7 +378,8 @@ class TestScanSet(object):
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
-        assert np.all(np.abs(np.sum(images['Ch0'][good]) - 0.5) < 0.1)
+        assert np.isclose(np.sum(images['Ch0'][good]),
+                          self.simulated_flux, rtol=0.1)
 
     def test_calibrate_image_pixel(self):
         scanset = ScanSet('test.hdf5')
@@ -389,7 +392,8 @@ class TestScanSet(object):
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
-        assert np.all(np.abs(np.sum(images['Ch0'][good]) - 0.5) < 0.1)
+        assert np.isclose(np.sum(images['Ch0'][good]),
+                          self.simulated_flux, rtol=0.1)
 
     def test_calibrate_image_beam(self):
         scanset = ScanSet('test.hdf5')
@@ -398,7 +402,8 @@ class TestScanSet(object):
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/beam")
 
-        assert np.allclose(np.max(images['Ch0']), 0.5, atol=0.05)
+        assert np.allclose(np.max(images['Ch0']), self.simulated_flux,
+                           atol=0.1)
 
     def test_calibrate_image_junk_unit_fails(self):
         scanset = ScanSet('test.hdf5')
