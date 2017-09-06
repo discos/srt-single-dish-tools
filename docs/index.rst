@@ -19,7 +19,7 @@ documented in the Astropy Coding Guidelines. Automatic tests cover
 a significant fraction of the code, and are launched each time a commit
 is pushed to the `Github`_ repository.
 The Continuous Integration service `Travis CI`_ is used for that.
-The current version is 0.4.
+The current version is 0.5-devXXX, indicating the development version towards 0.5.
 See below the tentative roadmap.
 
 In the current implementation, spectroscopic and total-power on-the-fly
