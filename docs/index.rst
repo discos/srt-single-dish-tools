@@ -50,7 +50,7 @@ Tentative Roadmap
 
 + v.0.3: Stabilization of interactive interface
 
-+ v.0.4: Generalized, user-supplied scanset filters
++ **v.0.4**: Generalized, user-supplied scanset filters
 
 + v.0.5: Full support of general coordinate systems, including Galactic
 
