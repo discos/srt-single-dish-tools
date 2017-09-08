@@ -53,7 +53,7 @@ matrix:
         # No statsmodels
         - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba' SETUP_CMD='test --coverage'
         # Documentation
-        - env: PYTHON_VERSION=2.7 SETUP_CMD='build_docs -w'
+        - env: PYTHON_VERSION=3.6 SETUP_CMD='build_docs -w'
 
         # From here on, they are allowed to fail
         # Try Astropy development version
