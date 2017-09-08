@@ -339,8 +339,7 @@ Actions:
                           rasterized=True)
         for key in self.xs.keys():
             self.ax1.plot(self.xs[key], self.ys[key], color='k', picker=True,
-                          label=key,
-                          rasterized=True)
+                          label=key, lw=1, rasterized=True)
 
             zap_xs = self.info[key]['zap'].xs
 
@@ -370,7 +369,7 @@ Actions:
                           rasterized=True)
             self.ax2.plot(self.xs[key][good[key]],
                           self.ys[key][good[key]] - model[key][good[key]],
-                          'k-', lw=2,
+                          'k-', lw=1,
                           rasterized=True)
 
         if self.current is not None:
