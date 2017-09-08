@@ -224,7 +224,7 @@ class TestScanSet(object):
     def test_use_command_line(self):
         main_imager(('test.hdf5 -u Jy/beam ' +
                      '--calibrate {}'.format(self.calfile) +
-                     ' -o bubu.hdf5 --debug').split(' '))
+                     ' -o bubu.hdf5 --debug --scrunch-channels').split(' '))
 
     def test_use_command_line_config(self):
         main_imager(['-c', self.config_file])

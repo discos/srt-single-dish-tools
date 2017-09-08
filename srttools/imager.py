@@ -873,6 +873,10 @@ def main_imager(args=None):
                         help='Calibrate after image creation, for speed '
                              '(bad when calibration depends on elevation)')
 
+    parser.add_argument("--scrunch-channels", action='store_true', default=False,
+                        help='Sum all the images from the single channels into'
+                             ' one.')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -928,7 +932,7 @@ def main_imager(args=None):
                       overwrite=True)
 
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate,
-                            map_unit=args.unit,
+                            map_unit=args.unit, scrunch=args.scrunch_channels,
                             altaz=args.altaz, calibrate_scans=not args.quick)
 
 
