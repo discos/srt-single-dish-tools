@@ -193,17 +193,18 @@ class TestCalibration(object):
         Cj, Cje = caltable.counts_over_Jy(channel='Ch0')
         np.testing.assert_allclose(Jc, 1 / Cj)
 
-    def test_bad_file(self):
+    def test_bad_file_missing_key(self, logger, caplog):
         caltable = CalibratorTable()
-        with pytest.warns(UserWarning) as record:
-            caltable.from_scans([os.path.join(self.config['datadir'],
-                                              'calibrators', 'summary.fits')])
-        assert "Missing key" in record[0].message.args[0]
+        caltable.from_scans([os.path.join(self.config['datadir'],
+                                          'calibrators', 'summary.fits')])
+        assert "Missing key" in caplog.text
 
-        with pytest.warns(UserWarning) as record:
-            caltable.from_scans([os.path.join(self.config['datadir'],
-                                              'calibrators', 'bubu.fits')])
-        assert "Error while processing" in record[0].message.args[0]
+    def test_bad_file_generic_error(self, logger, caplog):
+        caltable = CalibratorTable()
+
+        caltable.from_scans([os.path.join(self.config['datadir'],
+                                          'calibrators', 'bubu.fits')])
+        assert "Error while processing" in caplog.text
 
     def test_calibration_counts(self):
         """Simple calibration from scans."""

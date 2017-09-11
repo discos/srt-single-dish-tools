@@ -191,12 +191,12 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         # this
         scan = Scan(scan_path, norefilt=True, nosave=True, **kwargs)
     except KeyError as e:
-        warnings.warn("Missing key. Bad file? {}: {}".format(sname,
-                                                             str(e)))
+        logging.warning("Missing key. Bad file? {}: {}".format(sname,
+                                                               str(e)))
         return False, None
     except Exception as e:
-        warnings.warn("Error while processing {}: {}".format(sname,
-                                                             str(e)))
+        logging.warning("Error while processing {}: {}".format(sname,
+                                                               str(e)))
         warnings.warn(traceback.format_exc())
         return False, None
 

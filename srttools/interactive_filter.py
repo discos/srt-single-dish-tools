@@ -332,9 +332,11 @@ Actions:
 
     def plot_all(self, silent=False):
         """Plot everything."""
+        update_limits = False
         if self.lines:
             xlim_save = self.ax1.get_xlim()
             ylim_save = self.ax1.get_ylim()
+            update_limits = True
         for l in self.lines:
             l.remove()
         self.lines = []
@@ -390,8 +392,9 @@ Actions:
         if self.xlabel is not None:
             self.ax2.set_xlabel(self.xlabel)
 
-        self.ax1.set_xlim(xlim_save)
-        self.ax1.set_ylim(ylim_save)
+        if update_limits:
+            self.ax1.set_xlim(xlim_save)
+            self.ax1.set_ylim(ylim_save)
         plt.draw()
         if self.test and not silent:
             warnings.warn("I plotted all", PlotWarning)

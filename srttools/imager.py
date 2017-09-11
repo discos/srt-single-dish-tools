@@ -202,14 +202,14 @@ class ScanSet(Table):
                          nofilt=nofilt, **kwargs)
                 yield i, s
             except KeyError as e:
-                warnings.warn(
+                logging.warning(
                     "Error while processing {}: Missing key: {}".format(f,
                                                                         str(e))
                 )
             except Exception as e:
-                warnings.warn(traceback.format_exc())
-                warnings.warn("Error while processing {}: {}".format(f,
-                                                                     str(e)))
+                logging.warning(traceback.format_exc())
+                logging.warning("Error while processing {}: {}".format(f,
+                                                                       str(e)))
 
     def get_coordinates(self, altaz=False):
         """Give the coordinates as pairs of RA, DEC."""
@@ -668,7 +668,7 @@ class ScanSet(Table):
         else:
             ch = 'Ch0'
 
-        feed = list(set(self[ch+'_feed']))[0]
+        feed = self[ch+'_feed'][0]
 
         # Select data inside the pixel +- 1
 
@@ -719,7 +719,7 @@ class ScanSet(Table):
         ch = self.current
         if test:
             ch = 'Ch0'
-        feed = list(set(self[ch+'_feed']))[0]
+        feed = self[ch+'_feed'][0]
         mask = self['Scan_id'] == sid
         try:
             s = Scan(sname)
