@@ -214,8 +214,10 @@ def main_inspector(args=None):
     info.write('table.csv', overwrite=True)
 
     if args.dump_config_files:
+        if args.options is not None:
+            args.options = ast.literal_eval(args.options)
         config_files = dump_config_files(info, group_by_entries=args.group_by,
-                                         options=ast.literal_eval(args.options))
+                                         options=args.options)
         logging.debug(config_files)
     else:
         groups = split_observation_table(info, group_by_entries=args.group_by)
