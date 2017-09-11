@@ -789,7 +789,10 @@ class ScanSet(Table):
             tail = '.fits'
             if altaz:
                 tail = '_altaz.fits'
+            if scrunch:
+                tail = tail.replace('.fits', '_scrunch.fits')
             fname = self.meta['config_file'].replace('.ini', tail)
+
         images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
                                        altaz=altaz, calibration=calibration,
                                        map_unit=map_unit,
