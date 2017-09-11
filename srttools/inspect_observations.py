@@ -150,7 +150,7 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
     return retval
 
 
-def dump_config_files(info, group_by_entries=None):
+def dump_config_files(info, group_by_entries=None, options=None):
     observation_dict = \
         split_observation_table(info, group_by_entries=group_by_entries)
     config_files = []
@@ -177,6 +177,9 @@ def dump_config_files(info, group_by_entries=None):
                     config.set("analysis", "calibrator_directories",
                                "\n" + "\n".join(caldata))
 
+                if options is not None:
+                    for k in options.keys():
+                        config.set("analysis", k, str(options[k]))
                 config.write(open(filename, "w"))
                 config_files.append(filename)
 
@@ -184,6 +187,7 @@ def dump_config_files(info, group_by_entries=None):
 
 
 def main_inspector(args=None):
+    import ast
     import argparse
 
     description = ('From a given list of directories, read the relevant '
@@ -195,6 +199,12 @@ def main_inspector(args=None):
                         help="Directories to inspect",
                         default=None, type=str)
     parser.add_argument("-g", "--group-by", default=None, type=str, nargs="+")
+    parser.add_argument("--options", default=None, type=str,
+                        help="Options to be written in config files; they have "
+                             "to be specified as a string defining a dictionary"
+                             ". For example,"
+                             "'{\"pixel_size\": 0.6, "
+                             "\"noise_threshold\": 5}' ")
     parser.add_argument("-d", "--dump-config-files", action='store_true',
                         default=False)
 
@@ -204,7 +214,8 @@ def main_inspector(args=None):
     info.write('table.csv', overwrite=True)
 
     if args.dump_config_files:
-        config_files = dump_config_files(info, group_by_entries=args.group_by)
+        config_files = dump_config_files(info, group_by_entries=args.group_by,
+                                         options=ast.literal_eval(args.options))
         logging.debug(config_files)
     else:
         groups = split_observation_table(info, group_by_entries=args.group_by)
