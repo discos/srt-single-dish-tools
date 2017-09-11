@@ -15,7 +15,7 @@ import warnings
 
 
 __all__ = ["TestWarning", "PlotWarning", "mask", "intervals", "DataSelector",
-           "ImageSelector", "select_data"]
+           "ImageSelector", "create_empty_info", "select_data"]
 
 
 class TestWarning(UserWarning):
@@ -24,6 +24,18 @@ class TestWarning(UserWarning):
 
 class PlotWarning(UserWarning):
     pass
+
+
+def create_empty_info(keys):
+    info = {}
+    for key in keys:
+        info[key] = {}
+        info[key]['FLAG'] = False
+        info[key]['zap'] = intervals()
+        info[key]['base'] = intervals()
+        info[key]['fitpars'] = np.array([0, 0])
+
+    return info
 
 
 def mask(xs, border_xs, invert=False):
@@ -128,13 +140,7 @@ Actions:
 
         self.xlabel = xlabel
         self.title = title
-        self.info = {}
-        for key in self.xs.keys():
-            self.info[key] = {}
-            self.info[key]['FLAG'] = False
-            self.info[key]['zap'] = intervals()
-            self.info[key]['base'] = intervals()
-            self.info[key]['fitpars'] = np.array([0, 0])
+        self.info = create_empty_info(self.xs.keys())
         self.lines = []
         if not test:
             self.print_instructions()
