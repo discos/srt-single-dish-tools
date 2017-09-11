@@ -14,6 +14,13 @@ from astropy import wcs
 from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
 import astropy.units as u
+import sys
+import warnings
+import logging
+import traceback
+import six
+import functools
+
 try:
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
@@ -25,13 +32,8 @@ from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
 
-import sys
-import warnings
-import logging
-import traceback
 from .global_fit import fit_full_image
-import six
-import functools
+from .interactive_filter import create_empty_info
 
 
 __all__ = ["ScanSet"]
@@ -618,24 +620,36 @@ class ScanSet(Table):
             self.find_scans_through_pixel(x, y, test=test)
 
         if ra_xs != {}:
+            empty = create_empty_info(ra_xs.keys())
             info = select_data(ra_xs, ra_ys, masks=ra_masks,
                                xlabel="RA", title="RA", test=test)
 
-            for sname in info.keys():
-                self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
-                                 info[sname]['zap'],
-                                 info[sname]['fitpars'], info[sname]['FLAG'])
+            if info != empty:
+                for sname in info.keys():
+                    self.update_scan(sname, scan_ids[sname],
+                                     vars_to_filter[sname],
+                                     info[sname]['zap'],
+                                     info[sname]['fitpars'],
+                                     info[sname]['FLAG'])
 
         if dec_xs != {}:
+            empty = create_empty_info(ra_xs.keys())
             info = select_data(dec_xs, dec_ys, masks=dec_masks, xlabel="Dec",
                                title="Dec", test=test)
 
-            for sname in info.keys():
-                self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
-                                 info[sname]['zap'],
-                                 info[sname]['fitpars'], info[sname]['FLAG'])
+            if info != empty:
+                for sname in info.keys():
+                    self.update_scan(sname, scan_ids[sname],
+                                     vars_to_filter[sname],
+                                     info[sname]['zap'],
+                                     info[sname]['fitpars'],
+                                     info[sname]['FLAG'])
 
-        display = self.interactive_display(ch=ch, recreate=True, test=test)
+        # Only recreate images if there were changes!
+        display = \
+            self.interactive_display(ch=ch,
+                                     recreate=(dec_xs != {} or ra_xs != {}),
+                                     test=test)
         return display
 
     def find_scans_through_pixel(self, x, y, test=False):
