@@ -8,7 +8,7 @@ import astropy.units as u
 from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS
 import os
 from astropy.time import Time
-import warnings
+import logging
 
 
 __all__ = ["mkdir_p", "detect_data_kind", "correct_offsets", "observing_angle",
@@ -22,9 +22,6 @@ locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                        Angle("44:31:15", u.deg),
                                        25 * u.meter),
              'greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
-
-#              'medicina' : EarthLocation(4461342.935, 919591.056, 4449531.445,
-#                                         unit = u.m),
 
 
 def mkdir_p(path):
@@ -262,7 +259,7 @@ def read_data_fitszilla(fname):
         new_table[info] = data_table_data[info]
 
     if not _check_derotator(new_table['derot_angle']):
-        warnings.warn('Derotator angle looks weird. Setting to 0')
+        logging.warning('Derotator angle looks weird. Setting to 0')
         new_table['derot_angle'][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)

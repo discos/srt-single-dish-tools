@@ -332,6 +332,9 @@ Actions:
 
     def plot_all(self, silent=False):
         """Plot everything."""
+        if self.lines:
+            xlim_save = self.ax1.get_xlim()
+            ylim_save = self.ax1.get_ylim()
         for l in self.lines:
             l.remove()
         self.lines = []
@@ -386,6 +389,9 @@ Actions:
                           rasterized=True)
         if self.xlabel is not None:
             self.ax2.set_xlabel(self.xlabel)
+
+        self.ax1.set_xlim(xlim_save)
+        self.ax1.set_ylim(ylim_save)
         plt.draw()
         if self.test and not silent:
             warnings.warn("I plotted all", PlotWarning)

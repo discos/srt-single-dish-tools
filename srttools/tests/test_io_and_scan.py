@@ -15,6 +15,15 @@ from srttools.io import locations
 import os
 import numpy as np
 import glob
+import logging
+
+
+@pytest.fixture()
+def logger():
+    logger = logging.getLogger('Some.Logger')
+    logger.setLevel(logging.INFO)
+
+    return logger
 
 
 class Test1_Scan(object):

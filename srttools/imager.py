@@ -684,7 +684,7 @@ class ScanSet(Table):
             try:
                 s = Scan(sname)
             except Exception:
-                warnings.warn("Errors while opening scan {}".format(sname))
+                logging.warning("Errors while opening scan {}".format(sname))
                 continue
             try:
                 chan_mask = s['{}-filt'.format(ch)]
@@ -791,6 +791,8 @@ class ScanSet(Table):
                 tail = '_altaz.fits'
             if scrunch:
                 tail = tail.replace('.fits', '_scrunch.fits')
+            if calibration is not None:
+                tail = tail.replace('.fits', '_cal.fits')
             fname = self.meta['config_file'].replace('.ini', tail)
 
         images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,

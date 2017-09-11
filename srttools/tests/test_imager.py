@@ -24,12 +24,20 @@ import glob
 import astropy.units as u
 import shutil
 import pytest
+import logging
 
 try:
     from tqdm import tqdm
 except ImportError:
     def tqdm(x):
         return x
+
+@pytest.fixture()
+def logger():
+    logger = logging.getLogger('Some.Logger')
+    logger.setLevel(logging.INFO)
+
+    return logger
 
 
 np.random.seed(1241347)
@@ -561,7 +569,7 @@ class TestScanSet(object):
             scanset.find_scans_through_pixel(xsize//2, ysize + 2, test=True)
         assert coord == {}
 
-    def test_find_scan_through_pixel_bad_scan(self):
+    def test_find_scan_through_pixel_bad_scan(self, logger, caplog):
         scanset = ScanSet('test.hdf5')
         images = scanset.calculate_images()
         ysize, xsize = images['Ch0'].shape
@@ -572,10 +580,8 @@ class TestScanSet(object):
 
         sids = list(set(scanset['Scan_id'][good_entries]))
         scanset.scan_list[sids[0]] = 'skd'
-        with pytest.warns(UserWarning) as record:
-            scanset.find_scans_through_pixel(x, y, test=True)
-            assert np.any(["Errors while opening scan skd" in r.message.args[0]
-                           for r in record])
+        scanset.find_scans_through_pixel(x, y, test=True)
+        assert "Errors while opening scan skd" in caplog.text
 
     def test_update_scan_invalid(self):
         scanset = ScanSet('test.hdf5')
