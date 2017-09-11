@@ -617,21 +617,23 @@ class ScanSet(Table):
             vars_to_filter = \
             self.find_scans_through_pixel(x, y, test=test)
 
-        info = select_data(ra_xs, ra_ys, masks=ra_masks,
-                           xlabel="RA", title="RA", test=test)
+        if ra_xs != {}:
+            info = select_data(ra_xs, ra_ys, masks=ra_masks,
+                               xlabel="RA", title="RA", test=test)
 
-        for sname in info.keys():
-            self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
-                             info[sname]['zap'],
-                             info[sname]['fitpars'], info[sname]['FLAG'])
+            for sname in info.keys():
+                self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
+                                 info[sname]['zap'],
+                                 info[sname]['fitpars'], info[sname]['FLAG'])
 
-        info = select_data(dec_xs, dec_ys, masks=dec_masks, xlabel="Dec",
-                           title="Dec", test=test)
+        if dec_xs != {}:
+            info = select_data(dec_xs, dec_ys, masks=dec_masks, xlabel="Dec",
+                               title="Dec", test=test)
 
-        for sname in info.keys():
-            self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
-                             info[sname]['zap'],
-                             info[sname]['fitpars'], info[sname]['FLAG'])
+            for sname in info.keys():
+                self.update_scan(sname, scan_ids[sname], vars_to_filter[sname],
+                                 info[sname]['zap'],
+                                 info[sname]['fitpars'], info[sname]['FLAG'])
 
         display = self.interactive_display(ch=ch, recreate=True, test=test)
         return display
@@ -710,8 +712,9 @@ class ScanSet(Table):
         except Exception:
             return
 
+        resave = False
         if len(zap_info.xs) > 0:
-
+            resave = True
             xs = zap_info.xs
             good = np.ones(len(s[dim]), dtype=bool)
             if len(xs) >= 2:
@@ -724,6 +727,7 @@ class ScanSet(Table):
             self['{}-filt'.format(ch)][mask] = good
 
         if len(fit_info) > 1:
+            resave = True
             s[ch] -= linear_fun(s[dim][:, feed],
                                 *fit_info)
         # TODO: make it channel-independent
@@ -732,12 +736,14 @@ class ScanSet(Table):
 
         # TODO: make it channel-independent
         if flag_info:
+            resave = True
             s.meta['FLAG'] = True
             self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
                                                         dtype=bool)
             s['{}-filt'.format(ch)] = np.zeros(len(s[dim]), dtype=bool)
 
-        s.save()
+        if resave:
+            s.save()
 
     def barycenter_times(self):
         """Create barytime column with observing times converted to TDB."""
