@@ -7,11 +7,11 @@ import glob
 import logging
 import numpy as np
 from astropy.table import Table, Column
+from astropy.time import Time
 from .io import read_data
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
 from .utils import standard_string
-import warnings
 
 try:
     from ConfigParser import ConfigParser
@@ -22,7 +22,8 @@ __all__ = ["inspect_directories", "split_observation_table", "split_by_source",
            "dump_config_files"]
 
 
-def inspect_directories(directories):
+def inspect_directories(directories, only_after=None, only_before=None):
+    import datetime
     info = Table()
     names = ["Dir", "Sample File", "Source", "Receiver", "Backend",
              "Time", "Frequency", "Bandwidth"]
@@ -34,6 +35,19 @@ def inspect_directories(directories):
         if n not in info.keys():
             info.add_column(Column(name=n, dtype=d))
 
+    if only_after is not None:
+        only_after = \
+            Time(datetime.datetime.strptime(only_after, '%Y%m%d-%H%M%S'),
+                 scale='utc').mjd
+        logging.warning('Filter out observations before '
+                        'MJD {}'.format(only_after))
+    if only_before is not None:
+        only_before = \
+            Time(datetime.datetime.strptime(only_before, '%Y%m%d-%H%M%S'),
+                 scale='utc').mjd
+        logging.warning('Filter out observations after '
+                        'MJD {}'.format(only_before))
+
     for d in directories:
         fits_files = glob.glob(os.path.join(d, '*.fits'))
 
@@ -41,15 +55,22 @@ def inspect_directories(directories):
             print("Reading {}".format(f), end="\r")
             try:
                 data = read_data(f)
+                time_start = data[0]['time']
+                time_end = data[-1]['time']
+                print('\n', time_start, time_end, '\n')
+                if only_after is not None and time_start < only_after:
+                    continue
+                if only_before is not None and time_end > only_before:
+                    continue
+
                 backend = data.meta['backend']
                 receiver = data.meta['receiver']
                 frequency = data["Ch0"].meta['frequency']
                 bandwidth = data["Ch0"].meta['bandwidth']
                 source = data.meta['SOURCE']
-                time = data[0]['time']
 
                 info.add_row([d, f, source, receiver, backend,
-                              time, frequency, bandwidth])
+                              time_start, frequency, bandwidth])
                 break
             except Exception:
                 warnings.warn("Errors while opening {}".format(f))
@@ -207,10 +228,20 @@ def main_inspector(args=None):
                              "\"noise_threshold\": 5}' ")
     parser.add_argument("-d", "--dump-config-files", action='store_true',
                         default=False)
+    parser.add_argument("--only-after", type=str, default=None,
+                        help='Only after a certain date and time, e.g. '
+                             '``--only-after 20150510-111020`` to indicate '
+                             'scans done after 11:10:20 UTC on May 10th, 2015')
+    parser.add_argument("--only-before", type=str, default=None,
+                        help='Only before a certain date and time, e.g. '
+                             '``--only-before 20150510-111020`` to indicate '
+                             'scans done before 11:10:20 UTC on May 10th, 2015')
+
 
     args = parser.parse_args(args)
 
-    info = inspect_directories(args.directories)
+    info = inspect_directories(args.directories, args.only_after,
+                               args.only_before)
     info.write('table.csv', overwrite=True)
 
     if args.dump_config_files:

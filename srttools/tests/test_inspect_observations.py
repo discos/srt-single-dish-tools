@@ -5,11 +5,21 @@ from astropy.table import Table, Column
 import numpy as np
 import os
 import glob
+import pytest
+import logging
 
 try:
     from ConfigParser import ConfigParser
 except ImportError:
     from configparser import ConfigParser
+
+
+@pytest.fixture()
+def logger():
+    logger = logging.getLogger('Some.Logger')
+    logger.setLevel(logging.WARNING)
+
+    return logger
 
 
 class TestInspect(object):
@@ -129,6 +139,16 @@ class TestRun(object):
         out, err = capsys.readouterr()
         assert 'Dummy' in out
         assert 'gauss_dec' in out
+
+    def test_run_date_filter_after(self, logger, caplog):
+        main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) +
+                       '--only-after 20000101-000000'.split(' '))
+        assert 'Filter out observations before MJD 51544' in caplog.text
+
+    def test_run_date_filter_before(self, logger, caplog):
+        main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) +
+                       '--only-before 21000101-000000'.split(' '))
+        assert 'Filter out observations after MJD 88069' in caplog.text
 
     @classmethod
     def teardown_class(cls):
