@@ -571,6 +571,23 @@ class ScanSet(Table):
         if not hasattr(self, 'images') or recreate:
             self.calculate_images()
 
+        self.display_instructions = """
+        -------------------------------------------------------------
+
+        Imageactive display.
+
+        -------------------------------------------------------------
+
+        Point the mouse on a pixel in the STDDEV image and press a key:
+
+        a    open a window to filter all scans passing through this pixel
+        h    print help
+        q    quit
+
+        -------------------------------------------------------------
+        """
+        print(self.display_instructions)
+
         if ch is None:
             chs = self.chan_columns
         else:
@@ -578,10 +595,12 @@ class ScanSet(Table):
         if test:
             chs = ['Ch0']
         for ch in chs:
-            fig = plt.figure('Imageactive Display')
-            gs = GridSpec(1, 2, width_ratios=(3, 2))
+            fig = plt.figure('Imageactive Display - ' + ch)
+            gs = GridSpec(1, 2)
             ax = fig.add_subplot(gs[0])
+            ax.set_title('STDDEV plot')
             ax2 = fig.add_subplot(gs[1])
+            ax2.set_title('Draft image')
             imgch = ch
             sdevch = '{}-Sdev'.format(ch)
             if '{}-RAW'.format(ch) in self.images.keys():
@@ -597,6 +616,7 @@ class ScanSet(Table):
             bad = np.logical_or(img == 0, img != img)
             img[bad] = np.mean(img[np.logical_not(bad)])
             fun = functools.partial(self.rerun_scan_analysis, test=test)
+
             imgsel = ImageSelector(img, ax, fun=fun,
                                    test=test)
         return imgsel
@@ -607,7 +627,7 @@ class ScanSet(Table):
         if key == 'a':
             self.reprocess_scans_through_pixel(x, y, test=test)
         elif key == 'h':
-            pass
+            print(self.display_instructions)
         elif key == 'v':
             pass
 

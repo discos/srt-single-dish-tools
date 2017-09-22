@@ -8,6 +8,7 @@ import logging
 import numpy as np
 from astropy.table import Table, Column
 from astropy.time import Time
+import warnings
 from .io import read_data
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
@@ -57,7 +58,6 @@ def inspect_directories(directories, only_after=None, only_before=None):
                 data = read_data(f)
                 time_start = data[0]['time']
                 time_end = data[-1]['time']
-                print('\n', time_start, time_end, '\n')
                 if only_after is not None and time_start < only_after:
                     continue
                 if only_before is not None and time_end > only_before:
