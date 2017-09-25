@@ -391,7 +391,7 @@ def main_simulate(args=None):
                              'amplitude to the random-walk baseline, that would'
                              ' be 20 for "messy")')
 
-    parser.add_argument('-g', '--geometry', nargs=4,
+    parser.add_argument('-g', '--geometry', nargs=4, type=float,
                         default=[120, 120, 120, 120],
                         help='Geometry specification: length_ra, length_dec, '
                              'width_ra, width_dec, in arcmins. A square map of '
@@ -442,8 +442,8 @@ def main_simulate(args=None):
 
     args = parser.parse_args(args)
 
-    def gauss_src_func(x, y):
-        return args.source_flux/100 * _2d_gauss(x, y, sigma=args.beam_width)
+    def local_gauss_src_func(x, y):
+        return args.source_flux * 100 * _2d_gauss(x, y, sigma=args.beam_width/60)
 
     simulate_map(dt=args.integration_time, length_ra=args.geometry[0],
                  length_dec=args.geometry[1], speed=args.scan_speed,
@@ -452,14 +452,15 @@ def main_simulate(args=None):
                  outdir=(os.path.join(args.outdir_root, 'gauss_ra'),
                          os.path.join(args.outdir_root, 'gauss_dec')),
                  baseline=args.baseline, mean_ra=180, mean_dec=70,
-                 srcname='Dummy', channel_ratio=1)
+                 srcname='Dummy', channel_ratio=1,
+                 count_map=local_gauss_src_func)
 
     def calibrator_scan_func(x):
-        return 100 * _2d_gauss(x, 0, sigma=args.beam_width)
+        return 100 * _2d_gauss(x, 0, sigma=args.beam_width/60)
 
     cal1 = os.path.join(args.outdir_root, 'calibrator1')
     mkdir_p(cal1)
-    sim_crossscans(5, cal1)
+    sim_crossscans(5, cal1, scan_func=calibrator_scan_func)
     cal2 = os.path.join(args.outdir_root, 'calibrator2')
     mkdir_p(cal2)
-    sim_crossscans(5, cal2, srcname='DummyCal2')
+    sim_crossscans(5, cal2, scan_func=calibrator_scan_func, srcname='DummyCal2')
