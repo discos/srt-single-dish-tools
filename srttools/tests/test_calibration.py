@@ -3,7 +3,7 @@ from srttools import CalibratorTable
 from srttools.calibration import main_lcurve, _get_flux_quantity, main_cal
 from srttools.read_config import read_config
 from srttools.scan import list_scans
-from srttools.simulate import save_scan
+from srttools.simulate import sim_crossscans, _2d_gauss
 from srttools.io import mkdir_p
 from srttools.utils import compare_strings, HAS_MPL
 import pytest
@@ -13,7 +13,7 @@ import os
 import glob
 import shutil
 import numpy as np
-import numpy.random as ra
+import subprocess as sp
 
 try:
     from tqdm import tqdm
@@ -33,56 +33,8 @@ def logger():
 np.random.seed(1241347)
 
 
-def _2d_gauss(x, y, sigma=2.5 / 60.):
-    """A Gaussian beam"""
-    return np.exp(-(x ** 2 + y ** 2) / (2 * sigma**2))
-
-
-def calibrator_scan_func(x):
-    return 100 * _2d_gauss(x, 0, sigma=2.5 / 60)
-
-
 def source_scan_func(x):
     return 52 * _2d_gauss(x, 0, sigma=2.5 / 60)
-
-
-def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
-                   srcname='DummyCal'):
-    src_ra = 185
-    src_dec = 75
-    timedelta = 0
-    speed = 2.  # arcmin/s
-    dt = 0.04
-    dtheta = speed * dt
-    scan_values = np.arange(-2, 2, dtheta/60)
-    zero_values = np.zeros_like(scan_values)
-
-    for i in tqdm(range(ncross)):
-        ras = src_ra + scan_values / np.cos(np.radians(src_dec))
-        if i % 2 != 0:
-            ras = ras[::-1]
-        decs = src_dec + zero_values
-        times = np.arange(scan_values.size) * dt + timedelta
-
-        scan = scan_func(scan_values) + \
-            ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
-                  filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
-                  src_ra=src_ra, src_dec=src_dec, srcname=srcname)
-        timedelta = times[-1] + 1
-
-        ras = src_ra + zero_values
-        decs = src_dec + scan_values
-        if i % 2 != 0:
-            decs = decs[::-1]
-        times = np.arange(scan_values.size) * dt + timedelta
-
-        scan = scan_func(scan_values) + \
-            ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
-                  filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
-                  src_ra=src_ra, src_dec=src_dec, srcname=srcname)
-        timedelta = times[-1] + 1
 
 
 class TestCalibration(object):
@@ -140,6 +92,9 @@ class TestCalibration(object):
 
     def test_0_prepare(self):
         pass
+
+    def test_script_is_installed(self):
+        sp.check_call('SDTcal -h'.split(' '))
 
     def test_check_not_empty(self):
         caltable = CalibratorTable()

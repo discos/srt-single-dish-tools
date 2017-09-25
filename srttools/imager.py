@@ -7,9 +7,8 @@ cleaning the data.
 from __future__ import (absolute_import, division,
                         print_function)
 
-from .scan import Scan, chan_re, list_scans
-from .read_config import read_config, sample_config_file
 import numpy as np
+import astropy
 from astropy import wcs
 from astropy.table import Table, vstack, Column
 import astropy.io.fits as fits
@@ -20,6 +19,8 @@ import logging
 import traceback
 import six
 import functools
+from .scan import Scan, chan_re, list_scans
+from .read_config import read_config, sample_config_file
 
 try:
     import matplotlib.pyplot as plt
@@ -799,7 +800,12 @@ class ScanSet(Table):
             for i in self.scan_list:
                 print(i, file=fobj)
 
-        Table.write(self, fname, path='scanset', serialize_meta=True, **kwargs)
+        try:
+            Table.write(self, fname, path='scanset', serialize_meta=True,
+                        **kwargs)
+        except astropy.io.registry.IORegistryError as e:
+            raise astropy.io.registry.IORegistryError(fname + ': ' + str(e))
+
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,

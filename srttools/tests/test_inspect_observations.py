@@ -7,6 +7,7 @@ import os
 import glob
 import pytest
 import logging
+import subprocess as sp
 
 try:
     from ConfigParser import ConfigParser
@@ -123,6 +124,9 @@ class TestRun(object):
 
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, 'data')
+
+    def test_script_is_installed(self):
+        sp.check_call('SDTinspect -h'.split(' '))
 
     def test_run_dump_default(self):
         main_inspector(

@@ -25,6 +25,8 @@ import astropy.units as u
 import shutil
 import pytest
 import logging
+import subprocess as sp
+import astropy
 
 try:
     from tqdm import tqdm
@@ -190,12 +192,23 @@ class TestScanSet(object):
     def test_prepare(self):
         pass
 
+    def test_script_is_installed(self):
+        sp.check_call('SDTimage -h'.split(' '))
+
+    def test_script_is_installed_prep(self):
+        sp.check_call('SDTpreprocess -h'.split(' '))
+
     def test_load_table_and_config(self):
         from astropy.table import Table
         table = Table.read('test.hdf5', path='scanset')
         scanset = ScanSet(table, config_file=self.config_file)
         for k in self.config.keys():
             assert scanset.meta[k] == self.config[k]
+
+    def test_wrong_file_name_raises(self):
+        scanset = ScanSet('test.hdf5')
+        with pytest.raises(astropy.io.registry.IORegistryError):
+            scanset.write('asdlkfjsd.fjsdkf')
 
     @pytest.mark.skipif('not HAS_MPL')
     def test_interactive_quit(self):
