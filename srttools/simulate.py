@@ -285,7 +285,6 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         raise ValueError("baseline has to be 'flat', 'slope', 'messy' or a "
                          "number")
 
-
     nbins_ra = np.int(np.rint(length_ra / speed / dt))
     nbins_dec = np.int(np.rint(length_dec / speed / dt))
 
@@ -418,30 +417,13 @@ def main_simulate(args=None):
     parser.add_argument("--integration-time", type=float, default=0.04,
                         help='Integration time in seconds')
 
-    parser.add_argument("--sub", default=False,
-                        action='store_true',
-                        help='Subtract the baseline from single scans')
-
-    parser.add_argument("--interactive", default=False,
-                        action='store_true',
-                        help='Open the interactive display for each scan')
-
-    parser.add_argument("--nofilt", action='store_true', default=False,
-                        help='Do not filter noisy channels')
+    parser.add_argument("--no-cal", action='store_true', default=False,
+                        help="Don't simulate calibrators")
 
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Plot stuff and be verbose')
 
-    parser.add_argument("--splat", type=str, default=None,
-                        help=("Spectral scans will be scrunched into a single "
-                              "channel containing data in the given frequency "
-                              "range, starting from the frequency of the first"
-                              " bin. E.g. '0:1000' indicates 'from the first "
-                              "bin of the spectrum up to 1000 MHz above'. ':' "
-                              "or 'all' for all the channels."))
-
     args = parser.parse_args(args)
-
     def local_gauss_src_func(x, y):
         return args.source_flux * 100 * _2d_gauss(x, y, sigma=args.beam_width/60)
 
@@ -458,9 +440,10 @@ def main_simulate(args=None):
     def calibrator_scan_func(x):
         return 100 * _2d_gauss(x, 0, sigma=args.beam_width/60)
 
-    cal1 = os.path.join(args.outdir_root, 'calibrator1')
-    mkdir_p(cal1)
-    sim_crossscans(5, cal1, scan_func=calibrator_scan_func)
-    cal2 = os.path.join(args.outdir_root, 'calibrator2')
-    mkdir_p(cal2)
-    sim_crossscans(5, cal2, scan_func=calibrator_scan_func, srcname='DummyCal2')
+    if not args.no_cal:
+        cal1 = os.path.join(args.outdir_root, 'calibrator1')
+        mkdir_p(cal1)
+        sim_crossscans(5, cal1, scan_func=calibrator_scan_func)
+        cal2 = os.path.join(args.outdir_root, 'calibrator2')
+        mkdir_p(cal2)
+        sim_crossscans(5, cal2, scan_func=calibrator_scan_func, srcname='DummyCal2')
