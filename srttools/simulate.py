@@ -24,6 +24,17 @@ __all__ = ["simulate_scan", "save_scan", "simulate_map"]
 
 
 def _is_number(x):
+    """"Test if a string or other is a number
+
+    Examples
+    --------
+    >>> _is_number('3')
+    True
+    >>> _is_number(3.)
+    True
+    >>> _is_number('a')
+    False
+    """
     try:
         float(x)
         return True

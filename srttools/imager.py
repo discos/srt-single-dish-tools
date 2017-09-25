@@ -804,7 +804,7 @@ class ScanSet(Table):
             Table.write(self, fname, path='scanset', serialize_meta=True,
                         **kwargs)
         except astropy.io.registry.IORegistryError as e:
-            print(fname, ': ', str(e))
+            raise astropy.io.registry.IORegistryError(fname + ': ' + str(e))
 
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,

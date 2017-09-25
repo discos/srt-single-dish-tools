@@ -65,6 +65,11 @@ class TestSimulate(object):
         main_simulate('--no-cal --scan-speed 3. -g 10 10 1 1 -o sime'.split(' '))
         shutil.rmtree('sime')
 
+    def test_use_wrong_baseline(self):
+        with pytest.raises(ValueError):
+            main_simulate(
+                ' -b qwerty -g 10 10 1 1 -o sime'.split(' '))
+
     @classmethod
     def teardown_class(cls):
         shutil.rmtree(cls.outdir)
