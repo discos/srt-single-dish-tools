@@ -215,7 +215,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     # lchdulist['DATA TABLE'].name = 'TMP'
     # lchdulist.append(datahdu)
     lchdulist[0].header['SOURCE'] = srcname
-    lchdulist.writeto(filename, clobber=True)
+    lchdulist.writeto(filename, overwrite=True)
     lchdulist.close()
 
 
