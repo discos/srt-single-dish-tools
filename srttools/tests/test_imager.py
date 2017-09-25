@@ -25,6 +25,7 @@ import astropy.units as u
 import shutil
 import pytest
 import logging
+import subprocess as sp
 
 try:
     from tqdm import tqdm
@@ -189,6 +190,12 @@ class TestScanSet(object):
 
     def test_prepare(self):
         pass
+
+    def test_script_is_installed(self):
+        sp.check_call('SDTimage -h'.split(' '))
+
+    def test_script_is_installed_prep(self):
+        sp.check_call('SDTpreprocess -h'.split(' '))
 
     def test_load_table_and_config(self):
         from astropy.table import Table

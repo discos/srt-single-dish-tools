@@ -13,7 +13,7 @@ import os
 import glob
 import shutil
 import numpy as np
-import numpy.random as ra
+import subprocess as sp
 
 try:
     from tqdm import tqdm
@@ -35,7 +35,6 @@ np.random.seed(1241347)
 
 def source_scan_func(x):
     return 52 * _2d_gauss(x, 0, sigma=2.5 / 60)
-
 
 
 class TestCalibration(object):
@@ -93,6 +92,9 @@ class TestCalibration(object):
 
     def test_0_prepare(self):
         pass
+
+    def test_script_is_installed(self):
+        sp.check_call('SDTcal -h'.split(' '))
 
     def test_check_not_empty(self):
         caltable = CalibratorTable()

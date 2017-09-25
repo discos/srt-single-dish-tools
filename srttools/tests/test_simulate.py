@@ -17,7 +17,7 @@ class TestSimulate(object):
             mkdir_p(d)
 
     def test_script_is_installed(self):
-        sp.check_call('SDTfake -h')
+        sp.check_call('SDTfake -h'.split(' '))
 
     def test_sim_scan(self):
         """Test the simulation of a single scan."""
