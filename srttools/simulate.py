@@ -435,6 +435,7 @@ def main_simulate(args=None):
                         help='Plot stuff and be verbose')
 
     args = parser.parse_args(args)
+
     def local_gauss_src_func(x, y):
         return args.source_flux * 100 * _2d_gauss(x, y, sigma=args.beam_width/60)
 

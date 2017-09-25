@@ -68,7 +68,7 @@ class TestSimulate(object):
     def test_use_wrong_baseline(self):
         with pytest.raises(ValueError):
             main_simulate(
-                ' -b qwerty -g 10 10 1 1 -o sime'.split(' '))
+                '-b qwerty -g 10 10 1 1 -o sime'.split(' '))
 
     @classmethod
     def teardown_class(cls):
