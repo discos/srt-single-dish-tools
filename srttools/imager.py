@@ -138,6 +138,13 @@ class ScanSet(Table):
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
+                ras = s['ra'][:, 0]
+                decs = s['dec'][:, 0]
+
+                ravar = (np.max(ras) - np.min(ras)) / np.cos(np.mean(decs))
+                decvar = np.max(decs) - np.min(decs)
+                s['direction'] = np.array(ravar > decvar, dtype=bool)
+
                 del s.meta['filename']
                 del s.meta['calibrator_directories']
                 del s.meta['list_of_directories']
@@ -356,11 +363,12 @@ class ScanSet(Table):
 
     def calculate_images(self, scrunch=False, no_offsets=False, altaz=False,
                          calibration=None, elevation=None, map_unit="Jy/beam",
-                         calibrate_scans=False):
+                         calibrate_scans=False, direction=None):
         """Obtain image from all scans.
 
         scrunch:         sum all channels
         no_offsets:      use positions from feed 0 for all feeds.
+        direction:       0 if horizontal, 1 if vertical
         """
         if altaz != self['x'].meta['altaz']:
             self.convert_coordinates(altaz)
@@ -394,6 +402,11 @@ class ScanSet(Table):
                 good = self['{}-filt'.format(ch)]
             else:
                 good = np.ones(len(self[ch]), dtype=bool)
+
+            if direction == 0:
+                good = good & self['direction']
+            elif direction == 1:
+                good = good & np.logical_not(self['direction'])
 
             expomap, _, _ = np.histogram2d(self['x'][:, feed][good],
                                            self['y'][:, feed][good],
@@ -465,6 +478,43 @@ class ScanSet(Table):
                       '{}-EXPO'.format(self.chan_columns[0]): total_expo}
 
         return images
+
+    def destripe_images(self, **kwargs):
+        from .destripe import destripe_wrapper
+
+        images = self.calculate_images(**kwargs)
+
+        destriped = {}
+        for ch in self.chan_columns:
+            destriped[ch + '_dirty'] = images[ch]
+
+        print(self.images.keys())
+        images_hor = self.calculate_images(direction=0, **kwargs)
+        images_ver = self.calculate_images(direction=1, **kwargs)
+        for ch in images_hor:
+            if 'Sdev' in ch:
+                destriped[ch] = (images_hor[ch]**2 + images_ver[ch]**2) ** 0.5
+                continue
+            if 'EXPO' in ch:
+                destriped[ch] = images_hor[ch] + images_ver[ch]
+                continue
+            plt.figure()
+            plt.imshow(images_hor[ch])
+            plt.savefig(ch + '_hor.png')
+            plt.imshow(images_ver[ch])
+            plt.savefig(ch + '_ver.png')
+            destriped[ch] = destripe_wrapper(images_hor[ch],
+                                             images_ver[ch])
+            plt.imshow(destriped[ch])
+            plt.savefig(ch + '_destr.png')
+            plt.imshow((images_hor[ch] + images_ver[ch]) / 2)
+            plt.savefig(ch + '_initial.png')
+        print(self.images.keys())
+
+        for ch in destriped:
+            self.images[ch] = destriped[ch]
+        print(self.images.keys())
+        return self.images
 
     def fit_full_images(self, chans=None, fname=None, save_sdev=False,
                         scrunch=False, no_offsets=False, altaz=False,
@@ -809,7 +859,8 @@ class ScanSet(Table):
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
-                        map_unit="Jy/beam", calibrate_scans=False):
+                        map_unit="Jy/beam", calibrate_scans=False,
+                        destripe=False):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             tail = '.fits'
@@ -821,10 +872,18 @@ class ScanSet(Table):
                 tail = tail.replace('.fits', '_cal.fits')
             fname = self.meta['config_file'].replace('.ini', tail)
 
-        images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
-                                       altaz=altaz, calibration=calibration,
-                                       map_unit=map_unit,
-                                       calibrate_scans=calibrate_scans)
+        if destripe:
+            images = self.destripe_images(scrunch=scrunch,
+                                          no_offsets=no_offsets,
+                                          altaz=altaz, calibration=calibration,
+                                          map_unit=map_unit,
+                                          calibrate_scans=calibrate_scans)
+        else:
+            images = self.calculate_images(scrunch=scrunch,
+                                           no_offsets=no_offsets,
+                                           altaz=altaz, calibration=calibration,
+                                           map_unit=map_unit,
+                                           calibrate_scans=calibrate_scans)
 
         self.create_wcs(altaz)
 
@@ -917,6 +976,9 @@ def main_imager(args=None):
                         help='Unit of the calibrated image. Jy/beam or '
                              'Jy/pixel')
 
+    parser.add_argument("--destripe", action='store_true', default=False,
+                        help='Destripe the image')
+
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Plot stuff and be verbose')
 
@@ -984,7 +1046,8 @@ def main_imager(args=None):
 
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate,
                             map_unit=args.unit, scrunch=args.scrunch_channels,
-                            altaz=args.altaz, calibrate_scans=not args.quick)
+                            altaz=args.altaz, calibrate_scans=not args.quick,
+                            destripe=args.destripe)
 
 
 def main_preprocess(args=None):

@@ -159,6 +159,10 @@ class TestScanSet(object):
         caltable.write(klass.calfile, overwrite=True)
 
         klass.config = read_config(klass.config_file)
+        klass.raonly = os.path.abspath(os.path.join(klass.datadir,
+                                                    'test_raonly.ini'))
+        klass.deconly = os.path.abspath(os.path.join(klass.datadir,
+                                                     'test_deconly.ini'))
 
         if not os.path.exists('test.hdf5'):
             klass.scanset = ScanSet(klass.config_file, norefilt=False,
@@ -204,6 +208,14 @@ class TestScanSet(object):
         scanset = ScanSet(table, config_file=self.config_file)
         for k in self.config.keys():
             assert scanset.meta[k] == self.config[k]
+
+    def test_raonly(self):
+        scanset = ScanSet(self.raonly)
+        assert np.all(scanset['direction'])
+
+    def test_deconly(self):
+        scanset = ScanSet(self.deconly)
+        assert not np.any(scanset['direction'])
 
     def test_wrong_file_name_raises(self):
         scanset = ScanSet('test.hdf5')
@@ -314,6 +326,24 @@ class TestScanSet(object):
             plt.colorbar()
             plt.savefig('img_nooff_nofilt.png')
             plt.close(fig)
+
+    def test_hor_images(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+        scanset.remove_column('Ch0-filt')
+        images = scanset.calculate_images(no_offsets=True, direction=0)
+
+        img = images['Ch0_hor']
+
+    def test_ver_images(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+        scanset.remove_column('Ch0-filt')
+        images = scanset.calculate_images(no_offsets=True, direction=1)
+
+        img = images['Ch0_ver']
 
     def test_rough_image(self):
         '''Test image production.'''
