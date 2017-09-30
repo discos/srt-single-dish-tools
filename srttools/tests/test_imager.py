@@ -334,7 +334,7 @@ class TestScanSet(object):
         scanset.remove_column('Ch0-filt')
         images = scanset.calculate_images(no_offsets=True, direction=0)
 
-        img = images['Ch0_hor']
+        img = images['Ch0']
 
     def test_ver_images(self):
         '''Test image production.'''
@@ -343,7 +343,7 @@ class TestScanSet(object):
         scanset.remove_column('Ch0-filt')
         images = scanset.calculate_images(no_offsets=True, direction=1)
 
-        img = images['Ch0_ver']
+        img = images['Ch0']
 
     def test_rough_image(self):
         '''Test image production.'''
@@ -423,6 +423,40 @@ class TestScanSet(object):
 
         scanset.calibrate_images(calibration=self.calfile,
                                  map_unit="Jy/pixel")
+        images = scanset.images
+        img = images['Ch0']
+        center = img.shape[0] // 2, img.shape[1] // 2
+        shortest_side = np.min(img.shape)
+        X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
+        good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
+        assert np.isclose(np.sum(images['Ch0'][good]),
+                          self.simulated_flux, rtol=0.1)
+
+    def test_destripe(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+
+        scanset.destripe_images(calibration=self.calfile,
+                                 map_unit="Jy/pixel")
+        images = scanset.images
+        img = images['Ch0']
+        center = img.shape[0] // 2, img.shape[1] // 2
+        shortest_side = np.min(img.shape)
+        X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
+        good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
+        assert np.isclose(np.sum(images['Ch0'][good]),
+                          self.simulated_flux, rtol=0.1)
+
+    def test_destripe_scrunch(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+
+        scanset.destripe_images(calibration=self.calfile,
+                                map_unit="Jy/pixel",
+                                scrunch=True,
+                                calibrate_scans=True)
         images = scanset.images
         img = images['Ch0']
         center = img.shape[0] // 2, img.shape[1] // 2

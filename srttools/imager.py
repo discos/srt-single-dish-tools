@@ -486,9 +486,9 @@ class ScanSet(Table):
 
         destriped = {}
         for ch in self.chan_columns:
-            destriped[ch + '_dirty'] = images[ch]
+            if ch in images:
+                destriped[ch + '_dirty'] = images[ch]
 
-        print(self.images.keys())
         images_hor = self.calculate_images(direction=0, **kwargs)
         images_ver = self.calculate_images(direction=1, **kwargs)
         for ch in images_hor:
@@ -509,6 +509,7 @@ class ScanSet(Table):
             plt.savefig(ch + '_destr.png')
             plt.imshow((images_hor[ch] + images_ver[ch]) / 2)
             plt.savefig(ch + '_initial.png')
+
         print(self.images.keys())
 
         for ch in destriped:
