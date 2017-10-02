@@ -138,6 +138,13 @@ class ScanSet(Table):
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
+                ras = s['ra'][:, 0]
+                decs = s['dec'][:, 0]
+
+                ravar = (np.max(ras) - np.min(ras)) / np.cos(np.mean(decs))
+                decvar = np.max(decs) - np.min(decs)
+                s['direction'] = np.array(ravar > decvar, dtype=bool)
+
                 del s.meta['filename']
                 del s.meta['calibrator_directories']
                 del s.meta['list_of_directories']
@@ -354,13 +361,13 @@ class ScanSet(Table):
         self['x'].meta['altaz'] = altaz
         self['y'].meta['altaz'] = altaz
 
-    def calculate_images(self, scrunch=False, no_offsets=False, altaz=False,
+    def calculate_images(self, no_offsets=False, altaz=False,
                          calibration=None, elevation=None, map_unit="Jy/beam",
-                         calibrate_scans=False):
+                         calibrate_scans=False, direction=None):
         """Obtain image from all scans.
 
-        scrunch:         sum all channels
         no_offsets:      use positions from feed 0 for all feeds.
+        direction:       0 if horizontal, 1 if vertical
         """
         if altaz != self['x'].meta['altaz']:
             self.convert_coordinates(altaz)
@@ -395,6 +402,11 @@ class ScanSet(Table):
             else:
                 good = np.ones(len(self[ch]), dtype=bool)
 
+            if direction == 0:
+                good = good & self['direction']
+            elif direction == 1:
+                good = good & np.logical_not(self['direction'])
+
             expomap, _, _ = np.histogram2d(self['x'][:, feed][good],
                                            self['y'][:, feed][good],
                                            bins=[xbins, ybins])
@@ -426,12 +438,10 @@ class ScanSet(Table):
 
             good = expomap > 0
             mean = img.copy()
-            total_img += mean.T
             mean[good] /= expomap[good]
             # For Numpy vs FITS image conventions...
             images[ch] = mean.T
             img_sdev = img_sq
-            total_sdev += img_sdev.T
             img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
 
             img_sdev = np.sqrt(img_sdev)
@@ -441,33 +451,80 @@ class ScanSet(Table):
                 img_sdev += mean * cal_rel_err
 
             images['{}-Sdev'.format(ch)] = img_sdev.T
-            total_expo += expomap.T
+            images['{}-EXPO'.format(ch)] = expomap.T
 
         self.images = images
         if calibration is not None and not calibrate_scans:
             self.calibrate_images(calibration, elevation=elevation,
                                   map_unit=map_unit)
 
-        if scrunch:
-            # Filter the part of the image whose value of exposure is higher
-            # than the 10% percentile (avoid underexposed parts)
-            good = total_expo > np.percentile(total_expo, 10)
-            bad = np.logical_not(good)
-            total_img[bad] = 0
-            total_sdev[bad] = 0
-            total_img[good] /= total_expo[good]
-            total_sdev[good] = total_sdev[good] / total_expo[good] - \
-                total_img[good] ** 2
-
-            images = {self.chan_columns[0]: total_img,
-                      '{}-Sdev'.format(self.chan_columns[0]): np.sqrt(
-                          total_sdev),
-                      '{}-EXPO'.format(self.chan_columns[0]): total_expo}
-
         return images
 
+    def destripe_images(self, **kwargs):
+        from .destripe import destripe_wrapper
+
+        images = self.calculate_images(**kwargs)
+
+        destriped = {}
+        for ch in self.chan_columns:
+            if ch in images:
+                destriped[ch + '_dirty'] = images[ch]
+
+        images_hor = self.calculate_images(direction=0, **kwargs)
+        images_ver = self.calculate_images(direction=1, **kwargs)
+        for ch in images_hor:
+            if 'Sdev' in ch:
+                destriped[ch] = (images_hor[ch]**2 + images_ver[ch]**2) ** 0.5
+                continue
+            if 'EXPO' in ch:
+                destriped[ch] = images_hor[ch] + images_ver[ch]
+                continue
+            if HAS_MPL:
+                fig = plt.figure()
+                plt.imshow(images_hor[ch])
+                plt.savefig(ch + '_hor.png')
+                plt.imshow(images_ver[ch])
+                plt.savefig(ch + '_ver.png')
+                plt.close(fig)
+
+                destriped[ch] = destripe_wrapper(images_hor[ch],
+                                                 images_ver[ch])
+                fig = plt.figure()
+                plt.imshow(destriped[ch])
+                plt.savefig(ch + '_destr.png')
+                plt.imshow((images_hor[ch] + images_ver[ch]) / 2)
+                plt.savefig(ch + '_initial.png')
+                plt.close(fig)
+
+        print(self.images.keys())
+
+        for ch in destriped:
+            self.images[ch] = destriped[ch]
+        print(self.images.keys())
+        return self.images
+
+    def scrunch_images(self):
+        """Sum the images from all channels."""
+        total_expo = 0
+        total_img = 0
+        total_sdev = 0
+        count = 0
+        for ch in self.chan_columns:
+            total_expo += self.images['{}-EXPO'.format(ch)]
+            total_sdev += self.images['{}-Sdev'.format(ch)]**2
+            total_img += self.images[ch]
+            count += 1
+        total_sdev = total_sdev ** 0.5 / count
+        total_img /= count
+
+        total_images = {'TOTAL': total_img,
+                        'TOTAL-Sdev': np.sqrt(total_sdev),
+                        'TOTAL-EXPO': total_expo}
+        self.images.update(total_images)
+        return total_images
+
     def fit_full_images(self, chans=None, fname=None, save_sdev=False,
-                        scrunch=False, no_offsets=False, altaz=False,
+                        no_offsets=False, altaz=False,
                         calibration=None, excluded=None, par=None,
                         map_unit="Jy/beam"):
         """Flatten the baseline with a global fit.
@@ -476,7 +533,7 @@ class ScanSet(Table):
         """
 
         if not hasattr(self, 'images'):
-            self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
+            self.calculate_images(no_offsets=no_offsets,
                                   altaz=altaz, calibration=calibration,
                                   map_unit=map_unit)
 
@@ -499,7 +556,7 @@ class ScanSet(Table):
             self[ch] = Column(fit_full_image(self, chan=ch, feed=feed,
                                              excluded=excluded, par=par))
 
-        self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
+        self.calculate_images(no_offsets=no_offsets,
                               altaz=altaz, calibration=calibration,
                               map_unit=map_unit)
 
@@ -806,10 +863,10 @@ class ScanSet(Table):
         except astropy.io.registry.IORegistryError as e:
             raise astropy.io.registry.IORegistryError(fname + ': ' + str(e))
 
-
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
-                        map_unit="Jy/beam", calibrate_scans=False):
+                        map_unit="Jy/beam", calibrate_scans=False,
+                        destripe=False):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             tail = '.fits'
@@ -819,12 +876,24 @@ class ScanSet(Table):
                 tail = tail.replace('.fits', '_scrunch.fits')
             if calibration is not None:
                 tail = tail.replace('.fits', '_cal.fits')
+            if destripe:
+                tail = tail.replace('.fits', '_destripe.fits')
             fname = self.meta['config_file'].replace('.ini', tail)
 
-        images = self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
-                                       altaz=altaz, calibration=calibration,
-                                       map_unit=map_unit,
-                                       calibrate_scans=calibrate_scans)
+        if destripe:
+            images = self.destripe_images(no_offsets=no_offsets,
+                                          altaz=altaz, calibration=calibration,
+                                          map_unit=map_unit,
+                                          calibrate_scans=calibrate_scans)
+        else:
+            images = self.calculate_images(no_offsets=no_offsets,
+                                           altaz=altaz,
+                                           calibration=calibration,
+                                           map_unit=map_unit,
+                                           calibrate_scans=calibrate_scans)
+
+        if scrunch:
+            self.scrunch_images()
 
         self.create_wcs(altaz)
 
@@ -917,6 +986,9 @@ def main_imager(args=None):
                         help='Unit of the calibrated image. Jy/beam or '
                              'Jy/pixel')
 
+    parser.add_argument("--destripe", action='store_true', default=False,
+                        help='Destripe the image')
+
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Plot stuff and be verbose')
 
@@ -924,7 +996,8 @@ def main_imager(args=None):
                         help='Calibrate after image creation, for speed '
                              '(bad when calibration depends on elevation)')
 
-    parser.add_argument("--scrunch-channels", action='store_true', default=False,
+    parser.add_argument("--scrunch-channels", action='store_true',
+                        default=False,
                         help='Sum all the images from the single channels into'
                              ' one.')
 
@@ -984,7 +1057,8 @@ def main_imager(args=None):
 
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate,
                             map_unit=args.unit, scrunch=args.scrunch_channels,
-                            altaz=args.altaz, calibrate_scans=not args.quick)
+                            altaz=args.altaz, calibrate_scans=not args.quick,
+                            destripe=args.destripe)
 
 
 def main_preprocess(args=None):

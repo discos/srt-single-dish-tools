@@ -34,6 +34,7 @@ except ImportError:
     def tqdm(x):
         return x
 
+
 @pytest.fixture()
 def logger():
     logger = logging.getLogger('Some.Logger')
@@ -159,6 +160,10 @@ class TestScanSet(object):
         caltable.write(klass.calfile, overwrite=True)
 
         klass.config = read_config(klass.config_file)
+        klass.raonly = os.path.abspath(os.path.join(klass.datadir,
+                                                    'test_raonly.ini'))
+        klass.deconly = os.path.abspath(os.path.join(klass.datadir,
+                                                     'test_deconly.ini'))
 
         if not os.path.exists('test.hdf5'):
             klass.scanset = ScanSet(klass.config_file, norefilt=False,
@@ -205,6 +210,14 @@ class TestScanSet(object):
         for k in self.config.keys():
             assert scanset.meta[k] == self.config[k]
 
+    def test_raonly(self):
+        scanset = ScanSet(self.raonly)
+        assert np.all(scanset['direction'])
+
+    def test_deconly(self):
+        scanset = ScanSet(self.deconly)
+        assert not np.any(scanset['direction'])
+
     def test_wrong_file_name_raises(self):
         scanset = ScanSet('test.hdf5')
         with pytest.raises(astropy.io.registry.IORegistryError):
@@ -229,7 +242,7 @@ class TestScanSet(object):
             assert "matplotlib is not installed" in str(excinfo)
 
     @pytest.mark.skipif('not HAS_MPL')
-    def test_interactive_scans_all_calibrated_channels(self):
+    def test_interactive_scans_all_calibrated_channels(self, capsys):
         scanset = ScanSet('test.hdf5')
         scanset.calibrate_images(calibration=self.calfile)
         images = scanset.images
@@ -238,6 +251,16 @@ class TestScanSet(object):
         imgsel = scanset.interactive_display(test=True)
         fake_event = type('event', (), {})()
         fake_event.key = 'a'
+        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
+
+        imgsel.on_key(fake_event)
+        fake_event.key = 'h'
+        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
+        out, err = capsys.readouterr()
+        assert "a    open a window to filter all" in out
+
+        imgsel.on_key(fake_event)
+        fake_event.key = 'v'
         fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
 
         imgsel.on_key(fake_event)
@@ -315,6 +338,24 @@ class TestScanSet(object):
             plt.savefig('img_nooff_nofilt.png')
             plt.close(fig)
 
+    def test_hor_images(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+        scanset.remove_column('Ch0-filt')
+        images = scanset.calculate_images(no_offsets=True, direction=0)
+
+        img = images['Ch0']
+
+    def test_ver_images(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+        scanset.remove_column('Ch0-filt')
+        images = scanset.calculate_images(no_offsets=True, direction=1)
+
+        img = images['Ch0']
+
     def test_rough_image(self):
         '''Test image production.'''
 
@@ -369,15 +410,16 @@ class TestScanSet(object):
 
         scanset = ScanSet('test.hdf5')
 
-        images = scanset.calculate_images(scrunch=True)
+        scanset.calculate_images()
+        images = scanset.scrunch_images()
 
-        img = images['Ch0']
+        img = images['TOTAL']
 
         if HAS_MPL:
             fig = plt.figure('img - scrunched')
             plt.imshow(img, origin='lower')
             plt.colorbar()
-            img = images['Ch0-Sdev']
+            img = images['TOTAL-Sdev']
             plt.savefig('img_scrunch.png')
             plt.close(fig)
 
@@ -400,6 +442,41 @@ class TestScanSet(object):
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
         assert np.isclose(np.sum(images['Ch0'][good]),
+                          self.simulated_flux, rtol=0.1)
+
+    def test_destripe(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+
+        scanset.destripe_images(calibration=self.calfile,
+                                map_unit="Jy/pixel")
+        images = scanset.images
+        img = images['Ch0']
+        center = img.shape[0] // 2, img.shape[1] // 2
+        shortest_side = np.min(img.shape)
+        X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
+        good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
+        assert np.isclose(np.sum(images['Ch0'][good]),
+                          self.simulated_flux, rtol=0.1)
+
+    def test_destripe_scrunch(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+
+        scanset.destripe_images(calibration=self.calfile,
+                                map_unit="Jy/pixel",
+                                calibrate_scans=True)
+        scanset.scrunch_images()
+        images = scanset.images
+        img = images['TOTAL']
+        center = img.shape[0] // 2, img.shape[1] // 2
+        shortest_side = np.min(img.shape)
+        X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
+        good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
+
+        assert np.isclose(np.sum(images['TOTAL'][good]),
                           self.simulated_flux, rtol=0.1)
 
     def test_calibrate_image_pixel(self):
@@ -496,6 +573,13 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
 
         scanset.save_ds9_images(save_sdev=False)
+
+    def test_ds9_image_destripe(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+
+        scanset.save_ds9_images(destripe=True)
 
     def test_global_fit_image(self):
         '''Test image production.'''
