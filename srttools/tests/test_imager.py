@@ -564,6 +564,13 @@ class TestScanSet(object):
 
         scanset.save_ds9_images(save_sdev=False)
 
+    def test_ds9_image_destripe(self):
+        '''Test image production.'''
+
+        scanset = ScanSet('test.hdf5')
+
+        scanset.save_ds9_images(destripe=True)
+
     def test_global_fit_image(self):
         '''Test image production.'''
 

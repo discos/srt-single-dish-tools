@@ -54,7 +54,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
 
 
 def basket_weaving(img_hor, img_ver, clip_sigma=3):
-    """Basket-Weaving algorithm from Müller et al. 1707.05573v6."""
+    """Basket-Weaving algorithm from Mueller et al. 1707.05573v6."""
 
     diff = img_hor - img_ver
     diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
