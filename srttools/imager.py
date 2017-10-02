@@ -479,17 +479,22 @@ class ScanSet(Table):
             if 'EXPO' in ch:
                 destriped[ch] = images_hor[ch] + images_ver[ch]
                 continue
-            plt.figure()
-            plt.imshow(images_hor[ch])
-            plt.savefig(ch + '_hor.png')
-            plt.imshow(images_ver[ch])
-            plt.savefig(ch + '_ver.png')
-            destriped[ch] = destripe_wrapper(images_hor[ch],
-                                             images_ver[ch])
-            plt.imshow(destriped[ch])
-            plt.savefig(ch + '_destr.png')
-            plt.imshow((images_hor[ch] + images_ver[ch]) / 2)
-            plt.savefig(ch + '_initial.png')
+            if HAS_MPL:
+                fig = plt.figure()
+                plt.imshow(images_hor[ch])
+                plt.savefig(ch + '_hor.png')
+                plt.imshow(images_ver[ch])
+                plt.savefig(ch + '_ver.png')
+                plt.close(fig)
+
+                destriped[ch] = destripe_wrapper(images_hor[ch],
+                                                 images_ver[ch])
+                fig = plt.figure()
+                plt.imshow(destriped[ch])
+                plt.savefig(ch + '_destr.png')
+                plt.imshow((images_hor[ch] + images_ver[ch]) / 2)
+                plt.savefig(ch + '_initial.png')
+                plt.close(fig)
 
         print(self.images.keys())
 
