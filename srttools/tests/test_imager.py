@@ -242,7 +242,7 @@ class TestScanSet(object):
             assert "matplotlib is not installed" in str(excinfo)
 
     @pytest.mark.skipif('not HAS_MPL')
-    def test_interactive_scans_all_calibrated_channels(self):
+    def test_interactive_scans_all_calibrated_channels(self, capsys):
         scanset = ScanSet('test.hdf5')
         scanset.calibrate_images(calibration=self.calfile)
         images = scanset.images
@@ -251,6 +251,16 @@ class TestScanSet(object):
         imgsel = scanset.interactive_display(test=True)
         fake_event = type('event', (), {})()
         fake_event.key = 'a'
+        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
+
+        imgsel.on_key(fake_event)
+        fake_event.key = 'h'
+        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
+        out, err = capsys.readouterr()
+        assert "a    open a window to filter all" in out
+
+        imgsel.on_key(fake_event)
+        fake_event.key = 'v'
         fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
 
         imgsel.on_key(fake_event)
