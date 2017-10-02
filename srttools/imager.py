@@ -872,6 +872,8 @@ class ScanSet(Table):
                 tail = tail.replace('.fits', '_scrunch.fits')
             if calibration is not None:
                 tail = tail.replace('.fits', '_cal.fits')
+            if destripe:
+                tail = tail.replace('.fits', '_destripe.fits')
             fname = self.meta['config_file'].replace('.ini', tail)
 
         if destripe:
