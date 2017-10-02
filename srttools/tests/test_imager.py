@@ -399,15 +399,16 @@ class TestScanSet(object):
 
         scanset = ScanSet('test.hdf5')
 
-        images = scanset.calculate_images(scrunch=True)
+        scanset.calculate_images()
+        images = scanset.scrunch_images()
 
-        img = images['Ch0']
+        img = images['TOTAL']
 
         if HAS_MPL:
             fig = plt.figure('img - scrunched')
             plt.imshow(img, origin='lower')
             plt.colorbar()
-            img = images['Ch0-Sdev']
+            img = images['TOTAL-Sdev']
             plt.savefig('img_scrunch.png')
             plt.close(fig)
 
@@ -455,15 +456,16 @@ class TestScanSet(object):
 
         scanset.destripe_images(calibration=self.calfile,
                                 map_unit="Jy/pixel",
-                                scrunch=True,
                                 calibrate_scans=True)
+        scanset.scrunch_images()
         images = scanset.images
-        img = images['Ch0']
+        img = images['TOTAL']
         center = img.shape[0] // 2, img.shape[1] // 2
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
-        assert np.isclose(np.sum(images['Ch0'][good]),
+
+        assert np.isclose(np.sum(images['TOTAL'][good]),
                           self.simulated_flux, rtol=0.1)
 
     def test_calibrate_image_pixel(self):

@@ -361,12 +361,11 @@ class ScanSet(Table):
         self['x'].meta['altaz'] = altaz
         self['y'].meta['altaz'] = altaz
 
-    def calculate_images(self, scrunch=False, no_offsets=False, altaz=False,
+    def calculate_images(self, no_offsets=False, altaz=False,
                          calibration=None, elevation=None, map_unit="Jy/beam",
                          calibrate_scans=False, direction=None):
         """Obtain image from all scans.
 
-        scrunch:         sum all channels
         no_offsets:      use positions from feed 0 for all feeds.
         direction:       0 if horizontal, 1 if vertical
         """
@@ -439,12 +438,10 @@ class ScanSet(Table):
 
             good = expomap > 0
             mean = img.copy()
-            total_img += mean.T
             mean[good] /= expomap[good]
             # For Numpy vs FITS image conventions...
             images[ch] = mean.T
             img_sdev = img_sq
-            total_sdev += img_sdev.T
             img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
 
             img_sdev = np.sqrt(img_sdev)
@@ -454,28 +451,12 @@ class ScanSet(Table):
                 img_sdev += mean * cal_rel_err
 
             images['{}-Sdev'.format(ch)] = img_sdev.T
-            total_expo += expomap.T
+            images['{}-EXPO'.format(ch)] = expomap.T
 
         self.images = images
         if calibration is not None and not calibrate_scans:
             self.calibrate_images(calibration, elevation=elevation,
                                   map_unit=map_unit)
-
-        if scrunch:
-            # Filter the part of the image whose value of exposure is higher
-            # than the 10% percentile (avoid underexposed parts)
-            good = total_expo > np.percentile(total_expo, 10)
-            bad = np.logical_not(good)
-            total_img[bad] = 0
-            total_sdev[bad] = 0
-            total_img[good] /= total_expo[good]
-            total_sdev[good] = total_sdev[good] / total_expo[good] - \
-                total_img[good] ** 2
-
-            images = {self.chan_columns[0]: total_img,
-                      '{}-Sdev'.format(self.chan_columns[0]): np.sqrt(
-                          total_sdev),
-                      '{}-EXPO'.format(self.chan_columns[0]): total_expo}
 
         return images
 
@@ -517,8 +498,28 @@ class ScanSet(Table):
         print(self.images.keys())
         return self.images
 
+    def scrunch_images(self):
+        """Sum the images from all channels."""
+        total_expo = 0
+        total_img = 0
+        total_sdev = 0
+        count = 0
+        for ch in self.chan_columns:
+            total_expo += self.images['{}-EXPO'.format(ch)]
+            total_sdev += self.images['{}-Sdev'.format(ch)]**2
+            total_img += self.images[ch]
+            count += 1
+        total_sdev = total_sdev ** 0.5 / count
+        total_img /= count
+
+        total_images = {'TOTAL': total_img,
+                        'TOTAL-Sdev': np.sqrt(total_sdev),
+                        'TOTAL-EXPO': total_expo}
+        self.images.update(total_images)
+        return total_images
+
     def fit_full_images(self, chans=None, fname=None, save_sdev=False,
-                        scrunch=False, no_offsets=False, altaz=False,
+                        no_offsets=False, altaz=False,
                         calibration=None, excluded=None, par=None,
                         map_unit="Jy/beam"):
         """Flatten the baseline with a global fit.
@@ -527,7 +528,7 @@ class ScanSet(Table):
         """
 
         if not hasattr(self, 'images'):
-            self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
+            self.calculate_images(no_offsets=no_offsets,
                                   altaz=altaz, calibration=calibration,
                                   map_unit=map_unit)
 
@@ -550,7 +551,7 @@ class ScanSet(Table):
             self[ch] = Column(fit_full_image(self, chan=ch, feed=feed,
                                              excluded=excluded, par=par))
 
-        self.calculate_images(scrunch=scrunch, no_offsets=no_offsets,
+        self.calculate_images(no_offsets=no_offsets,
                               altaz=altaz, calibration=calibration,
                               map_unit=map_unit)
 
@@ -874,17 +875,18 @@ class ScanSet(Table):
             fname = self.meta['config_file'].replace('.ini', tail)
 
         if destripe:
-            images = self.destripe_images(scrunch=scrunch,
-                                          no_offsets=no_offsets,
+            images = self.destripe_images(no_offsets=no_offsets,
                                           altaz=altaz, calibration=calibration,
                                           map_unit=map_unit,
                                           calibrate_scans=calibrate_scans)
         else:
-            images = self.calculate_images(scrunch=scrunch,
-                                           no_offsets=no_offsets,
+            images = self.calculate_images(no_offsets=no_offsets,
                                            altaz=altaz, calibration=calibration,
                                            map_unit=map_unit,
                                            calibrate_scans=calibrate_scans)
+
+        if scrunch:
+            self.scrunch_images()
 
         self.create_wcs(altaz)
 
