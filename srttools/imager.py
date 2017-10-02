@@ -858,7 +858,6 @@ class ScanSet(Table):
         except astropy.io.registry.IORegistryError as e:
             raise astropy.io.registry.IORegistryError(fname + ': ' + str(e))
 
-
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
                         map_unit="Jy/beam", calibrate_scans=False,
@@ -883,7 +882,8 @@ class ScanSet(Table):
                                           calibrate_scans=calibrate_scans)
         else:
             images = self.calculate_images(no_offsets=no_offsets,
-                                           altaz=altaz, calibration=calibration,
+                                           altaz=altaz,
+                                           calibration=calibration,
                                            map_unit=map_unit,
                                            calibrate_scans=calibrate_scans)
 
@@ -991,7 +991,8 @@ def main_imager(args=None):
                         help='Calibrate after image creation, for speed '
                              '(bad when calibration depends on elevation)')
 
-    parser.add_argument("--scrunch-channels", action='store_true', default=False,
+    parser.add_argument("--scrunch-channels", action='store_true',
+                        default=False,
                         help='Sum all the images from the single channels into'
                              ' one.')
 

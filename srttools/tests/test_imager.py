@@ -34,6 +34,7 @@ except ImportError:
     def tqdm(x):
         return x
 
+
 @pytest.fixture()
 def logger():
     logger = logging.getLogger('Some.Logger')
@@ -439,7 +440,7 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
 
         scanset.destripe_images(calibration=self.calfile,
-                                 map_unit="Jy/pixel")
+                                map_unit="Jy/pixel")
         images = scanset.images
         img = images['Ch0']
         center = img.shape[0] // 2, img.shape[1] // 2
