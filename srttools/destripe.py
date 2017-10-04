@@ -29,7 +29,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     Examples
     --------
     >>> img = np.zeros((2,2))
-    >>> np.all(clip_and_smooth(img) == img)
+    >>> np.all(clip_and_smooth(img, smooth_window=(1, 1)) == img)
     True
     >>> img = np.array([[0, 0], [1, 1]])
     >>> np.all(clip_and_smooth(img, direction=0) == img)
@@ -42,14 +42,20 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     ...             [[1, 1], [3.0310889132455352, 1]])
     True
     """
-    from scipy.ndimage import gaussian_filter1d
+    from scipy.ndimage import gaussian_filter, gaussian_filter1d
+    import collections
     rms = np.std(img)
     median = np.median(img)
     bad = img - median > clip_sigma * rms
     img[bad] = clip_sigma * rms
     bad = median - img > clip_sigma * rms
     img[bad] = - clip_sigma * rms
-    img = gaussian_filter1d(img, smooth_window, axis=np.logical_not(direction))
+
+    if isinstance(smooth_window, collections.Iterable):
+        img = gaussian_filter(img, smooth_window)
+    else:
+        img = gaussian_filter1d(img, smooth_window,
+                                axis=np.logical_not(direction))
     return img
 
 
@@ -66,13 +72,13 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4):
             break
         diff = img_hor - img_ver
         diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                               smooth_window=window, direction=0)
+                               smooth_window=(window, 2))
 
         img_hor = img_hor - diff
 
         diff1 = img_ver - img_hor
         diff1 = clip_and_smooth(diff1, clip_sigma=clip_sigma,
-                                smooth_window=window, direction=1)
+                                smooth_window=(2, window), direction=1)
 
         img_ver = img_ver - diff1
         it += 1
