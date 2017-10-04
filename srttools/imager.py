@@ -460,7 +460,7 @@ class ScanSet(Table):
 
         return images
 
-    def destripe_images(self, **kwargs):
+    def destripe_images(self, niter=4, **kwargs):
         from .destripe import destripe_wrapper
 
         images = self.calculate_images(**kwargs)
@@ -488,7 +488,8 @@ class ScanSet(Table):
                 plt.close(fig)
 
                 destriped[ch] = destripe_wrapper(images_hor[ch],
-                                                 images_ver[ch])
+                                                 images_ver[ch],
+                                                 niter=niter)
                 fig = plt.figure()
                 plt.imshow(destriped[ch])
                 plt.savefig(ch + '_destr.png')
@@ -496,11 +497,9 @@ class ScanSet(Table):
                 plt.savefig(ch + '_initial.png')
                 plt.close(fig)
 
-        print(self.images.keys())
-
         for ch in destriped:
             self.images[ch] = destriped[ch]
-        print(self.images.keys())
+
         return self.images
 
     def scrunch_images(self):

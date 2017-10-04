@@ -53,45 +53,41 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     return img
 
 
-def basket_weaving(img_hor, img_ver, clip_sigma=3):
+def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4):
     """Basket-Weaving algorithm from Mueller et al. 1707.05573v6."""
+    it = 1
+    img_hor = np.copy(img_hor)
+    img_ver = np.copy(img_ver)
+    width = np.max(img_hor.shape)
 
-    diff = img_hor - img_ver
-    diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                           smooth_window=10, direction=0)
+    while it < niter_max:
+        window = width // 2**it
+        if window < 4:
+            break
+        diff = img_hor - img_ver
+        diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
+                               smooth_window=window, direction=0)
 
-    img_hor_1 = img_hor - diff
+        img_hor = img_hor - diff
 
-    diff1 = img_ver - img_hor_1
-    diff1 = clip_and_smooth(diff1, clip_sigma=clip_sigma,
-                            smooth_window=10, direction=1)
+        diff1 = img_ver - img_hor
+        diff1 = clip_and_smooth(diff1, clip_sigma=clip_sigma,
+                                smooth_window=window, direction=1)
 
-    img_ver_1 = img_ver - diff1
+        img_ver = img_ver - diff1
+        it += 1
 
-    diff2 = img_hor_1 - img_ver_1
-    diff2 = clip_and_smooth(diff2, clip_sigma=clip_sigma,
-                            smooth_window=5, direction=0)
-
-    img_hor_2 = img_hor_1 - diff2
-
-    diff3 = img_ver_1 - img_hor_2
-    diff3 = clip_and_smooth(diff3, clip_sigma=clip_sigma,
-                            smooth_window=4, direction=1)
-
-    img_ver_2 = img_ver_1 - diff3
-
-    return (img_ver_2 + img_hor_2) / 2
+    return (img_ver + img_hor) / 2
 
 
-def destripe_wrapper(image_hor, image_ver, alg='basket-weaving'):
+def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
+                     niter=4):
     image_mean = (image_hor + image_ver) / 2
     masked_image, mask = mask_zeros(image_mean)
 
-    # print((image_hor[mask].reshape(masked_image.shape),
-    #                    image_ver[mask].reshape(masked_image.shape)))
-    # print(image_mean, mask, basket_weaving(image_hor[mask], image_ver[mask]))
     image_mean[mask] = \
         basket_weaving(image_hor[mask].reshape(masked_image.shape),
-                       image_ver[mask].reshape(masked_image.shape)).flatten()
+                       image_ver[mask].reshape(masked_image.shape),
+                       niter_max=niter).flatten()
     if alg == 'basket-weaving':
         return image_mean
