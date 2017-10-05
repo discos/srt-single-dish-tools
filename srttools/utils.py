@@ -77,7 +77,6 @@ except ImportError:
         return np.median((np.fabs(data - center)) / c, axis=axis)
 
 
-
 def standard_string(s):
     """Standard string representation for a given Python version
 

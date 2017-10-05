@@ -54,6 +54,7 @@ def _default_flat_shape(x):
     """
     return 100 + np.zeros(np.asarray(x).shape)
 
+
 def _2d_gauss(x, y, sigma=2.5 / 60.):
     """A Gaussian beam"""
     return np.exp(-(x ** 2 + y ** 2) / (2 * sigma**2))
@@ -398,16 +399,17 @@ def main_simulate(args=None):
                         help='Baseline kind: "flat", "slope" (linearly '
                              'increasing/decreasing), "messy" '
                              '(random walk) or a number (which gives an '
-                             'amplitude to the random-walk baseline, that would'
-                             ' be 20 for "messy")')
+                             'amplitude to the random-walk baseline, that '
+                             'would be 20 for "messy")')
 
     parser.add_argument('-g', '--geometry', nargs=4, type=float,
                         default=[120, 120, 120, 120],
                         help='Geometry specification: length_ra, length_dec, '
-                             'width_ra, width_dec, in arcmins. A square map of '
-                             '2 degrees would be specified as 120 120 120 120. '
-                             'A cross-like map, 2x2 degrees wide but only along'
-                             '1-degree stripes, is specified as 120 120 60 60')
+                             'width_ra, width_dec, in arcmins. A square map of'
+                             ' 2 degrees would be specified as 120 120 120 '
+                             '120. A cross-like map, 2x2 degrees wide but only'
+                             ' along 1-degree stripes, is specified as 120 120'
+                             ' 60 60')
 
     parser.add_argument('--beam-width', type=float, default=2.5,
                         help='Gaussian beam width in arcminutes')
@@ -437,7 +439,8 @@ def main_simulate(args=None):
     args = parser.parse_args(args)
 
     def local_gauss_src_func(x, y):
-        return args.source_flux * 100 * _2d_gauss(x, y, sigma=args.beam_width/60)
+        return args.source_flux * 100 * _2d_gauss(x, y,
+                                                  sigma=args.beam_width/60)
 
     simulate_map(dt=args.integration_time, length_ra=args.geometry[0],
                  length_dec=args.geometry[1], speed=args.scan_speed,
@@ -458,4 +461,5 @@ def main_simulate(args=None):
         sim_crossscans(5, cal1, scan_func=calibrator_scan_func)
         cal2 = os.path.join(args.outdir_root, 'calibrator2')
         mkdir_p(cal2)
-        sim_crossscans(5, cal2, scan_func=calibrator_scan_func, srcname='DummyCal2')
+        sim_crossscans(5, cal2, scan_func=calibrator_scan_func,
+                       srcname='DummyCal2')

@@ -62,7 +62,8 @@ class TestSimulate(object):
         shutil.rmtree('simc')
         main_simulate('--integration-time .02 -g 10 10 1 1 -o simd'.split(' '))
         shutil.rmtree('simd')
-        main_simulate('--no-cal --scan-speed 3. -g 10 10 1 1 -o sime'.split(' '))
+        main_simulate('--no-cal --scan-speed 3. -g 10 10 1 1 '
+                      '-o sime'.split(' '))
         shutil.rmtree('sime')
 
     def test_use_wrong_baseline(self):
