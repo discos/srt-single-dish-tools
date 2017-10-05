@@ -666,7 +666,7 @@ class ScanSet(Table):
             sdevch = '{}-Sdev'.format(ch)
             if '{}-RAW'.format(ch) in self.images.keys():
                 imgch = '{}-RAW'.format(ch)
-                sdevch = '{}-Sdev-RAW'.format(ch)
+                sdevch = '{}-RAW-Sdev'.format(ch)
             img = self.images[imgch]
             ax2.imshow(img, origin='lower',
                        vmin=np.percentile(img, 20), cmap="gnuplot2",
