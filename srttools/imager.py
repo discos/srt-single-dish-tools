@@ -595,8 +595,10 @@ class ScanSet(Table):
 
             self.images['{}-RAW'.format(ch)] = \
                 self.images['{}'.format(ch)].copy()
-            self.images['{}-Sdev-RAW'.format(ch)] = \
+            self.images['{}-RAW-Sdev'.format(ch)] = \
                 self.images['{}-Sdev'.format(ch)].copy()
+            self.images['{}-RAW-EXPO'.format(ch)] = \
+                self.images['{}-EXPO'.format(ch)].copy()
             bad = eA != eA
             A[bad] = 1 * u.ct
             eA[bad] = 0 * u.ct
