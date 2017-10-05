@@ -487,9 +487,10 @@ class ScanSet(Table):
                 plt.savefig(ch + '_ver.png')
                 plt.close(fig)
 
-                destriped[ch] = destripe_wrapper(images_hor[ch],
-                                                 images_ver[ch],
-                                                 niter=niter)
+                destriped[ch] = \
+                    destripe_wrapper(images_hor[ch], images_ver[ch], niter=niter,
+                                     expo_hor=images_hor[ch + '-EXPO'],
+                                     expo_ver=images_ver[ch + '-EXPO'])
                 fig = plt.figure()
                 plt.imshow(destriped[ch])
                 plt.savefig(ch + '_destr.png')
