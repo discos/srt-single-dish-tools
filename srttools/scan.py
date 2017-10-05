@@ -583,7 +583,7 @@ class Scan(Table):
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
         logging.info('Saving to {}'.format(fname))
-        if fname.lower().endswith('.hdf5'):
+        if fname.endswith('.hdf5'):
             Table.write(self, fname, *args, path='scan', serialize_meta=True,
                         **kwargs)
         else:
