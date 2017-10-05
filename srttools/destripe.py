@@ -66,24 +66,37 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4):
     img_ver = np.copy(img_ver)
     width = np.max(img_hor.shape)
 
+    bad_hor = img_hor == 0
+    bad_ver = img_ver == 0
+    bad = bad_hor | bad_ver
+
     while it < niter_max:
         window = width // 2**it
         if window < 4:
             break
+
         diff = img_hor - img_ver
         diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                               smooth_window=(window, 2))
-
+                               smooth_window=(0., window))
+        diff[bad] = 0
         img_hor = img_hor - diff
 
-        diff1 = img_ver - img_hor
-        diff1 = clip_and_smooth(diff1, clip_sigma=clip_sigma,
-                                smooth_window=(2, window), direction=1)
+        diff = img_ver - img_hor
+        diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
+                               smooth_window=(window, 0.), direction=1)
+        diff[bad] = 0
 
-        img_ver = img_ver - diff1
+        img_ver = img_ver - diff
         it += 1
 
-    return (img_ver + img_hor) / 2
+    img_final = img_ver + img_hor
+    expo = np.ones_like(img_final) * 2
+    expo[bad_hor] -= 1
+    expo[bad_ver] -= 1
+
+    good = expo > 0
+    img_final[good] = img_final[good] / expo[good]
+    return img_final
 
 
 def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',

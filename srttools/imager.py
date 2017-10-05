@@ -493,7 +493,7 @@ class ScanSet(Table):
                 fig = plt.figure()
                 plt.imshow(destriped[ch])
                 plt.savefig(ch + '_destr.png')
-                plt.imshow((images_hor[ch] + images_ver[ch]) / 2)
+                plt.imshow(images[ch])
                 plt.savefig(ch + '_initial.png')
                 plt.close(fig)
 
