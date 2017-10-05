@@ -71,10 +71,6 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4,
     img_ver = np.copy(img_ver)
     width = np.max(img_hor.shape)
 
-    bad_hor = (expo_hor == 0) | (img_hor == 0)
-    bad_ver = (expo_ver == 0) | (img_ver == 0)
-    bad = bad_hor | bad_ver
-
     while it < niter_max:
         window = width // 2**it
         if window < 4:
