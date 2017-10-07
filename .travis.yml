@@ -1,4 +1,4 @@
-language: c
+language: python
 
 # Setting sudo to false opts in to Travis-CI container-based builds.
 sudo: false
@@ -41,8 +41,6 @@ matrix:
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
         # Try all python versions with the latest numpy
-        - os: osx
-          env: PYTHON_VERSION=3.6 SETUP_CMD='test'
 
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage'
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage'
@@ -85,9 +83,6 @@ matrix:
         # Test Astropy LTS version
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test' ASTROPY_VERSION=lts
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test' ASTROPY_VERSION=lts
-        - os: osx
-          env: PYTHON_VERSION=3.6 SETUP_CMD='test'
-
 
 
 before_install:

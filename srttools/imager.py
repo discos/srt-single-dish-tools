@@ -479,6 +479,13 @@ class ScanSet(Table):
             if 'EXPO' in ch:
                 destriped[ch] = images_hor[ch] + images_ver[ch]
                 continue
+
+            destriped[ch] = \
+                destripe_wrapper(images_hor[ch], images_ver[ch],
+                                 niter=niter,
+                                 expo_hor=images_hor[ch + '-EXPO'],
+                                 expo_ver=images_ver[ch + '-EXPO'])
+
             if HAS_MPL:
                 fig = plt.figure()
                 plt.imshow(images_hor[ch])
@@ -487,13 +494,14 @@ class ScanSet(Table):
                 plt.savefig(ch + '_ver.png')
                 plt.close(fig)
 
-                destriped[ch] = destripe_wrapper(images_hor[ch],
-                                                 images_ver[ch],
-                                                 niter=niter)
                 fig = plt.figure()
+                plt.imshow(images_hor[ch + '-EXPO'])
+                plt.savefig(ch + '_expoh.png')
+                plt.imshow(images_ver[ch + '-EXPO'])
+                plt.savefig(ch + '_expov.png')
                 plt.imshow(destriped[ch])
                 plt.savefig(ch + '_destr.png')
-                plt.imshow((images_hor[ch] + images_ver[ch]) / 2)
+                plt.imshow(images[ch])
                 plt.savefig(ch + '_initial.png')
                 plt.close(fig)
 
@@ -593,8 +601,10 @@ class ScanSet(Table):
 
             self.images['{}-RAW'.format(ch)] = \
                 self.images['{}'.format(ch)].copy()
-            self.images['{}-Sdev-RAW'.format(ch)] = \
+            self.images['{}-RAW-Sdev'.format(ch)] = \
                 self.images['{}-Sdev'.format(ch)].copy()
+            self.images['{}-RAW-EXPO'.format(ch)] = \
+                self.images['{}-EXPO'.format(ch)].copy()
             bad = eA != eA
             A[bad] = 1 * u.ct
             eA[bad] = 0 * u.ct
@@ -662,7 +672,7 @@ class ScanSet(Table):
             sdevch = '{}-Sdev'.format(ch)
             if '{}-RAW'.format(ch) in self.images.keys():
                 imgch = '{}-RAW'.format(ch)
-                sdevch = '{}-Sdev-RAW'.format(ch)
+                sdevch = '{}-RAW-Sdev'.format(ch)
             img = self.images[imgch]
             ax2.imshow(img, origin='lower',
                        vmin=np.percentile(img, 20), cmap="gnuplot2",

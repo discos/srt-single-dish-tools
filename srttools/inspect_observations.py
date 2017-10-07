@@ -221,9 +221,9 @@ def main_inspector(args=None):
                         default=None, type=str)
     parser.add_argument("-g", "--group-by", default=None, type=str, nargs="+")
     parser.add_argument("--options", default=None, type=str,
-                        help="Options to be written in config files; they have "
-                             "to be specified as a string defining a dictionary"
-                             ". For example,"
+                        help="Options to be written in config files; they have"
+                             " to be specified as a string defining a "
+                             "dictionary. For example,"
                              "'{\"pixel_size\": 0.6, "
                              "\"noise_threshold\": 5}' ")
     parser.add_argument("-d", "--dump-config-files", action='store_true',
@@ -235,8 +235,7 @@ def main_inspector(args=None):
     parser.add_argument("--only-before", type=str, default=None,
                         help='Only before a certain date and time, e.g. '
                              '``--only-before 20150510-111020`` to indicate '
-                             'scans done before 11:10:20 UTC on May 10th, 2015')
-
+                             'scans done before 11:10:20 UTC, May 10th, 2015')
 
     args = parser.parse_args(args)
 

@@ -2,8 +2,42 @@ import numpy as np
 
 
 def mask_zeros(image, npix_tol=2):
-    mask = np.ones(image.shape, dtype=bool)
+    """Mask the lines containing zeros in the image.
 
+    Parameters
+    ----------
+    image : 2d array
+        Input image
+    npix_tol : int
+        Number of tolerated pixels with value 0
+
+    Returns
+    -------
+    masked_image : 2d array
+        The masked image
+    mask : 2d array
+        The boolean mask to obtain masked_image from mask
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> img = [[0, 1, 1], [0, 1, 1], [1, 1, 1]]
+    >>> masked_image, mask = mask_zeros(img, npix_tol=1)
+    >>> np.all(masked_image == [[1, 1], [1, 1], [1, 1]])
+    True
+    >>> np.all(mask == [[False, True, True], [False, True, True],
+    ...                 [False, True, True]])
+    True
+    >>> masked_image, mask = mask_zeros(img, npix_tol=2)
+    >>> np.all(masked_image == img)
+    True
+    >>> img = [[0, 0, 0], [1, 1, 1], [1, 1, 1]]
+    >>> masked_image, mask = mask_zeros(img, npix_tol=1)
+    >>> np.all(masked_image == [[1, 1, 1], [1, 1, 1]])
+    True
+    """
+    image = np.asarray(image)
+    mask = np.ones(image.shape, dtype=bool)
     good_hor = 0
     for i in range(image.shape[0]):
         line = image[i, :]
@@ -29,7 +63,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     Examples
     --------
     >>> img = np.zeros((2,2))
-    >>> np.all(clip_and_smooth(img) == img)
+    >>> np.all(clip_and_smooth(img, smooth_window=(1, 1)) == img)
     True
     >>> img = np.array([[0, 0], [1, 1]])
     >>> np.all(clip_and_smooth(img, direction=0) == img)
@@ -42,52 +76,74 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     ...             [[1, 1], [3.0310889132455352, 1]])
     True
     """
-    from scipy.ndimage import gaussian_filter1d
+    from scipy.ndimage import gaussian_filter, gaussian_filter1d
+    import collections
     rms = np.std(img)
     median = np.median(img)
     bad = img - median > clip_sigma * rms
     img[bad] = clip_sigma * rms
     bad = median - img > clip_sigma * rms
     img[bad] = - clip_sigma * rms
-    img = gaussian_filter1d(img, smooth_window, axis=np.logical_not(direction))
+
+    if isinstance(smooth_window, collections.Iterable):
+        img = gaussian_filter(img, smooth_window)
+    else:
+        img = gaussian_filter1d(img, smooth_window,
+                                axis=np.logical_not(direction))
     return img
 
 
-def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4):
+def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4,
+                   expo_hor=None, expo_ver=None):
     """Basket-Weaving algorithm from Mueller et al. 1707.05573v6."""
     it = 1
+    if expo_hor is None:
+        expo_hor = np.ones_like(img_hor)
+    if expo_ver is None:
+        expo_ver = np.ones_like(img_ver)
     img_hor = np.copy(img_hor)
     img_ver = np.copy(img_ver)
     width = np.max(img_hor.shape)
 
-    while it < niter_max:
+    while it <= niter_max:
         window = width // 2**it
         if window < 4:
             break
+
         diff = img_hor - img_ver
         diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                               smooth_window=window, direction=0)
+                               smooth_window=(0., window))
 
         img_hor = img_hor - diff
 
-        diff1 = img_ver - img_hor
-        diff1 = clip_and_smooth(diff1, clip_sigma=clip_sigma,
-                                smooth_window=window, direction=1)
+        diff = img_ver - img_hor
+        diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
+                               smooth_window=(window, 0.))
 
-        img_ver = img_ver - diff1
+        img_ver = img_ver - diff
         it += 1
 
-    return (img_ver + img_hor) / 2
+    img_final = img_ver * expo_ver + img_hor * expo_hor
+    expo = expo_hor + expo_ver
+
+    good = expo > 0
+    img_final[good] = img_final[good] / expo[good]
+    return img_final
 
 
 def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
-                     niter=4):
+                     niter=4, expo_hor=None, expo_ver=None):
     image_mean = (image_hor + image_ver) / 2
-    masked_image, mask = mask_zeros(image_mean)
+#    masked_image, mask = mask_zeros(image_mean)
+    masked_image = image_mean
+    mask = np.ones_like(image_mean, dtype=bool)
 
     image_mean[mask] = \
         basket_weaving(image_hor[mask].reshape(masked_image.shape),
                        image_ver[mask].reshape(masked_image.shape),
-                       niter_max=niter).flatten()
+                       niter_max=niter,
+                       expo_hor=expo_hor[mask].reshape(masked_image.shape),
+                       expo_ver=expo_ver[mask].reshape(masked_image.shape)
+                       ).flatten()
     if alg == 'basket-weaving':
         return image_mean

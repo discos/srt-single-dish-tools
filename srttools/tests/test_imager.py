@@ -12,6 +12,7 @@ except ImportError:
 from srttools import ScanSet
 from srttools import Scan
 from srttools import CalibratorTable
+from srttools.calibration import HAS_STATSM
 from srttools.read_config import read_config
 from srttools.imager import main_imager, main_preprocess
 from srttools.simulate import simulate_map
@@ -441,8 +442,10 @@ class TestScanSet(object):
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
+        rtol = 0.1 if HAS_STATSM else 0.15
+
         assert np.isclose(np.sum(images['Ch0'][good]),
-                          self.simulated_flux, rtol=0.1)
+                          self.simulated_flux, rtol=rtol)
 
     def test_destripe(self):
         '''Test image production.'''
@@ -490,8 +493,10 @@ class TestScanSet(object):
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
+        rtol = 0.1 if HAS_STATSM else 0.15
+
         assert np.isclose(np.sum(images['Ch0'][good]),
-                          self.simulated_flux, rtol=0.1)
+                          self.simulated_flux, rtol=rtol)
 
     def test_calibrate_image_beam(self):
         scanset = ScanSet('test.hdf5')
@@ -555,7 +560,7 @@ class TestScanSet(object):
                                           map_unit="Jy/sr",
                                           calibrate_scans=True)
 
-        good = images['Ch0'] > 1e-8
+        good = images['Ch0'] > 1
 
         assert np.allclose(images['Ch0'][good],
                            images_standard['Ch0'][good], rtol=1e-4)

@@ -177,12 +177,12 @@ class TestCalibration(object):
         """Simple calibration from scans."""
 
         caltable = CalibratorTable.read(self.calfile, path='table')
-        caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
+        caltable0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
         assert np.all(
-            np.abs(caltable_0['Width'] - 2.5/60.) < 3 * caltable_0['Width Err'])
-        caltable_1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
+            np.abs(caltable0['Width'] - 2.5/60.) < 3 * caltable0['Width Err'])
+        caltable1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
         assert np.all(
-            np.abs(caltable_1['Width'] - 2.5/60.) < 3 * caltable_1['Width Err'])
+            np.abs(caltable1['Width'] - 2.5/60.) < 3 * caltable1['Width Err'])
 
         beam, beam_err = caltable.beam_width(channel='Ch0')
         assert np.all(beam - np.radians(2.5/60) < 3 * beam_err)
