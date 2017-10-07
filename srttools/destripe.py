@@ -2,8 +2,42 @@ import numpy as np
 
 
 def mask_zeros(image, npix_tol=2):
-    mask = np.ones(image.shape, dtype=bool)
+    """Mask the lines containing zeros in the image.
 
+    Parameters
+    ----------
+    image : 2d array
+        Input image
+    npix_tol : int
+        Number of tolerated pixels with value 0
+
+    Returns
+    -------
+    masked_image : 2d array
+        The masked image
+    mask : 2d array
+        The boolean mask to obtain masked_image from mask
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> img = [[0, 1, 1], [0, 1, 1], [1, 1, 1]]
+    >>> masked_image, mask = mask_zeros(img, npix_tol=1)
+    >>> np.all(masked_image == [[1, 1], [1, 1], [1, 1]])
+    True
+    >>> np.all(mask == [[False, True, True], [False, True, True],
+    ...                 [False, True, True]])
+    True
+    >>> masked_image, mask = mask_zeros(img, npix_tol=2)
+    >>> np.all(masked_image == img)
+    True
+    >>> img = [[0, 0, 0], [1, 1, 1], [1, 1, 1]]
+    >>> masked_image, mask = mask_zeros(img, npix_tol=1)
+    >>> np.all(masked_image == [[1, 1, 1], [1, 1, 1]])
+    True
+    """
+    image = np.asarray(image)
+    mask = np.ones(image.shape, dtype=bool)
     good_hor = 0
     for i in range(image.shape[0]):
         line = image[i, :]
