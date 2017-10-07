@@ -479,6 +479,13 @@ class ScanSet(Table):
             if 'EXPO' in ch:
                 destriped[ch] = images_hor[ch] + images_ver[ch]
                 continue
+
+            destriped[ch] = \
+                destripe_wrapper(images_hor[ch], images_ver[ch],
+                                 niter=niter,
+                                 expo_hor=images_hor[ch + '-EXPO'],
+                                 expo_ver=images_ver[ch + '-EXPO'])
+
             if HAS_MPL:
                 fig = plt.figure()
                 plt.imshow(images_hor[ch])
@@ -487,12 +494,11 @@ class ScanSet(Table):
                 plt.savefig(ch + '_ver.png')
                 plt.close(fig)
 
-                destriped[ch] = \
-                    destripe_wrapper(images_hor[ch], images_ver[ch],
-                                     niter=niter,
-                                     expo_hor=images_hor[ch + '-EXPO'],
-                                     expo_ver=images_ver[ch + '-EXPO'])
                 fig = plt.figure()
+                plt.imshow(images_hor[ch + '-EXPO'])
+                plt.savefig(ch + '_expoh.png')
+                plt.imshow(images_ver[ch + '-EXPO'])
+                plt.savefig(ch + '_expov.png')
                 plt.imshow(destriped[ch])
                 plt.savefig(ch + '_destr.png')
                 plt.imshow(images[ch])
