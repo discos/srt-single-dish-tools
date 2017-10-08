@@ -43,6 +43,7 @@ def mask_zeros(image, expo=None, npix_tol=None):
     True
     """
     image = np.asarray(image)
+    expo = np.asarray(expo)
     mask = np.ones(image.shape, dtype=bool)
     if npix_tol is None:
         return image, mask
