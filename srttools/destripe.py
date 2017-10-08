@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def mask_zeros(image, npix_tol=2):
+def mask_zeros(image, expo=None, npix_tol=None):
     """Mask the lines containing zeros in the image.
 
     Parameters
@@ -22,7 +22,7 @@ def mask_zeros(image, npix_tol=2):
     --------
     >>> import numpy as np
     >>> img = [[0, 1, 1], [0, 1, 1], [1, 1, 1]]
-    >>> masked_image, mask = mask_zeros(img, npix_tol=1)
+    >>> masked_image, mask = mask_zeros(img, expo=img, npix_tol=1)
     >>> np.all(masked_image == [[1, 1], [1, 1], [1, 1]])
     True
     >>> np.all(mask == [[False, True, True], [False, True, True],
@@ -38,17 +38,22 @@ def mask_zeros(image, npix_tol=2):
     """
     image = np.asarray(image)
     mask = np.ones(image.shape, dtype=bool)
+    if npix_tol is None:
+        return image, mask
+
+    if expo is None:
+        expo = image
     good_hor = 0
-    for i in range(image.shape[0]):
-        line = image[i, :]
+    for i in range(expo.shape[0]):
+        line = expo[i, :]
         if len(line[line == 0]) > npix_tol:
             mask[i, :] = False
         else:
             good_hor += 1
 
     good_ver = 0
-    for i in range(image.shape[1]):
-        line = image[:, i]
+    for i in range(expo.shape[1]):
+        line = expo[:, i]
         if len(line[line == 0]) > npix_tol:
             mask[:, i] = False
         else:
@@ -132,11 +137,14 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4,
 
 
 def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
-                     niter=4, expo_hor=None, expo_ver=None):
+                     niter=4, expo_hor=None, expo_ver=None,
+                     npix_tol=None):
     image_mean = (image_hor + image_ver) / 2
-#    masked_image, mask = mask_zeros(image_mean)
-    masked_image = image_mean
-    mask = np.ones_like(image_mean, dtype=bool)
+    if expo_hor is None or expo_ver is None:
+        masked_image, mask = mask_zeros(image_mean, npix_tol=npix_tol)
+    else:
+        masked_image, mask = mask_zeros(image_mean, expo_hor + expo_ver,
+                                        npix_tol=npix_tol)
 
     image_mean[mask] = \
         basket_weaving(image_hor[mask].reshape(masked_image.shape),
