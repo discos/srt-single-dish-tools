@@ -486,25 +486,6 @@ class ScanSet(Table):
                                  expo_hor=images_hor[ch + '-EXPO'],
                                  expo_ver=images_ver[ch + '-EXPO'])
 
-            if HAS_MPL:
-                fig = plt.figure()
-                plt.imshow(images_hor[ch])
-                plt.savefig(ch + '_hor.png')
-                plt.imshow(images_ver[ch])
-                plt.savefig(ch + '_ver.png')
-                plt.close(fig)
-
-                fig = plt.figure()
-                plt.imshow(images_hor[ch + '-EXPO'])
-                plt.savefig(ch + '_expoh.png')
-                plt.imshow(images_ver[ch + '-EXPO'])
-                plt.savefig(ch + '_expov.png')
-                plt.imshow(destriped[ch])
-                plt.savefig(ch + '_destr.png')
-                plt.imshow(images[ch])
-                plt.savefig(ch + '_initial.png')
-                plt.close(fig)
-
         for ch in destriped:
             self.images[ch] = destriped[ch]
 

@@ -1,4 +1,10 @@
 import numpy as np
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
 
 
 def mask_zeros(image, expo=None, npix_tol=None):
@@ -139,12 +145,31 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4,
 def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
                      niter=4, expo_hor=None, expo_ver=None,
                      npix_tol=None):
-    image_mean = (image_hor + image_ver) / 2
     if expo_hor is None or expo_ver is None:
+        image_mean = (image_hor + image_ver) / 2
         masked_image, mask = mask_zeros(image_mean, npix_tol=npix_tol)
     else:
+        image_mean = \
+            (image_hor*expo_hor + image_ver*expo_ver) / (expo_hor + expo_ver)
         masked_image, mask = mask_zeros(image_mean, expo_hor + expo_ver,
                                         npix_tol=npix_tol)
+
+    if HAS_MPL:
+        fig = plt.figure()
+        plt.imshow(image_hor[mask].reshape(masked_image.shape))
+        plt.savefig('img_hor.png')
+        plt.imshow(image_ver[mask].reshape(masked_image.shape))
+        plt.savefig('img_ver.png')
+        plt.close(fig)
+
+        fig = plt.figure()
+        plt.imshow(expo_hor[mask].reshape(masked_image.shape))
+        plt.savefig('img_expoh.png')
+        plt.imshow(expo_ver[mask].reshape(masked_image.shape))
+        plt.savefig('img_expov.png')
+        plt.imshow(image_mean[mask].reshape(masked_image.shape))
+        plt.savefig('img_initial.png')
+        plt.close(fig)
 
     image_mean[mask] = \
         basket_weaving(image_hor[mask].reshape(masked_image.shape),
@@ -153,5 +178,10 @@ def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
                        expo_hor=expo_hor[mask].reshape(masked_image.shape),
                        expo_ver=expo_ver[mask].reshape(masked_image.shape)
                        ).flatten()
+
+    if HAS_MPL:
+        plt.imshow(image_mean[mask].reshape(masked_image.shape))
+        plt.savefig('img_destr.png')
+
     if alg == 'basket-weaving':
         return image_mean
