@@ -381,9 +381,6 @@ class ScanSet(Table):
                             self.meta['npix'][1],
                             self.meta['npix'][1] + 1)
 
-        total_expo = 0
-        total_img = 0
-        total_sdev = 0
         for ch in self.chan_columns:
             feeds = self[ch+'_feed']
             allfeeds = list(set(feeds))
@@ -460,7 +457,7 @@ class ScanSet(Table):
 
         return images
 
-    def destripe_images(self, niter=4, **kwargs):
+    def destripe_images(self, niter=4, npix_tol=None, **kwargs):
         from .destripe import destripe_wrapper
 
         images = self.calculate_images(**kwargs)
@@ -482,28 +479,9 @@ class ScanSet(Table):
 
             destriped[ch] = \
                 destripe_wrapper(images_hor[ch], images_ver[ch],
-                                 niter=niter,
+                                 niter=niter, npix_tol=npix_tol,
                                  expo_hor=images_hor[ch + '-EXPO'],
                                  expo_ver=images_ver[ch + '-EXPO'])
-
-            if HAS_MPL:
-                fig = plt.figure()
-                plt.imshow(images_hor[ch])
-                plt.savefig(ch + '_hor.png')
-                plt.imshow(images_ver[ch])
-                plt.savefig(ch + '_ver.png')
-                plt.close(fig)
-
-                fig = plt.figure()
-                plt.imshow(images_hor[ch + '-EXPO'])
-                plt.savefig(ch + '_expoh.png')
-                plt.imshow(images_ver[ch + '-EXPO'])
-                plt.savefig(ch + '_expov.png')
-                plt.imshow(destriped[ch])
-                plt.savefig(ch + '_destr.png')
-                plt.imshow(images[ch])
-                plt.savefig(ch + '_initial.png')
-                plt.close(fig)
 
         for ch in destriped:
             self.images[ch] = destriped[ch]
@@ -875,7 +853,7 @@ class ScanSet(Table):
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
                         map_unit="Jy/beam", calibrate_scans=False,
-                        destripe=False):
+                        destripe=False, npix_tol=None):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             tail = '.fits'
@@ -892,7 +870,7 @@ class ScanSet(Table):
         if destripe:
             images = self.destripe_images(no_offsets=no_offsets,
                                           altaz=altaz, calibration=calibration,
-                                          map_unit=map_unit,
+                                          map_unit=map_unit, npix_tol=npix_tol,
                                           calibrate_scans=calibrate_scans)
         else:
             images = self.calculate_images(no_offsets=no_offsets,
@@ -998,6 +976,14 @@ def main_imager(args=None):
     parser.add_argument("--destripe", action='store_true', default=False,
                         help='Destripe the image')
 
+
+    parser.add_argument("--npix-tol", type=int, default=None,
+                        help='Number of pixels with zero exposure to tolerate'
+                             ' when destriping the image, or the full row or '
+                             'column is discarded.'
+                             ' Default None, meaning that the image will be'
+                             ' destriped as a whole')
+
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Plot stuff and be verbose')
 
@@ -1067,7 +1053,7 @@ def main_imager(args=None):
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate,
                             map_unit=args.unit, scrunch=args.scrunch_channels,
                             altaz=args.altaz, calibrate_scans=not args.quick,
-                            destripe=args.destripe)
+                            destripe=args.destripe, npix_tol=args.npix_tol)
 
 
 def main_preprocess(args=None):
