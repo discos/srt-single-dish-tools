@@ -381,9 +381,6 @@ class ScanSet(Table):
                             self.meta['npix'][1],
                             self.meta['npix'][1] + 1)
 
-        total_expo = 0
-        total_img = 0
-        total_sdev = 0
         for ch in self.chan_columns:
             feeds = self[ch+'_feed']
             allfeeds = list(set(feeds))

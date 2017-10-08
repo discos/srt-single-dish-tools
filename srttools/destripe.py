@@ -1,7 +1,6 @@
 import numpy as np
 try:
     import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
@@ -148,6 +147,7 @@ def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
                      npix_tol=None):
     if expo_hor is None or expo_ver is None:
         image_mean = (image_hor + image_ver) / 2
+        expo_hor = expo_ver = np.ones_like(image_mean)
         masked_image, mask = mask_zeros(image_mean, npix_tol=npix_tol)
     else:
         image_mean = \
