@@ -392,7 +392,8 @@ class Scan(Table):
 
     def __init__(self, data=None, config_file=None, norefilt=True,
                  interactive=False, nosave=False, debug=False,
-                 freqsplat=None, nofilt=False, nosub=False, **kwargs):
+                 freqsplat=None, nofilt=False, nosub=False, avoid_regions=None,
+                 **kwargs):
         """Load a Scan object
 
         Parameters
@@ -454,7 +455,7 @@ class Scan(Table):
             if (('backsub' not in self.meta.keys() or
                     not self.meta['backsub'])) and not nosub:
                 logging.info('Subtracting the baseline')
-                self.baseline_subtract()
+                self.baseline_subtract(avoid_regions=avoid_regions)
 
             if not nosave:
                 self.save()
@@ -533,7 +534,7 @@ class Scan(Table):
             self[ch + 'TEMP'].name = ch
             self[ch].meta['bandwidth'] = freqmax - freqmin
 
-    def baseline_subtract(self, kind='als', plot=False):
+    def baseline_subtract(self, kind='als', plot=False, avoid_regions=None):
         """Subtract the baseline.
 
         Parameters
@@ -550,18 +551,27 @@ class Scan(Table):
             Plot diagnostic information in an image with the same basename as
             the fits file, an additional label corresponding to the channel, in
             PNG format.
-
+        avoid_regions: [[r0_ra, r0_dec, r0_radius], [r1_ra, r1_dec, r1_radius]]
+            Avoid these regions from the fit
         """
         for ch in self.chan_columns():
             if plot and HAS_MPL:
                 fig = plt.figure("Sub" + ch)
                 plt.plot(self['time'], self[ch] - np.min(self[ch]),
                          alpha=0.5)
-
+            mask = np.ones(len(self[ch]), dtype=bool)
+            feed = self[ch + '_feed'][0]
+            if avoid_regions is not None:
+                for r in avoid_regions:
+                    ras = self['ra'][:, feed]
+                    decs = self['dec'][:, feed]
+                    dist = np.sqrt(((ras - r[0]) / np.cos(decs))**2 +
+                                   (decs - r[1])**2)
+                    mask[dist < r[2]] = 0
             if kind == 'als':
-                self[ch] = baseline_als(self['time'], self[ch])
+                self[ch] = baseline_als(self['time'], self[ch], mask=mask)
             elif kind == 'rough':
-                self[ch] = baseline_rough(self['time'], self[ch])
+                self[ch] = baseline_rough(self['time'], self[ch], mask=mask)
             else:
                 raise ValueError('Unknown baseline technique')
 
