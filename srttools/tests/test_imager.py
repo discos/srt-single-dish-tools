@@ -872,6 +872,16 @@ class TestScanSet(object):
         assert 'Only regions in fk5' in caplog.text
         os.unlink('region.reg')
 
+    @pytest.mark.skipif('not HAS_PYREGION')
+    def test_global_fit_image_using_ds9_region_noncircular_warns(self, logger,
+                                                                 caplog):
+        regstr = 'image;line(100,100,200,200)'
+        with open('region.reg', 'w') as fobj:
+            print(regstr, file=fobj)
+        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        assert 'Only circular regions' in caplog.text
+        os.unlink('region.reg')
+
     def test_imager_sample_config(self):
         if os.path.exists('sample_config_file.ini'):
             os.unlink('sample_config_file.ini')
