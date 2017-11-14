@@ -9,6 +9,12 @@ try:
 except ImportError:
     HAS_MPL = False
 
+try:
+    import pyregion
+    HAS_PYREGION = True
+except ImportError:
+    HAS_PYREGION = False
+
 from srttools import ScanSet
 from srttools import Scan
 from srttools import CalibratorTable
@@ -822,6 +828,7 @@ class TestScanSet(object):
             main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
             assert "Exclusion region has to be specified as " in str(excinfo)
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_global_fit_image_using_ds9_region(self):
         scanset = ScanSet('test.hdf5')
         # It works after calculating images
@@ -835,6 +842,7 @@ class TestScanSet(object):
         main_imager('test.hdf5 -g --exclude region.reg'.split())
         os.unlink('region.reg')
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_baseline_using_ds9_region(self):
         regstr = 'fk5;circle(180,45,960")'
         with open('region.reg', 'w') as fobj:
@@ -844,6 +852,7 @@ class TestScanSet(object):
                      '--sub --exclude region.reg').split())
         os.unlink('region.reg')
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_global_fit_image_using_ds9_region_garbage_warns(self, logger,
                                                              caplog):
         regstr = 'physical;circle(30,30,1)'
