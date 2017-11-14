@@ -853,6 +853,16 @@ class TestScanSet(object):
         os.unlink('region.reg')
 
     @pytest.mark.skipif('not HAS_PYREGION')
+    def test_baseline_preprocess_using_ds9_region(self):
+        regstr = 'fk5;circle(180,45,960")'
+        with open('region.reg', 'w') as fobj:
+            print(regstr, file=fobj)
+
+        main_preprocess(('-c {} --refilt '.format(self.config_file) +
+                         '--sub --exclude region.reg').split())
+        os.unlink('region.reg')
+
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_global_fit_image_using_ds9_region_garbage_warns(self, logger,
                                                              caplog):
         regstr = 'physical;circle(30,30,1)'
