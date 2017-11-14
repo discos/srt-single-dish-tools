@@ -7,7 +7,7 @@ try:
 except ImportError:
     HAS_MPL = False
 
-from srttools.destripe import basket_weaving
+from srttools.destripe import basket_weaving, destripe_wrapper
 np.random.seed(450720239)
 
 
@@ -55,6 +55,12 @@ class TestScanSet(object):
         std = np.std(diff_img)
 
         assert np.all(np.abs(diff_img - mean) < std * 5)
+
+    def test_wrapper(self):
+        img_clean = basket_weaving(self.img_hor, self.img_ver)
+        img_clean_w = destripe_wrapper(self.img_hor, self.img_ver)
+
+        assert np.all(img_clean == img_clean_w)
 
     def test_expo(self):
         img_clean = basket_weaving(self.img_hor, self.img_ver,
