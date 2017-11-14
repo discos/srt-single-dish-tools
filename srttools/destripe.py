@@ -96,7 +96,9 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     bad = median - img > clip_sigma * rms
     img[bad] = - clip_sigma * rms
 
-    if isinstance(smooth_window, collections.Iterable):
+    if smooth_window == 0:
+        pass
+    elif isinstance(smooth_window, collections.Iterable):
         img = gaussian_filter(img, smooth_window)
     else:
         img = gaussian_filter1d(img, smooth_window,
