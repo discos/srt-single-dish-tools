@@ -333,6 +333,9 @@ steps:
    of scans in a fraction of a second. For more complicated scans, an interactive
    interface is also available, albeit with some portability issues that will be
    solved in future versions (use the ``--interactive`` option).
+   It is possible to avoid regions with known strong sources. For now, they need
+   to be specified by hand, with the ``-e`` option followed by a valid ds9-compatible
+   region file containing *circular* regions in the ``fk5`` frame.
 
 3. The results of the first points are saved as ``HDF5`` files in the same directory
    as the original ``fits`` files. This makes it
@@ -399,10 +402,14 @@ image, and tries to find the alignment of each scan that minimizes the *total
 rms* of the image. This procedure is only valid if the region that is fit is
 consistent with having zero average. This is, of course, not valid if the source
 is strong. In this case, together with the global fit option, we need to also
-specify a set of regions to neglect. This is done through the option ``-e`` followed
-by three numbers: X, Y and radius, in *image* coordinates (SAOimage ds9 or other
-imaging programs can create regions with these coordinates, one just needs to
-copy the numbers. A full usage of DS9-like regions is envisaged).
+specify a set of regions to neglect. This is done in two ways:
+
++ through a ds9-compatible region file containing *circular* regions in *image* coordinates
+
++ through the option ``-e`` followed by multiples of three numbers: X, Y and radius,
+  in *image* coordinates (SAOimage ds9 or other
+  imaging programs can create regions with these coordinates, one just needs to
+  copy the numbers.).
 
 In summary, to use the global fitting and discard the region centered at coordinates
 x,y=30,33 with radius 10 pixels, run
