@@ -231,17 +231,19 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
     lc = y.copy()
     time = x.copy()
 
+    if mask is None:
+        mask = np.ones(len(time), dtype=bool)
     total_trend = 0
 
     local_std = ref_std(lc, np.max([nbin // 20, 20]))
 
     for percentage in [0.8, 0.15]:
-        time_to_fit = time[1:-1]
-        lc_to_fit = lc[1:-1]
+        time_to_fit = time[mask][1:-1]
+        lc_to_fit = lc[mask][1:-1]
 
         sorted_els = np.argsort(lc_to_fit)
         # Select the lowest half elements
-        good = sorted_els[: int(nbin * percentage)]&mask
+        good = sorted_els[: int(nbin * percentage)]
 
         if np.std(lc_to_fit[good]) < 2 * local_std:
             good = np.ones(len(lc_to_fit), dtype=bool)
