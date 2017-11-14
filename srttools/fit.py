@@ -7,6 +7,7 @@ import numpy as np
 import traceback
 import warnings
 import collections
+import copy
 from .utils import mad
 
 
@@ -194,7 +195,7 @@ def offset_fit(x, y, offset_start=0, return_err=False):
         return par[0]
 
 
-def baseline_rough(x, y, start_pars=None, return_baseline=False):
+def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
     """Rough function to subtract the baseline.
 
     Parameters
@@ -210,6 +211,8 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False):
     ----------------
     return_baseline : bool
         return the baseline?
+    mask : array of bools
+        Mask indicating the good x and y data. True for good, False for bad
 
     Returns
     -------
@@ -228,13 +231,15 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False):
     lc = y.copy()
     time = x.copy()
 
+    if mask is None:
+        mask = np.ones(len(time), dtype=bool)
     total_trend = 0
 
     local_std = ref_std(lc, np.max([nbin // 20, 20]))
 
     for percentage in [0.8, 0.15]:
-        time_to_fit = time[1:-1]
-        lc_to_fit = lc[1:-1]
+        time_to_fit = time[mask][1:-1]
+        lc_to_fit = lc[mask][1:-1]
 
         sorted_els = np.argsort(lc_to_fit)
         # Select the lowest half elements
@@ -260,13 +265,17 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False):
         return lc
 
 
-def purge_outliers(y, window_size=5, up=True, down=True):
+def purge_outliers(y, window_size=5, up=True, down=True, mask=None):
     """Remove obvious outliers.
 
     Attention: This is known to throw false positives on bona fide, very strong
     Gaussian peaks
     """
 
+    if mask is None:
+        mask = np.ones(len(y), dtype=bool)
+
+    bad_mask = np.logical_not(mask)
     if not (up or down):
         return y
 
@@ -281,6 +290,7 @@ def purge_outliers(y, window_size=5, up=True, down=True):
     if up:
         outliers = np.logical_or(outliers, diffs > 10 * min_diff)
 
+    outliers = np.logical_or(outliers, bad_mask)
     if not np.any(outliers):
         return y
 
@@ -351,7 +361,7 @@ def _als(y, lam, p, niter=10):
 
 
 def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
-                 offset_correction=True,
+                 offset_correction=True, mask=None,
                  outlier_purging=True):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
@@ -380,6 +390,8 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
         also correct for an offset to align with the running mean of the scan
     outlier_purging : bool
         Purge outliers before the fit?
+    mask : array of bools
+        Mask indicating the good x and y data. True for good, False for bad
 
     Returns
     -------
@@ -396,11 +408,13 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
     if p is None:
         p = 0.001
 
-    y = purge_outliers(y, up=outlier_purging[0], down=outlier_purging[1])
+    y_mod = purge_outliers(copy.deepcopy(y), up=outlier_purging[0],
+                           down=outlier_purging[1],
+                           mask=mask)
 
-    z = _als(y, lam, p, niter=niter)
+    z = _als(y_mod, lam, p, niter=niter)
 
-    ysub = y - z
+    ysub = y_mod - z
     offset = 0
     if offset_correction:
         std = ref_std(ysub, np.max([len(y) // 20, 20]))
@@ -410,9 +424,9 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
         offset = offset_fit(x[good], ysub[good], 0)
 
     if return_baseline:
-        return ysub - offset, z + offset
+        return y - z - offset, z + offset
     else:
-        return ysub - offset
+        return y - z - offset
 
 
 def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):

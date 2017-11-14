@@ -9,6 +9,12 @@ try:
 except ImportError:
     HAS_MPL = False
 
+try:
+    import pyregion
+    HAS_PYREGION = True
+except ImportError:
+    HAS_PYREGION = False
+
 from srttools import ScanSet
 from srttools import Scan
 from srttools import CalibratorTable
@@ -588,7 +594,6 @@ class TestScanSet(object):
 
     def test_global_fit_image(self):
         '''Test image production.'''
-
         scanset = ScanSet('test.hdf5')
         # It works with no parameters, before calculating images,
         # with no_offsets
@@ -596,20 +601,24 @@ class TestScanSet(object):
         # It works after calculating images
         images = scanset.calculate_images()
         nx, ny = images['Ch0'].shape
-        excluded = [[nx//2, ny//2, nx//4]]
+        excluded = [[nx // 2, ny // 2, nx // 4]]
         scanset.fit_full_images(excluded=excluded, chans='Ch0')
         os.path.exists("out_iter_Ch0_002.txt")
         scanset.fit_full_images(excluded=excluded, chans='Ch1')
         os.path.exists("out_iter_Ch1_000.txt")
+
         if not HAS_MPL:
             with pytest.raises(ImportError) as excinfo:
-                display_intermediate(scanset, chan="Ch0", excluded=excluded,
-                                     parfile="out_iter_Ch0_002.txt")
+                display_intermediate(scanset, chan="Ch0",
+                                     excluded=excluded,
+                                     parfile = "out_iter_Ch0_002.txt")
+
             assert "display_intermediate: matplotlib" in str(excinfo)
         else:
-            display_intermediate(scanset, chan="Ch0", excluded=excluded,
-                                 parfile="out_iter_Ch0_002.txt")
-        os.path.exists("out_iter_Ch1_002.png")
+            display_intermediate(scanset, chan="Ch0",
+                                 excluded=excluded,
+                                 parfile = "out_iter_Ch0_002.txt")
+            os.path.exists("out_iter_Ch1_002.png")
 
     def test_global_fit_image_fails_mixup_channels(self):
         '''Test image production.'''
@@ -818,6 +827,60 @@ class TestScanSet(object):
         with pytest.raises(ValueError) as excinfo:
             main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
             assert "Exclusion region has to be specified as " in str(excinfo)
+
+    @pytest.mark.skipif('not HAS_PYREGION')
+    def test_global_fit_image_using_ds9_region(self):
+        scanset = ScanSet('test.hdf5')
+        # It works after calculating images
+        images = scanset.calculate_images()
+        nx, ny = images['Ch0'].shape
+
+        regstr = 'image;circle({},{},{})'.format(nx // 2, ny // 2, nx // 4)
+        with open('region.reg', 'w') as fobj:
+            print(regstr, file=fobj)
+
+        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        os.unlink('region.reg')
+
+    @pytest.mark.skipif('not HAS_PYREGION')
+    def test_baseline_using_ds9_region(self):
+        regstr = 'fk5;circle(180,45,960")'
+        with open('region.reg', 'w') as fobj:
+            print(regstr, file=fobj)
+
+        main_imager(('-c {} --refilt '.format(self.config_file) +
+                     '--sub --exclude region.reg').split())
+        os.unlink('region.reg')
+
+    @pytest.mark.skipif('not HAS_PYREGION')
+    def test_baseline_preprocess_using_ds9_region(self):
+        regstr = 'fk5;circle(180,45,960")'
+        with open('region.reg', 'w') as fobj:
+            print(regstr, file=fobj)
+
+        main_preprocess(('-c {} '.format(self.config_file) +
+                         '--sub --exclude region.reg').split())
+        os.unlink('region.reg')
+
+    @pytest.mark.skipif('not HAS_PYREGION')
+    def test_global_fit_image_using_ds9_region_garbage_warns(self, logger,
+                                                             caplog):
+        regstr = 'physical;circle(30,30,1)'
+        with open('region.reg', 'w') as fobj:
+            print(regstr, file=fobj)
+        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        assert 'Only regions in fk5' in caplog.text
+        os.unlink('region.reg')
+
+    @pytest.mark.skipif('not HAS_PYREGION')
+    def test_global_fit_image_using_ds9_region_noncircular_warns(self, logger,
+                                                                 caplog):
+        regstr = 'image;line(100,100,200,200)'
+        with open('region.reg', 'w') as fobj:
+            print(regstr, file=fobj)
+        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        assert 'Only circular regions' in caplog.text
+        os.unlink('region.reg')
 
     def test_imager_sample_config(self):
         if os.path.exists('sample_config_file.ini'):

@@ -915,6 +915,42 @@ class ScanSet(Table):
         hdulist.writeto(fname, overwrite=True)
 
 
+def _excluded_regions_from_args(args_exclude):
+    excluded_xy = None
+    excluded_radec = None
+    if args_exclude is not None and \
+            not len(args_exclude) == 1:
+        nexc = len(args_exclude)
+        if nexc % 3 != 0:
+            raise ValueError("Exclusion region has to be specified as "
+                             "centerX0, centerY0, radius0, centerX1, "
+                             "centerY1, radius1, ... (in X,Y coordinates)")
+        excluded_xy = \
+            np.array([np.float(e)
+                      for e in args_exclude]).reshape((nexc // 3, 3))
+        excluded_radec = None
+    elif args_exclude is not None:
+        import pyregion
+        regions = pyregion.open(args_exclude[0])
+        nregs = len(regions)
+        excluded_xy = []
+        excluded_radec = []
+        for i in range(nregs):
+            region = regions[i]
+            if region.name != 'circle':
+                logging.warning('Only circular regions are allowed!')
+                continue
+            if region.coord_format == 'fk5':
+                excluded_radec.append(np.radians(region.coord_list))
+            elif region.coord_format == 'image':
+                excluded_xy.append(region.coord_list)
+            else:
+                logging.warning('Only regions in fk5 or image coordinates '
+                                'are allowed!')
+                continue
+    return excluded_xy, excluded_radec
+
+
 def main_imager(args=None):
     """Main function."""
     import argparse
@@ -960,7 +996,15 @@ def main_imager(args=None):
                         help='Perform global fitting of baseline')
 
     parser.add_argument("-e", "--exclude", nargs='+', default=None,
-                        help='Exclude region from global fitting of baseline')
+                        help='Exclude region from global fitting of baseline '
+                             'and baseline subtraction. It can be specified '
+                             'as X1, Y1, radius1, X2, Y2, radius2 in image '
+                             'coordinates or as a ds9-compatible region file '
+                             'in image or fk5 coordinates containing circular '
+                             'regions to be excluded. Currently, baseline '
+                             'subtraction only takes into account fk5 '
+                             'coordinates and global fitting image coordinates'
+                             '. This will change in the future.')
 
     parser.add_argument("--chans", type=str, default=None,
                         help=('Comma-separated channels to include in global '
@@ -1012,16 +1056,7 @@ def main_imager(args=None):
 
     outfile = args.outfile
 
-    excluded = None
-    if args.exclude is not None:
-        nexc = len(args.exclude)
-        if nexc % 3 != 0:
-            raise ValueError("Exclusion region has to be specified as "
-                             "centerX0, centerY0, radius0, centerX1, "
-                             "centerY1, radius1, ... (in X,Y coordinates)")
-        excluded = \
-            np.array([np.float(e)
-                      for e in args.exclude]).reshape((nexc // 3, 3))
+    excluded_xy, excluded_radec = _excluded_regions_from_args(args.exclude)
 
     if args.file is not None:
         scanset = ScanSet(args.file, config_file=args.config)
@@ -1033,7 +1068,8 @@ def main_imager(args=None):
             raise ValueError("Please specify the config file!")
         scanset = ScanSet(args.config, norefilt=not args.refilt,
                           freqsplat=args.splat, nosub=not args.sub,
-                          nofilt=args.nofilt, debug=args.debug)
+                          nofilt=args.nofilt, debug=args.debug,
+                          avoid_regions=excluded_radec)
         infile = args.config
 
         if outfile is None:
@@ -1045,7 +1081,7 @@ def main_imager(args=None):
         scanset.interactive_display()
 
     if args.global_fit:
-        scanset.fit_full_images(excluded=excluded, chans=args.chans,
+        scanset.fit_full_images(excluded=excluded_xy, chans=args.chans,
                                 altaz=args.altaz)
         scanset.write(outfile.replace('.hdf5', '_baselinesub.hdf5'),
                       overwrite=True)
@@ -1093,15 +1129,29 @@ def main_preprocess(args=None):
                               "bin of the spectrum up to 1000 MHz above'. ':' "
                               "or 'all' for all the channels."))
 
+    parser.add_argument("-e", "--exclude", nargs='+', default=None,
+                        help='Exclude region from global fitting of baseline '
+                             'and baseline subtraction. It can be specified '
+                             'as X1, Y1, radius1, X2, Y2, radius2 in image '
+                             'coordinates or as a ds9-compatible region file '
+                             'in image or fk5 coordinates containing circular '
+                             'regions to be excluded. Currently, baseline '
+                             'subtraction only takes into account fk5 '
+                             'coordinates and global fitting image coordinates'
+                             '. This will change in the future.')
+
     args = parser.parse_args(args)
+
+    excluded_xy, excluded_radec = _excluded_regions_from_args(args.exclude)
 
     if args.files is not None and args.files:
         for f in args.files:
             Scan(f, freqsplat=args.splat, nosub=not args.sub, norefilt=False,
-                 debug=args.debug, interactive=args.interactive)
+                 debug=args.debug, interactive=args.interactive,
+                 avoid_regions=excluded_radec)
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
         ScanSet(args.config, norefilt=False, freqsplat=args.splat,
                 nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
-                interactive=args.interactive)
+                interactive=args.interactive, avoid_regions=excluded_radec)
