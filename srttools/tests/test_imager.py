@@ -858,7 +858,7 @@ class TestScanSet(object):
         with open('region.reg', 'w') as fobj:
             print(regstr, file=fobj)
 
-        main_preprocess(('-c {} --refilt '.format(self.config_file) +
+        main_preprocess(('-c {} '.format(self.config_file) +
                          '--sub --exclude region.reg').split())
         os.unlink('region.reg')
 
