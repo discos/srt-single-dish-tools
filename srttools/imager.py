@@ -19,10 +19,15 @@ import logging
 import traceback
 import six
 import functools
-from scipy.ndimage import gaussian_filter
 from .scan import Scan, chan_re, list_scans
 from .read_config import read_config, sample_config_file
-from .utils import interpolate_invalid_points_image
+from .utils import calculate_zernike_moments
+from .fit import linear_fun
+from .interactive_filter import select_data
+from .calibration import CalibratorTable
+
+from .global_fit import fit_full_image
+from .interactive_filter import create_empty_info
 
 try:
     import matplotlib.pyplot as plt
@@ -36,14 +41,6 @@ try:
     HAS_MAHO = True
 except ImportError:
     HAS_MAHO = False
-
-
-from .fit import linear_fun
-from .interactive_filter import select_data
-from .calibration import CalibratorTable
-
-from .global_fit import fit_full_image
-from .interactive_filter import create_empty_info
 
 
 __all__ = ["ScanSet"]
@@ -888,56 +885,9 @@ class ScanSet(Table):
             {0: {0: 0.3}, 1: {0: 1e-16}, 2: {0: 0.95, 2: 6e-19}, ...}
             Moments are symmetrical, so only the unique values are reported.
         """
-        if cm is None:
-            cm = np.unravel_index(im.argmax(), im.shape)
-
-        im_to_analyze = im.copy()
-        if use_log:
-            vmin = im_to_analyze.min()
-            vmax = im_to_analyze.max()
-            rescaled_image = (im_to_analyze - vmin) / (vmax - vmin)
-
-            im_to_analyze = np.log(1000 * im_to_analyze + 1) / np.log(1000)
-
-        im_to_analyze = interpolate_invalid_points_image(im_to_analyze)
-
-        radius_pix = np.int(np.min(self.meta['npix']) * radius)
-        moments = zernike_moments(im_to_analyze, radius_pix, norder, cm=cm)
-        count = 0
-        moments_dict = {}
-        description_string = \
-            'Zernike moments (cm: {}, radius: {}):\n'.format(cm, radius_pix)
-        if HAS_MPL:
-            fig = plt.figure('Zernike moments')
-            plt.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[cm[0], cm[1]])
-            circle = plt.Circle(cm, radius_pix, color='r', fill=False)
-            plt.gca().add_patch(circle)
-        for i in range(norder + 1):
-            description_string += str(i) + ': '
-            moments_dict[i] = {}
-            for j in range(i + 1):
-                if (i - j)%2 == 0:
-                    description_string += "{:.1e} ".format(moments[count])
-                    moments_dict[i][j] = moments[count]
-                    count += 1
-            description_string += '\n'
-
-        if HAS_MPL:
-            plt.text(0.05, 0.95, description_string,
-                     horizontalalignment='left',
-                     verticalalignment = 'top',
-                     transform = plt.gca().transAxes,
-                     color='white')
-
-            if label is None:
-                label = str(np.random.uniform(0, 10000.))
-            plt.savefig('Zernike_debug_' + label +
-                        '.png')
-            plt.close(fig)
-
-        logging.debug(description_string)
-
-        return moments_dict
+        return calculate_zernike_moments(im, cm=cm, radius=radius,
+                                         norder=norder,
+                                         label=label, use_log=use_log)
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
@@ -1006,9 +956,8 @@ class ScanSet(Table):
                     self.calculate_zernike_moments(images[ch], cm=None,
                                                    radius=0.3, norder=8,
                                                    label=ch, use_log=True)
-                hdu.header.add_comment('Zernike moments: '
-                                       '{}'.format(moments_dict))
-                print(moments_dict)
+                hdu.header.add_comment(
+                    moments_dict['Description'].encode('utf-8'))
             hdulist.append(hdu)
 
         hdulist.writeto(fname, overwrite=True)

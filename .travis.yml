@@ -49,7 +49,7 @@ matrix:
         # No NUMBA, pyregion
         - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
         # No statsmodels, pyregion
-        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba' SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba' PIP_DEPENDENCIES='patsy pytest-catchlog codecov mahotas' SETUP_CMD='test --coverage'
         # Documentation
         - env: PYTHON_VERSION=3.6 SETUP_CMD='build_docs -w'
 
