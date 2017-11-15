@@ -18,6 +18,7 @@ import warnings
 import logging
 import traceback
 import six
+import copy
 import functools
 from .scan import Scan, chan_re, list_scans
 from .read_config import read_config, sample_config_file
@@ -948,6 +949,7 @@ class ScanSet(Table):
 
         keys = list(images.keys())
         keys.sort()
+        header_mod = copy.deepcopy(header)
         for ch in keys:
             is_sdev = ch.endswith('Sdev')
             is_expo = 'EXPO' in ch
@@ -960,10 +962,13 @@ class ScanSet(Table):
                     self.calculate_zernike_moments(images[ch], cm=None,
                                                    radius=0.3, norder=8,
                                                    label=ch, use_log=True)
-                header.add_comment(
-                    moments_dict['Description'].encode('utf-8'))
-
-            hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
+                for k in moments_dict.keys():
+                    if k == 'Description':
+                        continue
+                    for k1 in moments_dict[k].keys():
+                        header_mod['ZK_{:02d}:{:02d}'.format(k, k1)] = \
+                            moments_dict[k][k1]
+            hdu = fits.ImageHDU(images[ch], header=header_mod, name='IMG' + ch)
 
             hdulist.append(hdu)
 
