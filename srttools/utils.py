@@ -150,3 +150,22 @@ def compare_strings(s1, s2):
     s1 = standard_string(s1)
     s2 = standard_string(s2)
     return s1 == s2
+
+
+def interpolate_invalid_points_image(array):
+    '''Interpolates invalid points in an image.'''
+    from scipy import interpolate
+    x = np.arange(0, array.shape[1])
+    y = np.arange(0, array.shape[0])
+    # mask invalid values
+    array = np.ma.masked_invalid(array)
+    xx, yy = np.meshgrid(x, y)
+    # get only the valid values
+    x1 = xx[~array.mask]
+    y1 = yy[~array.mask]
+    newarr = array[~array.mask]
+
+    GD1 = interpolate.griddata((x1, y1), newarr.ravel(),
+                               (xx, yy),
+                               method='cubic', fill_value=0)
+    return GD1
