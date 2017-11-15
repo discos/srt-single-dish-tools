@@ -207,6 +207,9 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
     ----------
     im : 2-d array
         The image to be analyzed
+
+    Other parameters
+    ----------------
     cm : [int, int]
         'Center of mass' of the image
     radius : float
@@ -214,6 +217,12 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
         size (0 <= radius <= 0.5)
     norder : int
         Maximum order of the moments to calculate
+    use_log: bool
+        Rescale the image to a log scale before calculating the coefficients.
+        The scale is the same documented in the ds9 docs, for consistency.
+        After normalizing the image from 0 to 1, the log-rescaled image is
+        log(ax + 1) / log a, with ``x`` the normalized image and ``a`` a
+        constant fixed here at 1000
 
     Returns
     -------
@@ -222,16 +231,6 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
         {0: {0: 0.3}, 1: {1: 1e-16}, 2: {0: 0.95, 2: 6e-19}, ...}
         Moments are symmetrical, so only the unique values are reported.
 
-    Examples
-    --------
-    >>> image = np.ones((101, 101))
-    >>> res = calculate_zernike_moments(image, cm=[50, 50], radius=0.2,
-    ...                                 norder=8,
-    ...                                 label=None, use_log=False)
-    >>> res[1][1] < 1e-10
-    True
-    >>> res[3][1] < 1e-10
-    True
     """
     if cm is None:
         cm = np.unravel_index(im.argmax(), im.shape)
