@@ -153,7 +153,15 @@ def compare_strings(s1, s2):
 
 
 def interpolate_invalid_points_image(array):
-    '''Interpolates invalid points in an image.'''
+    '''Interpolates invalid points in an image.
+
+    Examples
+    --------
+    >>> img = np.ones((3, 3))
+    >>> img[1, 1] = np.nan
+    >>> np.all(interpolate_invalid_points_image(img) == np.ones((3, 3)))
+    True
+    '''
     from scipy import interpolate
     x = np.arange(0, array.shape[1])
     y = np.arange(0, array.shape[0])
