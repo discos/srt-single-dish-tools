@@ -251,11 +251,15 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
     moments_dict = {}
     description_string = \
         'Zernike moments (cm: {}, radius: {}):\n'.format(cm, radius_pix)
+
     if HAS_MPL:
-        fig = plt.figure('Zernike moments')
-        plt.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[cm[0], cm[1]])
+        fig = plt.figure('Zernike moments', figsize=(10, 10))
+        plt.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[cm[0], cm[1]],
+                   origin='lower')
         circle = plt.Circle(cm, radius_pix, color='r', fill=False)
         plt.gca().add_patch(circle)
+        plt.colorbar()
+
     for i in range(norder + 1):
         description_string += str(i) + ': '
         moments_dict[i] = {}

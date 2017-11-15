@@ -294,13 +294,19 @@ class ScanSet(Table):
 
         if HAS_MPL:
             fig1 = plt.figure("adsfasdfasd")
-            plt.plot(self['delta_az'], self['delta_el'])
+            plt.plot(np.degrees(self['delta_az']),
+                     np.degrees(self['delta_el']))
+            plt.xlabel('Delta Azimuth (deg)')
+            plt.ylabel('Delta Elevation (deg)')
+
             plt.savefig('delta_altaz.png')
             plt.close(fig1)
 
             fig2 = plt.figure("adsfasdf")
-            plt.plot(self['az'], self['el'])
-            plt.plot(ref_az, ref_el)
+            plt.plot(np.degrees(self['az']), np.degrees(self['el']))
+            plt.plot(np.degrees(ref_az), np.degrees(ref_el))
+            plt.xlabel('Azimuth (deg)')
+            plt.ylabel('Elevation (deg)')
             plt.savefig('altaz_with_src.png')
             plt.close(fig2)
 
@@ -949,15 +955,16 @@ class ScanSet(Table):
             if is_sdev and not save_sdev:
                 continue
 
-            hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
-
             if altaz and HAS_MAHO and not is_sdev and not is_expo:
                 moments_dict = \
                     self.calculate_zernike_moments(images[ch], cm=None,
                                                    radius=0.3, norder=8,
                                                    label=ch, use_log=True)
-                hdu.header.add_comment(
+                header.add_comment(
                     moments_dict['Description'].encode('utf-8'))
+
+            hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
+
             hdulist.append(hdu)
 
         hdulist.writeto(fname, overwrite=True)
