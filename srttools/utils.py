@@ -290,7 +290,8 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
 
     if HAS_MPL:
         fig = plt.figure('Zernike moments', figsize=(10, 10))
-        plt.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[cm[0], cm[1]],
+        x, y = np.int(cm[0]), np.int(cm[1])
+        plt.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[x, y],
                    origin='lower')
         circle = plt.Circle(cm, radius_pix, color='r', fill=False)
         plt.gca().add_patch(circle)
