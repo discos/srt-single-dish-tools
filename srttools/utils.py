@@ -166,7 +166,7 @@ def compare_strings(s1, s2):
     return s1 == s2
 
 
-def interpolate_invalid_points_image(array):
+def interpolate_invalid_points_image(array, zeros_are_invalid=False):
     '''Interpolates invalid points in an image.
 
     Examples
@@ -175,8 +175,16 @@ def interpolate_invalid_points_image(array):
     >>> img[1, 1] = np.nan
     >>> np.all(interpolate_invalid_points_image(img) == np.ones((3, 3)))
     True
+    >>> img = np.ones((3, 3))
+    >>> img[1, 1] = 0
+    >>> np.all(interpolate_invalid_points_image(img, True) == np.ones((3, 3)))
+    True
     '''
     from scipy import interpolate
+    if zeros_are_invalid:
+        # 0/0 gives nan
+        array = array / array * array
+
     x = np.arange(0, array.shape[1])
     y = np.arange(0, array.shape[0])
     # mask invalid values
@@ -193,8 +201,37 @@ def interpolate_invalid_points_image(array):
     return GD1
 
 
+def ds9_like_log_scale(im_to_analyze, a=1000):
+    """Rescale the image to a log scale.
+
+    The scale is the same documented in the ds9 docs, for consistency.
+    After normalizing the image from 0 to 1, the log-rescaled image is
+    log(ax + 1) / log a, with ``x`` the normalized image and ``a`` a
+    constant fixed here at 1000
+    Parameters
+    ----------
+    im_to_analyze : 2d array
+        The image to rescale
+
+    Other parameters
+    ----------------
+    a : float
+        The scale parameter, default 1000
+
+    Returns
+    -------
+    im_rescaled : 2d array
+        The rescaled image
+    """
+    vmin = im_to_analyze.min()
+    vmax = im_to_analyze.max()
+    rescaled_image = (im_to_analyze - vmin) / (vmax - vmin)
+
+    return np.log(a * rescaled_image + 1) / np.log(a)
+
+
 def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
-                              label=None, use_log=False):
+                              label=None, use_log=False, show_plot=False):
     """Calculate the Zernike moments of the image.
 
     These moments are useful to single out asymmetries in the image:
@@ -223,6 +260,8 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
         After normalizing the image from 0 to 1, the log-rescaled image is
         log(ax + 1) / log a, with ``x`` the normalized image and ``a`` a
         constant fixed here at 1000
+    show_plot : bool, default False
+        show the plots immediately
 
     Returns
     -------
@@ -236,14 +275,11 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
         cm = np.unravel_index(im.argmax(), im.shape)
 
     im_to_analyze = im.copy()
+    im_to_analyze = interpolate_invalid_points_image(im_to_analyze,
+                                                     zeros_are_invalid=True)
+
     if use_log:
-        vmin = im_to_analyze.min()
-        vmax = im_to_analyze.max()
-        rescaled_image = (im_to_analyze - vmin) / (vmax - vmin)
-
-        im_to_analyze = np.log(1000 * rescaled_image + 1) / np.log(1000)
-
-    im_to_analyze = interpolate_invalid_points_image(im_to_analyze)
+        im_to_analyze = ds9_like_log_scale(im_to_analyze, 1000)
 
     radius_pix = np.int(np.min(im.shape) * radius)
     moments = zernike_moments(im_to_analyze, radius_pix, norder, cm=cm)
@@ -282,6 +318,8 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
             label = str(np.random.randint(0, 100000))
         plt.savefig('Zernike_debug_' + label +
                     '.png')
+        if show_plot:
+            plt.show()
         plt.close(fig)
 
     logging.debug(description_string)
