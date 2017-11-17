@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import warnings
 import logging
+import scipy
 
 
 try:
@@ -68,7 +69,9 @@ except ImportError:
 
 
 __all__ = ["mad", "standard_string", "standard_byte", "compare_strings",
-           "tqdm", "jit", "vectorize"]
+           "tqdm", "jit", "vectorize", 'interpolate_invalid_points_image',
+           'get_center_of_mass', 'calculate_zernike_moments',
+           'calculate_beam_fom', 'ds9_like_log_scale']
 
 
 try:
@@ -230,6 +233,45 @@ def ds9_like_log_scale(im_to_analyze, a=1000):
     return np.log(a * rescaled_image + 1) / np.log(a)
 
 
+def get_center_of_mass(im, radius=1):
+    """Get center of mass of image, filtering by radius around the maximum.
+
+    Examples
+    --------
+    >>> image = np.array(([0,0,0,0],
+    ...                   [0,1,1,0],
+    ...                   [0,1,1,0],
+    ...                   [0,1,1,0]))
+    >>> cm = get_center_of_mass(image)
+    >>> np.all(cm == np.array([2.0, 1.5]))
+    True
+    >>> image = np.array(([0, 0,0,0,0, 0],
+    ...                   [0, 0,0,0,0, 0],
+    ...                   [0, 0,1,1,0, 0],
+    ...                   [0, 0,1,1,0, 0],
+    ...                   [0, 0,1,1,0, 0],
+    ...                   [0, 0,0,0,0, 0]))
+    >>> cm = get_center_of_mass(image, radius=0.4)
+    >>> np.all(cm == np.array([2.5, 2.5]))
+    True
+    >>> cm = get_center_of_mass(image)
+    >>> np.all(cm == np.array([3., 2.5]))
+    True
+    """
+    import scipy.ndimage
+    img_max = np.unravel_index(im.argmax(), im.shape)
+    npix = int(radius * min(im.shape))
+    xmin, xmax = max(0, img_max[0] - npix), min(img_max[0] + npix, im.shape[0])
+    ymin, ymax = max(0, img_max[1] - npix), min(img_max[1] + npix, im.shape[1])
+    good_x = slice(xmin, xmax)
+    good_y = slice(ymin, ymax)
+    cm = np.asarray(
+        scipy.ndimage.measurements.center_of_mass(im[good_x, good_y]))
+    cm[0] += xmin
+    cm[1] += ymin
+    return cm
+
+
 def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
                               label=None, use_log=False, show_plot=False):
     """Calculate the Zernike moments of the image.
@@ -272,7 +314,7 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
 
     """
     if cm is None:
-        cm = np.unravel_index(im.argmax(), im.shape)
+        cm = get_center_of_mass(im, radius)
 
     im_to_analyze = im.copy()
     im_to_analyze = interpolate_invalid_points_image(im_to_analyze,
@@ -324,6 +366,179 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
         plt.close(fig)
 
     logging.debug(description_string)
+
+    moments_dict['Description'] = description_string
+
+    return moments_dict
+
+
+def get_center_of_mass(im, radius=1):
+    """Get center of mass of image, filtering by radius around the maximum.
+
+    Examples
+    --------
+    >>> image = np.array(([0,0,0,0],
+    ...                   [0,1,1,0],
+    ...                   [0,1,1,0],
+    ...                   [0,1,1,0]))
+    >>> cm = get_center_of_mass(image)
+    >>> np.all(cm == np.array([2.0, 1.5]))
+    True
+    >>> image = np.array(([0, 0,0,0,0, 0],
+    ...                   [0, 0,0,0,0, 0],
+    ...                   [0, 0,1,1,0, 0],
+    ...                   [0, 0,1,1,0, 0],
+    ...                   [0, 0,1,1,0, 0],
+    ...                   [0, 0,0,0,0, 0]))
+    >>> cm = get_center_of_mass(image, radius=0.4)
+    >>> np.all(cm == np.array([2.5, 2.5]))
+    True
+    >>> cm = get_center_of_mass(image)
+    >>> np.all(cm == np.array([3., 2.5]))
+    True
+    """
+    import scipy.ndimage
+    img_max = np.unravel_index(im.argmax(), im.shape)
+    npix = int(radius * min(im.shape))
+    xmin, xmax = max(0, img_max[0] - npix), min(img_max[0] + npix, im.shape[0])
+    ymin, ymax = max(0, img_max[1] - npix), min(img_max[1] + npix, im.shape[1])
+    good_x = slice(xmin, xmax)
+    good_y = slice(ymin, ymax)
+    cm = np.asarray(
+        scipy.ndimage.measurements.center_of_mass(im[good_x, good_y]))
+    cm[0] += xmin
+    cm[1] += ymin
+    return cm
+
+
+def calculate_beam_fom(im, cm=None, radius=0.3,
+                       label=None, use_log=False, show_plot=False):
+    """Calculate various figures of merit (FOMs) in an image.
+
+    These FOMs are useful to single out asymmetries in a beam shape:
+    for example, when characterizing the beam of the radio telescope using
+    a map of a calibrator, it is useful to understand if there are lobes
+    appearing only in one direction.
+
+    Parameters
+    ----------
+    im : 2-d array
+        The image to be analyzed
+
+    Other parameters
+    ----------------
+    cm : [int, int]
+        'Center of mass' of the image
+    radius : float
+        The radius around the center of mass, in percentage of the image
+        size (0 <= radius <= 0.5)
+    use_log: bool
+        Rescale the image to a log scale before calculating the coefficients.
+        The scale is the same documented in the ds9 docs, for consistency.
+        After normalizing the image from 0 to 1, the log-rescaled image is
+        log(ax + 1) / log a, with ``x`` the normalized image and ``a`` a
+        constant fixed here at 1000
+    show_plot : bool, default False
+        show the plots immediately
+
+    Returns
+    -------
+    results_dict : dict
+        Dictionary containing the results
+    """
+    if cm is None:
+        cm = get_center_of_mass(im, radius)
+
+    im_to_analyze = im.copy()
+    im_to_analyze = interpolate_invalid_points_image(im_to_analyze,
+                                                     zeros_are_invalid=True)
+
+    if use_log:
+        im_to_analyze = ds9_like_log_scale(im_to_analyze, 1000)
+
+    radius_pix = np.int(np.min(im.shape) * radius)
+
+    # moments = zernike_moments(im_to_analyze, radius_pix, norder, cm=cm)
+    count = 0
+    moments_dict = {}
+    description_string = \
+        'Figures of Merit (cm: {}, radius: {}):\n'.format(cm, radius_pix)
+
+    img_max = np.unravel_index(im.argmax(), im.shape)
+    npix = int(radius * min(im.shape))
+    xmin, xmax = max(0, img_max[0] - npix), min(img_max[0] + npix, im.shape[0])
+    ymin, ymax = max(0, img_max[1] - npix), min(img_max[1] + npix, im.shape[1])
+    good_x = slice(xmin, xmax)
+    good_y = slice(ymin, ymax)
+
+    y_slice = im_to_analyze[good_x, int(np.rint(cm[1]))]
+    x_slice = im_to_analyze[int(np.rint(cm[0])), good_y]
+
+    y_pixels = np.arange(xmax - xmin) + xmin
+    x_pixels = np.arange(ymax - ymin) + ymin
+
+    if HAS_MPL:
+        fig = plt.figure('FOM', figsize=(10, 10))
+        gs = GridSpec(2, 2, height_ratios=(1, 3), width_ratios=(3, 1),
+                      hspace=0)
+        img_ax = plt.subplot(gs[1, 0])
+        hor_ax = plt.subplot(gs[0, 0], sharex=img_ax)
+        ver_ax = plt.subplot(gs[1, 1], sharey=img_ax)
+
+        x, y = np.int(cm[0]), np.int(cm[1])
+        img_ax.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[x, y],
+                      origin='lower', cmap='magma')
+
+        img_ax.axvline(cm[1], color='white')
+        img_ax.axhline(cm[1], color='white')
+
+        ver_ax.plot(y_slice - np.max(y_slice) + 1, y_pixels)
+
+        hor_ax.plot(x_pixels, x_slice - np.max(x_slice) + 1)
+
+        circle = plt.Circle(cm, radius_pix, color='r', fill=False)
+        plt.gca().add_patch(circle)
+        img_ax.set_xlim([0, im_to_analyze.shape[1] - 1])
+        img_ax.set_ylim([0, im_to_analyze.shape[0] - 1])
+
+    xslice_dist = \
+        scipy.stats.rv_discrete(values=(x_pixels,
+                                        np.round(x_slice / np.sum(x_slice),
+                                                 decimals=7)),
+                                name='xslice')
+
+    yslice_dist = \
+        scipy.stats.rv_discrete(values=(y_pixels,
+                                        np.round(y_slice / np.sum(y_slice),
+                                                 decimals=7)),
+                                name='yslice')
+
+    description_string += 'Skewness : \n'
+    description_string += 'X: {}\n'.format(xslice_dist.stats(moments='s'))
+    description_string += 'Y: {}\n'.format(yslice_dist.stats(moments='s'))
+    description_string += 'Kurtosis : \n'
+    description_string += 'X: {}\n'.format(xslice_dist.stats(moments='k'))
+    description_string += 'Y: {}\n'.format(yslice_dist.stats(moments='k'))
+
+    moments_dict["XSK"] = xslice_dist.stats(moments='s')
+    moments_dict["YSK"] = yslice_dist.stats(moments='s')
+
+    if HAS_MPL:
+        img_ax.text(0.05, 0.95, description_string,
+                    horizontalalignment='left',
+                    verticalalignment='top',
+                    transform=img_ax.transAxes,
+                    color='white', zorder=10)
+
+        if label is None:
+            label = str(np.random.randint(0, 100000))
+        plt.savefig('FOM_debug_' + label + '.png')
+        if show_plot:
+            plt.show()
+        plt.close(fig)
+
+    logging.debug(description_string)
+    print(description_string)
 
     moments_dict['Description'] = description_string
 

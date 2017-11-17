@@ -22,7 +22,7 @@ import copy
 import functools
 from .scan import Scan, chan_re, list_scans
 from .read_config import read_config, sample_config_file
-from .utils import calculate_zernike_moments
+from .utils import calculate_zernike_moments, calculate_beam_fom
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
@@ -892,9 +892,54 @@ class ScanSet(Table):
             {0: {0: 0.3}, 1: {0: 1e-16}, 2: {0: 0.95, 2: 6e-19}, ...}
             Moments are symmetrical, so only the unique values are reported.
         """
+        if isinstance(im, six.string_types):
+            im = self.images[im]
+
         return calculate_zernike_moments(im, cm=cm, radius=radius,
                                          norder=norder,
                                          label=label, use_log=use_log)
+
+    def calculate_beam_fom(self, im, cm=None, radius=0.3,
+                           label=None, use_log=False, show_plot=False):
+        """Calculate various figures of merit (FOMs) in an image.
+
+        These FOMs are useful to single out asymmetries in a beam shape:
+        for example, when characterizing the beam of the radio telescope using
+        a map of a calibrator, it is useful to understand if there are lobes
+        appearing only in one direction.
+
+        Parameters
+        ----------
+        im : 2-d array
+            The image to be analyzed
+
+        Other parameters
+        ----------------
+        cm : [int, int]
+            'Center of mass' of the image
+        radius : float
+            The radius around the center of mass, in percentage of the image
+            size (0 <= radius <= 0.5)
+        use_log: bool
+            Rescale the image to a log scale before calculating the coefficients.
+            The scale is the same documented in the ds9 docs, for consistency.
+            After normalizing the image from 0 to 1, the log-rescaled image is
+            log(ax + 1) / log a, with ``x`` the normalized image and ``a`` a
+            constant fixed here at 1000
+        show_plot : bool, default False
+            show the plots immediately
+
+        Returns
+        -------
+        results_dict : dict
+            Dictionary containing the results
+        """
+        if isinstance(im, six.string_types):
+            im = self.images[im]
+
+        return calculate_beam_fom(im, cm=cm, radius=radius,
+                                  label=label, use_log=use_log,
+                                  show_plot=show_plot)
 
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
@@ -966,8 +1011,17 @@ class ScanSet(Table):
                     if k == 'Description':
                         continue
                     for k1 in moments_dict[k].keys():
-                        header_mod['ZK_{:02d}:{:02d}'.format(k, k1)] = \
+                        header_mod['ZK_{:02d}_{:02d}'.format(k, k1)] = \
                             moments_dict[k][k1]
+                moments_dict = \
+                    self.calculate_beam_fom(images[ch], cm=None, radius=0.3,
+                                            label=ch, use_log=True)
+                for k in moments_dict.keys():
+                    if k == 'Description':
+                        continue
+                    print('FOM_{}'.format(k), moments_dict[k])
+                    # header_mod['FOM_{}'.format(k)] = moments_dict[k]
+
             hdu = fits.ImageHDU(images[ch], header=header_mod, name='IMG' + ch)
 
             hdulist.append(hdu)
