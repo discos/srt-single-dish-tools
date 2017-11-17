@@ -18,9 +18,17 @@ import warnings
 import logging
 import traceback
 import six
+import copy
 import functools
 from .scan import Scan, chan_re, list_scans
 from .read_config import read_config, sample_config_file
+from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
+from .fit import linear_fun
+from .interactive_filter import select_data
+from .calibration import CalibratorTable
+
+from .global_fit import fit_full_image
+from .interactive_filter import create_empty_info
 
 try:
     import matplotlib.pyplot as plt
@@ -28,13 +36,6 @@ try:
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
-
-from .fit import linear_fun
-from .interactive_filter import select_data
-from .calibration import CalibratorTable
-
-from .global_fit import fit_full_image
-from .interactive_filter import create_empty_info
 
 
 __all__ = ["ScanSet"]
@@ -288,13 +289,19 @@ class ScanSet(Table):
 
         if HAS_MPL:
             fig1 = plt.figure("adsfasdfasd")
-            plt.plot(self['delta_az'], self['delta_el'])
+            plt.plot(np.degrees(self['delta_az']),
+                     np.degrees(self['delta_el']))
+            plt.xlabel('Delta Azimuth (deg)')
+            plt.ylabel('Delta Elevation (deg)')
+
             plt.savefig('delta_altaz.png')
             plt.close(fig1)
 
             fig2 = plt.figure("adsfasdf")
-            plt.plot(self['az'], self['el'])
-            plt.plot(ref_az, ref_el)
+            plt.plot(np.degrees(self['az']), np.degrees(self['el']))
+            plt.plot(np.degrees(ref_az), np.degrees(ref_el))
+            plt.xlabel('Azimuth (deg)')
+            plt.ylabel('Elevation (deg)')
             plt.savefig('altaz_with_src.png')
             plt.close(fig2)
 
@@ -850,6 +857,84 @@ class ScanSet(Table):
         except astropy.io.registry.IORegistryError as e:
             raise astropy.io.registry.IORegistryError(fname + ': ' + str(e))
 
+    def calculate_zernike_moments(self, im, cm=None, radius=0.3, norder=8,
+                                  label=None, use_log=False):
+        """Calculate the Zernike moments of the image.
+
+        These moments are useful to single out asymmetries in the image:
+        for example, when characterizing the beam of the radio telescope using
+        a map of a calibrator, it is useful to calculate these moments to
+        understand if the beam is radially symmetric or has distorted side
+        lobes.
+
+        Parameters
+        ----------
+        im : 2-d array
+            The image to be analyzed
+        cm : [int, int]
+            'Center of mass' of the image
+        radius : float
+            The radius around the center of mass, in percentage of the image
+            size (0 <= radius <= 0.5)
+        norder : int
+            Maximum order of the moments to calculate
+
+        Returns
+        -------
+        moments_dict : dict
+            Dictionary containing the order, the sub-index and the moment, e.g.
+            {0: {0: 0.3}, 1: {0: 1e-16}, 2: {0: 0.95, 2: 6e-19}, ...}
+            Moments are symmetrical, so only the unique values are reported.
+        """
+        if isinstance(im, six.string_types):
+            im = self.images[im]
+
+        return calculate_zernike_moments(im, cm=cm, radius=radius,
+                                         norder=norder,
+                                         label=label, use_log=use_log)
+
+    def calculate_beam_fom(self, im, cm=None, radius=0.3,
+                           label=None, use_log=False, show_plot=False):
+        """Calculate various figures of merit (FOMs) in an image.
+
+        These FOMs are useful to single out asymmetries in a beam shape:
+        for example, when characterizing the beam of the radio telescope using
+        a map of a calibrator, it is useful to understand if there are lobes
+        appearing only in one direction.
+
+        Parameters
+        ----------
+        im : 2-d array
+            The image to be analyzed
+
+        Other parameters
+        ----------------
+        cm : [int, int]
+            'Center of mass' of the image
+        radius : float
+            The radius around the center of mass, in percentage of the image
+            size (0 <= radius <= 0.5)
+        use_log: bool
+            Rescale the image to a log scale before calculating the coefficients.
+            The scale is the same documented in the ds9 docs, for consistency.
+            After normalizing the image from 0 to 1, the log-rescaled image is
+            log(ax + 1) / log a, with ``x`` the normalized image and ``a`` a
+            constant fixed here at 1000
+        show_plot : bool, default False
+            show the plots immediately
+
+        Returns
+        -------
+        results_dict : dict
+            Dictionary containing the results
+        """
+        if isinstance(im, six.string_types):
+            im = self.images[im]
+
+        return calculate_beam_fom(im, cm=cm, radius=radius,
+                                  label=label, use_log=use_log,
+                                  show_plot=show_plot)
+
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
                         map_unit="Jy/beam", calibrate_scans=False,
@@ -903,13 +988,36 @@ class ScanSet(Table):
 
         keys = list(images.keys())
         keys.sort()
+        header_mod = copy.deepcopy(header)
         for ch in keys:
             is_sdev = ch.endswith('Sdev')
+            is_expo = 'EXPO' in ch
 
             if is_sdev and not save_sdev:
                 continue
 
-            hdu = fits.ImageHDU(images[ch], header=header, name='IMG' + ch)
+            if altaz and HAS_MAHO and not is_sdev and not is_expo:
+                moments_dict = \
+                    self.calculate_zernike_moments(images[ch], cm=None,
+                                                   radius=0.3, norder=8,
+                                                   label=ch, use_log=True)
+                for k in moments_dict.keys():
+                    if k == 'Description':
+                        continue
+                    for k1 in moments_dict[k].keys():
+                        header_mod['ZK_{:02d}_{:02d}'.format(k, k1)] = \
+                            moments_dict[k][k1]
+                moments_dict = \
+                    self.calculate_beam_fom(images[ch], cm=None, radius=0.3,
+                                            label=ch, use_log=True)
+                for k in moments_dict.keys():
+                    if k == 'Description':
+                        continue
+                    print('FOM_{}'.format(k), moments_dict[k])
+                    # header_mod['FOM_{}'.format(k)] = moments_dict[k]
+
+            hdu = fits.ImageHDU(images[ch], header=header_mod, name='IMG' + ch)
+
             hdulist.append(hdu)
 
         hdulist.writeto(fname, overwrite=True)
