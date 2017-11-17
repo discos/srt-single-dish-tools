@@ -6,6 +6,7 @@ import numpy as np
 import warnings
 import logging
 import scipy
+import scipy.stats
 
 
 try:
@@ -372,45 +373,6 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
     return moments_dict
 
 
-def get_center_of_mass(im, radius=1):
-    """Get center of mass of image, filtering by radius around the maximum.
-
-    Examples
-    --------
-    >>> image = np.array(([0,0,0,0],
-    ...                   [0,1,1,0],
-    ...                   [0,1,1,0],
-    ...                   [0,1,1,0]))
-    >>> cm = get_center_of_mass(image)
-    >>> np.all(cm == np.array([2.0, 1.5]))
-    True
-    >>> image = np.array(([0, 0,0,0,0, 0],
-    ...                   [0, 0,0,0,0, 0],
-    ...                   [0, 0,1,1,0, 0],
-    ...                   [0, 0,1,1,0, 0],
-    ...                   [0, 0,1,1,0, 0],
-    ...                   [0, 0,0,0,0, 0]))
-    >>> cm = get_center_of_mass(image, radius=0.4)
-    >>> np.all(cm == np.array([2.5, 2.5]))
-    True
-    >>> cm = get_center_of_mass(image)
-    >>> np.all(cm == np.array([3., 2.5]))
-    True
-    """
-    import scipy.ndimage
-    img_max = np.unravel_index(im.argmax(), im.shape)
-    npix = int(radius * min(im.shape))
-    xmin, xmax = max(0, img_max[0] - npix), min(img_max[0] + npix, im.shape[0])
-    ymin, ymax = max(0, img_max[1] - npix), min(img_max[1] + npix, im.shape[1])
-    good_x = slice(xmin, xmax)
-    good_y = slice(ymin, ymax)
-    cm = np.asarray(
-        scipy.ndimage.measurements.center_of_mass(im[good_x, good_y]))
-    cm[0] += xmin
-    cm[1] += ymin
-    return cm
-
-
 def calculate_beam_fom(im, cm=None, radius=0.3,
                        label=None, use_log=False, show_plot=False):
     """Calculate various figures of merit (FOMs) in an image.
@@ -458,8 +420,6 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
 
     radius_pix = np.int(np.min(im.shape) * radius)
 
-    # moments = zernike_moments(im_to_analyze, radius_pix, norder, cm=cm)
-    count = 0
     moments_dict = {}
     description_string = \
         'Figures of Merit (cm: {}, radius: {}):\n'.format(cm, radius_pix)

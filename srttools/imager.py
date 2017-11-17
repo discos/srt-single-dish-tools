@@ -22,7 +22,7 @@ import copy
 import functools
 from .scan import Scan, chan_re, list_scans
 from .read_config import read_config, sample_config_file
-from .utils import calculate_zernike_moments, calculate_beam_fom
+from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
@@ -36,12 +36,6 @@ try:
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
-
-try:
-    from mahotas.features import zernike_moments
-    HAS_MAHO = True
-except ImportError:
-    HAS_MAHO = False
 
 
 __all__ = ["ScanSet"]
