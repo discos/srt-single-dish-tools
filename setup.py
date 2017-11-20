@@ -15,6 +15,9 @@ else:
     import __builtin__ as builtins
 builtins._ASTROPY_SETUP_ = True
 
+if sys.version_info[:2] < (2, 7) or (3, 0) <= sys.version_info[:2] < (3, 4):
+    raise RuntimeError("Python version 2.7 or >= 3.4 required.")
+
 from astropy_helpers.setup_helpers import (
     register_commands, adjust_compiler, get_debug_option, get_package_info)
 from astropy_helpers.git_helpers import get_git_devstr
@@ -124,6 +127,7 @@ install_requires = [
 setup(name=PACKAGENAME,
       version=VERSION,
       description=DESCRIPTION,
+      python_requires='>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*',
       scripts=scripts,
       install_requires=install_requires,
       author=AUTHOR,
