@@ -335,7 +335,7 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
         fig = plt.figure('Zernike moments', figsize=(10, 10))
         x, y = np.int(cm[0]), np.int(cm[1])
         plt.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[x, y],
-                   origin='lower')
+                   origin='lower', cmap='magma')
         circle = plt.Circle(cm, radius_pix, color='r', fill=False)
         plt.gca().add_patch(circle)
         plt.colorbar()
@@ -482,6 +482,8 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
 
     moments_dict["XSK"] = xslice_dist.stats(moments='s')
     moments_dict["YSK"] = yslice_dist.stats(moments='s')
+    moments_dict["XKU"] = xslice_dist.stats(moments='k')
+    moments_dict["YKU"] = yslice_dist.stats(moments='k')
 
     if HAS_MPL:
         img_ax.text(0.05, 0.95, description_string,
@@ -498,7 +500,6 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
         plt.close(fig)
 
     logging.debug(description_string)
-    print(description_string)
 
     moments_dict['Description'] = description_string
 
