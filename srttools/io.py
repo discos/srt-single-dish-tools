@@ -203,12 +203,24 @@ def read_data_fitszilla(fname):
     # ----------- Read the list of channel ids ------------------
     section_table_data = lchdulist['SECTION TABLE'].data
     chan_ids = section_table_data['id']
+    nbin_per_chan = section_table_data['bins']
+    if len(list(set(nbin_per_chan))) > 1:
+        raise ValueError('Only datasets with the same nbin per channel are '
+                         'supported at the moment')
+    nbin_per_chan = list(set(nbin_per_chan))[0]
+    types = section_table_data['type']
+    if 'stokes' in types:
+        is_polarized = True
+    else:
+        is_polarized = False
 
     # ----------- Read the list of RF inputs, feeds, polarization, etc. --
     rf_input_data = lchdulist['RF INPUTS'].data
     feeds = rf_input_data['feed']
     IFs = rf_input_data['ifChain']
     polarizations = rf_input_data['polarization']
+    chan_names = ['Feed{}_{}'.format(f, p)
+                  for f, p in zip(feeds, polarizations)]
     frequencies = rf_input_data['frequency']
     bandwidths = rf_input_data['bandWidth']
 
@@ -233,13 +245,31 @@ def read_data_fitszilla(fname):
         nchan = len(chan_ids)
 
         _, nbins = data_table_data['spectrum'].shape
-        nbin_per_chan = nbins // nchan
-        if nbin_per_chan * nchan != nbins:
+
+        if nbin_per_chan * nchan != nbins and \
+                                nbin_per_chan * nchan * 2 != nbins:
             raise ValueError('Something wrong with channel subdivision')
-        for ic, ch in enumerate(chan_ids):
-            data_table_data['Ch{}'.format(ch).lower()] = \
+
+        for ic, ch in enumerate(chan_names):
+            data_table_data[ch] = \
                 data_table_data['spectrum'][:, ic * nbin_per_chan:
                                             (ic + 1) * nbin_per_chan]
+        if is_polarized:
+            if len(list(set(feeds))) > 1:
+                raise ValueError('Polarized data are only supported for single'
+                                 ' feed observations')
+            feed = feeds[0]
+            data_table_data['Feed{}_Q'.format(feed).lower()] = \
+                    data_table_data['spectrum'][:, 2 * nbin_per_chan:
+                    3 * nbin_per_chan]
+            data_table_data['Feed{}_U'.format(feed).lower()] = \
+                    data_table_data['spectrum'][:, 3 * nbin_per_chan:
+                    4 * nbin_per_chan]
+    else:
+        for ic, ch in enumerate(chan_names):
+            data_table_data[ch] = \
+                data_table_data['ch{}'.format(chan_ids[ic])]
+
 
     info_to_retrieve = ['time', 'derot_angle']
 
@@ -311,16 +341,17 @@ def read_data_fitszilla(fname):
         new_table['dec'][:, i] = np.radians(coords_deg.dec)
 
     for ic, ch in enumerate(chan_ids):
+        chan_name = chan_names[ic]
         if bandwidths[ic] < 0:
             frequencies[ic] -= bandwidths[ic]
             bandwidths[ic] *= -1
             for i in range(
-                    data_table_data['Ch{}'.format(ch).lower()].shape[0]):
-                data_table_data['Ch{}'.format(ch).lower()][i, :] = \
-                    data_table_data['Ch{}'.format(ch).lower()][i, ::-1]
+                    data_table_data[chan_name].shape[0]):
+                data_table_data[chan_name][i, :] = \
+                    data_table_data[chan_name][i, ::-1]
 
-        new_table['Ch{}'.format(ch)] = \
-            data_table_data['Ch{}'.format(ch).lower()] * relpowers[feeds[ic]]
+        new_table[chan_name] = \
+            data_table_data[chan_name] * relpowers[feeds[ic]]
 
         newmeta = \
             {'polarization': polarizations[ic],
@@ -332,13 +363,10 @@ def read_data_fitszilla(fname):
              'yoffset': float(yoffsets[feeds[ic]].to(u.rad).value) * u.rad,
              'relpower': float(relpowers[feeds[ic]])
              }
-        new_table['Ch{}'.format(ch)].meta.update(newmeta)
-        new_table['Ch{}_feed'.format(ch)] = \
-            np.zeros(len(data_table_data), dtype=np.uint8) + feeds[ic]
+        new_table[chan_name].meta.update(newmeta)
 
-        new_table['Ch{}-filt'.format(ch)] = \
-            np.ones(len(data_table_data['Ch{}'.format(ch).lower()]),
-                    dtype=bool)
+        new_table[chan_name + '-filt'.format(ch)] = \
+            np.ones(len(data_table_data[chan_name]), dtype=bool)
     lchdulist.close()
     return new_table
 

@@ -34,6 +34,11 @@ def _split_freq_splat(freqsplat):
     return freqmin, freqmax
 
 
+def get_channel_feed(ch):
+    if re.search('Feed?', ch):
+        return int(ch[4])
+
+
 def interpret_frequency_range(freqsplat, bandwidth, nbin):
     """Interpret the frequency range specified in freqsplat.
 
@@ -374,7 +379,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     return results
 
 
-chan_re = re.compile(r'^Ch[0-9]+$')
+chan_re = re.compile(r'^Ch[0-9]+$|^Feed[0-9]+_[a-zA-Z]+$')
 
 
 def list_scans(datadir, dirlist):
@@ -560,7 +565,7 @@ class Scan(Table):
                 plt.plot(self['time'], self[ch] - np.min(self[ch]),
                          alpha=0.5)
             mask = np.ones(len(self[ch]), dtype=bool)
-            feed = self[ch + '_feed'][0]
+            feed = get_channel_feed(ch)
             if avoid_regions is not None:
                 for r in avoid_regions:
                     ras = self['ra'][:, feed]
@@ -609,7 +614,7 @@ class Scan(Table):
         """Run the interactive filter."""
         for ch in self.chan_columns():
             # Temporary, waiting for AstroPy's metadata handling improvements
-            feed = self[ch + '_feed'][0]
+            feed = get_channel_feed(ch)
 
             selection = self['ra'][:, feed]
 

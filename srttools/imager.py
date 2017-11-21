@@ -20,7 +20,7 @@ import traceback
 import six
 import copy
 import functools
-from .scan import Scan, chan_re, list_scans
+from .scan import Scan, chan_re, list_scans, get_channel_feed
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .fit import linear_fun
@@ -389,14 +389,7 @@ class ScanSet(Table):
                             self.meta['npix'][1] + 1)
 
         for ch in self.chan_columns:
-            feeds = self[ch+'_feed']
-            allfeeds = list(set(feeds))
-            if not len(allfeeds) == 1:
-                raise ValueError('Feeds are mixed up in channels')
-            if no_offsets:
-                feed = 0
-            else:
-                feed = feeds[0]
+            feed = get_channel_feed(ch)
 
             if elevation is None:
                 elevation = np.mean(self['el'][:, feed])
@@ -536,14 +529,7 @@ class ScanSet(Table):
 
         for ch in chans:
             print("Fitting channel {}".format(ch))
-            feeds = self[ch + '_feed']
-            allfeeds = list(set(feeds))
-            if not len(allfeeds) == 1:
-                raise ValueError('Feeds are mixed up in channels')
-            if no_offsets:
-                feed = 0
-            else:
-                feed = feeds[0]
+            feed = get_channel_feed(ch)
             self[ch + "_save"] = self[ch].copy()
             self[ch] = Column(fit_full_image(self, chan=ch, feed=feed,
                                              excluded=excluded, par=par))
@@ -740,7 +726,7 @@ class ScanSet(Table):
         else:
             ch = 'Ch0'
 
-        feed = self[ch+'_feed'][0]
+        feed = get_channel_feed(ch)
 
         # Select data inside the pixel +- 1
 
@@ -791,7 +777,7 @@ class ScanSet(Table):
         ch = self.current
         if test:
             ch = 'Ch0'
-        feed = self[ch+'_feed'][0]
+        feed = get_channel_feed(ch)
         mask = self['Scan_id'] == sid
         try:
             s = Scan(sname)

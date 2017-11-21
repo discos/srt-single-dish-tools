@@ -200,11 +200,11 @@ class Test2_Scan(object):
             (altaz.alt.to(u.rad) - scan['el'][:, idx]).to(u.arcsec).value)
         assert np.all(diff < 1)
 
-    @classmethod
-    def teardown_class(klass):
-        """Cleanup."""
-        os.unlink('scan.hdf5')
-        for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.pdf')):
-            os.unlink(f)
-        for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.hdf5')):
-            os.unlink(f)
+    # @classmethod
+    # def teardown_class(klass):
+    #     """Cleanup."""
+    #     os.unlink('scan.hdf5')
+    #     for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.pdf')):
+    #         os.unlink(f)
+    #     for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.hdf5')):
+    #         os.unlink(f)
