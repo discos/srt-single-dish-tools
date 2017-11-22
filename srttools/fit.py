@@ -256,8 +256,8 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
 
         par = linear_fit(time_filt, lc_filt, start_pars)
 
-        lc -= linear_fun(time, *par)
-        total_trend += linear_fun(time, *par)
+        lc = lc - linear_fun(time, *par)
+        total_trend = total_trend + linear_fun(time, *par)
 
     if return_baseline:
         return lc, total_trend

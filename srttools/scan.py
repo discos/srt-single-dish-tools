@@ -609,6 +609,9 @@ class Scan(Table):
                 fig = plt.figure("Sub" + ch)
                 plt.plot(self['time'], self[ch] - np.min(self[ch]),
                          alpha=0.5)
+            force_rough = False
+            if ch.endswith('Q') or ch.endswith('U'):
+                force_rough = True
             mask = np.ones(len(self[ch]), dtype=bool)
             feed = get_channel_feed(ch)
             if avoid_regions is not None:
@@ -618,9 +621,9 @@ class Scan(Table):
                     dist = np.sqrt(((ras - r[0]) / np.cos(decs))**2 +
                                    (decs - r[1])**2)
                     mask[dist < r[2]] = 0
-            if kind == 'als':
+            if kind == 'als' and not force_rough:
                 self[ch] = baseline_als(self['time'], self[ch], mask=mask)
-            elif kind == 'rough':
+            elif kind == 'rough' or force_rough:
                 self[ch] = baseline_rough(self['time'], self[ch], mask=mask)
             else:
                 raise ValueError('Unknown baseline technique')
