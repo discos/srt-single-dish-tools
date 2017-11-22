@@ -84,7 +84,7 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         scan = scan_func(scan_values) + \
             ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Feed0_RCP': scan, 'Feed0_LCP': scan * 0.8},
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
                   filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname)
         timedelta = times[-1] + 1
@@ -97,7 +97,7 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         scan = scan_func(scan_values) + \
             ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Feed0_RCP': scan, 'Feed0_LCP': scan * 0.8},
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
                   filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname)
         timedelta = times[-1] + 1
@@ -168,7 +168,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
         RA corresponding to each bin center
     dec : iterable
         Dec corresponding to each bin center
-    channels : {'Feed0_RCP': array([...]), 'Feed0_LCP': array([...]), ...}
+    channels : {'Ch0': array([...]), 'Ch1': array([...]), ...}
         Dictionary containing the count array. Keys represent the name of the
         channel
     filename : str
@@ -337,7 +337,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         if i_d % 2 != 0:
             actual_ra = actual_ra[::-1]
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
-                  {'Feed0_RCP': counts, 'Feed0_LCP': counts * channel_ratio},
+                  {'Ch0': counts, 'Ch1': counts * channel_ratio},
                   filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
         if HAS_MPL:
@@ -370,7 +370,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
             dec_array = dec_array[::-1]
         save_scan(times_dec, np.zeros_like(dec_array) + start_ra,
                   dec_array + mean_dec,
-                  {'Feed0_RCP': counts, 'Feed0_LCP': counts * channel_ratio},
+                  {'Ch0': counts, 'Ch1': counts * channel_ratio},
                   filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
 
