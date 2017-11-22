@@ -631,7 +631,7 @@ class ScanSet(Table):
         else:
             chs = [ch]
         if test:
-            chs = ['Ch0']
+            chs = ['Feed0_RCP']
         for ch in chs:
             fig = plt.figure('Imageactive Display - ' + ch)
             gs = GridSpec(1, 2)
@@ -724,7 +724,7 @@ class ScanSet(Table):
         if not test:
             ch = self.current
         else:
-            ch = 'Ch0'
+            ch = 'Feed0_RCP'
 
         feed = get_channel_feed(ch)
 
@@ -776,7 +776,7 @@ class ScanSet(Table):
         """Update a scan in the scanset after filtering."""
         ch = self.current
         if test:
-            ch = 'Ch0'
+            ch = 'Feed0_RCP'
         feed = get_channel_feed(ch)
         mask = self['Scan_id'] == sid
         try:
@@ -1102,7 +1102,7 @@ def main_imager(args=None):
 
     parser.add_argument("--chans", type=str, default=None,
                         help=('Comma-separated channels to include in global '
-                              'fitting (Ch0, Ch1, ...)'))
+                              'fitting (Feed0_RCP, Feed0_LCP, ...)'))
 
     parser.add_argument("-o", "--outfile", type=str, default=None,
                         help='Save intermediate scanset to this file.')

@@ -132,8 +132,8 @@ class TestCalibration(object):
 
     def test_Jy_over_counts_and_back(self):
         caltable = CalibratorTable.read(self.calfile, path='table')
-        Jc, Jce = caltable.Jy_over_counts(channel='Ch0')
-        Cj, Cje = caltable.counts_over_Jy(channel='Ch0')
+        Jc, Jce = caltable.Jy_over_counts(channel='Feed0_LCP')
+        Cj, Cje = caltable.counts_over_Jy(channel='Feed0_LCP')
         np.testing.assert_allclose(Jc, 1 / Cj)
 
     def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
@@ -142,10 +142,10 @@ class TestCalibration(object):
         flux_quantity = _get_flux_quantity('Jy/beam')
         caltable[flux_quantity + "/Counts"][0] += \
             caltable[flux_quantity + "/Counts Err"][0] * 20
-        Jc, Jce = caltable.Jy_over_counts_rough(channel='Ch0',
+        Jc, Jce = caltable.Jy_over_counts_rough(channel='Feed0_LCP',
                                                 map_unit='Jy/beam')
         assert 'Outliers: ' in caplog.text
-        Cj, Cje = caltable.counts_over_Jy(channel='Ch0')
+        Cj, Cje = caltable.counts_over_Jy(channel='Feed0_LCP')
         np.testing.assert_allclose(Jc, 1 / Cj)
 
     def test_bad_file_missing_key(self, logger, caplog):
@@ -166,10 +166,10 @@ class TestCalibration(object):
 
         caltable = CalibratorTable.read(self.calfile, path='table')
         caltable = caltable[compare_strings(caltable['Source'], 'DummyCal')]
-        caltable_0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
+        caltable_0 = caltable[compare_strings(caltable['Chan'], 'Feed0_LCP')]
         assert np.all(
             np.abs(caltable_0['Counts'] - 100.) < 3 * caltable_0['Counts Err'])
-        caltable_1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
+        caltable_1 = caltable[compare_strings(caltable['Chan'], 'Feed0_RCP')]
         assert np.all(
             np.abs(caltable_1['Counts'] - 80.) < 3 * caltable_1['Counts Err'])
 
@@ -177,14 +177,14 @@ class TestCalibration(object):
         """Simple calibration from scans."""
 
         caltable = CalibratorTable.read(self.calfile, path='table')
-        caltable0 = caltable[compare_strings(caltable['Chan'], 'Ch0')]
+        caltable0 = caltable[compare_strings(caltable['Chan'], 'Feed0_LCP')]
         assert np.all(
             np.abs(caltable0['Width'] - 2.5/60.) < 3 * caltable0['Width Err'])
-        caltable1 = caltable[compare_strings(caltable['Chan'], 'Ch1')]
+        caltable1 = caltable[compare_strings(caltable['Chan'], 'Feed0_RCP')]
         assert np.all(
             np.abs(caltable1['Width'] - 2.5/60.) < 3 * caltable1['Width Err'])
 
-        beam, beam_err = caltable.beam_width(channel='Ch0')
+        beam, beam_err = caltable.beam_width(channel='Feed0_LCP')
         assert np.all(beam - np.radians(2.5/60) < 3 * beam_err)
 
     @pytest.mark.skipif('not HAS_MPL')
@@ -206,7 +206,7 @@ class TestCalibration(object):
     def test_calibrated_crossscans(self):
         caltable = CalibratorTable.read(self.calfile, path='table')
         dummy_flux, dummy_flux_err = \
-            caltable.calculate_src_flux(source='DummySrc', channel='Ch0')
+            caltable.calculate_src_flux(source='DummySrc', channel='Feed0_LCP')
         assert (dummy_flux[0] - 0.52) < dummy_flux_err[0] * 3
 
     def test_check_consistency_fails_with_bad_data(self):
@@ -220,14 +220,14 @@ class TestCalibration(object):
         caltable = CalibratorTable()
         caltable.from_scans(scan_list)
         caltable.update()
-        res = caltable.check_consistency(channel='Ch0')
+        res = caltable.check_consistency(channel='Feed0_LCP')
         assert not np.all(res)
 
     def test_check_consistency(self):
         caltable = CalibratorTable.read(self.calfile, path='table')
-        res = caltable.check_consistency(channel='Ch0')
+        res = caltable.check_consistency(channel='Feed0_LCP')
         assert np.all(res)
-        res = caltable.check_consistency(channel='Ch1')
+        res = caltable.check_consistency(channel='Feed0_RCP')
         assert np.all(res)
         res = caltable.check_consistency()
         assert np.all(res)

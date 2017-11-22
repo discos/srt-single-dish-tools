@@ -4,6 +4,12 @@ from __future__ import (absolute_import, division,
                         print_function)
 import numpy as np
 try:
+    import contextlib2 as contextlib
+    FileNotFoundError = IOError
+except:
+    import contextlib
+
+try:
     import matplotlib.pyplot as plt
     HAS_MPL = True
 except ImportError:
@@ -233,7 +239,7 @@ class TestScanSet(object):
     @pytest.mark.skipif('not HAS_MPL')
     def test_interactive_quit(self):
         scanset = ScanSet('test.hdf5')
-        imgsel = scanset.interactive_display('Ch0', test=True)
+        imgsel = scanset.interactive_display('Feed0_RCP', test=True)
         fake_event = type('event', (), {})()
         fake_event.key = 'q'
         fake_event.xdata, fake_event.ydata = (130, 30)
@@ -245,7 +251,7 @@ class TestScanSet(object):
     def test_interactive_quit_raises(self):
         scanset = ScanSet('test.hdf5')
         with pytest.raises(ImportError) as excinfo:
-            imgsel = scanset.interactive_display('Ch0', test=True)
+            imgsel = scanset.interactive_display('Feed0_RCP', test=True)
             assert "matplotlib is not installed" in str(excinfo)
 
     @pytest.mark.skipif('not HAS_MPL')
@@ -253,7 +259,7 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
         scanset.calibrate_images(calibration=self.calfile)
         images = scanset.images
-        ysize, xsize = images['Ch0'].shape
+        ysize, xsize = images['Feed0_RCP'].shape
 
         imgsel = scanset.interactive_display(test=True)
         fake_event = type('event', (), {})()
@@ -321,23 +327,14 @@ class TestScanSet(object):
         assert np.max(phase_in_sec) <= 1
         assert np.all(phase_in_sec == scanset['Phase_in_sec'])
 
-    def test_image_fail_mixup_feeds(self):
-        '''Test image production.'''
-
-        scanset = ScanSet('test.hdf5')
-        scanset['Ch0_feed'] = np.random.randint(0, 3, len(scanset['Ch0_feed']))
-        with pytest.raises(ValueError) as excinfo:
-            images = scanset.calculate_images()
-        assert "Feeds are mixed up" in str(excinfo)
-
     def test_rough_image_nooffsets_nofilt(self):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
-        scanset.remove_column('Ch0-filt')
+        scanset.remove_column('Feed0_RCP-filt')
         images = scanset.calculate_images(no_offsets=True)
 
-        img = images['Ch0']
+        img = images['Feed0_RCP']
         if HAS_MPL:
             fig = plt.figure('img')
             plt.imshow(img, origin='lower')
@@ -349,19 +346,19 @@ class TestScanSet(object):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
-        scanset.remove_column('Ch0-filt')
+        scanset.remove_column('Feed0_RCP-filt')
         images = scanset.calculate_images(no_offsets=True, direction=0)
 
-        img = images['Ch0']
+        img = images['Feed0_RCP']
 
     def test_ver_images(self):
         '''Test image production.'''
 
         scanset = ScanSet('test.hdf5')
-        scanset.remove_column('Ch0-filt')
+        scanset.remove_column('Feed0_RCP-filt')
         images = scanset.calculate_images(no_offsets=True, direction=1)
 
-        img = images['Ch0']
+        img = images['Feed0_RCP']
 
     def test_rough_image(self):
         '''Test image production.'''
@@ -370,7 +367,7 @@ class TestScanSet(object):
 
         images = scanset.calculate_images()
 
-        img = images['Ch0']
+        img = images['Feed0_RCP']
 
         if HAS_MPL:
             fig = plt.figure('img')
@@ -386,7 +383,7 @@ class TestScanSet(object):
 
         images = scanset.calculate_images(altaz=True)
 
-        img = images['Ch0']
+        img = images['Feed0_RCP']
 
         if HAS_MPL:
             fig = plt.figure('img_altaz')
@@ -403,7 +400,7 @@ class TestScanSet(object):
 
         images = scanset.calculate_images()
 
-        img = images['Ch0-Sdev']
+        img = images['Feed0_RCP-Sdev']
         if HAS_MPL:
             fig = plt.figure('log(img-Sdev)')
             plt.imshow(np.log10(img), origin='lower')
@@ -443,14 +440,14 @@ class TestScanSet(object):
         scanset.calibrate_images(calibration=self.calfile,
                                  map_unit="Jy/pixel")
         images = scanset.images
-        img = images['Ch0']
+        img = images['Feed0_RCP']
         center = img.shape[0] // 2, img.shape[1] // 2
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
         rtol = 0.1 if HAS_STATSM else 0.15
 
-        assert np.isclose(np.sum(images['Ch0'][good]),
+        assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=rtol)
 
     def test_destripe(self):
@@ -461,12 +458,12 @@ class TestScanSet(object):
         scanset.destripe_images(calibration=self.calfile,
                                 map_unit="Jy/pixel", npix_tol=10)
         images = scanset.images
-        img = images['Ch0']
+        img = images['Feed0_RCP']
         center = img.shape[0] // 2, img.shape[1] // 2
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
-        assert np.isclose(np.sum(images['Ch0'][good]),
+        assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=0.1)
 
     def test_destripe_scrunch(self):
@@ -494,14 +491,14 @@ class TestScanSet(object):
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/pixel")
 
-        img = images['Ch0']
+        img = images['Feed0_RCP']
         center = img.shape[0] // 2, img.shape[1] // 2
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
         rtol = 0.1 if HAS_STATSM else 0.15
 
-        assert np.isclose(np.sum(images['Ch0'][good]),
+        assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=rtol)
 
     def test_calibrate_image_beam(self):
@@ -511,7 +508,7 @@ class TestScanSet(object):
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/beam")
 
-        assert np.allclose(np.max(images['Ch0']), self.simulated_flux,
+        assert np.allclose(np.max(images['Feed0_RCP']), self.simulated_flux,
                            atol=0.1)
 
     def test_calibrate_image_junk_unit_fails(self):
@@ -534,8 +531,8 @@ class TestScanSet(object):
                                               map_unit="Jy/pixel")
 
         pixel_area = scanset.meta['pixel_size'] ** 2
-        assert np.allclose(images['Ch0'],
-                           images_pix['Ch0'] / pixel_area.to(u.sr).value,
+        assert np.allclose(images['Feed0_RCP'],
+                           images_pix['Feed0_RCP'] / pixel_area.to(u.sr).value,
                            rtol=0.05)
 
     def test_calibrate_scanset_pixel(self):
@@ -546,7 +543,7 @@ class TestScanSet(object):
                                           map_unit="Jy/pixel",
                                           calibrate_scans=True)
 
-        assert np.allclose(images['Ch0'], images_standard['Ch0'])
+        assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'])
 
     def test_calibrate_scanset_beam(self):
         scanset = ScanSet('test.hdf5')
@@ -556,7 +553,7 @@ class TestScanSet(object):
                                           map_unit="Jy/beam",
                                           calibrate_scans=True)
 
-        assert np.allclose(images['Ch0'], images_standard['Ch0'])
+        assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'])
 
     def test_calibrate_scanset_sr(self):
         scanset = ScanSet('test.hdf5')
@@ -566,10 +563,10 @@ class TestScanSet(object):
                                           map_unit="Jy/sr",
                                           calibrate_scans=True)
 
-        good = images['Ch0'] > 1
+        good = images['Feed0_RCP'] > 1
 
-        assert np.allclose(images['Ch0'][good],
-                           images_standard['Ch0'][good], rtol=1e-4)
+        assert np.allclose(images['Feed0_RCP'][good],
+                           images_standard['Feed0_RCP'][good], rtol=1e-4)
 
     def test_ds9_image(self):
         '''Test image production.'''
@@ -600,36 +597,25 @@ class TestScanSet(object):
         scanset.fit_full_images(no_offsets=True)
         # It works after calculating images
         images = scanset.calculate_images()
-        nx, ny = images['Ch0'].shape
+        nx, ny = images['Feed0_RCP'].shape
         excluded = [[nx // 2, ny // 2, nx // 4]]
-        scanset.fit_full_images(excluded=excluded, chans='Ch0')
-        os.path.exists("out_iter_Ch0_002.txt")
-        scanset.fit_full_images(excluded=excluded, chans='Ch1')
-        os.path.exists("out_iter_Ch1_000.txt")
+        scanset.fit_full_images(excluded=excluded, chans='Feed0_RCP')
+        os.path.exists("out_iter_Feed0_RCP_002.txt")
+        scanset.fit_full_images(excluded=excluded, chans='Feed0_LCP')
+        os.path.exists("out_iter_Feed0_LCP_000.txt")
 
         if not HAS_MPL:
             with pytest.raises(ImportError) as excinfo:
-                display_intermediate(scanset, chan="Ch0",
+                display_intermediate(scanset, chan="Feed0_RCP",
                                      excluded=excluded,
-                                     parfile = "out_iter_Ch0_002.txt")
+                                     parfile = "out_iter_Feed0_RCP_002.txt")
 
             assert "display_intermediate: matplotlib" in str(excinfo)
         else:
-            display_intermediate(scanset, chan="Ch0",
+            display_intermediate(scanset, chan="Feed0_RCP",
                                  excluded=excluded,
-                                 parfile = "out_iter_Ch0_002.txt")
-            os.path.exists("out_iter_Ch1_002.png")
-
-    def test_global_fit_image_fails_mixup_channels(self):
-        '''Test image production.'''
-
-        scanset = ScanSet('test.hdf5')
-        images = scanset.calculate_images()
-        scanset['Ch0_feed'] = np.random.randint(0, 3, len(scanset['Ch0_feed']))
-        with pytest.raises(ValueError) as excinfo:
-            images = scanset.fit_full_images()
-
-        assert "Feeds are mixed up" in str(excinfo)
+                                 parfile = "out_iter_Feed0_RCP_002.txt")
+            os.path.exists("out_iter_Feed0_LCP_002.png")
 
         # It works after calculating images
 
@@ -637,7 +623,9 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images()
-        ysize, xsize = images['Ch0'].shape
+        ysize, xsize = images['Feed0_RCP'].shape
+        print(images)
+        print(ysize, xsize)
         _, _, _, _, _, _, _, coord = \
             scanset.find_scans_through_pixel(xsize//2, ysize-1, test=True)
 
@@ -656,7 +644,7 @@ class TestScanSet(object):
             scanset.remove_column(i + '-filt')
 
         images = scanset.calculate_images()
-        ysize, xsize = images['Ch0'].shape
+        ysize, xsize = images['Feed0_RCP'].shape
         _, _, _, _, _, _, _, coord = \
             scanset.find_scans_through_pixel(xsize//2, 0, test=True)
 
@@ -672,7 +660,7 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images()
-        ysize, xsize = images['Ch0'].shape
+        ysize, xsize = images['Feed0_RCP'].shape
         _, _, _, _, _, _, _, coord = \
             scanset.find_scans_through_pixel(xsize//2, -2, test=True)
         assert coord == {}
@@ -683,7 +671,7 @@ class TestScanSet(object):
     def test_find_scan_through_pixel_bad_scan(self, logger, caplog):
         scanset = ScanSet('test.hdf5')
         images = scanset.calculate_images()
-        ysize, xsize = images['Ch0'].shape
+        ysize, xsize = images['Feed0_RCP'].shape
         x, y = xsize // 2, 0
         good_entries = np.logical_and(
                 np.abs(scanset['x'][:, 0] - x) < 1,
@@ -698,7 +686,7 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images()
-        ysize, xsize = images['Ch0'].shape
+        ysize, xsize = images['Feed0_RCP'].shape
         ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
             scanset.find_scans_through_pixel(xsize//2, 0, test=True)
 
@@ -717,7 +705,7 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images()
-        ysize, xsize = images['Ch0'].shape
+        ysize, xsize = images['Feed0_RCP'].shape
         ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
             scanset.find_scans_through_pixel(xsize//3, 0, test=True)
 
@@ -727,15 +715,15 @@ class TestScanSet(object):
         info[sname]['FLAG'] = True
         sid = scan_ids[sname]
         mask = scanset['Scan_id'] == sid
-        before = scanset['Ch0-filt'][mask]
+        before = scanset['Feed0_RCP-filt'][mask]
         scanset.update_scan(sname, scan_ids[sname], coord[sname],
                             info[sname]['zap'],
                             info[sname]['fitpars'], info[sname]['FLAG'],
                             test=True)
-        after = scanset['Ch0-filt'][mask]
+        after = scanset['Feed0_RCP-filt'][mask]
         assert np.all(before != after)
         s = Scan(sname)
-        assert np.all(after == s['Ch0-filt'])
+        assert np.all(after == s['Feed0_RCP-filt'])
         assert s.meta['FLAG'] is True
         os.unlink(sname.replace('fits', 'hdf5'))
 
@@ -743,7 +731,7 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images()
-        ysize, xsize = images['Ch0'].shape
+        ysize, xsize = images['Feed0_RCP'].shape
         ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
             scanset.find_scans_through_pixel(xsize//2, 0, test=True)
 
@@ -753,22 +741,22 @@ class TestScanSet(object):
         info[sname]['fitpars'] = np.array([0.1, 0.3])
         sid = scan_ids[sname]
         mask = scanset['Scan_id'] == sid
-        before = scanset['Ch0'][mask]
+        before = scanset['Feed0_RCP'][mask]
         scanset.update_scan(sname, scan_ids[sname], coord[sname],
                             info[sname]['zap'],
                             info[sname]['fitpars'], info[sname]['FLAG'],
                             test=True)
-        after = scanset['Ch0'][mask]
+        after = scanset['Feed0_RCP'][mask]
         assert np.all(before != after)
         s = Scan(sname)
-        assert np.all(after == s['Ch0'])
+        assert np.all(after == s['Feed0_RCP'])
         os.unlink(sname.replace('fits', 'hdf5'))
 
     def test_update_scan_zap(self):
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images()
-        ysize, xsize = images['Ch0'].shape
+        ysize, xsize = images['Feed0_RCP'].shape
         ra_xs, ra_ys, dec_xs, dec_ys, scan_ids, ra_masks, dec_masks, coord = \
             scanset.find_scans_through_pixel(xsize//2, 0, test=True)
 
@@ -779,16 +767,16 @@ class TestScanSet(object):
         info[sname]['zap'].xs = [np.float(s['dec'][0]), np.float(s['dec'][10])]
         sid = scan_ids[sname]
         mask = scanset['Scan_id'] == sid
-        before = scanset['Ch0-filt'][mask]
+        before = scanset['Feed0_RCP-filt'][mask]
         scanset.update_scan(sname, scan_ids[sname], coord[sname],
                             info[sname]['zap'],
                             info[sname]['fitpars'], info[sname]['FLAG'],
                             test=True)
-        after = scanset['Ch0-filt'][mask]
+        after = scanset['Feed0_RCP-filt'][mask]
 
         assert np.all(before[:10] != after[:10])
         s = Scan(sname)
-        assert np.all(np.array(after, dtype=bool) == np.array(s['Ch0-filt'],
+        assert np.all(np.array(after, dtype=bool) == np.array(s['Feed0_RCP-filt'],
                                                               dtype=bool))
         os.unlink(sname.replace('fits', 'hdf5'))
 
@@ -816,7 +804,7 @@ class TestScanSet(object):
         scanset.fit_full_images(no_offsets=True)
         # It works after calculating images
         images = scanset.calculate_images()
-        nx, ny = images['Ch0'].shape
+        nx, ny = images['Feed0_RCP'].shape
         excluded = [[nx//2, ny//2, nx//4]]
 
         main_imager('test.hdf5 -g '
@@ -833,7 +821,7 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
         # It works after calculating images
         images = scanset.calculate_images()
-        nx, ny = images['Ch0'].shape
+        nx, ny = images['Feed0_RCP'].shape
 
         regstr = 'image;circle({},{},{})'.format(nx // 2, ny // 2, nx // 4)
         with open('region.reg', 'w') as fobj:
@@ -892,29 +880,32 @@ class TestScanSet(object):
     @classmethod
     def teardown_class(klass):
         """Clean up the mess."""
-        if HAS_MPL:
-            os.unlink('img.png')
-            os.unlink('img_altaz.png')
-            os.unlink('img_scrunch.png')
-            os.unlink('delta_altaz.png')
-            os.unlink('altaz_with_src.png')
-            os.unlink('img_sdev.png')
-            os.unlink('img_scrunch_sdev.png')
-        os.unlink('test.hdf5')
-        os.unlink('test_scan_list.txt')
-        os.unlink('bubu.hdf5')
-        for d in klass.config['list_of_directories']:
-            hfiles = \
-                glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
-            for h in hfiles:
-                os.unlink(h)
-        out_iter_files = glob.glob('out_iter_*')
-        for o in out_iter_files:
-            os.unlink(o)
-        out_fits_files = glob.glob(os.path.join(klass.config['datadir'],
-                                                'test_config*.fits'))
-        out_hdf5_files = glob.glob(os.path.join(klass.config['datadir'], 'sim',
-                                                '*/', '*.hdf5'))
+        with contextlib.suppress(FileNotFoundError):
+            if HAS_MPL:
+                os.unlink('img.png')
+                os.unlink('img_altaz.png')
+                os.unlink('img_scrunch.png')
+                os.unlink('delta_altaz.png')
+                os.unlink('altaz_with_src.png')
+                os.unlink('img_sdev.png')
+                os.unlink('img_scrunch_sdev.png')
+            os.unlink('test.hdf5')
+            os.unlink('test_scan_list.txt')
+            os.unlink('bubu.hdf5')
+            for d in klass.config['list_of_directories']:
+                hfiles = \
+                    glob.glob(os.path.join(klass.config['datadir'], d,
+                                           '*.hdf5'))
+                for h in hfiles:
+                    os.unlink(h)
+            out_iter_files = glob.glob('out_iter_*')
+            for o in out_iter_files:
+                os.unlink(o)
+            out_fits_files = glob.glob(os.path.join(klass.config['datadir'],
+                                                    'test_config*.fits'))
+            out_hdf5_files = glob.glob(os.path.join(klass.config['datadir'],
+                                                    'sim',
+                                                    '*/', '*.hdf5'))
 
-        for o in out_fits_files + out_hdf5_files:
-            os.unlink(o)
+            for o in out_fits_files + out_hdf5_files:
+                os.unlink(o)

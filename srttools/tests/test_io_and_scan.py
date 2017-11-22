@@ -16,7 +16,11 @@ import os
 import numpy as np
 import glob
 import logging
-
+try:
+    import contextlib2 as contextlib
+    FileNotFoundError = IOError
+except:
+    import contextlib
 
 @pytest.fixture()
 def logger():
@@ -91,7 +95,7 @@ class Test1_Scan(object):
     @pytest.mark.skipif('not HAS_MPL')
     def test_interactive(self):
         scan = Scan(self.fname)
-        scan.interactive_filter('Ch0', test=True)
+        scan.interactive_filter('Feed0_RCP', test=True)
 
     @pytest.mark.parametrize('fname', ['med_data.fits',
                                        'srt_data_tp_multif.fits'])
@@ -200,11 +204,14 @@ class Test2_Scan(object):
             (altaz.alt.to(u.rad) - scan['el'][:, idx]).to(u.arcsec).value)
         assert np.all(diff < 1)
 
-    # @classmethod
-    # def teardown_class(klass):
-    #     """Cleanup."""
-    #     os.unlink('scan.hdf5')
-    #     for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.pdf')):
-    #         os.unlink(f)
-    #     for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.hdf5')):
-    #         os.unlink(f)
+    @classmethod
+    def teardown_class(klass):
+        """Cleanup."""
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink('scan.hdf5')
+            for f in glob.glob(os.path.join(klass.datadir, 'spectrum',
+                                            '*.pdf')):
+                os.unlink(f)
+            for f in glob.glob(os.path.join(klass.datadir, 'spectrum',
+                                            '*.hdf5')):
+                os.unlink(f)

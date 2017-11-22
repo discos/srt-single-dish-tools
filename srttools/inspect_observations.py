@@ -13,6 +13,7 @@ from .io import read_data
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
 from .utils import standard_string
+from .scan import chan_re
 
 try:
     from ConfigParser import ConfigParser
@@ -65,8 +66,9 @@ def inspect_directories(directories, only_after=None, only_before=None):
 
                 backend = data.meta['backend']
                 receiver = data.meta['receiver']
-                frequency = data["Ch0"].meta['frequency']
-                bandwidth = data["Ch0"].meta['bandwidth']
+                chan = [ch for ch in data.colnames if chan_re.search(ch)][0]
+                frequency = data[chan].meta['frequency']
+                bandwidth = data[chan].meta['bandwidth']
                 source = data.meta['SOURCE']
 
                 info.add_row([d, f, source, receiver, backend,
