@@ -185,7 +185,8 @@ class Test2_Scan(object):
                 ["Don't use filtering factors > 0.5" in r.message.args[0]
                  for r in record])
 
-    @pytest.mark.parametrize('fname', ['srt_data.fits'])
+    @pytest.mark.parametrize('fname', ['srt_data.fits',
+                                       'srt_data_roach_polar.fits'])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')

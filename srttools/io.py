@@ -246,6 +246,11 @@ def read_data_fitszilla(fname):
 
         _, nbins = data_table_data['spectrum'].shape
 
+        if nbin_per_chan * nchan * 2 == nbins and not is_polarized:
+            logging.warning('Data appear to contain polarization information '
+                            'but are classified as simple, not stokes, in the '
+                            'Section table.')
+            is_polarized = True
         if nbin_per_chan * nchan != nbins and \
                                 nbin_per_chan * nchan * 2 != nbins:
             raise ValueError('Something wrong with channel subdivision')
@@ -259,17 +264,18 @@ def read_data_fitszilla(fname):
                 raise ValueError('Polarized data are only supported for single'
                                  ' feed observations')
             feed = feeds[0]
-            data_table_data['Feed{}_Q'.format(feed).lower()] = \
+            data_table_data['Feed{}_Q'.format(feed)] = \
                     data_table_data['spectrum'][:, 2 * nbin_per_chan:
                     3 * nbin_per_chan]
-            data_table_data['Feed{}_U'.format(feed).lower()] = \
+            data_table_data['Feed{}_U'.format(feed)] = \
                     data_table_data['spectrum'][:, 3 * nbin_per_chan:
                     4 * nbin_per_chan]
+            chan_names += ['Feed{}_Q'.format(feed),
+                           'Feed{}_U'.format(feed)]
     else:
         for ic, ch in enumerate(chan_names):
             data_table_data[ch] = \
                 data_table_data['ch{}'.format(chan_ids[ic])]
-
 
     info_to_retrieve = ['time', 'derot_angle']
 
@@ -365,8 +371,33 @@ def read_data_fitszilla(fname):
              }
         new_table[chan_name].meta.update(newmeta)
 
-        new_table[chan_name + '-filt'.format(ch)] = \
+        new_table[chan_name + '-filt'] = \
             np.ones(len(data_table_data[chan_name]), dtype=bool)
+
+    if is_polarized:
+        for feed in list(set(feeds)):
+            for stokes_par in 'QU':
+                chan_name = 'Feed{}_{}'.format(feed, stokes_par)
+                new_table[chan_name] = \
+                    data_table_data[chan_name]
+
+                newmeta = \
+                    {'polarization': stokes_par,
+                     'feed': int(feed),
+                     'IF': -1,
+                     'frequency': float(frequencies[feed * 0]),
+                     'bandwidth': float(bandwidths[feed * 0]),
+                     'xoffset': float(
+                         xoffsets[feed].to(u.rad).value) * u.rad,
+                     'yoffset': float(
+                         yoffsets[feed].to(u.rad).value) * u.rad,
+                     'relpower': 1.
+                     }
+                new_table[chan_name].meta.update(newmeta)
+
+                new_table[chan_name + '-filt'] = \
+                    np.ones(len(data_table_data[chan_name]), dtype=bool)
+
     lchdulist.close()
     return new_table
 

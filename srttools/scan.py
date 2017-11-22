@@ -283,6 +283,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     results.lc = lc_corr
     results.freqmin = freqmin
     results.freqmax = freqmax
+    results.mask = wholemask
 
     if not debug or not HAS_MPL:
         return results
@@ -377,6 +378,29 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         "{}_{}.pdf".format(outfile, label))
     plt.close(fig)
     return results
+
+
+def frequency_filter(dynamical_spectrum, mask):
+    """Clean a spectroscopic scan with a precooked mask.
+
+    Parameters
+    ----------
+    dynamical_spectrum : 2-d array
+        Array of shape MxN, with M spectra of N elements each.
+    mask : boolean array
+        this mask has False wherever the channel should be discarded
+
+    Returns
+    -------
+    lc : array-like
+        The cleaned light curve
+    """
+    if len(dynamical_spectrum.shape) == 1:
+        return dynamical_spectrum
+
+    lc_corr = np.sum(dynamical_spectrum[:, mask], axis=1)
+
+    return lc_corr
 
 
 chan_re = re.compile(r'^Ch[0-9]+$|^Feed[0-9]+_[a-zA-Z]+$')
@@ -512,7 +536,12 @@ class Scan(Table):
             return
 
         chans = self.chan_columns()
+        is_polarized = False
+        mask = True
         for ic, ch in enumerate(chans):
+            if ch.endswith('Q') or ch.endswith('U'):
+                is_polarized = True
+                continue
             results = \
                 clean_scan_using_variability(
                     self[ch], self['time'],
@@ -526,6 +555,7 @@ class Scan(Table):
 
             if results is None:
                 continue
+            mask = mask & results.mask
             lc_corr = results.lc
             freqmin, freqmax = results.freqmin, results.freqmax
 
@@ -538,6 +568,21 @@ class Scan(Table):
                 self.remove_column(ch)
             self[ch + 'TEMP'].name = ch
             self[ch].meta['bandwidth'] = freqmax - freqmin
+
+        if is_polarized:
+            for ic, ch in enumerate(chans):
+                if not ch.endswith('Q') and not ch.endswith('U'):
+                    continue
+                lc_corr = frequency_filter(self[ch], mask)
+
+                self[ch + 'TEMP'] = Column(lc_corr)
+
+                self[ch + 'TEMP'].meta.update(self[ch].meta)
+                if save_spectrum:
+                    self[ch].name = ch + "_spec"
+                else:
+                    self.remove_column(ch)
+                self[ch + 'TEMP'].name = ch
 
     def baseline_subtract(self, kind='als', plot=False, avoid_regions=None):
         """Subtract the baseline.
