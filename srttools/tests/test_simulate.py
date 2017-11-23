@@ -23,14 +23,14 @@ class TestSimulate(object):
         """Test the simulation of a single scan."""
         times, position, shape = simulate_scan()
         save_scan(times, position, np.zeros_like(position),
-                  {'Ch0': shape, 'Ch1': shape},
+                  {'Feed0_RCP': shape, 'Feed0_LCP': shape},
                   os.path.join(self.outdir, 'output.fits'))
 
     def test_sim_scan_other_columns(self):
         """Test the simulation of a single scan."""
         times, position, shape = simulate_scan()
         save_scan(times, position, np.zeros_like(position),
-                  {'Ch0': shape, 'Ch1': shape},
+                  {'Feed0_RCP': shape, 'Feed0_LCP': shape},
                   os.path.join(self.outdir, 'output.fits'),
                   scan_type="Any",
                   other_columns={'Pippo': np.zeros_like(shape)})

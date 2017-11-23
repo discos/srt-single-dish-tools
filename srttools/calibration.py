@@ -617,7 +617,7 @@ class CalibratorTable(Table):
         Parameters
         ----------
         channel : str
-            Channel name (e.g. 'Ch0', 'Ch1' etc.)
+            Channel name (e.g. 'Feed0_RCP', 'Feed0_LCP' etc.)
         elevation : float or array-like
             The elevation or a list of elevations
         map_unit : str

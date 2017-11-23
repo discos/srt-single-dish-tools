@@ -93,7 +93,7 @@ def counter(initial_value=0):
 
 
 ITERATION_COUNT = counter(0)
-CURR_CHANNEL = "Ch0"
+CURR_CHANNEL = "Feed0_RCP"
 
 
 def _save_intermediate(filename, par):
@@ -218,7 +218,7 @@ def _get_data_idx(par, idx):
     return data_idx
 
 
-def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
+def fit_full_image(scanset, chan="Feed0_RCP", feed=0, excluded=None, par=None):
     """Get a clean image by subtracting linear trends from the initial scans.
 
     Parameters
@@ -229,7 +229,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     Other parameters
     ----------------
     chan : str
-        channel of the scanset to be fit. Defaults to ``"Ch0"``
+        channel of the scanset to be fit. Defaults to ``"Feed0_RCP"``
     feed : int
         feed of the scanset to be fit. Defaults to 0
     excluded : [[centerx0, centery0, radius0]]
@@ -301,7 +301,7 @@ def fit_full_image(scanset, chan="Ch0", feed=0, excluded=None, par=None):
     return new_counts * count_range
 
 
-def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None,
+def display_intermediate(scanset, chan="Feed0_RCP", feed=0, excluded=None,
                          parfile=None, factor=1):
     """Display the intermediate steps of global_fitting.
 
@@ -313,7 +313,7 @@ def display_intermediate(scanset, chan="Ch0", feed=0, excluded=None,
     Other parameters
     ----------------
     chan : str
-        channel of the scanset to be fit. Defaults to ``"Ch0"``
+        channel of the scanset to be fit. Defaults to ``"Feed0_RCP"``
     feed : int
         feed of the scanset to be fit. Defaults to 0
     excluded : [[centerx0, centery0, radius0]]

@@ -31,7 +31,9 @@ install:
     - "powershell ci-helpers/appveyor/install-miniconda.ps1"
     - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
     - "activate test"
-    - "python setup.py install"
+    - ps: if($env:PYTHON_VERSION -match "2.7") {pip install contextlib2}
+    - "pip install ."
+
 
 # Not a .NET project, we build AstroPy in the install step instead
 build: false

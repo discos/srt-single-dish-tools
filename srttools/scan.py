@@ -34,6 +34,11 @@ def _split_freq_splat(freqsplat):
     return freqmin, freqmax
 
 
+def get_channel_feed(ch):
+    if re.search('Feed?', ch):
+        return int(ch[4])
+
+
 def interpret_frequency_range(freqsplat, bandwidth, nbin):
     """Interpret the frequency range specified in freqsplat.
 
@@ -278,6 +283,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     results.lc = lc_corr
     results.freqmin = freqmin
     results.freqmax = freqmax
+    results.mask = wholemask
 
     if not debug or not HAS_MPL:
         return results
@@ -374,7 +380,30 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     return results
 
 
-chan_re = re.compile(r'^Ch[0-9]+$')
+def frequency_filter(dynamical_spectrum, mask):
+    """Clean a spectroscopic scan with a precooked mask.
+
+    Parameters
+    ----------
+    dynamical_spectrum : 2-d array
+        Array of shape MxN, with M spectra of N elements each.
+    mask : boolean array
+        this mask has False wherever the channel should be discarded
+
+    Returns
+    -------
+    lc : array-like
+        The cleaned light curve
+    """
+    if len(dynamical_spectrum.shape) == 1:
+        return dynamical_spectrum
+
+    lc_corr = np.sum(dynamical_spectrum[:, mask], axis=1)
+
+    return lc_corr
+
+
+chan_re = re.compile(r'^Ch[0-9]+$|^Feed[0-9]+_[a-zA-Z]+$')
 
 
 def list_scans(datadir, dirlist):
@@ -507,7 +536,12 @@ class Scan(Table):
             return
 
         chans = self.chan_columns()
+        is_polarized = False
+        mask = True
         for ic, ch in enumerate(chans):
+            if ch.endswith('Q') or ch.endswith('U'):
+                is_polarized = True
+                continue
             results = \
                 clean_scan_using_variability(
                     self[ch], self['time'],
@@ -521,6 +555,7 @@ class Scan(Table):
 
             if results is None:
                 continue
+            mask = mask & results.mask
             lc_corr = results.lc
             freqmin, freqmax = results.freqmin, results.freqmax
 
@@ -533,6 +568,21 @@ class Scan(Table):
                 self.remove_column(ch)
             self[ch + 'TEMP'].name = ch
             self[ch].meta['bandwidth'] = freqmax - freqmin
+
+        if is_polarized:
+            for ic, ch in enumerate(chans):
+                if not ch.endswith('Q') and not ch.endswith('U'):
+                    continue
+                lc_corr = frequency_filter(self[ch], mask)
+
+                self[ch + 'TEMP'] = Column(lc_corr)
+
+                self[ch + 'TEMP'].meta.update(self[ch].meta)
+                if save_spectrum:
+                    self[ch].name = ch + "_spec"
+                else:
+                    self.remove_column(ch)
+                self[ch + 'TEMP'].name = ch
 
     def baseline_subtract(self, kind='als', plot=False, avoid_regions=None):
         """Subtract the baseline.
@@ -559,8 +609,11 @@ class Scan(Table):
                 fig = plt.figure("Sub" + ch)
                 plt.plot(self['time'], self[ch] - np.min(self[ch]),
                          alpha=0.5)
+            force_rough = False
+            if ch.endswith('Q') or ch.endswith('U'):
+                force_rough = True
             mask = np.ones(len(self[ch]), dtype=bool)
-            feed = self[ch + '_feed'][0]
+            feed = get_channel_feed(ch)
             if avoid_regions is not None:
                 for r in avoid_regions:
                     ras = self['ra'][:, feed]
@@ -568,9 +621,9 @@ class Scan(Table):
                     dist = np.sqrt(((ras - r[0]) / np.cos(decs))**2 +
                                    (decs - r[1])**2)
                     mask[dist < r[2]] = 0
-            if kind == 'als':
+            if kind == 'als' and not force_rough:
                 self[ch] = baseline_als(self['time'], self[ch], mask=mask)
-            elif kind == 'rough':
+            elif kind == 'rough' or force_rough:
                 self[ch] = baseline_rough(self['time'], self[ch], mask=mask)
             else:
                 raise ValueError('Unknown baseline technique')
@@ -609,7 +662,7 @@ class Scan(Table):
         """Run the interactive filter."""
         for ch in self.chan_columns():
             # Temporary, waiting for AstroPy's metadata handling improvements
-            feed = self[ch + '_feed'][0]
+            feed = get_channel_feed(ch)
 
             selection = self['ra'][:, feed]
 

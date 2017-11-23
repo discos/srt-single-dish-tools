@@ -20,7 +20,7 @@ import traceback
 import six
 import copy
 import functools
-from .scan import Scan, chan_re, list_scans
+from .scan import Scan, chan_re, list_scans, get_channel_feed
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .fit import linear_fun
@@ -389,14 +389,7 @@ class ScanSet(Table):
                             self.meta['npix'][1] + 1)
 
         for ch in self.chan_columns:
-            feeds = self[ch+'_feed']
-            allfeeds = list(set(feeds))
-            if not len(allfeeds) == 1:
-                raise ValueError('Feeds are mixed up in channels')
-            if no_offsets:
-                feed = 0
-            else:
-                feed = feeds[0]
+            feed = get_channel_feed(ch)
 
             if elevation is None:
                 elevation = np.mean(self['el'][:, feed])
@@ -536,14 +529,7 @@ class ScanSet(Table):
 
         for ch in chans:
             print("Fitting channel {}".format(ch))
-            feeds = self[ch + '_feed']
-            allfeeds = list(set(feeds))
-            if not len(allfeeds) == 1:
-                raise ValueError('Feeds are mixed up in channels')
-            if no_offsets:
-                feed = 0
-            else:
-                feed = feeds[0]
+            feed = get_channel_feed(ch)
             self[ch + "_save"] = self[ch].copy()
             self[ch] = Column(fit_full_image(self, chan=ch, feed=feed,
                                              excluded=excluded, par=par))
@@ -645,7 +631,7 @@ class ScanSet(Table):
         else:
             chs = [ch]
         if test:
-            chs = ['Ch0']
+            chs = ['Feed0_RCP']
         for ch in chs:
             fig = plt.figure('Imageactive Display - ' + ch)
             gs = GridSpec(1, 2)
@@ -738,9 +724,9 @@ class ScanSet(Table):
         if not test:
             ch = self.current
         else:
-            ch = 'Ch0'
+            ch = 'Feed0_RCP'
 
-        feed = self[ch+'_feed'][0]
+        feed = get_channel_feed(ch)
 
         # Select data inside the pixel +- 1
 
@@ -790,8 +776,8 @@ class ScanSet(Table):
         """Update a scan in the scanset after filtering."""
         ch = self.current
         if test:
-            ch = 'Ch0'
-        feed = self[ch+'_feed'][0]
+            ch = 'Feed0_RCP'
+        feed = get_channel_feed(ch)
         mask = self['Scan_id'] == sid
         try:
             s = Scan(sname)
@@ -814,8 +800,9 @@ class ScanSet(Table):
 
         if len(fit_info) > 1:
             resave = True
-            s[ch] -= linear_fun(s[dim][:, feed],
+            sub = linear_fun(s[dim][:, feed],
                                 *fit_info)
+            s[ch] = np.array(s[ch]) - sub
         # TODO: make it channel-independent
             s.meta['backsub'] = True
             self[ch][mask] = s[ch]
@@ -1116,7 +1103,7 @@ def main_imager(args=None):
 
     parser.add_argument("--chans", type=str, default=None,
                         help=('Comma-separated channels to include in global '
-                              'fitting (Ch0, Ch1, ...)'))
+                              'fitting (Feed0_RCP, Feed0_LCP, ...)'))
 
     parser.add_argument("-o", "--outfile", type=str, default=None,
                         help='Save intermediate scanset to this file.')

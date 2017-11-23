@@ -16,7 +16,11 @@ import os
 import numpy as np
 import glob
 import logging
-
+try:
+    import contextlib2 as contextlib
+    FileNotFoundError = IOError
+except:
+    import contextlib
 
 @pytest.fixture()
 def logger():
@@ -91,7 +95,7 @@ class Test1_Scan(object):
     @pytest.mark.skipif('not HAS_MPL')
     def test_interactive(self):
         scan = Scan(self.fname)
-        scan.interactive_filter('Ch0', test=True)
+        scan.interactive_filter('Feed0_RCP', test=True)
 
     @pytest.mark.parametrize('fname', ['med_data.fits',
                                        'srt_data_tp_multif.fits'])
@@ -181,7 +185,8 @@ class Test2_Scan(object):
                 ["Don't use filtering factors > 0.5" in r.message.args[0]
                  for r in record])
 
-    @pytest.mark.parametrize('fname', ['srt_data.fits'])
+    @pytest.mark.parametrize('fname', ['srt_data.fits',
+                                       'srt_data_roach_polar.fits'])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
@@ -203,8 +208,11 @@ class Test2_Scan(object):
     @classmethod
     def teardown_class(klass):
         """Cleanup."""
-        os.unlink('scan.hdf5')
-        for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.pdf')):
-            os.unlink(f)
-        for f in glob.glob(os.path.join(klass.datadir, 'spectrum', '*.hdf5')):
-            os.unlink(f)
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink('scan.hdf5')
+            for f in glob.glob(os.path.join(klass.datadir, 'spectrum',
+                                            '*.pdf')):
+                os.unlink(f)
+            for f in glob.glob(os.path.join(klass.datadir, 'spectrum',
+                                            '*.hdf5')):
+                os.unlink(f)
