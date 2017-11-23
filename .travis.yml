@@ -100,7 +100,7 @@ install:
     # install since this ensures Numpy does not get automatically upgraded.
     - if [[ $SETUP_CMD != egg_info ]] && [[ $PYTHON_VERSION == 2.7 ]]; then pip install contextlib2; fi
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_NUMBA == yes ]]; then $CONDA_INSTALL numba; fi
-    - if [[ $SETUP_CMD != egg_info ]]; then python setup.py install; fi
+    - if [[ $SETUP_CMD != egg_info ]]; then pip install .; fi
 
 before_script:
 
