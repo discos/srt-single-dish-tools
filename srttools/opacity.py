@@ -1,7 +1,9 @@
 from astropy.io.fits import open as fitsopen
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
+from .utils import HAS_MPL
+if HAS_MPL:
+    import matplotlib.pyplot as plt
 
 
 def exptau(airmass, tatm, tau, t0):
@@ -29,7 +31,7 @@ def calculate_opacity(file, plot=True):
     results = {}
     for ch in ['Ch0', 'Ch1']:
         temp = tempdata[ch]
-        if plot:
+        if plot and HAS_MPL:
             fig = plt.figure(ch)
             plt.scatter(airmass, temp, c='k')
 
@@ -48,7 +50,7 @@ def calculate_opacity(file, plot=True):
                                       [tatm + epsilon, np.inf, np.inf]))
 
         print('The opacity for channel {} is {}'.format(ch, par[1]))
-        if plot:
+        if plot and HAS_MPL:
             plt.plot(airmass, exptau(airmass, *par), color='r', zorder=10)
             plt.xlabel('Airmass')
             plt.ylabel('T (K)')

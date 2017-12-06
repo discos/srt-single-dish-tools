@@ -1,4 +1,4 @@
-from srttools.opacity import calculate_opacity, main_opacity
+from srttools.opacity import calculate_opacity, main_opacity, HAS_MPL
 import numpy as np
 import os
 
@@ -22,4 +22,5 @@ class TestOpacity(object):
 
     def test_script(self):
         main_opacity([self.fname])
-        assert os.path.exists(self.fname.replace('.fits', '_fit_Ch0.png'))
+        if HAS_MPL:
+            assert os.path.exists(self.fname.replace('.fits', '_fit_Ch0.png'))
