@@ -62,7 +62,6 @@ def calculate_opacity(file, plot=True):
 
 
 def main_opacity(args=None):
-    import ast
     import argparse
 
     description = ('Calculate opacity from a skydip scan and plot the fit '
