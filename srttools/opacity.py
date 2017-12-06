@@ -1,0 +1,61 @@
+from astropy.io.fits import open as fitsopen
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.optimize import curve_fit
+
+
+def exptau(airmass, tatm, tau, t0):
+    bx = np.exp(-tau * airmass)
+    return tatm * (1 - bx) + t0
+
+
+def calculate_opacity(file, plot=True):
+
+    hdulist = fitsopen(file)
+    data = hdulist['DATA TABLE'].data
+    tempdata = hdulist['ANTENNA TEMP TABLE'].data
+    rfdata = hdulist['RF INPUTS'].data
+
+    freq = (rfdata['frequency'] + rfdata['bandwidth'] / 2)[0]
+
+    elevation = data['el']
+    airmass = 1 / np.sin(elevation)
+    airtemp = np.median(data['weather'][:, 1])
+    tatm = 0.683 * (airtemp + 273.15) + 78
+
+    el30 = np.argmin(np.abs(elevation - np.radians(30)))
+    el90 = np.argmin(np.abs(elevation - np.radians(90)))
+
+    results = {}
+    for ch in ['Ch0', 'Ch1']:
+        temp = tempdata[ch]
+        if plot:
+            fig = plt.figure(ch)
+            plt.scatter(airmass, temp, c='k')
+
+        t90 = temp[el90]
+        t30 = temp[el30]
+        tau0 = np.log(2 / (1 + np.sqrt(1 - 4 * (t30 - t90) / tatm)))
+
+        t0 = freq / 1e3
+
+        init_par = [tatm, tau0, t0]
+
+        epsilon = 1.e-5
+        par, pcov = curve_fit(exptau, airmass, temp, p0=init_par,
+                              maxfev=10000000,
+                              bounds=([tatm - epsilon, -np.inf, -np.inf],
+                                      [tatm + epsilon, np.inf, np.inf]))
+
+        print('The opacity for channel {} is {}'.format(ch, par[1]))
+        if plot:
+            plt.plot(airmass, exptau(airmass, *par), color='r', zorder=10)
+            plt.xlabel('Airmass')
+            plt.ylabel('T (K)')
+            plt.title('T_atm: {:.2f}; tau: {:.4f}; t0: {:.2f}'.format(*par))
+            plt.savefig(file.replace('.fits', '_fit_{}.png'.format(ch)))
+            plt.close(fig)
+
+        results[ch] = par[1]
+
+    return results
