@@ -148,6 +148,7 @@ class ScanSet(Table):
 
                 del s.meta['filename']
                 del s.meta['calibrator_directories']
+                del s.meta['skydip_directories']
                 del s.meta['list_of_directories']
                 tables.append(s)
 

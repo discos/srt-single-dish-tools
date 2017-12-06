@@ -60,10 +60,10 @@ def calculate_opacity(file, plot=True):
         init_par = [tatm, tau0, t0]
 
         epsilon = 1.e-5
-        par, pcov = curve_fit(exptau, airmass, temp, p0=init_par,
-                              maxfev=10000000,
-                              bounds=([tatm - epsilon, -np.inf, -np.inf],
-                                      [tatm + epsilon, np.inf, np.inf]))
+        par, _ = curve_fit(exptau, airmass, temp, p0=init_par,
+                           maxfev=10000000,
+                           bounds=([tatm - epsilon, -np.inf, -np.inf],
+                                   [tatm + epsilon, np.inf, np.inf]))
 
         print('The opacity for channel {} is {}'.format(ch, par[1]))
         if plot and HAS_MPL:
