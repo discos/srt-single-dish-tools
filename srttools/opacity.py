@@ -59,3 +59,21 @@ def calculate_opacity(file, plot=True):
         results[ch] = par[1]
 
     return results
+
+
+def main_opacity(args=None):
+    import ast
+    import argparse
+
+    description = ('Calculate opacity from a skydip scan and plot the fit '
+                   'results')
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument("files", nargs='+',
+                        help="File to inspect",
+                        default=None, type=str)
+
+    args = parser.parse_args(args)
+
+    for f in args.files:
+        _ = calculate_opacity(f)
