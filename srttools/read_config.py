@@ -44,6 +44,10 @@ calibrator_directories :
 ; if left empty, calibrator scans are taken from list_of_directories when
 ; calculating light curves, and ignored when calculating images
 
+skydip_directories :
+; if left empty, calibrator scans are taken from list_of_directories when
+; calculating light curves, and ignored when calculating images
+
 noise_threshold : 5
 ;; Coordinates have to be specified in decimal degrees. ONLY use if different
 ;; from target coordinates!
@@ -147,6 +151,13 @@ def read_config(fname=None):
              if s.strip()]  # This last instruction eliminates blank lines
     except Exception:
         warnings.warn("Invalid calibrator_directories in config file")
+
+    try:
+        config_output['skydip_directories'] = \
+            [s for s in analysis_params['skydip_directories'].splitlines()
+             if s.strip()]  # This last instruction eliminates blank lines
+    except Exception:
+        warnings.warn("Invalid skydip_directories in config file")
 
     # If the list of directories is not specified, or if a '*' symbol is used,
     # use glob in the datadir to determine the list
