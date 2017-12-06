@@ -7,12 +7,28 @@ if HAS_MPL:
 
 
 def exptau(airmass, tatm, tau, t0):
+    """Function to fit to the T vs airmass data."""
     bx = np.exp(-tau * airmass)
     return tatm * (1 - bx) + t0
 
 
 def calculate_opacity(file, plot=True):
+    """Calculate opacity from a skydip scan.
 
+    Atmosphere temperature is fixed, from Buffa et al.'s calculations.
+
+    Parameters
+    ----------
+    file : str
+        File name of the skydip scan in Fits format
+    plot : bool
+        Plot diagnostics about the fit
+
+    Returns
+    -------
+    opacities : dict
+        Dictionary containing the opacities calculated for each channel.
+    """
     hdulist = fitsopen(file)
     data = hdulist['DATA TABLE'].data
     tempdata = hdulist['ANTENNA TEMP TABLE'].data
