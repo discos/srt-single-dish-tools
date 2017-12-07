@@ -1138,7 +1138,6 @@ def main_imager(args=None):
     parser.add_argument("--destripe", action='store_true', default=False,
                         help='Destripe the image')
 
-
     parser.add_argument("--npix-tol", type=int, default=None,
                         help='Number of pixels with zero exposure to tolerate'
                              ' when destriping the image, or the full row or '

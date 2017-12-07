@@ -12,7 +12,7 @@ def exptau(airmass, tatm, tau, t0):
     return tatm * (1 - bx) + t0
 
 
-def calculate_opacity(file, plot=True):
+def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
     """Calculate opacity from a skydip scan.
 
     Atmosphere temperature is fixed, from Buffa et al.'s calculations.
@@ -24,10 +24,24 @@ def calculate_opacity(file, plot=True):
     plot : bool
         Plot diagnostics about the fit
 
+    Other parameters
+    ----------------
+    tatm : float
+        Atmospheric temperature (fixed in the fit). The default value is
+        calculated from an empyrical formula
+    tau0 : float
+        Initial opacity in the fit. The default value is
+        np.log(2 / (1 + np.sqrt(1 - 4 * (t30 - t90) / tatm))), where
+        t30 and t90 are the Tsys values calculated at 30 and 90 degrees of
+        elevation respectively.
+    t0 : float
+        Initial value for Tsys in the fit.
+
     Returns
     -------
     opacities : dict
-        Dictionary containing the opacities calculated for each channel.
+        Dictionary containing the opacities calculated for each channel, plus
+        the time in the middle of the observation.
     """
     hdulist = fitsopen(file)
     data = hdulist['DATA TABLE'].data
@@ -40,8 +54,9 @@ def calculate_opacity(file, plot=True):
 
     elevation = data['el']
     airmass = 1 / np.sin(elevation)
-    airtemp = np.median(data['weather'][:, 1])
-    tatm = 0.683 * (airtemp + 273.15) + 78
+    if tatm is None:
+        airtemp = np.median(data['weather'][:, 1])
+        tatm = 0.683 * (airtemp + 273.15) + 78
 
     el30 = np.argmin(np.abs(elevation - np.radians(30)))
     el90 = np.argmin(np.abs(elevation - np.radians(90)))
@@ -53,11 +68,13 @@ def calculate_opacity(file, plot=True):
             fig = plt.figure(ch)
             plt.scatter(airmass, temp, c='k')
 
-        t90 = temp[el90]
-        t30 = temp[el30]
-        tau0 = np.log(2 / (1 + np.sqrt(1 - 4 * (t30 - t90) / tatm)))
+        if tau0 is None:
+            t90 = temp[el90]
+            t30 = temp[el30]
+            tau0 = np.log(2 / (1 + np.sqrt(1 - 4 * (t30 - t90) / tatm)))
 
-        t0 = freq / 1e3
+        if t0 is None:
+            t0 = freq / 1e3
 
         init_par = [tatm, tau0, t0]
 
@@ -92,7 +109,16 @@ def main_opacity(args=None):
                         help="File to inspect",
                         default=None, type=str)
 
+    parser.add_argument("--tatm", type=float, default=None,
+                        help='Atmospheric temperature')
+
+    parser.add_argument("--tau0", type=float, default=None,
+                        help='Initial value for tau (to be fit)')
+
+    parser.add_argument("--t0", type=float, default=None,
+                        help='Initial value for Tsys (to be fitted)')
+
     args = parser.parse_args(args)
 
     for f in args.files:
-        _ = calculate_opacity(f)
+        _ = calculate_opacity(f, tatm=None, tau0=None, t0=None)
