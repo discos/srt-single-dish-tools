@@ -60,6 +60,14 @@ srttools.io module
     :undoc-members:
     :show-inheritance:
 
+srttools.opacity module
+-----------------------
+
+.. automodule:: srttools.opacity
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 srttools.read_config module
 ---------------------------
 
