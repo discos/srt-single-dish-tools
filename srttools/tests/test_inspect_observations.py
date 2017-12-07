@@ -31,10 +31,10 @@ class TestInspect(object):
 
         info = Table()
         names = ["Dir", "Sample File", "Source", "Receiver", "Backend",
-                 "Time", "Frequency", "Bandwidth"]
+                 "Time", "Frequency", "Bandwidth", 'is_skydip']
 
         dtype = ['S200', 'S200', 'S200', 'S200', 'S200',
-                 np.double, np.float, np.float]
+                 np.double, np.float, np.float, bool]
 
         for n, d in zip(names, dtype):
             if n not in info.keys():
@@ -52,7 +52,8 @@ class TestInspect(object):
             info.add_row(["{}_{:.1f}_{}".format(sources[i], times[i],
                                                 receivers[i]),
                           files[i], sources[i], receivers[i],
-                          backends[i], times[i], frequency[i], bandwidth[i]])
+                          backends[i], times[i], frequency[i], bandwidth[i],
+                          False])
         klass.info = info
         klass.groups = split_observation_table(info)
         dump_config_files(klass.info)
@@ -132,6 +133,7 @@ class TestRun(object):
         main_inspector(
             glob.glob(os.path.join(self.datadir, 'gauss_*/')) + ['-d'])
         assert os.path.exists('CCB_TP_Dummy_Obs0.ini')
+        assert os.path.exists('KKG_TP_Dummy_Obs0.ini')
 
     def test_run_dump(self):
         main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) +
@@ -143,6 +145,8 @@ class TestRun(object):
         out, err = capsys.readouterr()
         assert 'Dummy' in out
         assert 'gauss_dec' in out
+        assert 'Skydip' in out
+        assert 'gauss_skydip' in out
 
     def test_run_date_filter_after(self, logger, caplog):
         main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) +
@@ -160,5 +164,6 @@ class TestRun(object):
         import os
         os.unlink('TP_Dummy_Obs0.ini')
         os.unlink('CCB_TP_Dummy_Obs0.ini')
+        os.unlink('KKG_TP_Dummy_Obs0.ini')
         os.unlink('table.csv')
         os.unlink('sample_config_file.ini')

@@ -28,10 +28,10 @@ def inspect_directories(directories, only_after=None, only_before=None):
     import datetime
     info = Table()
     names = ["Dir", "Sample File", "Source", "Receiver", "Backend",
-             "Time", "Frequency", "Bandwidth"]
+             "Time", "Frequency", "Bandwidth", "is_skydip"]
 
     dtype = ['S200', 'S200', 'S200', 'S200', 'S200',
-             np.double, np.float, np.float]
+             np.double, np.float, np.float, bool]
 
     for n, d in zip(names, dtype):
         if n not in info.keys():
@@ -59,6 +59,12 @@ def inspect_directories(directories, only_after=None, only_before=None):
                 data = read_data(f)
                 time_start = data[0]['time']
                 time_end = data[-1]['time']
+
+                elevation = data['el']
+                # If range of elevation change is more than 60 degrees,
+                # this is a skydip.
+                is_skydip = np.max(elevation) - np.min(elevation) > np.pi / 3.
+
                 if only_after is not None and time_start < only_after:
                     continue
                 if only_before is not None and time_end > only_before:
@@ -72,7 +78,8 @@ def inspect_directories(directories, only_after=None, only_before=None):
                 source = data.meta['SOURCE']
 
                 info.add_row([d, f, source, receiver, backend,
-                              time_start, frequency, bandwidth])
+                              time_start, frequency, bandwidth,
+                              is_skydip])
                 break
             except Exception:
                 warnings.warn("Errors while opening {}".format(f))
@@ -118,9 +125,11 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
         if standard_string(s) in calibrators:
             continue
         condition = info["Source"] == s
+        filtered_table = info[condition]
+        if np.any(filtered_table['is_skydip']):
+            continue
         s = standard_string(s)
         retval[s] = {}
-        filtered_table = info[condition]
 
         start_idxs = []
         end_idxs = []
@@ -169,6 +178,23 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
                         standard_string(row["Dir"]))
 
             print("")
+            print("Skydip observations:")
+
+            retval[s]["Obs{}".format(i)]["Skydip"] = []
+
+            condition1 = \
+                np.abs(info["Time"] - observation_start) < max_calibrator_delay
+            condition2 = \
+                np.abs(info["Time"] - observation_end) < max_calibrator_delay
+            condition = condition1 & condition2
+
+            for row in info[condition]:
+                if row["is_skydip"]:
+                    print(standard_string(row["Dir"]))
+                    retval[s]["Obs{}".format(i)]["Skydip"].append(
+                        standard_string(row["Dir"]))
+
+            print("")
             print("---------------\n")
     return retval
 
@@ -186,6 +212,8 @@ def dump_config_files(info, group_by_entries=None, options=None):
                 obs = source[obslabel]
                 srcdata = obs["Src"]
                 caldata = obs["Cal"]
+                skydata = obs['Skydip']
+
                 filename = "{}_{}_{}.ini".format(label.replace(",", "_"),
                                                  sourcelabel,
                                                  obslabel)
@@ -198,6 +226,10 @@ def dump_config_files(info, group_by_entries=None, options=None):
 
                 if len(caldata) > 0:
                     config.set("analysis", "calibrator_directories",
+                               "\n" + "\n".join(caldata))
+
+                if len(skydata) > 0:
+                    config.set("analysis", "skydip_directories",
                                "\n" + "\n".join(caldata))
 
                 if options is not None:

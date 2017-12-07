@@ -90,6 +90,9 @@ calibrator_directories :
 """
     string2 = """
 
+skydip_directories :
+    skydip
+
 noise_threshold : 5
 
 pixel_size : 0.8

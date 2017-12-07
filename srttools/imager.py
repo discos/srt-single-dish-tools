@@ -26,6 +26,7 @@ from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
+from .opacity import calculate_opacity
 
 from .global_fit import fit_full_image
 from .interactive_filter import create_empty_info
@@ -121,6 +122,7 @@ class ScanSet(Table):
         else:  # data is a config file
             config_file = data
             config = read_config(config_file)
+
             self.meta.update(config)
             self.meta['config_file'] = config_file
 
@@ -148,6 +150,8 @@ class ScanSet(Table):
 
                 del s.meta['filename']
                 del s.meta['calibrator_directories']
+                if 'skydip_directories' in s.meta:
+                    del s.meta['skydip_directories']
                 del s.meta['list_of_directories']
                 tables.append(s)
 
@@ -165,6 +169,7 @@ class ScanSet(Table):
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
         self.current = None
+        self.get_opacity()
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
@@ -200,6 +205,24 @@ class ScanSet(Table):
             datadir = self.meta['datadir']
             dirlist = self.meta['list_of_directories']
         return list_scans(datadir, dirlist)
+
+    def get_opacity(self, datadir=None, dirlist=None):
+        """List all scans contained in the directory listed in config."""
+        self.opacities = {}
+        if not 'skydip_directories' in self.meta:
+            return
+
+        if datadir is None:
+            datadir = self.meta['datadir']
+            dirlist = self.meta['skydip_directories']
+        scans = list_scans(datadir, dirlist)
+        if len(scans) == 0:
+            return
+
+        for s in scans:
+            results = calculate_opacity(s)
+            self.opacities[results['time']] = np.mean([results['Ch0'],
+                                                       results['Ch1']])
 
     def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
         """Load the scans in the list one by ones."""
@@ -1114,7 +1137,6 @@ def main_imager(args=None):
 
     parser.add_argument("--destripe", action='store_true', default=False,
                         help='Destripe the image')
-
 
     parser.add_argument("--npix-tol", type=int, default=None,
                         help='Number of pixels with zero exposure to tolerate'
