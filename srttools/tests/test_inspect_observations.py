@@ -133,6 +133,7 @@ class TestRun(object):
         main_inspector(
             glob.glob(os.path.join(self.datadir, 'gauss_*/')) + ['-d'])
         assert os.path.exists('CCB_TP_Dummy_Obs0.ini')
+        assert os.path.exists('KKG_TP_Dummy_Obs0.ini')
 
     def test_run_dump(self):
         main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) +
@@ -163,5 +164,6 @@ class TestRun(object):
         import os
         os.unlink('TP_Dummy_Obs0.ini')
         os.unlink('CCB_TP_Dummy_Obs0.ini')
+        os.unlink('KKG_TP_Dummy_Obs0.ini')
         os.unlink('table.csv')
         os.unlink('sample_config_file.ini')
