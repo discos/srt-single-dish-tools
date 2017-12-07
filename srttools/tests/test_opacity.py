@@ -16,7 +16,7 @@ class TestOpacity(object):
 
     def test_opacity(self):
         res = calculate_opacity(self.fname)
-        vals = [res[k] for k in res.keys()]
+        vals = [res['Ch0'], res['Ch1']]
 
         assert np.allclose(vals, 0.055, atol=0.005)
 
