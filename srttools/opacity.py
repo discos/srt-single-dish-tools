@@ -121,4 +121,4 @@ def main_opacity(args=None):
     args = parser.parse_args(args)
 
     for f in args.files:
-        _ = calculate_opacity(f, tatm=None, tau0=None, t0=None)
+        _ = calculate_opacity(f, tatm=args.tatm, tau0=args.tau0, t0=args.t0)
