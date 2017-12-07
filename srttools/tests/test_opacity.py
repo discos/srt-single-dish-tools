@@ -12,7 +12,7 @@ class TestOpacity(object):
 
         klass.fname = \
             os.path.abspath(
-                os.path.join(klass.datadir, 'gauss_skydip', 'skydip.fits'))
+                os.path.join(klass.datadir, 'gauss_skydip', 'skydip_mod.fits'))
 
     def test_opacity(self):
         res = calculate_opacity(self.fname)
