@@ -111,6 +111,7 @@ def read_config(fname=None):
     config_output['datadir'] = './'
     config_output['list_of_directories'] = '*'
     config_output['calibrator_directories'] = []
+    config_output['skydip_directories'] = []
     config_output['pixel_size'] = '1'
     config_output['goodchans'] = None
     config_output['filtering_factor'] = '0'

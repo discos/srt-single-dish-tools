@@ -34,6 +34,8 @@ def calculate_opacity(file, plot=True):
     tempdata = hdulist['ANTENNA TEMP TABLE'].data
     rfdata = hdulist['RF INPUTS'].data
 
+    time = np.mean(data['Time'])
+
     freq = (rfdata['frequency'] + rfdata['bandwidth'] / 2)[0]
 
     elevation = data['el']
@@ -44,7 +46,7 @@ def calculate_opacity(file, plot=True):
     el30 = np.argmin(np.abs(elevation - np.radians(30)))
     el90 = np.argmin(np.abs(elevation - np.radians(90)))
 
-    results = {}
+    results = {'time': time}
     for ch in ['Ch0', 'Ch1']:
         temp = tempdata[ch]
         if plot and HAS_MPL:
