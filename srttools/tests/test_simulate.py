@@ -71,6 +71,6 @@ class TestSimulate(object):
             main_simulate(
                 '-b qwerty -g 10 10 1 1 -o sime'.split(' '))
 
-    @classmethod
-    def teardown_class(cls):
-        shutil.rmtree(cls.outdir)
+    # @classmethod
+    # def teardown_class(cls):
+    #     shutil.rmtree(cls.outdir)
