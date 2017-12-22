@@ -283,7 +283,9 @@ def read_data_fitszilla(fname):
         for ic, ch in enumerate(chan_names):
             data_table_data[ch + '-Temp'] = \
                 tempdata['ch{}'.format(chan_ids[ic])]
-    except:
+    except Exception as e:
+        logging.warning("Could not read temperature information from file."
+                        "Exception: {}".format(str(e)))
         for ic, ch in enumerate(chan_names):
             data_table_data[ch + '-Temp'] = 0.
 
