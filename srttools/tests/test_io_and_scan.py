@@ -19,7 +19,7 @@ import logging
 try:
     import contextlib2 as contextlib
     FileNotFoundError = IOError
-except:
+except ImportError:
     import contextlib
 
 
