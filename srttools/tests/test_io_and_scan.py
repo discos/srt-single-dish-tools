@@ -11,7 +11,7 @@ import pytest
 
 from srttools.scan import Scan, HAS_MPL
 from srttools.io import print_obs_info_fitszilla
-from srttools.io import locations
+from srttools.io import locations, read_data_fitszilla
 import os
 import numpy as np
 import glob
@@ -21,6 +21,7 @@ try:
     FileNotFoundError = IOError
 except:
     import contextlib
+
 
 @pytest.fixture()
 def logger():
@@ -50,6 +51,12 @@ class Test1_Scan(object):
             os.path.abspath(os.path.join(klass.datadir, 'test_config.ini'))
 
         read_config(klass.config_file)
+
+    def test_temperatures_are_read(self):
+        scan = read_data_fitszilla(os.path.join(self.datadir,
+                                                'gauss_skydip',
+                                                'skydip_mod.fits'))
+        assert np.all(scan['Feed0_RCP-Temp'] > 0.)
 
     def test_print_info(self, capsys):
         print_obs_info_fitszilla(self.fname)
@@ -120,7 +127,8 @@ class Test1_Scan(object):
     @classmethod
     def teardown_class(klass):
         """Cleanup."""
-        os.unlink('scan.hdf5')
+        if os.path.exists('scan.hdf5'):
+            os.unlink('scan.hdf5')
         for f in glob.glob(os.path.join(klass.datadir, '*.hdf5')):
             os.unlink(f)
 

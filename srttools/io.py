@@ -277,7 +277,18 @@ def read_data_fitszilla(fname):
             data_table_data[ch] = \
                 data_table_data['ch{}'.format(chan_ids[ic])]
 
-    info_to_retrieve = ['time', 'derot_angle']
+    # ----------- Read temperature data, if possible ----------------
+    tempdata = lchdulist['ANTENNA TEMP TABLE'].data
+    try:
+        for ic, ch in enumerate(chan_names):
+            data_table_data[ch + '-Temp'] = \
+                tempdata['ch{}'.format(chan_ids[ic])]
+    except:
+        for ic, ch in enumerate(chan_names):
+            data_table_data[ch + '-Temp'] = 0.
+
+    info_to_retrieve = \
+        ['time', 'derot_angle'] + [ch + '-Temp' for ch in chan_names]
 
     new_table = Table()
 
