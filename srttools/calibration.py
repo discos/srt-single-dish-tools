@@ -66,16 +66,57 @@ def _get_flux_quantity(map_unit):
                          "of {}".format(list(FLUX_QUANTITIES.keys())))
 
 
-def _scantype(ras, decs):
-    """Get if scan is along RA or Dec, and if forward or backward."""
-    ravar = np.max(ras) - np.min(ras)
-    decvar = np.max(decs) - np.min(decs)
-    if ravar > decvar:
-        x = ras
-        xvariab = 'RA'
+def _scantype(ras, decs, az=None, el=None):
+    """Get if scan is along RA or Dec, and if forward or backward.
+
+    Examples
+    --------
+    >>> ras = np.linspace(1, 1.5, 100)
+    >>> decs = np.linspace(0, 0.01, 100)
+    >>> els = np.linspace(0.5, 0.7, 100)
+    >>> azs = np.linspace(0.5, 0.7, 100)
+    >>> st = _scantype(ras, decs, azs, els)
+    >>> np.all(st[0] == ras)
+    True
+    >>> st[1] == 'RA>'
+    True
+    >>> # Opposite direction
+    >>> ras = np.linspace(1, 1.5, 100)[::-1]
+    >>> _scantype(ras, decs, azs, els)[1]
+    'RA<'
+    >>> # Do not specify El and Dec, and test that it still works
+    >>> _scantype(ras, decs)[1]
+    'RA<'
+    >>> els, ras = ras, els
+    >>> decs, azs = azs, decs
+    >>> _scantype(ras, decs, azs, els)[1]
+    'El<'
+    >>> # Try to make inconsistent scans (min over one coord. sys.,
+    >>> # max in another)
+    >>> _scantype(ras, azs, decs, els)
+    Traceback (most recent call last):
+    ...
+    ValueError: I could not understand the direction of the scan
+    """
+    ravar = np.abs(ras[-1] - ras[0]) * np.cos(np.mean(decs))
+    decvar = np.abs(decs[-1] - decs[0])
+    if el is not None:
+        elvar = np.abs(el[-1] - el[0])
+        azvar = np.abs(az[-1] - az[0]) * np.cos(np.mean(el))
     else:
-        x = decs
-        xvariab = 'Dec'
+        elvar = azvar = np.mean([ravar, decvar])
+
+    direction = np.asarray([['RA', 'Dec'], ['Az', 'El']])
+    vararray = np.asarray([[ravar, decvar], [azvar, elvar]])
+    scanarray = np.asarray([ras, decs, az, el])
+
+    max = np.argmax(vararray)
+    minshift = np.argmin(vararray[:,::-1])
+    if max == minshift:
+        xvariab = direction.flatten()[max]
+        x = scanarray[max]
+    else:
+        raise ValueError('I could not understand the direction of the scan')
 
     if x[-1] > x[0]:
         scan_direction = '>'
@@ -224,7 +265,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         y = scan[channel]
 
-        x, scan_type = _scantype(ras, decs)
+        x, scan_type = _scantype(ras, decs, el, az)
 
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
 
