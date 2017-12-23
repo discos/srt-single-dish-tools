@@ -265,7 +265,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         y = scan[channel]
 
-        x, scan_type = _scantype(ras, decs, el, az)
+        # First of all, fit RA and/or Dec
+        x, scan_type = _scantype(ras, decs)
 
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
 
