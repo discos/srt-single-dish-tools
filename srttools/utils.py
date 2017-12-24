@@ -461,29 +461,20 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
         img_ax.set_xlim([0, im_to_analyze.shape[1] - 1])
         img_ax.set_ylim([0, im_to_analyze.shape[0] - 1])
 
-    xslice_dist = \
-        scipy.stats.rv_discrete(values=(x_pixels,
-                                        np.round(x_slice / np.sum(x_slice),
-                                                 decimals=7)),
-                                name='xslice')
-
-    yslice_dist = \
-        scipy.stats.rv_discrete(values=(y_pixels,
-                                        np.round(y_slice / np.sum(y_slice),
-                                                 decimals=7)),
-                                name='yslice')
+    xmoments = calculate_moments(x_slice)
+    ymoments = calculate_moments(y_slice)
 
     description_string += 'Skewness : \n'
-    description_string += 'X: {}\n'.format(xslice_dist.stats(moments='s'))
-    description_string += 'Y: {}\n'.format(yslice_dist.stats(moments='s'))
+    description_string += 'X: {}\n'.format(xmoments['skewness'])
+    description_string += 'Y: {}\n'.format(ymoments['skewness'])
     description_string += 'Kurtosis : \n'
-    description_string += 'X: {}\n'.format(xslice_dist.stats(moments='k'))
-    description_string += 'Y: {}\n'.format(yslice_dist.stats(moments='k'))
+    description_string += 'X: {}\n'.format(xmoments['kurtosis'])
+    description_string += 'Y: {}\n'.format(ymoments['kurtosis'])
 
-    moments_dict["XSK"] = xslice_dist.stats(moments='s')
-    moments_dict["YSK"] = yslice_dist.stats(moments='s')
-    moments_dict["XKU"] = xslice_dist.stats(moments='k')
-    moments_dict["YKU"] = yslice_dist.stats(moments='k')
+    moments_dict["XSK"] = xmoments['skewness']
+    moments_dict["YSK"] = ymoments['skewness']
+    moments_dict["XKU"] = xmoments['kurtosis']
+    moments_dict["YKU"] = ymoments['kurtosis']
 
     if HAS_MPL:
         img_ax.text(0.05, 0.95, description_string,
@@ -504,3 +495,51 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
     moments_dict['Description'] = description_string
 
     return moments_dict
+
+
+def calculate_moments(y, imax=None, window_length=5):
+    """Calculate moments of a curve.
+
+    Parameters
+    ----------
+    y : array-like
+        The curve to be analyzed
+
+    Other parameters
+    ----------------
+    imax : int, default None
+        The index of the center of the curve to be analyzed. If None, the
+        index of the maximum of y is taken
+    window_length : int, default 5
+        The window to be used for smoothing
+
+    Returns
+    -------
+    moments : dict
+        Dictionary containing the moments, e.g.
+        ``{'skewness': 0.0, 'kurtosis' : 0.00123456}``
+
+    Examples
+    --------
+    >>> y = np.exp(-np.linspace(-10, 10, 1101)**2/2)
+    >>> mo = calculate_moments(y)
+    >>> np.all(np.isclose(mo['skewness'], 0))
+    True
+    """
+    from scipy.signal import savgol_filter
+
+    yk = savgol_filter(np.asarray(y), window_length=window_length, polyorder=3)
+
+    if imax is None:
+        imax = np.argmax(yk)
+
+    N = len(y)
+    xk = imax - np.arange(N)
+    yk = np.round(yk / np.sum(yk), decimals=7)
+
+    xslice_dist = scipy.stats.rv_discrete(name='custm', values=(xk, yk))
+    moments = {}
+    moments['skewness'] = xslice_dist.stats(moments='s')
+    moments['kurtosis'] = xslice_dist.stats(moments='k')
+    return moments
+

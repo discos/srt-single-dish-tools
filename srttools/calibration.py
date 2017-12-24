@@ -26,6 +26,8 @@ import traceback
 from scipy.optimize import curve_fit
 import logging
 import astropy.units as u
+import scipy
+import scipy.stats
 
 import numpy as np
 from astropy.table import Table, Column
@@ -267,7 +269,6 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         # First of all, fit RA and/or Dec
         x, scan_type = _scantype(ras, decs)
-
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
 
         try:
@@ -279,9 +280,15 @@ def _treat_scan(scan_path, plot=False, **kwargs):
                                                      m=message))
             continue
         bell = model['Bell']
+        baseline = model['Baseline']
         # pars = model.parameters
         pnames = model.param_names
         counts = model.amplitude_1.value
+
+        backsub = y - baseline(x)
+        moments = _calculate_moments(backsub)
+        skewness = moments['skewness']
+        kurtosis = moments['kurtosis']
 
         if scan_type.startswith("RA"):
             fit_ra = bell.mean
@@ -322,7 +329,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
                      flux_over_counts, flux_over_counts_err,
                      calculated_flux, calculated_flux_err,
                      pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
-                     dec_err])
+                     dec_err, skewness, kurtosis])
 
         if plot and HAS_MPL:
             fig = plt.figure("Fit information")
@@ -372,7 +379,8 @@ class CalibratorTable(Table):
                  "Calculated Flux", "Calculated Flux Err",
                  "RA", "Dec",
                  "Fit RA", "Fit Dec",
-                 "RA err", "Dec err"]
+                 "RA err", "Dec err",
+                 "Skewness", "Kurtosis"]
 
         dtype = ['S200', 'S200', 'S200', 'S200',
                  'S200', np.int, np.double,
