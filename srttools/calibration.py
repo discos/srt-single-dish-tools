@@ -26,8 +26,6 @@ import traceback
 from scipy.optimize import curve_fit
 import logging
 import astropy.units as u
-import scipy
-import scipy.stats
 
 import numpy as np
 from astropy.table import Table, Column
@@ -263,7 +261,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         # Fit for gain curves
         x, _ = _scantype(ras, decs, els, azs)
-        temperature_model, temperature_info = \
+        temperature_model, _ = \
             fit_baseline_plus_bell(x, temperature, kind='gauss')
         source_temperature = temperature_model['Bell'].amplitude.value
 
