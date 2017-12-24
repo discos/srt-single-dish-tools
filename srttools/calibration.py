@@ -15,7 +15,7 @@ from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
 from .utils import standard_string, standard_byte, compare_strings
-from .utils import HAS_STATSM
+from .utils import HAS_STATSM, calculate_moments
 
 import os
 import sys
@@ -93,18 +93,12 @@ def _scantype(ras, decs, az=None, el=None):
     >>> decs, azs = azs, decs
     >>> _scantype(ras, decs, azs, els)[1]
     'El<'
-    >>> # Try to make inconsistent scans (min over one coord. sys.,
-    >>> # max in another)
-    >>> _scantype(ras, azs, decs, els)
-    Traceback (most recent call last):
-    ...
-    ValueError: I could not understand the direction of the scan
     """
-    ravar = np.abs(ras[-1] - ras[0]) * np.cos(np.mean(decs))
+    ravar = np.abs(ras[-1] - ras[0])
     decvar = np.abs(decs[-1] - decs[0])
     if el is not None:
         elvar = np.abs(el[-1] - el[0])
-        azvar = np.abs(az[-1] - az[0]) * np.cos(np.mean(el))
+        azvar = np.abs(az[-1] - az[0])
     else:
         elvar = azvar = np.mean([ravar, decvar])
 
@@ -112,13 +106,10 @@ def _scantype(ras, decs, az=None, el=None):
     vararray = np.asarray([[ravar, decvar], [azvar, elvar]])
     scanarray = np.asarray([ras, decs, az, el])
 
-    max = np.argmax(vararray)
     minshift = np.argmin(vararray[:,::-1])
-    if max == minshift:
-        xvariab = direction.flatten()[max]
-        x = scanarray[max]
-    else:
-        raise ValueError('I could not understand the direction of the scan')
+
+    xvariab = direction.flatten()[minshift]
+    x = scanarray[minshift]
 
     if x[-1] > x[0]:
         scan_direction = '>'
@@ -256,20 +247,30 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         ras = np.degrees(scan['ra'][:, feed])
         decs = np.degrees(scan['dec'][:, feed])
+        els = np.degrees(scan['el'][:, feed])
+        azs = np.degrees(scan['az'][:, feed])
         time = np.mean(scan['time'][:])
-        el = np.degrees(np.mean(scan['el'][:, feed]))
-        az = np.degrees(np.mean(scan['az'][:, feed]))
+        el = np.mean(els)
+        az = np.mean(azs)
         source = scan.meta['SOURCE']
         pnt_ra = np.degrees(scan.meta['RA'])
         pnt_dec = np.degrees(scan.meta['Dec'])
         frequency = scan[channel].meta['frequency']
         bandwidth = scan[channel].meta['bandwidth']
+        temperature = scan[channel + '-Temp']
 
         y = scan[channel]
 
-        # First of all, fit RA and/or Dec
+        # Fit for gain curves
+        x, _ = _scantype(ras, decs, els, azs)
+        temperature_model, temperature_info = \
+            fit_baseline_plus_bell(x, temperature, kind='gauss')
+        source_temperature = temperature_model['Bell'].amplitude.value
+
+        # Fit RA and/or Dec
         x, scan_type = _scantype(ras, decs)
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
+
 
         try:
             uncert = fit_info['param_cov'].diagonal() ** 0.5
@@ -286,7 +287,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         counts = model.amplitude_1.value
 
         backsub = y - baseline(x)
-        moments = _calculate_moments(backsub)
+        moments = calculate_moments(backsub)
         skewness = moments['skewness']
         kurtosis = moments['kurtosis']
 
@@ -325,6 +326,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
                      time, frequency, bandwidth, counts, counts_err,
                      fit_width, width_err,
                      flux_density, flux_density_err, el, az,
+                     source_temperature,
                      flux_over_counts, flux_over_counts_err,
                      flux_over_counts, flux_over_counts_err,
                      calculated_flux, calculated_flux_err,
@@ -374,6 +376,7 @@ class CalibratorTable(Table):
                  "Width", "Width Err",
                  "Flux", "Flux Err",
                  "Elevation", "Azimuth",
+                 "Source_temperature",
                  "Flux/Counts", "Flux/Counts Err",
                  "Flux Integral/Counts", "Flux Integral/Counts Err",
                  "Calculated Flux", "Calculated Flux Err",
@@ -387,6 +390,7 @@ class CalibratorTable(Table):
                  np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
+                 np.float, np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
