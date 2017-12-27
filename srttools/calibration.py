@@ -1206,6 +1206,7 @@ def main_cal(args=None):
         caltable.show()
 
     caltable.write(outfile, overwrite=True)
+    caltable.write(outfile.replace('.hdf5', '.csv'), overwrite=True)
 
 
 def main_lcurve(args=None):
