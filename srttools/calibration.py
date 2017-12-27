@@ -354,6 +354,27 @@ def _treat_scan(scan_path, plot=False, **kwargs):
                                      "Feed{}_chan{}.png".format(feed,
                                                                 nch)))
             plt.close(fig)
+            fig = plt.figure("Fit information - temperature")
+            gs = GridSpec(2, 1, height_ratios=(3, 1))
+            ax0 = plt.subplot(gs[0])
+            ax1 = plt.subplot(gs[1], sharex=ax0)
+
+            ax0.plot(x, temperature, label="Data")
+            ax0.plot(x, temperature_model['Bell'](x), label="Fit")
+            ax1.plot(x, temperature - temperature_model['Bell'](x))
+
+            ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt",
+                        ls="--")
+            ax0.set_xlim([min(x), max(x)])
+            ax1.set_xlabel(fit_label)
+            ax0.set_ylabel("Counts")
+            ax1.set_ylabel("Residual (cts)")
+
+            plt.legend()
+            plt.savefig(os.path.join(outdir,
+                                     "Feed{}_chan{}_temp.png".format(feed,
+                                                                     nch)))
+            plt.close(fig)
 
     return True, rows
 
