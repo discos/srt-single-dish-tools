@@ -91,7 +91,7 @@ calibrator_directories :
     string2 = """
 
 skydip_directories :
-    skydip
+    gauss_skydip
 
 noise_threshold : 5
 
