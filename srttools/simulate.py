@@ -157,7 +157,7 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
 
 def save_scan(times, ra, dec, channels, filename='out.fits',
               other_columns=None, scan_type=None, src_ra=None, src_dec=None,
-              srcname='Dummy'):
+              srcname='Dummy', counts_to_K=0.03):
     """Save a simulated scan in fitszilla format.
 
     Parameters
@@ -175,6 +175,8 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
         Output file name
     srcname : str
         Name of the source
+    counts_to_K : float
+        Conversion factor between counts and K
     """
     if src_ra is None:
         src_ra = np.mean(ra)
@@ -186,6 +188,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
                                             'scan_template.fits'))
     lchdulist = fits.open(template)
     datahdu = lchdulist['DATA TABLE']
+    temphdu = lchdulist['ANTENNA TEMP TABLE']
     lchdulist[0].header['SOURCE'] = "Dummy"
     lchdulist[0].header['ANTENNA'] = "SRT"
     lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.radians(src_ra)
@@ -223,9 +226,17 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
         hdu.data[colname][:] = data_table_data[colname]
 
     datahdu.data = hdu.data
-    # print(datahdu)
-    # lchdulist['DATA TABLE'].name = 'TMP'
-    # lchdulist.append(datahdu)
+
+    temptable = Table()
+    for ch in channels.keys():
+        temptable[ch] = newtable[ch] * counts_to_K
+
+    thdu = fits.BinTableHDU.from_columns(temphdu.data.columns, nrows=nrows)
+    for colname in temphdu.data.columns.names:
+        thdu.data[colname][:] = data_table_data[colname]
+
+    temphdu.data = thdu.data
+
     lchdulist[0].header['SOURCE'] = srcname
     lchdulist.writeto(filename, overwrite=True)
     lchdulist.close()

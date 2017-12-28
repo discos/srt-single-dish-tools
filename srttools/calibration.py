@@ -15,7 +15,7 @@ from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
 from .utils import standard_string, standard_byte, compare_strings
-from .utils import HAS_STATSM
+from .utils import HAS_STATSM, calculate_moments
 
 import os
 import sys
@@ -66,16 +66,48 @@ def _get_flux_quantity(map_unit):
                          "of {}".format(list(FLUX_QUANTITIES.keys())))
 
 
-def _scantype(ras, decs):
-    """Get if scan is along RA or Dec, and if forward or backward."""
-    ravar = np.max(ras) - np.min(ras)
-    decvar = np.max(decs) - np.min(decs)
-    if ravar > decvar:
-        x = ras
-        xvariab = 'RA'
+def _scantype(ras, decs, az=None, el=None):
+    """Get if scan is along RA or Dec, and if forward or backward.
+
+    Examples
+    --------
+    >>> ras = np.linspace(1, 1.5, 100)
+    >>> decs = np.linspace(0, 0.01, 100)
+    >>> els = np.linspace(0.5, 0.7, 100)
+    >>> azs = np.linspace(0.5, 0.7, 100)
+    >>> st = _scantype(ras, decs, azs, els)
+    >>> np.all(st[0] == ras)
+    True
+    >>> st[1] == 'RA>'
+    True
+    >>> # Opposite direction
+    >>> ras = np.linspace(1, 1.5, 100)[::-1]
+    >>> _scantype(ras, decs, azs, els)[1]
+    'RA<'
+    >>> # Do not specify El and Dec, and test that it still works
+    >>> _scantype(ras, decs)[1]
+    'RA<'
+    >>> els, ras = ras, els
+    >>> decs, azs = azs, decs
+    >>> _scantype(ras, decs, azs, els)[1]
+    'El<'
+    """
+    ravar = np.abs(ras[-1] - ras[0])
+    decvar = np.abs(decs[-1] - decs[0])
+    if el is not None:
+        elvar = np.abs(el[-1] - el[0])
+        azvar = np.abs(az[-1] - az[0])
     else:
-        x = decs
-        xvariab = 'Dec'
+        elvar = azvar = np.mean([ravar, decvar])
+
+    direction = np.asarray([['RA', 'Dec'], ['Az', 'El']])
+    vararray = np.asarray([[ravar, decvar], [azvar, elvar]])
+    scanarray = np.asarray([ras, decs, az, el])
+
+    minshift = np.argmin(vararray[:,::-1])
+
+    xvariab = direction.flatten()[minshift]
+    x = scanarray[minshift]
 
     if x[-1] > x[0]:
         scan_direction = '>'
@@ -213,20 +245,30 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         ras = np.degrees(scan['ra'][:, feed])
         decs = np.degrees(scan['dec'][:, feed])
+        els = np.degrees(scan['el'][:, feed])
+        azs = np.degrees(scan['az'][:, feed])
         time = np.mean(scan['time'][:])
-        el = np.degrees(np.mean(scan['el'][:, feed]))
-        az = np.degrees(np.mean(scan['az'][:, feed]))
+        el = np.mean(els)
+        az = np.mean(azs)
         source = scan.meta['SOURCE']
         pnt_ra = np.degrees(scan.meta['RA'])
         pnt_dec = np.degrees(scan.meta['Dec'])
         frequency = scan[channel].meta['frequency']
         bandwidth = scan[channel].meta['bandwidth']
+        temperature = scan[channel + '-Temp']
 
         y = scan[channel]
 
-        x, scan_type = _scantype(ras, decs)
+        # Fit for gain curves
+        x, _ = _scantype(ras, decs, els, azs)
+        temperature_model, _ = \
+            fit_baseline_plus_bell(x, temperature, kind='gauss')
+        source_temperature = temperature_model['Bell'].amplitude.value
 
+        # Fit RA and/or Dec
+        x, scan_type = _scantype(ras, decs)
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
+
 
         try:
             uncert = fit_info['param_cov'].diagonal() ** 0.5
@@ -237,9 +279,15 @@ def _treat_scan(scan_path, plot=False, **kwargs):
                                                      m=message))
             continue
         bell = model['Bell']
+        baseline = model['Baseline']
         # pars = model.parameters
         pnames = model.param_names
         counts = model.amplitude_1.value
+
+        backsub = y - baseline(x)
+        moments = calculate_moments(backsub)
+        skewness = moments['skewness']
+        kurtosis = moments['kurtosis']
 
         if scan_type.startswith("RA"):
             fit_ra = bell.mean
@@ -276,11 +324,12 @@ def _treat_scan(scan_path, plot=False, **kwargs):
                      time, frequency, bandwidth, counts, counts_err,
                      fit_width, width_err,
                      flux_density, flux_density_err, el, az,
+                     source_temperature,
                      flux_over_counts, flux_over_counts_err,
                      flux_over_counts, flux_over_counts_err,
                      calculated_flux, calculated_flux_err,
                      pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
-                     dec_err])
+                     dec_err, skewness, kurtosis])
 
         if plot and HAS_MPL:
             fig = plt.figure("Fit information")
@@ -305,6 +354,27 @@ def _treat_scan(scan_path, plot=False, **kwargs):
                                      "Feed{}_chan{}.png".format(feed,
                                                                 nch)))
             plt.close(fig)
+            fig = plt.figure("Fit information - temperature")
+            gs = GridSpec(2, 1, height_ratios=(3, 1))
+            ax0 = plt.subplot(gs[0])
+            ax1 = plt.subplot(gs[1], sharex=ax0)
+
+            ax0.plot(x, temperature, label="Data")
+            ax0.plot(x, temperature_model['Bell'](x), label="Fit")
+            ax1.plot(x, temperature - temperature_model['Bell'](x))
+
+            ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt",
+                        ls="--")
+            ax0.set_xlim([min(x), max(x)])
+            ax1.set_xlabel(fit_label)
+            ax0.set_ylabel("Counts")
+            ax1.set_ylabel("Residual (cts)")
+
+            plt.legend()
+            plt.savefig(os.path.join(outdir,
+                                     "Feed{}_chan{}_temp.png".format(feed,
+                                                                     nch)))
+            plt.close(fig)
 
     return True, rows
 
@@ -325,18 +395,21 @@ class CalibratorTable(Table):
                  "Width", "Width Err",
                  "Flux", "Flux Err",
                  "Elevation", "Azimuth",
+                 "Source_temperature",
                  "Flux/Counts", "Flux/Counts Err",
                  "Flux Integral/Counts", "Flux Integral/Counts Err",
                  "Calculated Flux", "Calculated Flux Err",
                  "RA", "Dec",
                  "Fit RA", "Fit Dec",
-                 "RA err", "Dec err"]
+                 "RA err", "Dec err",
+                 "Skewness", "Kurtosis"]
 
         dtype = ['S200', 'S200', 'S200', 'S200',
                  'S200', np.int, np.double,
                  np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
+                 np.float, np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
                  np.float, np.float,
@@ -1133,6 +1206,7 @@ def main_cal(args=None):
         caltable.show()
 
     caltable.write(outfile, overwrite=True)
+    caltable.write(outfile.replace('.hdf5', '.csv'), overwrite=True)
 
 
 def main_lcurve(args=None):

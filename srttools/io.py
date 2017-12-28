@@ -252,7 +252,7 @@ def read_data_fitszilla(fname):
                             'Section table.')
             is_polarized = True
         if nbin_per_chan * nchan != nbins and \
-                                nbin_per_chan * nchan * 2 != nbins:
+                nbin_per_chan * nchan * 2 != nbins:
             raise ValueError('Something wrong with channel subdivision')
 
         for ic, ch in enumerate(chan_names):
@@ -265,11 +265,11 @@ def read_data_fitszilla(fname):
                                  ' feed observations')
             feed = feeds[0]
             data_table_data['Feed{}_Q'.format(feed)] = \
-                    data_table_data['spectrum'][:, 2 * nbin_per_chan:
-                    3 * nbin_per_chan]
+                data_table_data['spectrum'][:, 2 * nbin_per_chan:
+                                               3 * nbin_per_chan]
             data_table_data['Feed{}_U'.format(feed)] = \
-                    data_table_data['spectrum'][:, 3 * nbin_per_chan:
-                    4 * nbin_per_chan]
+                data_table_data['spectrum'][:, 3 * nbin_per_chan:
+                                               4 * nbin_per_chan]
             chan_names += ['Feed{}_Q'.format(feed),
                            'Feed{}_U'.format(feed)]
     else:
@@ -277,7 +277,20 @@ def read_data_fitszilla(fname):
             data_table_data[ch] = \
                 data_table_data['ch{}'.format(chan_ids[ic])]
 
-    info_to_retrieve = ['time', 'derot_angle']
+    # ----------- Read temperature data, if possible ----------------
+    tempdata = lchdulist['ANTENNA TEMP TABLE'].data
+    try:
+        for ic, ch in enumerate(chan_names):
+            data_table_data[ch + '-Temp'] = \
+                tempdata['ch{}'.format(chan_ids[ic])]
+    except Exception as e:
+        logging.warning("Could not read temperature information from file."
+                        "Exception: {}".format(str(e)))
+        for ic, ch in enumerate(chan_names):
+            data_table_data[ch + '-Temp'] = 0.
+
+    info_to_retrieve = \
+        ['time', 'derot_angle'] + [ch + '-Temp' for ch in chan_names]
 
     new_table = Table()
 
