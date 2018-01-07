@@ -15,21 +15,15 @@ try:
 except ImportError:
     HAS_MAHO = False
 
-try:
-    import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
-
 DEFAULT_MPL_BACKEND = 'TKAgg'
-
 
 try:
     import matplotlib
+    matplotlib.use(DEFAULT_MPL_BACKEND)
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
 
     # This is necessary. Random backends might respond incorrectly.
-    matplotlib.use(DEFAULT_MPL_BACKEND)
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
@@ -344,7 +338,7 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
         description_string += str(i) + ': '
         moments_dict[i] = {}
         for j in range(i + 1):
-            if (i - j)%2 == 0:
+            if (i - j) % 2 == 0:
                 description_string += "{}/{} {:.1e} ".format(i, j,
                                                              moments[count])
                 moments_dict[i][j] = moments[count]
@@ -354,8 +348,8 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
     if HAS_MPL:
         plt.text(0.05, 0.95, description_string,
                  horizontalalignment='left',
-                 verticalalignment = 'top',
-                 transform = plt.gca().transAxes,
+                 verticalalignment='top',
+                 transform=plt.gca().transAxes,
                  color='white')
 
         if label is None:
@@ -542,4 +536,3 @@ def calculate_moments(y, imax=None, window_length=5):
     moments['skewness'] = xslice_dist.stats(moments='s')
     moments['kurtosis'] = xslice_dist.stats(moments='k')
     return moments
-

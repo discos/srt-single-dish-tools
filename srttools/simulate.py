@@ -8,12 +8,14 @@ import numpy.random as ra
 import os
 from astropy.io import fits
 from astropy.table import Table, vstack
+import astropy.units as u
+import six
+import collections
+
 from .io import mkdir_p, locations
 from .utils import tqdm
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
-import astropy.units as u
-import six
 try:
     import matplotlib.pyplot as plt
     HAS_MPL = True
@@ -65,7 +67,7 @@ def calibrator_scan_func(x):
 
 
 def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
-                   srcname='DummyCal'):
+                   srcname='DummyCal', channel_ratio=0.8):
     src_ra = 185
     src_dec = 75
     timedelta = 0
@@ -84,9 +86,10 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         scan = scan_func(scan_values) + \
             ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * channel_ratio},
                   filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
-                  src_ra=src_ra, src_dec=src_dec, srcname=srcname)
+                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
+                  counts_to_K=(0.03, 0.03 / channel_ratio))
         timedelta = times[-1] + 1
 
         ras = src_ra + zero_values
@@ -97,9 +100,10 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         scan = scan_func(scan_values) + \
             ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * 0.8},
+        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * channel_ratio},
                   filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
-                  src_ra=src_ra, src_dec=src_dec, srcname=srcname)
+                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
+                  counts_to_K=(0.03, 0.03 / channel_ratio))
         timedelta = times[-1] + 1
 
 
@@ -175,13 +179,21 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
         Output file name
     srcname : str
         Name of the source
-    counts_to_K : float
-        Conversion factor between counts and K
+    counts_to_K : float, array or dict
+        Conversion factor between counts and K. If array, it has to be the same
+        length as channels.keys()
     """
     if src_ra is None:
         src_ra = np.mean(ra)
     if src_dec is None:
         src_dec = np.mean(dec)
+    # If it's a single value, make it into a list
+    if not isinstance(counts_to_K, collections.Iterable):
+        counts_to_K = counts_to_K * np.ones(len(list(channels.keys())))
+    # If it's a list, make it into a dict
+    if not hasattr(counts_to_K, 'keys'):
+        counts_to_K = dict([(ch, counts_to_K[i])
+                            for i, ch in enumerate(channels.keys())])
 
     curdir = os.path.abspath(os.path.dirname(__file__))
     template = os.path.abspath(os.path.join(curdir, 'data',
@@ -229,11 +241,11 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
 
     temptable = Table()
     for ch in channels.keys():
-        temptable[ch] = newtable[ch] * counts_to_K
+        temptable[ch] = newtable[ch] * counts_to_K[ch]
 
     thdu = fits.BinTableHDU.from_columns(temphdu.data.columns, nrows=nrows)
     for colname in temphdu.data.columns.names:
-        thdu.data[colname][:] = data_table_data[colname]
+        thdu.data[colname][:] = temptable[colname]
 
     temphdu.data = thdu.data
 
@@ -275,6 +287,8 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     outdir : str or iterable (str, str)
         If a single string, put all files in that directory; if two strings,
         put RA and DEC scans in the two directories.
+    channel_ratio : float
+        Ratio between the counts in the two channels
     """
 
     if isinstance(outdir, six.string_types):
@@ -350,7 +364,8 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
                   {'Ch0': counts, 'Ch1': counts * channel_ratio},
                   filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
-                  src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
+                  src_ra=mean_ra, src_dec=mean_dec, srcname=srcname,
+                  counts_to_K=(0.03, 0.03 / channel_ratio))
         if HAS_MPL:
             plt.plot(ra_array, counts)
 
@@ -460,7 +475,7 @@ def main_simulate(args=None):
                  outdir=(os.path.join(args.outdir_root, 'gauss_ra'),
                          os.path.join(args.outdir_root, 'gauss_dec')),
                  baseline=args.baseline, mean_ra=180, mean_dec=70,
-                 srcname='Dummy', channel_ratio=1,
+                 srcname='Dummy', channel_ratio=0.9,
                  count_map=local_gauss_src_func)
 
     def calibrator_scan_func(x):
@@ -469,8 +484,9 @@ def main_simulate(args=None):
     if not args.no_cal:
         cal1 = os.path.join(args.outdir_root, 'calibrator1')
         mkdir_p(cal1)
-        sim_crossscans(5, cal1, scan_func=calibrator_scan_func)
+        sim_crossscans(5, cal1, scan_func=calibrator_scan_func,
+                       channel_ratio=0.9)
         cal2 = os.path.join(args.outdir_root, 'calibrator2')
         mkdir_p(cal2)
         sim_crossscans(5, cal2, scan_func=calibrator_scan_func,
-                       srcname='DummyCal2')
+                       srcname='DummyCal2', channel_ratio=0.9)
