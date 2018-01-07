@@ -15,21 +15,15 @@ try:
 except ImportError:
     HAS_MAHO = False
 
-try:
-    import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
-
 DEFAULT_MPL_BACKEND = 'TKAgg'
-
 
 try:
     import matplotlib
+    matplotlib.use(DEFAULT_MPL_BACKEND)
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
 
     # This is necessary. Random backends might respond incorrectly.
-    matplotlib.use(DEFAULT_MPL_BACKEND)
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
