@@ -576,7 +576,7 @@ class TestScanSet(object):
         good = images['Feed0_RCP'] > 1
 
         assert np.allclose(images['Feed0_RCP'][good],
-                           images_standard['Feed0_RCP'][good], atol=1e-3)
+                           images_standard['Feed0_RCP'][good], atol=1e-1)
 
     def test_ds9_image(self):
         '''Test image production.'''
