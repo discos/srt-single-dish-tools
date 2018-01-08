@@ -51,8 +51,9 @@ def _default_flat_shape(x):
     --------
     >>> _default_flat_shape(4314)
     100.0
-    >>> _default_flat_shape(np.arange(3))
-    array([ 100.,  100.,  100.])
+    >>> np.allclose(_default_flat_shape(np.arange(3)),
+    ...             np.array([100., 100., 100.]))
+    True
     """
     return 100 + np.zeros(np.asarray(x).shape)
 
@@ -114,10 +115,11 @@ def _default_map_shape(x, y):
     --------
     >>> _default_map_shape(4314, 234)
     100
-    >>> _default_map_shape(np.zeros((3, 4)), np.ones((3, 4)))
-    array([[ 100.,  100.,  100.,  100.],
-           [ 100.,  100.,  100.,  100.],
-           [ 100.,  100.,  100.,  100.]])
+    >>> res = np.array([[ 100.,  100.,  100.,  100.],
+    ...                 [ 100.,  100.,  100.,  100.],
+    ...                 [ 100.,  100.,  100.,  100.]])
+    >>> np.allclose(_default_map_shape(np.zeros((3, 4)), np.ones((3, 4))), res)
+    True
     """
     x = np.asarray(x)
     y = np.asarray(y)

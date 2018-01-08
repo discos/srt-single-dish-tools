@@ -187,12 +187,15 @@ class ScanSet(Table):
         ver_unit = self[ver].unit
 
         # These seemingly useless float() calls are needed for serialize_meta
-        self.meta['mean_' + hor] = float(np.mean(allhor)) * hor_unit
-        self.meta['mean_' + ver] = float(np.mean(allver)) * ver_unit
         self.meta['min_' + hor] = float(np.min(allhor)) * hor_unit
         self.meta['min_' + ver] = float(np.min(allver)) * ver_unit
         self.meta['max_' + hor] = float(np.max(allhor)) * hor_unit
         self.meta['max_' + ver] = float(np.max(allver)) * ver_unit
+
+        self.meta['mean_' + hor] = \
+            (self.meta['max_' + hor] + self.meta['min_' + hor]) / 2
+        self.meta['mean_' + ver] = \
+            (self.meta['max_' + ver] + self.meta['min_' + ver]) / 2
 
         if 'reference_ra' not in self.meta:
             self.meta['reference_ra'] = self.meta['RA']
@@ -209,7 +212,7 @@ class ScanSet(Table):
     def get_opacity(self, datadir=None, dirlist=None):
         """List all scans contained in the directory listed in config."""
         self.opacities = {}
-        if not 'skydip_directories' in self.meta:
+        if 'skydip_directories' not in self.meta:
             return
 
         if datadir is None:
@@ -344,6 +347,7 @@ class ScanSet(Table):
         delta_hor *= np.cos(self.meta['reference_' + ver])
         delta_ver = self.meta['max_' + ver] - self.meta['min_' + ver]
 
+        # npix >= 1!
         npix_hor = np.ceil(delta_hor / pixel_size)
         npix_ver = np.ceil(delta_ver / pixel_size)
 
@@ -384,10 +388,10 @@ class ScanSet(Table):
         self['y'] = np.zeros_like(self[ver])
         coords = np.degrees(self.get_coordinates(altaz=altaz))
         for f in range(len(self[hor][0, :])):
-            pixcrd = self.wcs.wcs_world2pix(coords[:, f], 0)
+            pixcrd = self.wcs.all_world2pix(coords[:, f], 0.5)
 
-            self['x'][:, f] = pixcrd[:, 0]
-            self['y'][:, f] = pixcrd[:, 1]
+            self['x'][:, f] = pixcrd[:, 0] + 0.5
+            self['y'][:, f] = pixcrd[:, 1] + 0.5
         self['x'].meta['altaz'] = altaz
         self['y'].meta['altaz'] = altaz
 
@@ -823,8 +827,7 @@ class ScanSet(Table):
 
         if len(fit_info) > 1:
             resave = True
-            sub = linear_fun(s[dim][:, feed],
-                                *fit_info)
+            sub = linear_fun(s[dim][:, feed], *fit_info)
             s[ch] = np.array(s[ch]) - sub
         # TODO: make it channel-independent
             s.meta['backsub'] = True
@@ -925,7 +928,8 @@ class ScanSet(Table):
             The radius around the center of mass, in percentage of the image
             size (0 <= radius <= 0.5)
         use_log: bool
-            Rescale the image to a log scale before calculating the coefficients.
+            Rescale the image to a log scale before calculating the
+            coefficients.
             The scale is the same documented in the ds9 docs, for consistency.
             After normalizing the image from 0 to 1, the log-rescaled image is
             log(ax + 1) / log a, with ``x`` the normalized image and ``a`` a
