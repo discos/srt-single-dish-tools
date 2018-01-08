@@ -155,8 +155,9 @@ def compare_strings(s1, s2):
     >>> compare_strings('a', u'a')
     True
     >>> import numpy as np
-    >>> compare_strings(np.array(['a', 'b'], dtype='S'), u'a')
-    array([ True, False], dtype=bool)
+    >>> res = np.array([ True, False], dtype=bool)
+    >>> np.all(compare_strings(np.array(['a', 'b'], dtype='S'), u'a') == res)
+    True
     """
 
     s1 = standard_string(s1)
