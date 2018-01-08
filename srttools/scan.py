@@ -460,8 +460,12 @@ class Scan(Table):
             self.meta['config_file'] = config_file
             self.meta.update(read_config(self.meta['config_file']))
         else:  # if data is a filename
-            if os.path.exists(root_name(data) + '.hdf5') and norefilt:
-                data = root_name(data) + '.hdf5'
+            h5name = root_name(data) + '.hdf5'
+            if os.path.exists(h5name) and norefilt:
+                # but only if the modification time is later than the
+                # original file (e.g. the fits file was not modified later)
+                if os.path.getmtime(h5name) > os.path.getmtime(data):
+                    data = h5name
             if debug:
                 logging.info('Loading file {}'.format(data))
             table = read_data(data)
