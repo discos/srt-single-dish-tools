@@ -68,44 +68,59 @@ def calibrator_scan_func(x):
 
 
 def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
-                   srcname='DummyCal', channel_ratio=0.8):
+                   srcname='DummyCal', channel_ratio=0.8, baseline="flat"):
     src_ra = 185
     src_dec = 75
-    timedelta = 0
     speed = 2.  # arcmin/s
     dt = 0.04
     dtheta = speed * dt
-    scan_values = np.arange(-2, 2, dtheta/60)
-    zero_values = np.zeros_like(scan_values)
+    length = 4 / dtheta
+
+    timedelta = 0
 
     for i in tqdm(range(ncross)):
-        ras = src_ra + scan_values / np.cos(np.radians(src_dec))
+        times, ras, scan0 = \
+            simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
+                          noise_amplitude=0.2, center=src_ra,
+                          baseline=baseline)
+        _, _, scan1 = \
+            simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
+                          noise_amplitude=0.2, center=src_ra,
+                          baseline=baseline)
+
         if i % 2 != 0:
             ras = ras[::-1]
-        decs = src_dec + zero_values
-        times = np.arange(scan_values.size) * dt + timedelta
 
-        scan = scan_func(scan_values) + \
-            ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * channel_ratio},
+        decs = np.zeros_like(ras) + src_dec
+
+        save_scan(times + timedelta, ras, decs,
+                  {'Ch0': scan0, 'Ch1': scan1 * channel_ratio},
                   filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname,
                   counts_to_K=(0.03, 0.03 / channel_ratio))
-        timedelta = times[-1] + 1
+        timedelta += times[-1] + 1
 
-        ras = src_ra + zero_values
-        decs = src_dec + scan_values
+
+        times, decs, scan0 = \
+            simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
+                          noise_amplitude=0.2, center=src_dec,
+                          baseline=baseline)
+        _, _, scan1 = \
+            simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
+                          noise_amplitude=0.2, center=src_dec,
+                          baseline=baseline)
+
         if i % 2 != 0:
             decs = decs[::-1]
-        times = np.arange(scan_values.size) * dt + timedelta
 
-        scan = scan_func(scan_values) + \
-            ra.normal(0, 0.2, scan_values.size)
-        save_scan(times, ras, decs, {'Ch0': scan, 'Ch1': scan * channel_ratio},
+        ras = np.zeros_like(decs) + src_ra
+
+        save_scan(times + timedelta, ras, decs,
+                  {'Ch0': scan0, 'Ch1': scan1 * channel_ratio},
                   filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname,
                   counts_to_K=(0.03, 0.03 / channel_ratio))
-        timedelta = times[-1] + 1
+        timedelta += times[-1] + 1
 
 
 def _default_map_shape(x, y):
@@ -128,7 +143,7 @@ def _default_map_shape(x, y):
 
 
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
-                  noise_amplitude=1., center=0.):
+                  noise_amplitude=1., center=0., baseline="flat"):
     """Simulate a scan.
 
     Parameters
@@ -147,6 +162,10 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
         Noise level in counts
     center : float
         Center coordinate in degrees
+    baseline : str
+        "flat", "slope" (linearly increasing/decreasing), "messy"
+        (random walk) or a number (which gives an amplitude to the random-walk
+        baseline, that is 20 for "messy").
     """
     if shape is None:
         shape = _default_flat_shape
@@ -157,8 +176,10 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
     # In degrees!
     position = np.arange(-nbins / 2, nbins / 2) / nbins * length / 60
 
+    scan_baseline = _create_baseline(position, baseline)
+
     return times, position + center, shape(position) + \
-        ra.normal(0, noise_amplitude, position.shape)
+        ra.normal(0, noise_amplitude, position.shape) + scan_baseline
 
 
 def save_scan(times, ra, dec, channels, filename='out.fits',
@@ -256,6 +277,41 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     lchdulist.close()
 
 
+def _create_baseline(x, baseline_kind="flat"):
+
+    if baseline_kind == "flat":
+        mmin = mmax = 0
+        qmin = qmax = 0
+        stochastic_amp = 0
+    elif baseline_kind == "slope":
+        mmin, mmax = -5, 5
+        qmin, qmax = 0, 150
+        stochastic_amp = 0
+    elif baseline_kind == "messy":
+        mmin, mmax = 0, 0
+        qmin, qmax = 0, 0
+        stochastic_amp = 20
+    elif _is_number(baseline_kind):
+        mmin, mmax = 0, 0
+        qmin, qmax = 0, 0
+        stochastic_amp = float(baseline_kind)
+    else:
+        raise ValueError("baseline has to be 'flat', 'slope', 'messy' or a "
+                         "number")
+
+    n = len(x)
+    m = ra.uniform(mmin, mmax)
+    q = ra.uniform(qmin, qmax)
+    signs = np.random.choice([-1, 1], n)
+
+    stochastic = \
+        np.cumsum(signs) * stochastic_amp / np.sqrt(n)
+
+    baseline = m * x + q
+
+    return baseline + stochastic
+
+
 def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                  spacing=0.5, count_map=None, noise_amplitude=1.,
                  width_ra=None, width_dec=None, outdir='sim/',
@@ -304,26 +360,6 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     if count_map is None:
         count_map = _default_map_shape
 
-    if baseline == "flat":
-        mmin = mmax = 0
-        qmin = qmax = 0
-        stochastic_amp = 0
-    elif baseline == "slope":
-        mmin, mmax = -5, 5
-        qmin, qmax = 0, 150
-        stochastic_amp = 0
-    elif baseline == "messy":
-        mmin, mmax = 0, 0
-        qmin, qmax = 0, 0
-        stochastic_amp = 20
-    elif _is_number(baseline):
-        mmin, mmax = 0, 0
-        qmin, qmax = 0, 0
-        stochastic_amp = float(baseline)
-    else:
-        raise ValueError("baseline has to be 'flat', 'slope', 'messy' or a "
-                         "number")
-
     nbins_ra = np.int(np.rint(length_ra / speed / dt))
     nbins_dec = np.int(np.rint(length_dec / speed / dt))
 
@@ -348,28 +384,29 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     for i_d, delta_dec in enumerate(tqdm(delta_decs)):
 
         start_dec = mean_dec + delta_dec
-        m = ra.uniform(mmin, mmax)
-        q = ra.uniform(qmin, qmax)
-        signs = np.random.choice([-1, 1], nbins_ra)
-        stochastic = \
-            np.cumsum(signs) * stochastic_amp / np.sqrt(nbins_ra)
 
-        baseline = m * ra_array + q + stochastic
-        counts = count_map(ra_array, delta_dec) + \
-            ra.normal(0, noise_amplitude, ra_array.shape) + \
-            baseline
+        counts_clean = count_map(ra_array, delta_dec)
+
+        baseline0 = _create_baseline(ra_array, baseline)
+        baseline1 = _create_baseline(ra_array, baseline)
+
+        counts0 = counts_clean + \
+                  ra.normal(0, noise_amplitude, ra_array.shape) + baseline0
+        counts1 = counts_clean + \
+                  ra.normal(0, noise_amplitude, ra_array.shape) + baseline1
 
         actual_ra = mean_ra + ra_array / np.cos(np.radians(start_dec))
 
         if i_d % 2 != 0:
             actual_ra = actual_ra[::-1]
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
-                  {'Ch0': counts, 'Ch1': counts * channel_ratio},
+                  {'Ch0': counts0, 'Ch1': counts1 * channel_ratio},
                   filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname,
                   counts_to_K=(0.03, 0.03 / channel_ratio))
         if HAS_MPL:
-            plt.plot(ra_array, counts)
+            plt.plot(ra_array, counts0)
+            plt.plot(ra_array, counts1)
 
     if HAS_MPL:
         fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
@@ -382,28 +419,28 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     # RA scans
     for i_r, delta_ra in enumerate(tqdm(delta_ras)):
         start_ra = delta_ra / np.cos(np.radians(mean_dec)) + mean_ra
-        m = ra.uniform(mmin, mmax)
-        q = ra.uniform(qmin, qmax)
 
-        signs = np.random.choice([-1, 1], nbins_dec)
-        stochastic = \
-            np.cumsum(signs) * stochastic_amp / np.sqrt(nbins_dec)
+        counts_clean = count_map(delta_ra, dec_array)
 
-        baseline = m * dec_array + q + stochastic
-        counts = count_map(delta_ra, dec_array) + \
-            ra.normal(0, noise_amplitude, dec_array.shape) + \
-            baseline
+        baseline0 = _create_baseline(dec_array, baseline)
+        baseline1 = _create_baseline(dec_array, baseline)
+
+        counts0 = counts_clean + \
+                  ra.normal(0, noise_amplitude, ra_array.shape) + baseline0
+        counts1 = counts_clean + \
+                  ra.normal(0, noise_amplitude, ra_array.shape) + baseline1
 
         if i_r % 2 != 0:
             dec_array = dec_array[::-1]
         save_scan(times_dec, np.zeros_like(dec_array) + start_ra,
                   dec_array + mean_dec,
-                  {'Ch0': counts, 'Ch1': counts * channel_ratio},
+                  {'Ch0': counts0, 'Ch1': counts1 * channel_ratio},
                   filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
 
         if HAS_MPL:
-            plt.plot(dec_array, counts)
+            plt.plot(dec_array, counts0)
+            plt.plot(dec_array, counts1)
 
     if HAS_MPL:
         fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
@@ -471,6 +508,20 @@ def main_simulate(args=None):
         return args.source_flux * 100 * _2d_gauss(x, y,
                                                   sigma=args.beam_width/60)
 
+    def calibrator_scan_func(x):
+        return 100 * _2d_gauss(x, 0, sigma=args.beam_width/60)
+
+    if not args.no_cal:
+        cal1 = os.path.join(args.outdir_root, 'calibrator1')
+        mkdir_p(cal1)
+        sim_crossscans(5, cal1, scan_func=calibrator_scan_func,
+                       channel_ratio=0.9, baseline=args.baseline)
+        cal2 = os.path.join(args.outdir_root, 'calibrator2')
+        mkdir_p(cal2)
+        sim_crossscans(5, cal2, scan_func=calibrator_scan_func,
+                       srcname='DummyCal2', channel_ratio=0.9,
+                       baseline=args.baseline)
+
     simulate_map(dt=args.integration_time, length_ra=args.geometry[0],
                  length_dec=args.geometry[1], speed=args.scan_speed,
                  spacing=args.spacing, noise_amplitude=args.noise_amplitude,
@@ -481,15 +532,3 @@ def main_simulate(args=None):
                  srcname='Dummy', channel_ratio=0.9,
                  count_map=local_gauss_src_func)
 
-    def calibrator_scan_func(x):
-        return 100 * _2d_gauss(x, 0, sigma=args.beam_width/60)
-
-    if not args.no_cal:
-        cal1 = os.path.join(args.outdir_root, 'calibrator1')
-        mkdir_p(cal1)
-        sim_crossscans(5, cal1, scan_func=calibrator_scan_func,
-                       channel_ratio=0.9)
-        cal2 = os.path.join(args.outdir_root, 'calibrator2')
-        mkdir_p(cal2)
-        sim_crossscans(5, cal2, scan_func=calibrator_scan_func,
-                       srcname='DummyCal2', channel_ratio=0.9)
