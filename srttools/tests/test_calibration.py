@@ -179,10 +179,10 @@ class TestCalibration(object):
         caltable = CalibratorTable.read(self.calfile, path='table')
         caltable0 = caltable[compare_strings(caltable['Chan'], 'Feed0_LCP')]
         assert np.all(
-            np.abs(caltable0['Width'] - 2.5/60.) < 3 * caltable0['Width Err'])
+            np.abs(caltable0['Width'] - 2.5/60.) < 5 * caltable0['Width Err'])
         caltable1 = caltable[compare_strings(caltable['Chan'], 'Feed0_RCP')]
         assert np.all(
-            np.abs(caltable1['Width'] - 2.5/60.) < 3 * caltable1['Width Err'])
+            np.abs(caltable1['Width'] - 2.5/60.) < 5 * caltable1['Width Err'])
 
         beam, beam_err = caltable.beam_width(channel='Feed0_LCP')
         assert np.all(beam - np.radians(2.5/60) < 3 * beam_err)
