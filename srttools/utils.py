@@ -30,7 +30,7 @@ except ImportError:
 
 try:
     import statsmodels.api as sm
-    version = [int(i) for i in sm.version.version.split('.')]
+    version = [int(i) for i in sm.version.version.split('.')[:3]]
 
     # Minimum version 0.8.0
     if version < [0, 8, 0]:
