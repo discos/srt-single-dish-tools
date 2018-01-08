@@ -562,7 +562,8 @@ class TestScanSet(object):
                                           map_unit="Jy/beam",
                                           calibrate_scans=True)
 
-        assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'])
+        assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'],
+                           atol=1e-3)
 
     def test_calibrate_scanset_sr(self):
         scanset = ScanSet('test.hdf5')
@@ -575,7 +576,7 @@ class TestScanSet(object):
         good = images['Feed0_RCP'] > 1
 
         assert np.allclose(images['Feed0_RCP'][good],
-                           images_standard['Feed0_RCP'][good], rtol=1e-4)
+                           images_standard['Feed0_RCP'][good], atol=1e-3)
 
     def test_ds9_image(self):
         '''Test image production.'''
