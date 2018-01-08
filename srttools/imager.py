@@ -212,7 +212,7 @@ class ScanSet(Table):
     def get_opacity(self, datadir=None, dirlist=None):
         """List all scans contained in the directory listed in config."""
         self.opacities = {}
-        if not 'skydip_directories' in self.meta:
+        if 'skydip_directories' not in self.meta:
             return
 
         if datadir is None:
@@ -827,8 +827,7 @@ class ScanSet(Table):
 
         if len(fit_info) > 1:
             resave = True
-            sub = linear_fun(s[dim][:, feed],
-                                *fit_info)
+            sub = linear_fun(s[dim][:, feed], *fit_info)
             s[ch] = np.array(s[ch]) - sub
         # TODO: make it channel-independent
             s.meta['backsub'] = True
@@ -929,7 +928,8 @@ class ScanSet(Table):
             The radius around the center of mass, in percentage of the image
             size (0 <= radius <= 0.5)
         use_log: bool
-            Rescale the image to a log scale before calculating the coefficients.
+            Rescale the image to a log scale before calculating the
+            coefficients.
             The scale is the same documented in the ds9 docs, for consistency.
             After normalizing the image from 0 to 1, the log-rescaled image is
             log(ax + 1) / log a, with ``x`` the normalized image and ``a`` a
