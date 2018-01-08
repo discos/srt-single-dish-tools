@@ -100,7 +100,6 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
                   counts_to_K=(0.03, 0.03 / channel_ratio))
         timedelta += times[-1] + 1
 
-
         times, decs, scan0 = \
             simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
                           noise_amplitude=0.2, center=src_dec,
@@ -391,9 +390,9 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         baseline1 = _create_baseline(ra_array, baseline)
 
         counts0 = counts_clean + \
-                  ra.normal(0, noise_amplitude, ra_array.shape) + baseline0
+            ra.normal(0, noise_amplitude, ra_array.shape) + baseline0
         counts1 = counts_clean + \
-                  ra.normal(0, noise_amplitude, ra_array.shape) + baseline1
+            ra.normal(0, noise_amplitude, ra_array.shape) + baseline1
 
         actual_ra = mean_ra + ra_array / np.cos(np.radians(start_dec))
 
@@ -426,9 +425,9 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         baseline1 = _create_baseline(dec_array, baseline)
 
         counts0 = counts_clean + \
-                  ra.normal(0, noise_amplitude, ra_array.shape) + baseline0
+            ra.normal(0, noise_amplitude, ra_array.shape) + baseline0
         counts1 = counts_clean + \
-                  ra.normal(0, noise_amplitude, ra_array.shape) + baseline1
+            ra.normal(0, noise_amplitude, ra_array.shape) + baseline1
 
         if i_r % 2 != 0:
             dec_array = dec_array[::-1]
@@ -531,4 +530,3 @@ def main_simulate(args=None):
                  baseline=args.baseline, mean_ra=180, mean_dec=70,
                  srcname='Dummy', channel_ratio=0.9,
                  count_map=local_gauss_src_func)
-

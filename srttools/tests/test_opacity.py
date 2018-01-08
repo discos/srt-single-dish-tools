@@ -2,6 +2,7 @@ from srttools.opacity import calculate_opacity, main_opacity, HAS_MPL
 import numpy as np
 import os
 
+
 class TestOpacity(object):
     @classmethod
     def setup_class(klass):

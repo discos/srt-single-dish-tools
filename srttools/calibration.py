@@ -104,7 +104,7 @@ def _scantype(ras, decs, az=None, el=None):
     vararray = np.asarray([[ravar, decvar], [azvar, elvar]])
     scanarray = np.asarray([ras, decs, az, el])
 
-    minshift = np.argmin(vararray[:,::-1])
+    minshift = np.argmin(vararray[:, ::-1])
 
     xvariab = direction.flatten()[minshift]
     x = scanarray[minshift]
@@ -268,7 +268,6 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         # Fit RA and/or Dec
         x, scan_type = _scantype(ras, decs)
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
-
 
         try:
             uncert = fit_info['param_cov'].diagonal() ** 0.5
