@@ -643,7 +643,7 @@ class TestScanSet(object):
         assert dec_scan in coord
         assert coord[dec_scan] == 'dec'
         ra_scan = os.path.join(self.obsdir_ra,
-                               self.ra_scans[self.n_ra_scans])
+                               self.ra_scans[self.n_ra_scans - 1])
         assert ra_scan in coord
         assert coord[ra_scan] == 'ra'
 
