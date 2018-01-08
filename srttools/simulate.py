@@ -52,7 +52,7 @@ def _default_flat_shape(x):
     >>> _default_flat_shape(4314)
     100.0
     >>> np.allclose(_default_flat_shape(np.arange(3)),
-    ...             np.array([ 100.,  100.,  100.]))
+    ...             np.array([100., 100., 100.]))
     True
     """
     return 100 + np.zeros(np.asarray(x).shape)

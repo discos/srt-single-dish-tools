@@ -119,10 +119,10 @@ def _rest_angle_default(n_lat_feeds):
     Examples
     --------
     >>> np.allclose(_rest_angle_default(5),
-    ...             np.array([ 1. ,  0.8,  0.6,  0.4,  0.2]))
+    ...             np.array([1., 0.8, 0.6, 0.4, 0.2]))
     True
     >>> np.allclose(_rest_angle_default(6) * 360,
-    ...             np.array([ 360.,  300.,  240.,  180.,  120.,   60.]))
+    ...             np.array([360., 300., 240., 180., 120., 60.]))
     True
     """
     return np.arange(1, 0, -1 / n_lat_feeds)
@@ -140,7 +140,7 @@ def get_rest_angle(xoffsets, yoffsets):
     >>> yoffsets = [0.0, 0.0, 0.0331014, 0.0331014, 0.0, -0.0331014,
     ...             -0.0331014]
     >>> np.allclose(get_rest_angle(xoffsets, yoffsets).to(u.deg).value,
-    ...             np.array([   0.,  180.,  120.,   60.,  360.,  300.,  240.]))
+    ...             np.array([0., 180., 120., 60., 360., 300., 240.]))
     True
     """
     if len(xoffsets) <= 2:

@@ -6,7 +6,7 @@ import numpy as np
 try:
     import contextlib2 as contextlib
     FileNotFoundError = IOError
-except:
+except ImportError:
     import contextlib
 
 try:
@@ -617,13 +617,13 @@ class TestScanSet(object):
             with pytest.raises(ImportError) as excinfo:
                 display_intermediate(scanset, chan="Feed0_RCP",
                                      excluded=excluded,
-                                     parfile = "out_iter_Feed0_RCP_002.txt")
+                                     parfile="out_iter_Feed0_RCP_002.txt")
 
             assert "display_intermediate: matplotlib" in str(excinfo)
         else:
             display_intermediate(scanset, chan="Feed0_RCP",
                                  excluded=excluded,
-                                 parfile = "out_iter_Feed0_RCP_002.txt")
+                                 parfile="out_iter_Feed0_RCP_002.txt")
             os.path.exists("out_iter_Feed0_LCP_002.png")
 
         # It works after calculating images
@@ -785,8 +785,9 @@ class TestScanSet(object):
 
         assert np.all(before[:10] != after[:10])
         s = Scan(sname)
-        assert np.all(np.array(after, dtype=bool) == np.array(s['Feed0_RCP-filt'],
-                                                              dtype=bool))
+
+        assert np.all(np.array(after, dtype=bool) ==
+                      np.array(s['Feed0_RCP-filt'], dtype=bool))
         os.unlink(sname.replace('fits', 'hdf5'))
 
     def test_preprocess_no_config(self):
