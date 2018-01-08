@@ -441,7 +441,8 @@ def main_simulate(args=None):
                         help='Gaussian beam width in arcminutes')
 
     parser.add_argument('--spacing', type=float, default=0.5,
-                        help='Spacing between scans in arcminutes')
+                        help='Spacing between scans in arcminutes '
+                             '(default 0.5)')
 
     parser.add_argument('-o', "--outdir-root", type=str, default='sim',
                         help='Output directory root. Here, source and '
