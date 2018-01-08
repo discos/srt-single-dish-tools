@@ -289,8 +289,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         kurtosis = moments['kurtosis']
 
         if scan_type.startswith("RA"):
-            fit_ra = bell.mean
-            fit_width = bell.stddev * np.cos(np.radians(pnt_dec))
+            fit_ra = bell.mean.value
+            fit_width = bell.stddev.value * np.cos(np.radians(pnt_dec))
             fit_dec = None
             ra_err = fit_ra * u.degree - pnt_ra
             dec_err = None
@@ -299,8 +299,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             pnt = pnt_ra
         elif scan_type.startswith("Dec"):
             fit_ra = None
-            fit_dec = bell.mean
-            fit_width = bell.stddev
+            fit_dec = bell.mean.value
+            fit_width = bell.stddev.value
             dec_err = fit_dec * u.degree - pnt_dec
             ra_err = None
             fit_mean = fit_dec
@@ -337,7 +337,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1 = plt.subplot(gs[1], sharex=ax0)
 
             ax0.plot(x, y, label="Data")
-            ax0.plot(x, bell(x), label="Fit")
+            ax0.plot(x, bell(x),
+                     label="Fit: Amp: {}, Wid: {}".format(counts, fit_width))
             ax1.plot(x, y - bell(x))
 
             ax0.axvline(fit_mean, label=fit_label + " Fit", ls="-")
@@ -348,7 +349,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax0.set_ylabel("Counts")
             ax1.set_ylabel("Residual (cts)")
 
-            plt.legend()
+            ax0.legend()
+            ax1.legend()
             plt.savefig(os.path.join(outdir,
                                      "Feed{}_chan{}.png".format(feed,
                                                                 nch)))
@@ -1195,7 +1197,8 @@ def main_cal(args=None):
     if outfile is None:
         outfile = args.config.replace(".ini", "_cal.hdf5")
     caltable = CalibratorTable()
-    caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt)
+    caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt,
+                        plot=args.show)
     caltable.update()
 
     if args.check:
