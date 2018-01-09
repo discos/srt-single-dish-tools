@@ -2,7 +2,7 @@
 from __future__ import (absolute_import, division,
                         print_function)
 from scipy.optimize import curve_fit
-from scipy.ndimage import median_filter
+from scipy.signal import medfilt
 import numpy as np
 import traceback
 import warnings
@@ -271,6 +271,8 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None):
     Attention: This is known to throw false positives on bona fide, very strong
     Gaussian peaks
     """
+    # Needs to be odd
+    window_size = window_size // 2 * 2 + 1
 
     if mask is None:
         mask = np.ones(len(y), dtype=bool)
@@ -281,7 +283,7 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None):
 
     y = y.copy()
 
-    diffs = y - median_filter(y, window_size)
+    diffs = y - medfilt(y, window_size)
     min_diff = mad(diffs)
 
     outliers = np.zeros(len(y), dtype=bool)
