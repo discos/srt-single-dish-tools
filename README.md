@@ -75,3 +75,6 @@ If you used this software package to reduce data for a publication, please write
     This work makes use of the SRT Single Dish Tools developed by Matteo Bachetti.
     
 We will submit it to the [Astrophysics Source Code Library](www.ascl.net) soon, and update the text accordingly.
+
+### Known issues
++ There is a known bug in numpy 0.14 that affects Python 2.7 builds. Python 2.7 users please force numpy to 0.13.
