@@ -223,9 +223,15 @@ class ScanSet(Table):
             return
 
         for s in scans:
-            results = calculate_opacity(s)
-            self.opacities[results['time']] = np.mean([results['Ch0'],
-                                                       results['Ch1']])
+            try:
+                results = calculate_opacity(s)
+                self.opacities[results['time']] = np.mean([results['Ch0'],
+                                                           results['Ch1']])
+            except KeyError as e:
+                logging.warning(
+                    "Error while processing {}: Missing key: {}".format(s,
+                                                                        str(e))
+                )
 
     def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
         """Load the scans in the list one by ones."""
