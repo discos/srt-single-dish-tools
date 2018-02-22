@@ -160,7 +160,8 @@ class ScanSet(Table):
             try:
                 scan_table = Table(vstack(tables))
             except TableMergeError as e:
-                warnings.warn("ERROR while merging tables. Debug: tables:")
+                warnings.warn("ERROR while merging tables. {}"
+                              "Debug: tables:".format(str(e)))
 
                 for t in tables:
                     warnings.warn(scan_list[int(t['Scan_id'][0])])
@@ -726,7 +727,7 @@ class ScanSet(Table):
             info = select_data(ra_xs, ra_ys, masks=ra_masks,
                                xlabel="RA", title="RA", test=test)
 
-            if not compare_anything(info, empty):
+            if not compare_anything(empty, info):
                 for sname in info.keys():
                     self.update_scan(sname, scan_ids[sname],
                                      vars_to_filter[sname],
@@ -739,7 +740,7 @@ class ScanSet(Table):
             info = select_data(dec_xs, dec_ys, masks=dec_masks, xlabel="Dec",
                                title="Dec", test=test)
 
-            if not compare_anything(info, empty):
+            if not compare_anything(empty, info):
                 for sname in info.keys():
                     self.update_scan(sname, scan_ids[sname],
                                      vars_to_filter[sname],
