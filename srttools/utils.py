@@ -165,6 +165,49 @@ def compare_strings(s1, s2):
     return s1 == s2
 
 
+def compare_anything(dict1, dict2):
+    """Compare two whatever.
+
+    Examples
+    --------
+    >>> compare_anything(1, 2)
+    False
+    >>> compare_anything([1], 2)
+    False
+    >>> compare_anything([1], [2])
+    False
+    >>> compare_anything([1, 2], [1, 2])
+    True
+    >>> compare_anything({1: 2}, [1, 2])
+    False
+    >>> compare_anything({1: 2}, {1: 2})
+    True
+    >>> compare_anything({1: [2]}, {1: [2]})
+    True
+    >>> compare_anything({1: {1: 2}}, {1: {1: 2}})
+    True
+    >>> compare_anything({1: {1: 2}, 2: {1: 2}}, {2: {1: 2}, 1: {1: 2}})
+    True
+    """
+    if type(dict1) != type(dict2):
+        return False
+
+    if not isinstance(dict1, Iterable):
+        return dict1 == dict2
+    elif not isinstance(dict1, dict):
+        for i, j in zip(dict1, dict2):
+            if not compare_anything(i, j): return False
+    else:
+        dict1_sort = \
+            OrderedDict(sorted(dict1.items()))
+        dict2_sort = \
+            OrderedDict(sorted(dict2.items()))
+        for i, j in zip(dict1_sort.items(), dict2_sort.items()):
+            if not compare_anything(i, j): return False
+
+    return True
+
+
 def interpolate_invalid_points_image(array, zeros_are_invalid=False):
     '''Interpolates invalid points in an image.
 

@@ -9,6 +9,7 @@ try:
 except ImportError:
     HAS_MPL = False
 
+from collections import OrderedDict, Iterable, defaultdict
 import numpy as np
 from .fit import linear_fit, linear_fun, align
 import warnings

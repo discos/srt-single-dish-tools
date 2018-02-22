@@ -23,6 +23,7 @@ import functools
 from .scan import Scan, chan_re, list_scans, get_channel_feed
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
+from .utils import compare_anything
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
@@ -725,7 +726,7 @@ class ScanSet(Table):
             info = select_data(ra_xs, ra_ys, masks=ra_masks,
                                xlabel="RA", title="RA", test=test)
 
-            if info != empty:
+            if not compare_anything(info, empty):
                 for sname in info.keys():
                     self.update_scan(sname, scan_ids[sname],
                                      vars_to_filter[sname],
@@ -738,7 +739,7 @@ class ScanSet(Table):
             info = select_data(dec_xs, dec_ys, masks=dec_masks, xlabel="Dec",
                                title="Dec", test=test)
 
-            if info != empty:
+            if not compare_anything(info, empty):
                 for sname in info.keys():
                     self.update_scan(sname, scan_ids[sname],
                                      vars_to_filter[sname],
