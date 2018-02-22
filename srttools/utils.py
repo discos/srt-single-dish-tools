@@ -8,6 +8,7 @@ import logging
 import scipy
 import scipy.stats
 
+from collections import OrderedDict, Iterable
 
 try:
     from mahotas.features import zernike_moments
