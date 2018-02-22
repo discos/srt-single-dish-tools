@@ -54,6 +54,8 @@ def inspect_directories(directories, only_after=None, only_before=None):
         fits_files = glob.glob(os.path.join(d, '*.fits'))
 
         for f in fits_files:
+            if "summary.fits" in f:
+                continue
             print("Reading {}".format(f), end="\r")
             try:
                 data = read_data(f)
@@ -81,8 +83,9 @@ def inspect_directories(directories, only_after=None, only_before=None):
                               time_start, frequency, bandwidth,
                               is_skydip])
                 break
-            except Exception:
+            except Exception as e:
                 warnings.warn("Errors while opening {}".format(f))
+                warnings.warn(str(e))
                 continue
 
     return(info)

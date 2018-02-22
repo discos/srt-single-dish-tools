@@ -412,6 +412,8 @@ def list_scans(datadir, dirlist):
 
     for d in dirlist:
         for f in glob.glob(os.path.join(datadir, d, '*.fits')):
+            if "summary.fits" in f:
+                continue
             scan_list.append(f)
     return scan_list
 

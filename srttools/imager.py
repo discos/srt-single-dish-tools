@@ -27,6 +27,7 @@ from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
 from .opacity import calculate_opacity
+from astropy.table.np_utils import TableMergeError
 
 from .global_fit import fit_full_image
 from .interactive_filter import create_empty_info
@@ -155,7 +156,16 @@ class ScanSet(Table):
                 del s.meta['list_of_directories']
                 tables.append(s)
 
-            scan_table = Table(vstack(tables))
+            try:
+                scan_table = Table(vstack(tables))
+            except TableMergeError as e:
+                warnings.warn("ERROR while merging tables. Debug: tables:")
+
+                for t in tables:
+                    warnings.warn(scan_list[int(t['Scan_id'][0])])
+                    warnings.warn(t.colnames)
+                    warnings.warn(t[0])
+                raise
 
             Table.__init__(self, scan_table)
             self.scan_list = scan_list
