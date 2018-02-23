@@ -195,6 +195,14 @@ def compare_anything(value1, value2):
     True
     >>> compare_anything({1: {1: 2}, 2: {1: 2}}, {2: {1: 2}, 1: {1: 2}})
     True
+    >>> compare_anything({1: {1: "2"}, 2: {1: 2}}, {2: {1: 2}, 1: {1: "2"}})
+    True
+    >>> compare_anything("aa", "aa")
+    True
+    >>> compare_anything(u"aa", b"aa")
+    False
+    >>> compare_anything("aa", "bb")
+    False
     """
     if not isinstance(value1, value2.__class__):
         return False
