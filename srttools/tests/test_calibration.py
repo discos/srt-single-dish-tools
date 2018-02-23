@@ -116,10 +116,6 @@ class TestCalibration(object):
         caltable = CalibratorTable()
         assert caltable.get_fluxes() is None
 
-    def test_calibrate_empty_return_none(self):
-        caltable = CalibratorTable()
-        assert caltable.get_fluxes() is None
-
     def test_check_class(self):
         caltable = CalibratorTable()
         caltable.from_scans(self.scan_list)

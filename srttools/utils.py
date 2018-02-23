@@ -7,6 +7,7 @@ import warnings
 import logging
 import scipy
 import scipy.stats
+import six
 
 from collections import OrderedDict, Iterable
 
@@ -166,7 +167,7 @@ def compare_strings(s1, s2):
     return s1 == s2
 
 
-def compare_anything(dict1, dict2):
+def compare_anything(value1, value2):
     """Compare two whatever.
 
     They must be identical. Same type, same variable types, etc.
@@ -195,21 +196,22 @@ def compare_anything(dict1, dict2):
     >>> compare_anything({1: {1: 2}, 2: {1: 2}}, {2: {1: 2}, 1: {1: 2}})
     True
     """
-    if not isinstance(dict1, dict2.__class__):
+    if not isinstance(value1, value2.__class__):
         return False
 
-    if not isinstance(dict1, Iterable):
-        return dict1 == dict2
-    elif not isinstance(dict1, dict):
-        for i, j in zip(dict1, dict2):
+    if not isinstance(value1, Iterable) or \
+            isinstance(value1, six.string_types):
+        return value1 == value2
+    elif not isinstance(value1, dict):
+        for i, j in zip(value1, value2):
             if not compare_anything(i, j):
                 return False
     else:
-        dict1_sort = \
-            OrderedDict(sorted(dict1.items()))
-        dict2_sort = \
-            OrderedDict(sorted(dict2.items()))
-        for i, j in zip(dict1_sort.items(), dict2_sort.items()):
+        value1_sort = \
+            OrderedDict(sorted(value1.items()))
+        value2_sort = \
+            OrderedDict(sorted(value2.items()))
+        for i, j in zip(value1_sort.items(), value2_sort.items()):
             if not compare_anything(i, j):
                 return False
 
