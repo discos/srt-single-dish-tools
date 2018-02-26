@@ -23,10 +23,12 @@ import functools
 from .scan import Scan, chan_re, list_scans, get_channel_feed
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
+from .utils import compare_anything
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
 from .opacity import calculate_opacity
+from astropy.table.np_utils import TableMergeError
 
 from .global_fit import fit_full_image
 from .interactive_filter import create_empty_info
@@ -155,7 +157,17 @@ class ScanSet(Table):
                 del s.meta['list_of_directories']
                 tables.append(s)
 
-            scan_table = Table(vstack(tables))
+            try:
+                scan_table = Table(vstack(tables))
+            except TableMergeError as e:
+                warnings.warn("ERROR while merging tables. {}"
+                              "Debug: tables:".format(str(e)))
+
+                for t in tables:
+                    warnings.warn(scan_list[int(t['Scan_id'][0])])
+                    warnings.warn(t.colnames)
+                    warnings.warn(t[0])
+                raise
 
             Table.__init__(self, scan_table)
             self.scan_list = scan_list
@@ -715,7 +727,7 @@ class ScanSet(Table):
             info = select_data(ra_xs, ra_ys, masks=ra_masks,
                                xlabel="RA", title="RA", test=test)
 
-            if info != empty:
+            if not compare_anything(empty, info):
                 for sname in info.keys():
                     self.update_scan(sname, scan_ids[sname],
                                      vars_to_filter[sname],
@@ -728,7 +740,7 @@ class ScanSet(Table):
             info = select_data(dec_xs, dec_ys, masks=dec_masks, xlabel="Dec",
                                title="Dec", test=test)
 
-            if info != empty:
+            if not compare_anything(empty, info):
                 for sname in info.keys():
                     self.update_scan(sname, scan_ids[sname],
                                      vars_to_filter[sname],

@@ -794,14 +794,12 @@ class CalibratorTable(Table):
         y_to_fit = np.array(f_c_ratio[good])
         ye_to_fit = np.array(f_c_ratio_err[good])
 
-        p = [np.mean(y_to_fit)]
+        p = [np.median(y_to_fit)]
+        first = True
+
         while 1:
-            p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit,
-                                p0=p)
-
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
-
-            if not np.any(bad):
+            if not np.any(bad) and not first:
                 break
 
             if len(x_to_fit[bad]) > len(x_to_fit) - 5:
@@ -811,12 +809,16 @@ class CalibratorTable(Table):
             xbad = x_to_fit[bad]
             ybad = y_to_fit[bad]
             for xb, yb in zip(xbad, ybad):
-                logging.info("Outliers: {}, {}".format(xb, yb))
+                logging.warning("Outliers: {}, {}".format(xb, yb))
+
             good = np.logical_not(bad)
             x_to_fit = x_to_fit[good]
             y_to_fit = y_to_fit[good]
             ye_to_fit = ye_to_fit[good]
 
+            p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit,
+                                p0=p)
+            first = False
         fc = p[0]
         fce = np.sqrt(pcov[0, 0])
 

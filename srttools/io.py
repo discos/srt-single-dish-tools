@@ -9,6 +9,7 @@ from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS
 import os
 from astropy.time import Time
 import logging
+import warnings
 
 
 __all__ = ["mkdir_p", "detect_data_kind", "correct_offsets", "observing_angle",
@@ -207,6 +208,8 @@ def read_data_fitszilla(fname):
     chan_ids = section_table_data['id']
     nbin_per_chan = section_table_data['bins']
     if len(list(set(nbin_per_chan))) > 1:
+        lchdulist.close()
+
         raise ValueError('Only datasets with the same nbin per channel are '
                          'supported at the moment')
     nbin_per_chan = list(set(nbin_per_chan))[0]
@@ -249,13 +252,18 @@ def read_data_fitszilla(fname):
         _, nbins = data_table_data['spectrum'].shape
 
         if nbin_per_chan * nchan * 2 == nbins and not is_polarized:
-            logging.warning('Data appear to contain polarization information '
-                            'but are classified as simple, not stokes, in the '
-                            'Section table.')
+            warnings.warn('Data appear to contain polarization information '
+                          'but are classified as simple, not stokes, in the '
+                          'Section table.')
             is_polarized = True
         if nbin_per_chan * nchan != nbins and \
                 nbin_per_chan * nchan * 2 != nbins:
-            raise ValueError('Something wrong with channel subdivision')
+            lchdulist.close()
+
+            raise ValueError('Something wrong with channel subdivision: '
+                             '{} bins/channel, {} channels, '
+                             '{} total bins'.format(nbin_per_chan, nchan,
+                                                    nbins))
 
         for ic, ch in enumerate(chan_names):
             data_table_data[ch] = \
@@ -283,8 +291,8 @@ def read_data_fitszilla(fname):
     tempdata = lchdulist['ANTENNA TEMP TABLE'].data
     try:
         for ic, ch in enumerate(chan_names):
-            data_table_data[ch + '-Temp'] = \
-                tempdata['ch{}'.format(chan_ids[ic])]
+            td = tempdata['ch{}'.format(chan_ids[ic])]
+            data_table_data[ch + '-Temp'] = td
     except Exception as e:
         logging.warning("Could not read temperature information from file."
                         "Exception: {}".format(str(e)))

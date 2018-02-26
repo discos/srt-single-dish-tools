@@ -8,10 +8,9 @@ from srttools.io import mkdir_p
 from srttools.utils import compare_strings, HAS_MPL
 import pytest
 import logging
+import glob
 
 import os
-import glob
-import shutil
 import numpy as np
 import subprocess as sp
 
@@ -25,7 +24,7 @@ except ImportError:
 @pytest.fixture()
 def logger():
     logger = logging.getLogger('Some.Logger')
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     return logger
 
@@ -116,10 +115,6 @@ class TestCalibration(object):
         caltable = CalibratorTable()
         assert caltable.get_fluxes() is None
 
-    def test_calibrate_empty_return_none(self):
-        caltable = CalibratorTable()
-        assert caltable.get_fluxes() is None
-
     def test_check_class(self):
         caltable = CalibratorTable()
         caltable.from_scans(self.scan_list)
@@ -141,7 +136,7 @@ class TestCalibration(object):
 
         flux_quantity = _get_flux_quantity('Jy/beam')
         caltable[flux_quantity + "/Counts"][0] += \
-            caltable[flux_quantity + "/Counts Err"][0] * 20
+            caltable[flux_quantity + "/Counts Err"][0] * 2000
         Jc, Jce = caltable.Jy_over_counts_rough(channel='Feed0_LCP',
                                                 map_unit='Jy/beam')
         assert 'Outliers: ' in caplog.text
