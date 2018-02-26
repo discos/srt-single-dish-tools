@@ -798,7 +798,6 @@ class CalibratorTable(Table):
         first = True
         while 1:
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
-
             if not np.any(bad) and not first:
                 break
 
