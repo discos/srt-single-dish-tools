@@ -7,7 +7,9 @@ import warnings
 import logging
 import scipy
 import scipy.stats
+import six
 
+from collections import OrderedDict, Iterable
 
 try:
     from mahotas.features import zernike_moments
@@ -163,6 +165,65 @@ def compare_strings(s1, s2):
     s1 = standard_string(s1)
     s2 = standard_string(s2)
     return s1 == s2
+
+
+def compare_anything(value1, value2):
+    """Compare two whatever.
+
+    They must be identical. Same type, same variable types, etc.
+    ``1 != 1.0``, to ble clear. See examples.
+
+    Examples
+    --------
+    >>> compare_anything(1, 2)
+    False
+    >>> compare_anything(int(1), float(1))
+    False
+    >>> compare_anything([1], 2)
+    False
+    >>> compare_anything([1], [2])
+    False
+    >>> compare_anything([1, 2], [1, 2])
+    True
+    >>> compare_anything({1: 2}, [1, 2])
+    False
+    >>> compare_anything({1: 2}, {1: 2})
+    True
+    >>> compare_anything({1: [2]}, {1: [2]})
+    True
+    >>> compare_anything({1: {1: 2}}, {1: {1: 2}})
+    True
+    >>> compare_anything({1: {1: 2}, 2: {1: 2}}, {2: {1: 2}, 1: {1: 2}})
+    True
+    >>> compare_anything({1: {1: "2"}, 2: {1: 2}}, {2: {1: 2}, 1: {1: "2"}})
+    True
+    >>> compare_anything("aa", "aa")
+    True
+    >>> compare_anything(u"aa", b"aa")
+    False
+    >>> compare_anything("aa", "bb")
+    False
+    """
+    if not isinstance(value1, value2.__class__):
+        return False
+
+    if not isinstance(value1, Iterable) or \
+            isinstance(value1, six.string_types):
+        return value1 == value2
+    elif not isinstance(value1, dict):
+        for i, j in zip(value1, value2):
+            if not compare_anything(i, j):
+                return False
+    else:
+        value1_sort = \
+            OrderedDict(sorted(value1.items()))
+        value2_sort = \
+            OrderedDict(sorted(value2.items()))
+        for i, j in zip(value1_sort.items(), value2_sort.items()):
+            if not compare_anything(i, j):
+                return False
+
+    return True
 
 
 def interpolate_invalid_points_image(array, zeros_are_invalid=False):

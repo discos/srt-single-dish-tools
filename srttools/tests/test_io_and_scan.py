@@ -124,6 +124,19 @@ class Test1_Scan(object):
             (altaz.alt.to(u.rad) - scan['el'][:, idx]).to(u.arcsec).value)
         assert np.all(diff < 1)
 
+    def test_bad_nchan_detected(self):
+        with pytest.raises(Exception) as excinfo:
+            scan = Scan(os.path.join(self.datadir, 'srt_chans_bad.fits'))
+
+        assert "with channel subdivision:" in str(excinfo)
+
+    def test_simple_in_stokes(self):
+        with pytest.warns(UserWarning) as record:
+            scan = Scan(os.path.join(self.datadir, 'srt_pol_bad.fits'))
+
+        assert np.any(["contain polarization information" in r.message.args[0]
+                       for r in record])
+
     @classmethod
     def teardown_class(klass):
         """Cleanup."""

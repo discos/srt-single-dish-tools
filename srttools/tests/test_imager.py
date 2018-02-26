@@ -169,10 +169,10 @@ class TestScanSet(object):
 
         # Copy skydip scan
         skydip_dir = os.path.join(klass.datadir, 'gauss_skydip')
-        if os.path.exists(skydip_dir):
+        new_skydip_dir = os.path.join(klass.sim_dir, 'gauss_skydip')
+        if os.path.exists(skydip_dir) and not os.path.exists(new_skydip_dir):
             print('skydip_dir', skydip_dir)
-            shutil.copytree(skydip_dir, os.path.join(klass.sim_dir,
-                                                     'gauss_skydip'))
+            shutil.copytree(skydip_dir, new_skydip_dir)
         caltable = CalibratorTable()
         caltable.from_scans(glob.glob(os.path.join(klass.caldir,
                                                    '*.fits')), debug=True)
