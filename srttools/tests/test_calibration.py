@@ -8,6 +8,7 @@ from srttools.io import mkdir_p
 from srttools.utils import compare_strings, HAS_MPL
 import pytest
 import logging
+import glob
 
 import os
 import numpy as np
