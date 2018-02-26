@@ -55,39 +55,16 @@ matrix:
 
         # From here on, they are allowed to fail
         # Try Astropy development version
-        - env: PYTHON_VERSION=2.7 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.4 ASTROPY_VERSION=1.3 SETUP_CMD='test'
         - env: PYTHON_VERSION=3.4 SETUP_CMD='test' NUMPY_VERSION=1.11
-        # Old matplotlib
-        - env: PYTHON_VERSION=3.4 SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
-        # Try older numpy versions
-        - env: PYTHON_VERSION=3.4 NUMPY_VERSION=1.9 SETUP_CMD='test'
-        # No pyyaml
-        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels numba'
-        # Test Astropy LTS version
-        - env: PYTHON_VERSION=2.7 SETUP_CMD='test' ASTROPY_VERSION=lts
-        - env: PYTHON_VERSION=3.6 SETUP_CMD='test' ASTROPY_VERSION=lts
     allow_failures:
         # Try Astropy development version
-        - env: PYTHON_VERSION=2.7 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.4 ASTROPY_VERSION=1.3 SETUP_CMD='test'
         - env: PYTHON_VERSION=3.4 SETUP_CMD='test' NUMPY_VERSION=1.11
-        # Old matplotlib
-        - env: PYTHON_VERSION=3.4 SETUP_CMD='test' CONDA_DEPENDENCIES='scipy matplotlib==1.4.3 pytest pip'
-        # Try older numpy versions
-        - env: PYTHON_VERSION=3.4 NUMPY_VERSION=1.9 SETUP_CMD='test'
-        # No pyyaml
-        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels numba'
-        # Test Astropy LTS version
-        - env: PYTHON_VERSION=2.7 SETUP_CMD='test' ASTROPY_VERSION=lts
-        - env: PYTHON_VERSION=3.6 SETUP_CMD='test' ASTROPY_VERSION=lts
-
 
 before_install:
-#    - sudo wget https://gist.githubusercontent.com/dmitriy-kiriyenko/974392/raw/337a72368029046f28f0391c914c02d0ef3ad9d7/xvfb -O /etc/init.d/xvfb
-#    - sudo chmod a+x /etc/init.d/xvfb
     - git clone git://github.com/astropy/ci-helpers.git
     - source ci-helpers/travis/setup_conda.sh
 
