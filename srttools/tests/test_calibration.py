@@ -10,8 +10,6 @@ import pytest
 import logging
 
 import os
-import glob
-import shutil
 import numpy as np
 import subprocess as sp
 
@@ -25,7 +23,7 @@ except ImportError:
 @pytest.fixture()
 def logger():
     logger = logging.getLogger('Some.Logger')
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     return logger
 

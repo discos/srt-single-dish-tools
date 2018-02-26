@@ -796,6 +796,10 @@ class CalibratorTable(Table):
 
         p = [np.median(y_to_fit)]
         first = True
+        fig = plt.figure()
+        plt.errorbar(x_to_fit, y_to_fit, yerr=ye_to_fit, fmt='o', color='k')
+        plt.axhline(p[0], ls='--')
+
         while 1:
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
             if not np.any(bad) and not first:
@@ -808,7 +812,10 @@ class CalibratorTable(Table):
             xbad = x_to_fit[bad]
             ybad = y_to_fit[bad]
             for xb, yb in zip(xbad, ybad):
-                logging.info("Outliers: {}, {}".format(xb, yb))
+                logging.warning("Outliers: {}, {}".format(xb, yb))
+
+                plt.errorbar(xbad, ybad, yerr=ye_to_fit[bad], fmt='o', color='r')
+
             good = np.logical_not(bad)
             x_to_fit = x_to_fit[good]
             y_to_fit = y_to_fit[good]
@@ -819,7 +826,8 @@ class CalibratorTable(Table):
             first = False
         fc = p[0]
         fce = np.sqrt(pcov[0, 0])
-
+        plt.savefig('outliers_{}.png'.format(np.random.randint(0, 1000000)))
+        plt.close(fig)
         return fc, fce
 
     def calculate_src_flux(self, channel=None,
