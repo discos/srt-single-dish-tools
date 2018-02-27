@@ -285,8 +285,6 @@ class TestScanSet(object):
         fake_event.key = 'v'
         fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
         imgsel.on_key(fake_event)
-        out, err = capsys.readouterr()
-        assert "Scan was unflagged" in out
 
     def test_use_command_line(self):
         main_imager(('test.hdf5 -u Jy/beam ' +
