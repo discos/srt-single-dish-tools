@@ -30,7 +30,7 @@ def create_empty_info(keys):
     info = {}
     for key in keys:
         info[key] = {}
-        info[key]['FLAG'] = False
+        info[key]['FLAG'] = None
         info[key]['zap'] = intervals()
         info[key]['base'] = intervals()
         info[key]['fitpars'] = np.array([0, 0])
@@ -113,7 +113,7 @@ Interval selection: Point mouse + <key>
 
 Flagging actions:
     x     flag as bad;
-    v     Remove flag;
+    v     Remove flags and all masks from data;
 
 Actions:
     P     print current zap list and fit parameters
@@ -243,7 +243,7 @@ Actions:
             self.info[current]['zap'].clear()
             self.info[current]['base'].clear()
             self.info[current]['fitpars'] = np.array([0, 0])
-            self.info[current]['FLAG'] = False
+            self.info[current]['FLAG'] = None
         self.plot_all(silent=True)
 
     def quit(self):
@@ -360,6 +360,11 @@ Actions:
 
             if self.info[key]['FLAG'] is True:
                 good[key][:] = 0
+            elif self.info[key]['FLAG'] is False:
+                # "v" eliminates all flags!
+                good[key][:] = 1
+                self.masks[key][:] = 1
+
             good[key] = good[key] * self.masks[key]
 
             fitpars = list(self.info[key]['fitpars'])
