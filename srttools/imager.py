@@ -825,8 +825,11 @@ class ScanSet(Table):
         feed = get_channel_feed(ch)
         mask = self['Scan_id'] == sid
         try:
+            print("Updating scan {}".format(sname))
             s = Scan(sname)
-        except Exception:
+        except Exception as e:
+            warnings.warn("Impossible to write to scan {}".format(s))
+            print(e)
             return
 
         resave = False
