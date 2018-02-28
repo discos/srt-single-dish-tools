@@ -505,7 +505,9 @@ class ImageSelector():
 
     def plot_img(self):
         """Plot the image on the interactive display."""
-        self.ax.imshow(np.log10(self.img), origin='lower',
-                       vmin=np.percentile(np.log10(self.img), 20),
+        from .utils import ds9_like_log_scale
+        img_to_plot = ds9_like_log_scale(self.img)
+        self.ax.imshow(img_to_plot, origin='lower',
+                       vmin=np.percentile(img_to_plot, 20),
                        interpolation="nearest", cmap="gnuplot2",
                        extent=[0, self.img.shape[1], 0, self.img.shape[0]])
