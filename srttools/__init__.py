@@ -9,7 +9,8 @@ This is an Astropy affiliated package.
 # ----------------------------------------------------------------------------
 from ._astropy_init import *  # NOQA
 # ----------------------------------------------------------------------------
-
+import faulthandler
+faulthandler.enable()
 # For egg_info test builds to pass, put package imports here.
 if not _ASTROPY_SETUP_:
     from .calibration import *  # noqa: F401,F403
