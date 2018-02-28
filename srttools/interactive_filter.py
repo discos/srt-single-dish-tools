@@ -404,6 +404,7 @@ Actions:
                           rasterized=True)
 
         if self.current is not None:
+            print("Current scan is {}".format(self.current))
             key = self.current
             self.ax2.plot(self.xs[key][good[key]],
                           self.ys[key][good[key]] - model[key][good[key]],
