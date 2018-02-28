@@ -123,7 +123,7 @@ class TestDataSelector(object):
         assert "I plotted all" in record[0].message.args[0]
 
     def test_flag(self, capsys):
-        assert self.selector.info['scan1.fits']['FLAG'] is False
+        assert self.selector.info['scan1.fits']['FLAG'] is None
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('x', 1, 3)
         self.selector.on_key(fake_event)
@@ -133,23 +133,29 @@ class TestDataSelector(object):
 
     def test_flag_otherscan(self, capsys):
         self.selector.current = 'scan2.fits'
-        assert self.selector.info['scan2.fits']['FLAG'] is False
+        assert self.selector.info['scan2.fits']['FLAG'] is None
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('x', 1, 3)
-        self.selector.on_key(fake_event)
-        out, err = capsys.readouterr()
-        assert "Scan was flagged" in out
+        with pytest.warns(PlotWarning) as record:
+            self.selector.on_key(fake_event)
+            out, err = capsys.readouterr()
+            assert "Scan was flagged" in out
+            fake_event.key, fake_event.xdata, fake_event.ydata = ('u', 1, 3)
+            self.selector.on_key(fake_event)
+        assert "I plotted all" in record[0].message.args[0]
         assert self.selector.info['scan2.fits']['FLAG'] is True
         self.selector.current = 'scan1.fits'
 
     def test_unflag(self, capsys):
         fake_event = type('event', (), {})()
-        fake_event.key, fake_event.xdata, fake_event.ydata = ('x', 1, 3)
-        fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('v', 1, 3)
-        self.selector.on_key(fake_event)
-        out, err = capsys.readouterr()
-        assert "Scan was unflagged" in out
+        with pytest.warns(PlotWarning) as record:
+            self.selector.on_key(fake_event)
+            out, err = capsys.readouterr()
+            assert "Scan was unflagged" in out
+            fake_event.key, fake_event.xdata, fake_event.ydata = ('u', 1, 3)
+            self.selector.on_key(fake_event)
+        assert "I plotted all" in record[0].message.args[0]
         assert self.selector.info['scan1.fits']['FLAG'] is False
 
     def test_reset(self):
@@ -164,7 +170,7 @@ class TestDataSelector(object):
         fake_event = type('event', (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ('r', 1, 3)
         self.selector.on_key(fake_event)
-        assert self.selector.info['scan2.fits']['FLAG'] is False
+        assert self.selector.info['scan2.fits']['FLAG'] is None
         assert self.selector.info['scan1.fits']['base'].xs == []
         assert self.selector.info['scan1.fits']['zap'].xs == []
         assert self.selector.info['scan1.fits']['fitpars'][0] == 0

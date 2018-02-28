@@ -195,7 +195,7 @@ class TestScanSet(object):
             klass.scanset = ScanSet('test.hdf5')
 
         klass.stdinfo = {}
-        klass.stdinfo['FLAG'] = False
+        klass.stdinfo['FLAG'] = None
         klass.stdinfo['zap'] = intervals()
         klass.stdinfo['base'] = intervals()
         klass.stdinfo['fitpars'] = np.array([0, 0])
@@ -284,7 +284,6 @@ class TestScanSet(object):
         imgsel.on_key(fake_event)
         fake_event.key = 'v'
         fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
-
         imgsel.on_key(fake_event)
 
     def test_use_command_line(self):

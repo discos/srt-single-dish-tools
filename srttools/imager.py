@@ -852,12 +852,12 @@ class ScanSet(Table):
             self[ch][mask] = s[ch]
 
         # TODO: make it channel-independent
-        if flag_info:
+        if flag_info is not None:
             resave = True
-            s.meta['FLAG'] = True
-            self['{}-filt'.format(ch)][mask] = np.zeros(len(s[dim]),
-                                                        dtype=bool)
-            s['{}-filt'.format(ch)] = np.zeros(len(s[dim]), dtype=bool)
+            s.meta['FLAG'] = flag_info
+            flag_array = np.zeros(len(s[dim]), dtype=bool) + flag_info
+            self['{}-filt'.format(ch)][mask] = np.logical_not(flag_array)
+            s['{}-filt'.format(ch)] = np.logical_not(flag_array)
 
         if resave:
             s.save()
