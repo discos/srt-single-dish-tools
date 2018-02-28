@@ -203,6 +203,8 @@ def compare_anything(value1, value2):
     False
     >>> compare_anything("aa", "bb")
     False
+    >>> compare_anything({1: {1: "2"}, 2: {1: 2}}, {})
+    False
     """
     if not isinstance(value1, value2.__class__):
         return False
@@ -215,10 +217,14 @@ def compare_anything(value1, value2):
             if not compare_anything(i, j):
                 return False
     else:
+        items1 = value1.items()
+        items2 = value2.items()
+        if len(list(items1)) != len(list(items2)):
+            return False
         value1_sort = \
-            OrderedDict(sorted(value1.items()))
+            OrderedDict(sorted(items1))
         value2_sort = \
-            OrderedDict(sorted(value2.items()))
+            OrderedDict(sorted(items2))
         for i, j in zip(value1_sort.items(), value2_sort.items()):
             if not compare_anything(i, j):
                 return False
