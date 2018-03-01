@@ -2,6 +2,8 @@
 from __future__ import (absolute_import, division,
                         print_function)
 
+import copy
+
 try:
     import matplotlib.pyplot as plt
     from matplotlib import gridspec
@@ -12,6 +14,7 @@ except ImportError:
 import numpy as np
 from .fit import linear_fit, linear_fun, align
 import warnings
+from .utils import compare_anything
 
 
 __all__ = ["TestWarning", "PlotWarning", "mask", "intervals", "DataSelector",
@@ -90,6 +93,14 @@ class intervals():
         self.xs.append(point[0])
         self.ys.append(point[1])
 
+    def __eq__(self, other):
+        if isinstance(self, other.__class__):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 class DataSelector:
     """Plot and process scans interactively."""
@@ -140,7 +151,8 @@ Actions:
 
         self.xlabel = xlabel
         self.title = title
-        self.info = create_empty_info(self.xs.keys())
+        self.starting_info = create_empty_info(self.xs.keys())
+        self.info = copy.deepcopy(self.starting_info)
         self.lines = []
         if not test:
             self.print_instructions()
@@ -248,6 +260,9 @@ Actions:
 
     def quit(self):
         print("Closing all figures and quitting.")
+        for key in self.info.keys():
+            if compare_anything(self.info[key], self.starting_info[key]):
+                self.info.pop(key)
         plt.close(self.ax1.figure)
 
     def subtract_baseline(self):
@@ -389,6 +404,7 @@ Actions:
                           rasterized=True)
 
         if self.current is not None:
+            print("Current scan is {}".format(self.current))
             key = self.current
             self.ax2.plot(self.xs[key][good[key]],
                           self.ys[key][good[key]] - model[key][good[key]],

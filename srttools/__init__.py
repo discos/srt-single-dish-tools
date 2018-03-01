@@ -9,6 +9,12 @@ This is an Astropy affiliated package.
 # ----------------------------------------------------------------------------
 from ._astropy_init import *  # NOQA
 # ----------------------------------------------------------------------------
+try:
+    import faulthandler
+
+    faulthandler.enable()
+except ImportError:
+    pass
 
 # For egg_info test builds to pass, put package imports here.
 if not _ASTROPY_SETUP_:

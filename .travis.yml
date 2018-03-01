@@ -42,7 +42,7 @@ matrix:
         # may run for a long time
         # Try all python versions with the latest numpy
 
-        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage' PIP_DEPENDENCIES='patsy codecov faulthandler'
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage'
         # No matplotlib, pyregion, with old scipy
         - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy=0.19 pytest pip h5py statsmodels pyyaml numba' SETUP_CMD='test --coverage'

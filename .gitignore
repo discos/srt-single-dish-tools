@@ -46,6 +46,13 @@ coverage.xml
 *,cover
 .hypothesis/
 *.hdf5
+*.csv
+*.txt
+*.xml
+*.png
+srttools/tests/data/sim/
+*.zip
+*.ini
 
 # Translations
 *.mo

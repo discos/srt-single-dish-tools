@@ -235,6 +235,8 @@ class ScanSet(Table):
             return
 
         for s in scans:
+            if 'summary.fits' in s:
+                continue
             try:
                 results = calculate_opacity(s)
                 self.opacities[results['time']] = np.mean([results['Ch0'],
@@ -825,8 +827,11 @@ class ScanSet(Table):
         feed = get_channel_feed(ch)
         mask = self['Scan_id'] == sid
         try:
+            print("Updating scan {}".format(sname))
             s = Scan(sname)
-        except Exception:
+        except Exception as e:
+            warnings.warn("Impossible to write to scan {}".format(sname))
+            print(e)
             return
 
         resave = False
