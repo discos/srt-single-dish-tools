@@ -376,6 +376,9 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
         Moments are symmetrical, so only the unique values are reported.
 
     """
+    if np.all(np.isnan(im)):
+        return None
+
     if cm is None:
         cm = get_center_of_mass(im, radius)
 

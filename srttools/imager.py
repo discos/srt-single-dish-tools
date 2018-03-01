@@ -70,7 +70,6 @@ def outlier_score(x):
     # I calculate the mad here instead of using the statsmodels function,
     # in order to avoid duplicating the efforts.
     median_abs_dev = np.median(diff)
-
     return np.max(0.6745 * diff / median_abs_dev)
 
 
@@ -491,6 +490,7 @@ class ScanSet(Table):
                                        self['y'][:, feed][good],
                                        bins=[xbins, ybins],
                                        weights=counts)
+
             img_sq, _, _ = np.histogram2d(self['x'][:, feed][good],
                                           self['y'][:, feed][good],
                                           bins=[xbins, ybins],
