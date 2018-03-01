@@ -378,13 +378,12 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
     """
     if np.all(np.isnan(im)):
         return None
-
-    if cm is None:
-        cm = get_center_of_mass(im, radius)
-
     im_to_analyze = im.copy()
     im_to_analyze = interpolate_invalid_points_image(im_to_analyze,
                                                      zeros_are_invalid=True)
+
+    if cm is None or np.any(np.isnan(cm)):
+        cm = get_center_of_mass(im_to_analyze, radius)
 
     if use_log:
         im_to_analyze = ds9_like_log_scale(im_to_analyze, 1000)
@@ -473,12 +472,13 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
     results_dict : dict
         Dictionary containing the results
     """
-    if cm is None:
-        cm = get_center_of_mass(im, radius)
-
+    if np.all(np.isnan(im)):
+        return None
     im_to_analyze = im.copy()
     im_to_analyze = interpolate_invalid_points_image(im_to_analyze,
                                                      zeros_are_invalid=True)
+    if cm is None:
+        cm = get_center_of_mass(im_to_analyze, radius)
 
     if use_log:
         im_to_analyze = ds9_like_log_scale(im_to_analyze, 1000)
