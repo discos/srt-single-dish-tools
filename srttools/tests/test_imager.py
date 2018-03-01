@@ -386,7 +386,6 @@ class TestScanSet(object):
 
     def test_rough_image_altaz(self):
         '''Test image production.'''
-
         scanset = ScanSet('test.hdf5')
 
         images = scanset.calculate_images(altaz=True)
