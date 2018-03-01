@@ -496,7 +496,7 @@ class ScanSet(Table):
                                           bins=[xbins, ybins],
                                           weights=counts ** 2)
 
-            img_outliers, _, _, binnumber = \
+            img_outliers, _, _, _ = \
                 binned_statistic_2d(self['x'][:, feed][good],
                                     self['y'][:, feed][good],
                                     counts, statistic=outlier_score,
@@ -686,9 +686,9 @@ class ScanSet(Table):
         -------------------------------------------------------------
 
         Imageactive display.
-        
+
         You see here two images. The left one gives, for each bin, a number
-        measuring the probability of outliers (based on the median absolute 
+        measuring the probability of outliers (based on the median absolute
         deviation if there are >10 scans per bin, and on the standard deviation
         otherwise), The right one is the output image of the processing.
         The right image is normalized with a ds9-like log scale.
@@ -721,7 +721,7 @@ class ScanSet(Table):
             imgch = ch
 
             expo = np.mean(self.images["{}-EXPO".format(ch)])
-            mean_expo = np.mean(expo[expo  > 0])
+            mean_expo = np.mean(expo[expo > 0])
 
             stats_for_outliers = "Outliers" if mean_expo > 6 else "Sdev"
             sdevch = '{}-{}'.format(ch, stats_for_outliers)
