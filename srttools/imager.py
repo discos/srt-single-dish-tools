@@ -727,7 +727,8 @@ class ScanSet(Table):
             sdevch = '{}-{}'.format(ch, stats_for_outliers)
             if '{}-RAW'.format(ch) in self.images.keys():
                 imgch = '{}-RAW'.format(ch)
-                sdevch = '{}-RAW-{}'.format(ch, stats_for_outliers)
+                if stats_for_outliers == 'Sdev':
+                    sdevch = '{}-RAW-{}'.format(ch, stats_for_outliers)
             img = ds9_like_log_scale(self.images[imgch])
             ax2.imshow(img, origin='lower',
                        vmin=np.percentile(img, 20), cmap="gnuplot2",
