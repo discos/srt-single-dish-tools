@@ -24,7 +24,7 @@ from scipy.stats import binned_statistic_2d
 from .scan import Scan, chan_re, list_scans, get_channel_feed
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
-from .utils import compare_anything, ds9_like_log_scale
+from .utils import compare_anything, ds9_like_log_scale, jit
 
 from .fit import linear_fun
 from .interactive_filter import select_data
@@ -60,17 +60,26 @@ def _load_calibration(calibration, map_unit):
     return caltable, conversion_units
 
 
+@jit(nopython=True)
 def outlier_score(x):
     """Give a score to data series, larger if higher chance of outliers.
 
     Inspired by https://stackoverflow.com/questions/22354094/pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
     """
+    xdiff = np.diff(x)
+    good = xdiff != 0
+    if not np.any(good):
+        return 0
+    xdiff = xdiff[good]
+    if len(xdiff) < 2:
+        return 0
+    ref_dev = np.std(xdiff - np.median(xdiff))
+    if ref_dev == 0.:
+        return 0
+
     median = np.median(x)
     diff = np.abs(x - median)
-    # I calculate the mad here instead of using the statsmodels function,
-    # in order to avoid duplicating the efforts.
-    median_abs_dev = np.median(diff)
-    return np.max(0.6745 * diff / median_abs_dev)
+    return np.max(0.6745 * diff / ref_dev)
 
 
 class ScanSet(Table):
