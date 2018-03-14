@@ -146,7 +146,7 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4,
 
 def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
                      niter=4, expo_hor=None, expo_ver=None,
-                     npix_tol=None):
+                     npix_tol=None, clip_sigma=3):
     if expo_hor is None or expo_ver is None:
         image_mean = (image_hor + image_ver) / 2
         expo_hor = expo_ver = np.ones_like(image_mean)
@@ -179,7 +179,8 @@ def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
                        image_ver[mask].reshape(masked_image.shape),
                        niter_max=niter,
                        expo_hor=expo_hor[mask].reshape(masked_image.shape),
-                       expo_ver=expo_ver[mask].reshape(masked_image.shape)
+                       expo_ver=expo_ver[mask].reshape(masked_image.shape),
+                       clip_sigma=clip_sigma
                        ).flatten()
 
     if HAS_MPL:
