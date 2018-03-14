@@ -26,7 +26,7 @@ from srttools import Scan
 from srttools import CalibratorTable
 from srttools.calibration import HAS_STATSM
 from srttools.read_config import read_config
-from srttools.imager import main_imager, main_preprocess
+from srttools.imager import main_imager, main_preprocess, _excluded_regions_from_args
 from srttools.simulate import simulate_map
 from srttools.global_fit import display_intermediate
 from srttools.io import mkdir_p
@@ -127,9 +127,9 @@ def sim_map(obsdir_ra, obsdir_dec):
                  length_ra=30.,
                  length_dec=30.,
                  outdir=(obsdir_ra, obsdir_dec), mean_ra=180,
-                 mean_dec=45, speed=2.,
+                 mean_dec=45, speed=1.5,
                  spacing=0.5, srcname='Dummy', channel_ratio=0.8,
-                 baseline="slope")
+                 baseline="flat")
 
 
 class TestScanSet(object):
@@ -171,7 +171,6 @@ class TestScanSet(object):
         skydip_dir = os.path.join(klass.datadir, 'gauss_skydip')
         new_skydip_dir = os.path.join(klass.sim_dir, 'gauss_skydip')
         if os.path.exists(skydip_dir) and not os.path.exists(new_skydip_dir):
-            print('skydip_dir', skydip_dir)
             shutil.copytree(skydip_dir, new_skydip_dir)
         caltable = CalibratorTable()
         caltable.from_scans(glob.glob(os.path.join(klass.caldir,
@@ -187,9 +186,17 @@ class TestScanSet(object):
         klass.deconly = os.path.abspath(os.path.join(klass.datadir,
                                                      'test_deconly.ini'))
 
+        if HAS_PYREGION:
+            excluded_xy, excluded_radec = \
+                _excluded_regions_from_args([os.path.join(klass.datadir,
+                                                          "center.reg")])
+        else:
+            excluded_xy, excluded_radec = None, None
+
         if not os.path.exists('test.hdf5'):
-            klass.scanset = ScanSet(klass.config_file, norefilt=False,
-                                    debug=True)
+            klass.scanset = ScanSet(klass.config_file, nosub=False,
+                                    norefilt=False,
+                                    debug=True, avoid_regions=excluded_radec)
             klass.scanset.write('test.hdf5', overwrite=True)
         else:
             klass.scanset = ScanSet('test.hdf5')
@@ -441,6 +448,7 @@ class TestScanSet(object):
             plt.savefig('img_scrunch_sdev.png')
             plt.close(fig)
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calc_and_calibrate_image_pixel(self):
         scanset = ScanSet('test.hdf5')
 
@@ -492,6 +500,7 @@ class TestScanSet(object):
         assert np.isclose(np.sum(images['TOTAL'][good]),
                           self.simulated_flux, rtol=0.1)
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_image_pixel(self):
         scanset = ScanSet('test.hdf5')
 
@@ -508,6 +517,7 @@ class TestScanSet(object):
         assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=rtol)
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_image_beam(self):
         scanset = ScanSet('test.hdf5')
 
@@ -527,6 +537,7 @@ class TestScanSet(object):
                                               map_unit="junk")
             assert "Unit for calibration not recognized" in str(excinfo)
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_image_sr(self):
         scanset = ScanSet('test.hdf5')
 
@@ -542,6 +553,7 @@ class TestScanSet(object):
                            images_pix['Feed0_RCP'] / pixel_area.to(u.sr).value,
                            rtol=0.05)
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_scanset_pixel(self):
         scanset = ScanSet('test.hdf5')
         images_standard = scanset.calculate_images(calibration=self.calfile,
@@ -550,8 +562,10 @@ class TestScanSet(object):
                                           map_unit="Jy/pixel",
                                           calibrate_scans=True)
 
-        assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'])
+        assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'],
+                           rtol=0.05)
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_scanset_beam(self):
         scanset = ScanSet('test.hdf5')
         images_standard = scanset.calculate_images(calibration=self.calfile,
@@ -563,6 +577,7 @@ class TestScanSet(object):
         assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'],
                            atol=1e-3)
 
+    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_scanset_sr(self):
         scanset = ScanSet('test.hdf5')
         images_standard = scanset.calculate_images(calibration=self.calfile,
@@ -574,7 +589,7 @@ class TestScanSet(object):
         good = images['Feed0_RCP'] > 1
 
         assert np.allclose(images['Feed0_RCP'][good],
-                           images_standard['Feed0_RCP'][good], atol=1e-1)
+                           images_standard['Feed0_RCP'][good], rtol=0.05)
 
     def test_ds9_image(self):
         '''Test image production.'''
@@ -632,8 +647,6 @@ class TestScanSet(object):
 
         images = scanset.calculate_images()
         ysize, xsize = images['Feed0_RCP'].shape
-        print(images)
-        print(ysize, xsize)
         _, _, _, _, _, _, _, coord = \
             scanset.find_scans_through_pixel(xsize//2, ysize-1, test=True)
 
