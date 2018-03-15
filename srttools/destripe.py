@@ -5,6 +5,8 @@ try:
 except ImportError:
     HAS_MPL = False
 
+from .fit import mad
+
 
 def mask_zeros(image, expo=None, npix_tol=None):
     """Mask the lines containing zeros in the image.
@@ -89,7 +91,11 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     """
     from scipy.ndimage import gaussian_filter, gaussian_filter1d
     import collections
-    rms = np.std(img)
+    if img.shape[0] * img.shape[0] > 100:
+        rms = mad(img.flatten())
+    else:
+        rms = np.std(img.flatten())
+
     median = np.median(img)
     bad = img - median > clip_sigma * rms
     img[bad] = clip_sigma * rms
