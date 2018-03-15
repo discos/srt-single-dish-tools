@@ -91,7 +91,10 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     """
     from scipy.ndimage import gaussian_filter, gaussian_filter1d
     import collections
-    rms = mad(img.flatten())
+    if img.shape[0] * img.shape[0] > 100:
+        rms = mad(img.flatten())
+    else:
+        rms = np.std(img.flatten())
 
     median = np.median(img)
     bad = img - median > clip_sigma * rms
