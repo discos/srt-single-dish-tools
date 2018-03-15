@@ -59,10 +59,12 @@ def _generic_dummy_decorator(*args, **kwargs):
 
 try:
     from numba import jit, vectorize
+    HAS_NUMBA = True
 except ImportError:
     warnings.warn("Numba not installed. Faking it")
 
     jit = vectorize = _generic_dummy_decorator
+    HAS_NUMBA = False
 
 
 __all__ = ["mad", "standard_string", "standard_byte", "compare_strings",

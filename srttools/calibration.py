@@ -657,7 +657,7 @@ class CalibratorTable(Table):
 
             f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
             f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
-            elvs = self["Elevation"][good_chans]
+            elvs = np.radians(self["Elevation"][good_chans])
 
             good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
             good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
@@ -675,8 +675,8 @@ class CalibratorTable(Table):
 
             X = np.column_stack((np.ones(len(x_to_fit)), x_to_fit))
             # X = np.c_[np.ones(len(x_to_fit)), X]
-
-            model = sm.RLM(y_to_fit, X)
+            # X = sm.add_constant(X)
+            model = sm.RLM(y_to_fit, X, missing='drop')
             results = model.fit()
 
             self.calibration_coeffs[standard_string(channel)] = results.params
@@ -866,7 +866,7 @@ class CalibratorTable(Table):
         for channel in channels:
             good_chan = compare_strings(self['Chan'], channel)
             good = good_source & good_chan
-            elevation = self['Elevation'][good]
+            elevation = np.radians(self['Elevation'][good])
             fc, fce = self.Jy_over_counts(channel=channel, elevation=elevation,
                                           map_unit=map_unit,
                                           good_mask=non_source)

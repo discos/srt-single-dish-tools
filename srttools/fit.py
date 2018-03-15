@@ -8,7 +8,7 @@ import traceback
 import warnings
 import collections
 import copy
-from .utils import mad
+from .utils import mad, HAS_MPL
 
 
 __all__ = ["contiguous_regions", "ref_std", "ref_mad", "linear_fun",
@@ -91,10 +91,7 @@ def ref_std(array, window):
         The reference Standard Deviation
     """
 
-    if len(array) < window*5:
-        return np.std(np.diff(array))
-
-    return np.min(np.std(_rolling_window(array, window), 1))
+    return np.std(np.diff(array)) / np.sqrt(2)
 
 
 def ref_mad(array, window):
@@ -117,9 +114,7 @@ def ref_mad(array, window):
     ref_std : float
         The reference MAD
     """
-    if len(array) < window*3:
-        return mad(array)
-    return np.median(mad(_rolling_window(array, window), axis=1))
+    return mad(np.diff(array)) / np.sqrt(2)
 
 
 def linear_fun(x, q, m):
@@ -265,7 +260,21 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
         return lc
 
 
-def purge_outliers(y, window_size=5, up=True, down=True, mask=None):
+def outlier_from_median_filt(y, window_size, down=True, up=True):
+    diffs = y - medfilt(y, window_size)
+    min_diff = mad(diffs)
+
+    outliers = np.zeros(len(y), dtype=bool)
+    if down:
+        outliers = np.logical_or(outliers, -diffs > 10 * min_diff)
+    if up:
+        outliers = np.logical_or(outliers, diffs > 10 * min_diff)
+
+    return outliers
+
+
+def purge_outliers(y, window_size=5, up=True, down=True, mask=None,
+                   plot=False):
     """Remove obvious outliers.
 
     Attention: This is known to throw false positives on bona fide, very strong
@@ -281,18 +290,20 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None):
     if not (up or down):
         return y
 
+    ysave = y
     y = y.copy()
 
-    diffs = y - medfilt(y, window_size)
-    min_diff = mad(diffs)
+    win1 = outlier_from_median_filt(y, window_size)
+    win2 = outlier_from_median_filt(y, window_size * 2 + 1)
+    local_outliers = win1 & win2
 
-    outliers = np.zeros(len(y), dtype=bool)
-    if down:
-        outliers = np.logical_or(outliers, -diffs > 10 * min_diff)
-    if up:
-        outliers = np.logical_or(outliers, diffs > 10 * min_diff)
+    Noutliers = len(local_outliers[local_outliers])
+    if Noutliers > 0:
+        warnings.warn("Found {} outliers".format(
+            Noutliers),
+                      UserWarning)
 
-    outliers = np.logical_or(outliers, bad_mask)
+    outliers = np.logical_or(local_outliers, bad_mask)
     if not np.any(outliers):
         return y
 
@@ -310,8 +321,14 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None):
                 (next_bin - previous)/(dx + 1) * \
                 np.arange(1, b[1] - b[0] + 1) + previous
 
-    warnings.warn("Found {} outliers".format(len(diffs[outliers])),
-                  UserWarning)
+    if plot and HAS_MPL:
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        plt.plot(ysave)
+        plt.plot(y, zorder=3)
+        plt.plot(medfilt(ysave, window_size), zorder=6, lw=1)
+        plt.savefig("Bubu_" + str(np.random.randint(0, 10000000)) + '.png')
+        plt.close(fig)
 
     return y
 

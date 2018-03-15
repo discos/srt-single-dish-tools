@@ -18,6 +18,7 @@ except ImportError:
 
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
+from .utils import jit, vectorize, HAS_NUMBA
 
 import re
 import warnings
@@ -26,6 +27,74 @@ import logging
 
 __all__ = ["Scan", "interpret_frequency_range", "clean_scan_using_variability",
            "list_scans"]
+
+
+if HAS_NUMBA:
+    @vectorize
+    def normalize_angle_mpPI(angle):
+        """Normalize angle between minus pi and pi."""
+        TWOPI = 2 * np.pi
+        while angle > np.pi:
+            angle -= TWOPI
+        while angle < - np.pi:
+            angle += TWOPI
+        return angle
+else:
+    def normalize_angle_mpPI(angle):
+        """Normalize angle between minus pi and pi."""
+        angle = np.asarray(angle)
+        TWOPI = 2 * np.pi
+        gtpi = angle >= np.pi
+        while np.any(gtpi):
+            angle[gtpi] -= TWOPI
+            gtpi = angle >= np.pi
+        ltpi = angle < -np.pi
+        while np.any(ltpi):
+            angle[ltpi] += TWOPI
+            ltpi = angle < -np.pi
+        return angle
+
+
+def angular_distance(angle0, angle1):
+    """Absolute difference of angle, including wraps.
+
+    Examples
+    --------
+    >>> dist = 0.1
+    >>> a0 = 1.
+    >>> a1 = 1. + dist
+    >>> np.isclose(angular_distance(a0, a1), dist)
+    True
+    >>> a0 = -0.05
+    >>> a1 = 0.05
+    >>> np.isclose(angular_distance(a0, a1), dist)
+    True
+    >>> a0 += 2 * np.pi
+    >>> np.isclose(angular_distance(a0, a1), dist)
+    True
+    >>> a1 += 6 * np.pi
+    >>> np.isclose(angular_distance(a0, a1), dist)
+    True
+    >>> a0 = np.pi - 0.5 * dist
+    >>> a1 = np.pi + 0.5 * dist
+    >>> np.isclose(angular_distance(a0, a1), dist)
+    True
+    >>> a0 = 2 * np.pi - 0.5 * dist
+    >>> a1 = 2 * np.pi + 0.5 * dist
+    >>> np.isclose(angular_distance(a0, a1), dist)
+    True
+    >>> np.all(np.isclose(
+    ...     angular_distance([0, np.pi, 2 * np.pi],
+    ...                      np.asarray([0, np.pi, 2 * np.pi]) + dist),
+    ...                   dist))
+    True
+    """
+    angle0 = np.fmod(angle0, 2 * np.pi)
+    angle1 = np.fmod(angle1, 2 * np.pi)
+
+    diff = angle1 - angle0
+
+    return np.abs(normalize_angle_mpPI(diff))
 
 
 def _split_freq_splat(freqsplat):
@@ -624,8 +693,9 @@ class Scan(Table):
                 for r in avoid_regions:
                     ras = self['ra'][:, feed]
                     decs = self['dec'][:, feed]
-                    dist = np.sqrt(((ras - r[0]) / np.cos(decs))**2 +
-                                   (decs - r[1])**2)
+                    ra_dist = angular_distance(ras, r[0])
+                    dec_dist = angular_distance(decs, r[1])
+                    dist = np.sqrt((ra_dist * np.cos(decs))**2 + dec_dist**2)
                     mask[dist < r[2]] = 0
             if kind == 'als' and not force_rough:
                 self[ch] = baseline_als(self['time'], self[ch], mask=mask)
