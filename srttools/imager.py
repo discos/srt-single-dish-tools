@@ -64,7 +64,8 @@ def _load_calibration(calibration, map_unit):
 def outlier_score(x):
     """Give a score to data series, larger if higher chance of outliers.
 
-    Inspired by https://stackoverflow.com/questions/22354094/pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
+    Inspired by https://stackoverflow.com/questions/22354094/
+    pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
     """
     xdiff = np.diff(x)
     good = xdiff != 0

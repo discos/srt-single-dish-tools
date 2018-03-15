@@ -693,8 +693,9 @@ class Scan(Table):
                 for r in avoid_regions:
                     ras = self['ra'][:, feed]
                     decs = self['dec'][:, feed]
-                    dist = np.sqrt((angular_distance(ras, r[0]) * np.cos(decs))**2 +
-                                   angular_distance(decs, r[1])**2)
+                    ra_dist = angular_distance(ras, r[0])
+                    dec_dist = angular_distance(decs, r[1])
+                    dist = np.sqrt((ra_dist * np.cos(decs))**2 + dec_dist**2)
                     mask[dist < r[2]] = 0
             if kind == 'als' and not force_rough:
                 self[ch] = baseline_als(self['time'], self[ch], mask=mask)

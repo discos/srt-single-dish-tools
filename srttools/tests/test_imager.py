@@ -26,7 +26,8 @@ from srttools import Scan
 from srttools import CalibratorTable
 from srttools.calibration import HAS_STATSM
 from srttools.read_config import read_config
-from srttools.imager import main_imager, main_preprocess, _excluded_regions_from_args
+from srttools.imager import main_imager, main_preprocess, \
+    _excluded_regions_from_args
 from srttools.simulate import simulate_map
 from srttools.global_fit import display_intermediate
 from srttools.io import mkdir_p

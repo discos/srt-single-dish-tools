@@ -293,7 +293,9 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None,
     ysave = y
     y = y.copy()
 
-    local_outliers = outlier_from_median_filt(y, window_size) & outlier_from_median_filt(y, window_size * 2 + 1)
+    win1 = outlier_from_median_filt(y, window_size)
+    win2 = outlier_from_median_filt(y, window_size * 2 + 1)
+    local_outliers = win1 & win2
 
     Noutliers = len(local_outliers[local_outliers])
     if Noutliers > 0:
