@@ -20,6 +20,7 @@ import traceback
 import six
 import copy
 import functools
+import collections
 from scipy.stats import binned_statistic_2d
 from .scan import Scan, chan_re, list_scans, get_channel_feed
 from .read_config import read_config, sample_config_file
@@ -44,6 +45,10 @@ except ImportError:
 
 
 __all__ = ["ScanSet"]
+
+
+def all_lower(list_of_strings):
+    return [s.lower() for s in list_of_strings]
 
 
 def _load_calibration(calibration, map_unit):
@@ -128,7 +133,21 @@ class ScanSet(Table):
         self.norefilt = norefilt
         self.freqsplat = freqsplat
 
-        if isinstance(data, six.string_types) and data.endswith('hdf5'):
+        if isinstance(data, collections.Iterable) and not isinstance(data, six.string_types):
+            alldata = [ScanSet(d, norefilt=norefilt, config_file=config_file,
+                               freqsplat=freqsplat, nofilt=nofilt,
+                               nosub=nosub) for d in data]
+
+            scan_list = []
+            max_scan_id = 0
+            for d in alldata:
+                scan_list += d.scan_list
+                d['Scan_id'] += max_scan_id
+
+                max_scan_id += len(d.scan_list)
+            data = vstack(alldata)
+            data.scan_list = scan_list
+        elif isinstance(data, six.string_types) and data.endswith('hdf5'):
             data = Table.read(data, path='scanset')
 
             txtfile = data.meta['scan_list_file']
@@ -145,6 +164,8 @@ class ScanSet(Table):
                 self.meta.update(config)
 
             self.create_wcs()
+            if hasattr(data, 'scan_list'):
+                self.scan_list = data.scan_list
 
         else:  # data is a config file
             config_file = data
@@ -165,6 +186,7 @@ class ScanSet(Table):
                                           nosub=nosub, **kwargs):
 
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
+                    print(s.meta['filename'], 'FLAG')
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
@@ -442,7 +464,8 @@ class ScanSet(Table):
 
     def calculate_images(self, no_offsets=False, altaz=False,
                          calibration=None, elevation=None, map_unit="Jy/beam",
-                         calibrate_scans=False, direction=None):
+                         calibrate_scans=False, direction=None,
+                         onlychans=None):
         """Obtain image from all scans.
 
         no_offsets:      use positions from feed 0 for all feeds.
@@ -461,6 +484,18 @@ class ScanSet(Table):
                             self.meta['npix'][1] + 1)
 
         for ch in self.chan_columns:
+            if onlychans is not None and ch not in onlychans and \
+                hasattr(self, 'images') and ch in self.images.keys():
+                images[ch] = \
+                    self.images[ch]
+                images['{}-Sdev'.format(ch)] = \
+                    self.images['{}-Sdev'.format(ch)]
+                images['{}-EXPO'.format(ch)] = \
+                    self.images['{}-EXPO'.format(ch)]
+                images['{}-Outliers'.format(ch)] = \
+                    self.images['{}-Outliers'.format(ch)]
+                continue
+
             feed = get_channel_feed(ch)
 
             if elevation is None:
@@ -571,13 +606,17 @@ class ScanSet(Table):
 
         return self.images
 
-    def scrunch_images(self):
+    def scrunch_images(self, bad_chans=[]):
         """Sum the images from all channels."""
         total_expo = 0
         total_img = 0
         total_sdev = 0
         count = 0
+        lower_bad_chans = all_lower(bad_chans)
         for ch in self.chan_columns:
+            if ch.lower() in lower_bad_chans:
+                print("Discarding ", ch)
+                continue
             total_expo += self.images['{}-EXPO'.format(ch)]
             total_sdev += self.images['{}-Sdev'.format(ch)]**2
             total_img += self.images[ch]
@@ -689,8 +728,8 @@ class ScanSet(Table):
             raise ImportError('interactive_display: '
                               'matplotlib is not installed')
 
-        if not hasattr(self, 'images') or recreate:
-            self.calculate_images()
+        if not hasattr(self, 'images'):
+            recreate = True
 
         self.display_instructions = """
         -------------------------------------------------------------
@@ -721,7 +760,10 @@ class ScanSet(Table):
             chs = [ch]
         if test:
             chs = ['Feed0_RCP']
+
         for ch in chs:
+            if recreate:
+                self.calculate_images(onlychans=ch)
             fig = plt.figure('Imageactive Display - ' + ch)
             gs = GridSpec(1, 2)
             ax = fig.add_subplot(gs[0])
@@ -909,8 +951,9 @@ class ScanSet(Table):
             resave = True
             s.meta['FLAG'] = flag_info
             flag_array = np.zeros(len(s[dim]), dtype=bool) + flag_info
-            self['{}-filt'.format(ch)][mask] = np.logical_not(flag_array)
-            s['{}-filt'.format(ch)] = np.logical_not(flag_array)
+            for c in self.chan_columns:
+                self['{}-filt'.format(c)][mask] = np.logical_not(flag_array)
+                s['{}-filt'.format(c)] = np.logical_not(flag_array)
 
         if resave:
             s.save()
@@ -1023,7 +1066,7 @@ class ScanSet(Table):
     def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
                         no_offsets=False, altaz=False, calibration=None,
                         map_unit="Jy/beam", calibrate_scans=False,
-                        destripe=False, npix_tol=None):
+                        destripe=False, npix_tol=None, bad_chans=[]):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             tail = '.fits'
@@ -1038,6 +1081,7 @@ class ScanSet(Table):
             fname = self.meta['config_file'].replace('.ini', tail)
 
         if destripe:
+            print('Destriping....')
             images = self.destripe_images(no_offsets=no_offsets,
                                           altaz=altaz, calibration=calibration,
                                           map_unit=map_unit, npix_tol=npix_tol,
@@ -1050,7 +1094,7 @@ class ScanSet(Table):
                                            calibrate_scans=calibrate_scans)
 
         if scrunch:
-            self.scrunch_images()
+            self.scrunch_images(bad_chans=bad_chans)
 
         self.create_wcs(altaz)
 
@@ -1232,6 +1276,12 @@ def main_imager(args=None):
                         help='Sum all the images from the single channels into'
                              ' one.')
 
+    parser.add_argument("--bad-chans",
+                        default="", type=str,
+                        help='Channels to be discarded when scrunching, '
+                             'separated by a comma (e.g. '
+                             '--bad-chans Feed2_RCP,Feed3_RCP )')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -1245,6 +1295,11 @@ def main_imager(args=None):
     if args.sample_config:
         sample_config_file()
         sys.exit()
+
+    if args.bad_chans == "":
+        bad_chans = []
+    else:
+        bad_chans = args.bad_chans.split(',')
 
     outfile = args.outfile
 
@@ -1267,10 +1322,10 @@ def main_imager(args=None):
         if outfile is None:
             outfile = infile.replace('.ini', '_dump.hdf5')
 
-    scanset.write(outfile, overwrite=True)
-
     if args.interactive:
         scanset.interactive_display()
+
+    scanset.write(outfile, overwrite=True)
 
     if args.global_fit:
         scanset.fit_full_images(excluded=excluded_xy, chans=args.chans,
@@ -1281,7 +1336,8 @@ def main_imager(args=None):
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate,
                             map_unit=args.unit, scrunch=args.scrunch_channels,
                             altaz=args.altaz, calibrate_scans=not args.quick,
-                            destripe=args.destripe, npix_tol=args.npix_tol)
+                            destripe=args.destripe, npix_tol=args.npix_tol,
+                            bad_chans=bad_chans)
 
 
 def main_preprocess(args=None):

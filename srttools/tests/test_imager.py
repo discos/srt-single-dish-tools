@@ -194,13 +194,10 @@ class TestScanSet(object):
         else:
             excluded_xy, excluded_radec = None, None
 
-        if not os.path.exists('test.hdf5'):
-            klass.scanset = ScanSet(klass.config_file, nosub=False,
-                                    norefilt=False,
-                                    debug=True, avoid_regions=excluded_radec)
-            klass.scanset.write('test.hdf5', overwrite=True)
-        else:
-            klass.scanset = ScanSet('test.hdf5')
+        klass.scanset = ScanSet(klass.config_file, nosub=False,
+                                norefilt=False,
+                                debug=True, avoid_regions=excluded_radec)
+        klass.scanset.write('test.hdf5', overwrite=True)
 
         klass.stdinfo = {}
         klass.stdinfo['FLAG'] = None
@@ -247,6 +244,32 @@ class TestScanSet(object):
     def test_deconly(self):
         scanset = ScanSet(self.deconly)
         assert not np.any(scanset['direction'])
+
+    def test_multiple_tables(self):
+        # scanset_all = ScanSet('test.hdf5')
+        scanset = ScanSet([self.raonly, self.deconly])
+        assert len(scanset.scan_list) == 122
+        # assert len(scanset.scan_list) == len(scanset.scan_list)
+        #
+        # all_ids = set(scanset['Scan_id'])
+        # sscans = [scanset_all.scan_list[i] for i in all_ids]
+        # for pair in zip(all_ids, sscans):
+        #     print(pair)
+        #
+        # all_ids = set(scanset_all['Scan_id'])
+        # allscans = [scanset_all.scan_list[i] for i in all_ids]
+        # for pair in zip(all_ids, allscans):
+        #     print(pair)
+        #
+        # for s in allscans:
+        #     if s in sscans:
+        #         print(s, 'IS THERE')
+        #         continue
+        #     else:
+        #         print(s, 'IS MISSING')
+        #
+        # assert np.max(scanset['Scan_id']) == np.max(scanset_all['Scan_id'])
+        # assert np.min(scanset['Scan_id']) == np.min(scanset_all['Scan_id'])
 
     def test_wrong_file_name_raises(self):
         scanset = ScanSet('test.hdf5')
