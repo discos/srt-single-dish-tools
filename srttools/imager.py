@@ -229,6 +229,7 @@ class ScanSet(Table):
                                       if chan_re.match(i)])
         self.current = None
         self.get_opacity()
+        self.images = None
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
@@ -485,7 +486,7 @@ class ScanSet(Table):
 
         for ch in self.chan_columns:
             if onlychans is not None and ch not in onlychans and \
-                hasattr(self, 'images') and ch in self.images.keys():
+                self.images is not None and ch in self.images.keys():
                 images[ch] = \
                     self.images[ch]
                 images['{}-Sdev'.format(ch)] = \
@@ -639,7 +640,7 @@ class ScanSet(Table):
         Fit a linear trend to each scan to minimize the scatter in an image
         """
 
-        if not hasattr(self, 'images'):
+        if self.images is not None:
             self.calculate_images(no_offsets=no_offsets,
                                   altaz=altaz, calibration=calibration,
                                   map_unit=map_unit)
@@ -675,7 +676,7 @@ class ScanSet(Table):
     def calibrate_images(self, calibration, elevation=np.pi/4,
                          map_unit="Jy/beam"):
         """Calibrate the images."""
-        if not hasattr(self, 'images'):
+        if self.images is not None:
             self.calculate_images()
 
         caltable, conversion_units = _load_calibration(calibration, map_unit)
@@ -728,7 +729,7 @@ class ScanSet(Table):
             raise ImportError('interactive_display: '
                               'matplotlib is not installed')
 
-        if not hasattr(self, 'images'):
+        if self.images is None:
             recreate = True
 
         self.display_instructions = """
