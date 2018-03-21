@@ -640,7 +640,7 @@ class ScanSet(Table):
         Fit a linear trend to each scan to minimize the scatter in an image
         """
 
-        if self.images is not None:
+        if self.images is None:
             self.calculate_images(no_offsets=no_offsets,
                                   altaz=altaz, calibration=calibration,
                                   map_unit=map_unit)
@@ -676,7 +676,7 @@ class ScanSet(Table):
     def calibrate_images(self, calibration, elevation=np.pi/4,
                          map_unit="Jy/beam"):
         """Calibrate the images."""
-        if self.images is not None:
+        if self.images is None:
             self.calculate_images()
 
         caltable, conversion_units = _load_calibration(calibration, map_unit)
