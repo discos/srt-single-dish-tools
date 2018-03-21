@@ -1029,8 +1029,8 @@ class CalibratorTable(Table):
 
             elevations = np.arange(np.min(self['Elevation']),
                                    np.max(self['Elevation']), 0.001)
-            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str,
-                                                               elevations)
+            jy_over_cts, jy_over_cts_err = \
+                self.Jy_over_counts(channel_str, np.radians(elevations))
             ax00.plot(elevations, jy_over_cts, color=color)
             ax00.plot(elevations, jy_over_cts + jy_over_cts_err, color=color)
             ax00.plot(elevations, jy_over_cts - jy_over_cts_err, color=color)
@@ -1044,7 +1044,10 @@ class CalibratorTable(Table):
                                   yerrcol="Flux/Counts Err", ax=ax01,
                                   channel=channel, color=color)
 
-            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str, 45)
+            jy_over_cts, jy_over_cts_err = \
+                self.Jy_over_counts(channel_str,
+                                    np.radians(np.mean(elevations)))
+
             ax01.axhline(jy_over_cts, color=color)
             ax01.axhline(jy_over_cts + jy_over_cts_err, color=color)
             ax01.axhline(jy_over_cts - jy_over_cts_err, color=color)
