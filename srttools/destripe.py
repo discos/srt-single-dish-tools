@@ -76,7 +76,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     Examples
     --------
     >>> img = np.zeros((2,2))
-    >>> np.all(clip_and_smooth(img, smooth_window=(1, 1)) == img)
+    >>> np.all(clip_and_smooth(img, smooth_window=(5, 5)) == img)
     True
     >>> img = np.array([[0, 0], [1, 1]])
     >>> np.all(clip_and_smooth(img, direction=0) == img)
@@ -104,16 +104,17 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
 
     if smooth_window == 0:
         pass
+
     elif isinstance(smooth_window, collections.Iterable):
-        img = gaussian_filter(img, smooth_window)
+        img = gaussian_filter(img, np.array(smooth_window) / 5)
     else:
-        img = gaussian_filter1d(img, smooth_window,
+        img = gaussian_filter1d(img, smooth_window / 5,
                                 axis=np.logical_not(direction))
     return img
 
 
-def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4,
-                   expo_hor=None, expo_ver=None):
+def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=10,
+                   expo_hor=None, expo_ver=None, window_shape='hanning'):
     """Basket-Weaving algorithm from Mueller et al. 1707.05573v6."""
     it = 1
     if expo_hor is None:
@@ -125,19 +126,21 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=4,
     width = np.max(img_hor.shape)
 
     while it <= niter_max:
-        window = width // 2**it
+        window = width // 2 - 4 * it
         if window < 4:
             break
 
         diff = img_hor - img_ver
         diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                               smooth_window=(0., window))
+                               smooth_window=(0., window),
+                               window_shape=window_shape)
 
         img_hor = img_hor - diff
 
         diff = img_ver - img_hor
         diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                               smooth_window=(window, 0.))
+                               smooth_window=(window, 0.),
+                               window_shape=window_shape)
 
         img_ver = img_ver - diff
         it += 1

@@ -485,6 +485,13 @@ class ScanSet(Table):
                             self.meta['npix'][1] + 1)
 
         for ch in self.chan_columns:
+            if direction is None:
+                print("Calculating image in channel {}".format(ch), end='\r')
+            else:
+                dir_string = 'horizontal' if direction == 1 else 'vertical'
+                print("Calculating image in channel {}, {}".format(ch,
+                                                                   dir_string),
+                      end='\r')
             if onlychans is not None and ch not in onlychans and \
                 self.images is not None and ch in self.images.keys():
                 images[ch] = \
@@ -556,7 +563,7 @@ class ScanSet(Table):
             img_sdev = img_sq
             img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
 
-            img_sdev = np.sqrt(img_sdev)
+            img_sdev[good] = np.sqrt(img_sdev[good])
             if calibration is not None and calibrate_scans:
                 cal_rel_err = \
                     np.mean(Jy_over_counts_err / Jy_over_counts).value
