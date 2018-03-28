@@ -132,15 +132,13 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=10,
 
         diff = img_hor - img_ver
         diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                               smooth_window=(0., window),
-                               window_shape=window_shape)
+                               smooth_window=(0., window))
 
         img_hor = img_hor - diff
 
         diff = img_ver - img_hor
         diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                               smooth_window=(window, 0.),
-                               window_shape=window_shape)
+                               smooth_window=(window, 0.))
 
         img_ver = img_ver - diff
         it += 1
