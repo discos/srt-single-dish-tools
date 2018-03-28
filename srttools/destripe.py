@@ -152,7 +152,7 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=10,
 
 
 def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
-                     niter=4, expo_hor=None, expo_ver=None,
+                     niter=10, expo_hor=None, expo_ver=None,
                      npix_tol=None, clip_sigma=3):
     if expo_hor is None or expo_ver is None:
         image_mean = (image_hor + image_ver) / 2
