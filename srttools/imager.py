@@ -580,7 +580,7 @@ class ScanSet(Table):
 
         return images
 
-    def destripe_images(self, niter=4, npix_tol=None, **kwargs):
+    def destripe_images(self, niter=10, npix_tol=None, **kwargs):
         from .destripe import destripe_wrapper
 
         images = self.calculate_images(**kwargs)

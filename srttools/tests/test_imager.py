@@ -249,27 +249,6 @@ class TestScanSet(object):
         # scanset_all = ScanSet('test.hdf5')
         scanset = ScanSet([self.raonly, self.deconly])
         assert len(scanset.scan_list) == 122
-        # assert len(scanset.scan_list) == len(scanset.scan_list)
-        #
-        # all_ids = set(scanset['Scan_id'])
-        # sscans = [scanset_all.scan_list[i] for i in all_ids]
-        # for pair in zip(all_ids, sscans):
-        #     print(pair)
-        #
-        # all_ids = set(scanset_all['Scan_id'])
-        # allscans = [scanset_all.scan_list[i] for i in all_ids]
-        # for pair in zip(all_ids, allscans):
-        #     print(pair)
-        #
-        # for s in allscans:
-        #     if s in sscans:
-        #         print(s, 'IS THERE')
-        #         continue
-        #     else:
-        #         print(s, 'IS MISSING')
-        #
-        # assert np.max(scanset['Scan_id']) == np.max(scanset_all['Scan_id'])
-        # assert np.min(scanset['Scan_id']) == np.min(scanset_all['Scan_id'])
 
     def test_wrong_file_name_raises(self):
         scanset = ScanSet('test.hdf5')
@@ -472,7 +451,6 @@ class TestScanSet(object):
             plt.savefig('img_scrunch_sdev.png')
             plt.close(fig)
 
-    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calc_and_calibrate_image_pixel(self):
         scanset = ScanSet('test.hdf5')
 
@@ -484,8 +462,9 @@ class TestScanSet(object):
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
-        rtol = 0.1 if HAS_STATSM else 0.15
+        rtol = 0.2
 
+        print(np.sum(images['Feed0_RCP'][good]), self.simulated_flux)
         assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=rtol)
 
@@ -502,6 +481,7 @@ class TestScanSet(object):
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
+        print(np.sum(images['Feed0_RCP'][good]), self.simulated_flux)
         assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=0.1)
 
@@ -521,10 +501,10 @@ class TestScanSet(object):
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
 
+        print(np.sum(images['TOTAL'][good]), self.simulated_flux)
         assert np.isclose(np.sum(images['TOTAL'][good]),
                           self.simulated_flux, rtol=0.1)
 
-    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_image_pixel(self):
         scanset = ScanSet('test.hdf5')
 
@@ -538,10 +518,10 @@ class TestScanSet(object):
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
         rtol = 0.1 if HAS_STATSM else 0.15
 
+        print(np.sum(images['Feed0_RCP'][good]), self.simulated_flux)
         assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=rtol)
 
-    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_image_beam(self):
         scanset = ScanSet('test.hdf5')
 
@@ -549,6 +529,7 @@ class TestScanSet(object):
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/beam")
 
+        print(np.max(images['Feed0_RCP']), self.simulated_flux)
         assert np.allclose(np.max(images['Feed0_RCP']), self.simulated_flux,
                            atol=0.1)
 
@@ -561,7 +542,6 @@ class TestScanSet(object):
                                               map_unit="junk")
             assert "Unit for calibration not recognized" in str(excinfo)
 
-    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_image_sr(self):
         scanset = ScanSet('test.hdf5')
 
@@ -573,11 +553,12 @@ class TestScanSet(object):
                                               map_unit="Jy/pixel")
 
         pixel_area = scanset.meta['pixel_size'] ** 2
+        print(images['Feed0_RCP'],
+              images_pix['Feed0_RCP'] / pixel_area.to(u.sr).value)
         assert np.allclose(images['Feed0_RCP'],
                            images_pix['Feed0_RCP'] / pixel_area.to(u.sr).value,
                            rtol=0.05)
 
-    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_scanset_pixel(self):
         scanset = ScanSet('test.hdf5')
         images_standard = scanset.calculate_images(calibration=self.calfile,
@@ -585,11 +566,10 @@ class TestScanSet(object):
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/pixel",
                                           calibrate_scans=True)
-
+        print(images['Feed0_RCP'], images_standard['Feed0_RCP'])
         assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'],
                            rtol=0.05)
 
-    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_scanset_beam(self):
         scanset = ScanSet('test.hdf5')
         images_standard = scanset.calculate_images(calibration=self.calfile,
@@ -598,10 +578,10 @@ class TestScanSet(object):
                                           map_unit="Jy/beam",
                                           calibrate_scans=True)
 
+        print(images['Feed0_RCP'], images_standard['Feed0_RCP'])
         assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'],
                            atol=1e-3)
 
-    @pytest.mark.skipif('not HAS_PYREGION')
     def test_calibrate_scanset_sr(self):
         scanset = ScanSet('test.hdf5')
         images_standard = scanset.calculate_images(calibration=self.calfile,
@@ -612,6 +592,7 @@ class TestScanSet(object):
 
         good = images['Feed0_RCP'] > 1
 
+        print(images['Feed0_RCP'][good], images_standard['Feed0_RCP'][good])
         assert np.allclose(images['Feed0_RCP'][good],
                            images_standard['Feed0_RCP'][good], rtol=0.05)
 
