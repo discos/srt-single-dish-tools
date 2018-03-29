@@ -230,6 +230,8 @@ class ScanSet(Table):
         self.current = None
         self.get_opacity()
         self.images = None
+        self.images_hor = None
+        self.images_ver = None
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
@@ -573,25 +575,39 @@ class ScanSet(Table):
             images['{}-EXPO'.format(ch)] = expomap.T
             images['{}-Outliers'.format(ch)] = img_outliers.T
 
-        self.images = images
+        if direction is None:
+            self.images = images
+        elif direction == 0:
+            self.images_hor = images
+        elif direction == 1:
+            self.images_ver = images
+
         if calibration is not None and not calibrate_scans:
             self.calibrate_images(calibration, elevation=elevation,
-                                  map_unit=map_unit)
+                                  map_unit=map_unit, direction=direction)
 
         return images
 
     def destripe_images(self, niter=10, npix_tol=None, **kwargs):
         from .destripe import destripe_wrapper
 
-        images = self.calculate_images(**kwargs)
+        if self.images is None:
+            images = self.calculate_images(**kwargs)
+        else:
+            images = self.images
 
         destriped = {}
         for ch in self.chan_columns:
             if ch in images:
                 destriped[ch + '_dirty'] = images[ch]
 
-        images_hor = self.calculate_images(direction=0, **kwargs)
-        images_ver = self.calculate_images(direction=1, **kwargs)
+        if self.images_hor is None:
+            self.calculate_images(direction=0, **kwargs)
+        if self.images_ver is None:
+            self.calculate_images(direction=1, **kwargs)
+
+        images_hor, images_ver = self.images_hor, self.images_ver
+
         for ch in images_hor:
             if 'Sdev' in ch:
                 destriped[ch] = (images_hor[ch]**2 + images_ver[ch]**2) ** 0.5
@@ -681,10 +697,17 @@ class ScanSet(Table):
         return area_conversion, final_unit
 
     def calibrate_images(self, calibration, elevation=np.pi/4,
-                         map_unit="Jy/beam"):
+                         map_unit="Jy/beam", direction=None):
         """Calibrate the images."""
         if self.images is None:
-            self.calculate_images()
+            self.calculate_images(direction=direction)
+
+        if direction == 0:
+            images = self.images_hor
+        elif direction == 1:
+            images = self.images_ver
+        else:
+            images = self.images
 
         caltable, conversion_units = _load_calibration(calibration, map_unit)
 
@@ -697,15 +720,15 @@ class ScanSet(Table):
             if np.isnan(Jy_over_counts):
                 warnings.warn("The Jy/counts factor is nan")
                 continue
-            A = self.images[ch].copy() * u.ct
-            eA = self.images['{}-Sdev'.format(ch)].copy() * u.ct
+            A = images[ch].copy() * u.ct
+            eA = images['{}-Sdev'.format(ch)].copy() * u.ct
 
-            self.images['{}-RAW'.format(ch)] = \
-                self.images['{}'.format(ch)].copy()
-            self.images['{}-RAW-Sdev'.format(ch)] = \
-                self.images['{}-Sdev'.format(ch)].copy()
-            self.images['{}-RAW-EXPO'.format(ch)] = \
-                self.images['{}-EXPO'.format(ch)].copy()
+            images['{}-RAW'.format(ch)] = \
+                images['{}'.format(ch)].copy()
+            images['{}-RAW-Sdev'.format(ch)] = \
+                images['{}-Sdev'.format(ch)].copy()
+            images['{}-RAW-EXPO'.format(ch)] = \
+                images['{}-EXPO'.format(ch)].copy()
             bad = eA != eA
             A[bad] = 1 * u.ct
             eA[bad] = 0 * u.ct
@@ -723,11 +746,19 @@ class ScanSet(Table):
             C = A * area_conversion * Jy_over_counts
             C[bad] = 0
 
-            self.images[ch] = C.to(final_unit).value
+            images[ch] = C.to(final_unit).value
 
             eC = C * (eA / A + eB / B)
 
-            self.images['{}-Sdev'.format(ch)] = eC.to(final_unit).value
+            images['{}-Sdev'.format(ch)] = eC.to(final_unit).value
+
+        if direction == 0:
+            self.images_hor = images
+        elif direction == 1:
+            self.images_ver = images
+        else:
+            self.images = images
+
 
     def interactive_display(self, ch=None, recreate=False, test=False):
         """Modify original scans from the image display."""
@@ -1338,8 +1369,6 @@ def main_imager(args=None):
     if args.global_fit:
         scanset.fit_full_images(excluded=excluded_xy, chans=args.chans,
                                 altaz=args.altaz)
-        scanset.write(outfile.replace('.hdf5', '_baselinesub.hdf5'),
-                      overwrite=True)
 
     scanset.save_ds9_images(save_sdev=True, calibration=args.calibrate,
                             map_unit=args.unit, scrunch=args.scrunch_channels,
@@ -1347,6 +1376,7 @@ def main_imager(args=None):
                             destripe=args.destripe, npix_tol=args.npix_tol,
                             bad_chans=bad_chans)
 
+    scanset.write(outfile, overwrite=True)
 
 def main_preprocess(args=None):
     """Preprocess the data."""
