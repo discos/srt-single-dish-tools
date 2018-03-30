@@ -44,6 +44,11 @@ except ImportError:
     HAS_MPL = False
 
 
+IMG_STR = '__img_dump_'
+IMG_HOR_STR = '__img_hor_dump_'
+IMG_VER_STR = '__img_ver_dump_'
+
+
 __all__ = ["ScanSet"]
 
 
@@ -132,6 +137,9 @@ class ScanSet(Table):
             return
         self.norefilt = norefilt
         self.freqsplat = freqsplat
+        self.images = None
+        self.images_hor = None
+        self.images_ver = None
 
         if isinstance(data, collections.Iterable) and not isinstance(data, six.string_types):
             alldata = [ScanSet(d, norefilt=norefilt, config_file=config_file,
@@ -156,6 +164,7 @@ class ScanSet(Table):
                 self.scan_list = []
                 for i in fobj.readlines():
                     self.scan_list.append(i.strip())
+            self.read_images_from_meta()
 
         if isinstance(data, Table):
             Table.__init__(self, data, **kwargs)
@@ -229,9 +238,6 @@ class ScanSet(Table):
                                       if chan_re.match(i)])
         self.current = None
         self.get_opacity()
-        self.images = None
-        self.images_hor = None
-        self.images_ver = None
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
@@ -623,7 +629,8 @@ class ScanSet(Table):
                 destripe_wrapper(images_hor[ch], images_ver[ch],
                                  niter=niter, npix_tol=npix_tol,
                                  expo_hor=images_hor[ch + '-EXPO'],
-                                 expo_ver=images_ver[ch + '-EXPO'])
+                                 expo_ver=images_ver[ch + '-EXPO'],
+                                 label=ch)
 
         for ch in destriped:
             self.images[ch] = destriped[ch]
@@ -1017,11 +1024,37 @@ class ScanSet(Table):
             for i in self.scan_list:
                 print(i, file=fobj)
 
+        self.update_meta_with_images()
+
         try:
             Table.write(self, fname, path='scanset', serialize_meta=True,
                         **kwargs)
         except astropy.io.registry.IORegistryError as e:
             raise astropy.io.registry.IORegistryError(fname + ': ' + str(e))
+
+    def update_meta_with_images(self):
+        if self.images is not None:
+            for key in self.images.keys():
+                self.meta[IMG_STR + key] = self.images[key]
+        if self.images_hor is not None:
+            for key in self.images_hor.keys():
+                self.meta[IMG_HOR_STR + key] = self.images_hor[key]
+        if self.images_ver is not None:
+            for key in self.images_ver.keys():
+                self.meta[IMG_VER_STR + key] = self.images_ver[key]
+
+    def read_images_from_meta(self):
+        for key in self.meta.keys():
+            print(key)
+            if IMG_STR in key:
+                self.images = {}
+                self.images[key.replace(IMG_STR, '')] = self.meta[key]
+            elif IMG_HOR_STR in key:
+                self.images_hor = {}
+                self.images_hor[key.replace(IMG_HOR_STR, '')] = self.meta[key]
+            elif IMG_VER_STR in key:
+                self.images_ver = {}
+                self.images_ver[key.replace(IMG_VER_STR, '')] = self.meta[key]
 
     def calculate_zernike_moments(self, im, cm=None, radius=0.3, norder=8,
                                   label=None, use_log=False):
