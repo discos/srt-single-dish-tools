@@ -559,7 +559,8 @@ class Scan(Table):
             if (('backsub' not in self.meta.keys() or
                     not self.meta['backsub'])) and not nosub:
                 logging.info('Subtracting the baseline')
-                self.baseline_subtract(avoid_regions=avoid_regions)
+                self.baseline_subtract(avoid_regions=avoid_regions,
+                                       plot=debug)
 
             if not nosave:
                 self.save()

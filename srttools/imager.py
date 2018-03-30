@@ -144,7 +144,7 @@ class ScanSet(Table):
         if isinstance(data, collections.Iterable) and not isinstance(data, six.string_types):
             alldata = [ScanSet(d, norefilt=norefilt, config_file=config_file,
                                freqsplat=freqsplat, nofilt=nofilt,
-                               nosub=nosub) for d in data]
+                               nosub=nosub, **kwargs) for d in data]
 
             scan_list = []
             max_scan_id = 0
