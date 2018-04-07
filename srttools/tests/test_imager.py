@@ -230,6 +230,24 @@ class TestScanSet(object):
     def test_script_is_installed_prep(self):
         sp.check_call('SDTpreprocess -h'.split(' '))
 
+    def test_preprocess_no_config(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_preprocess([])
+        assert "Please specify the config file!" in str(excinfo)
+
+    def test_preprocess_single_files(self):
+        files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
+
+        main_preprocess(files[:2] + ['--debug'])
+
+    def test_preprocess_config(self):
+        main_preprocess(['-c', self.config_file])
+
+    def test_imager_no_config(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_imager([])
+        assert "Please specify the config file!" in str(excinfo)
+
     def test_load_table_and_config(self):
         from astropy.table import Table
         table = Table.read('test.hdf5', path='scanset')
@@ -806,23 +824,6 @@ class TestScanSet(object):
         assert np.all(np.array(after, dtype=bool) ==
                       np.array(s['Feed0_RCP-filt'], dtype=bool))
         os.unlink(sname.replace('fits', 'hdf5'))
-
-    def test_preprocess_no_config(self):
-        with pytest.raises(ValueError) as excinfo:
-            main_preprocess([])
-        assert "Please specify the config file!" in str(excinfo)
-
-    def test_preprocess_single_files(self):
-        files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
-        main_preprocess(files[:2])
-
-    def test_preprocess_config(self):
-        main_preprocess(['-c', self.config_file])
-
-    def test_imager_no_config(self):
-        with pytest.raises(ValueError) as excinfo:
-            main_imager([])
-        assert "Please specify the config file!" in str(excinfo)
 
     def test_imager_global_fit_valid(self):
         '''Test image production.'''
