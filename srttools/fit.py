@@ -217,7 +217,9 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
         Fitted baseline
     """
     if start_pars is None:
-        m0 = 0
+        m0 = (np.median(y[-20:]) - np.median(y[:20])) / \
+                   (np.mean(x[-20:]) - np.mean(x[:20]))
+
         q0 = min(y)
         start_pars = [q0, m0]
 
@@ -427,7 +429,10 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
     if p is None:
         p = 0.001
 
-    y_mod = purge_outliers(copy.deepcopy(y), up=outlier_purging[0],
+    N = len(y)
+    approx_m = (np.median(y[-20:]) - np.median(y[:20])) / N
+    y = y - approx_m * np.arange(N)
+    y_mod = purge_outliers(y, up=outlier_purging[0],
                            down=outlier_purging[1],
                            mask=mask)
 
@@ -440,7 +445,7 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
 
         good = np.abs(ysub) < 10 * std
 
-        offset = offset_fit(x[good], ysub[good], 0)
+        offset = np.median(ysub[good])
 
     if return_baseline:
         return y - z - offset, z + offset
@@ -476,7 +481,10 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
         raise ValueError('kind has to be one of: gauss, lorentz')
     from astropy.modeling import models, fitting
 
-    base = models.Linear1D(slope=0, intercept=np.min(y), name='Baseline')
+    approx_m = (np.median(y[-20:]) - np.median(y[:20])) / \
+               (np.mean(x[-20:]) - np.mean(x[:20]))
+
+    base = models.Linear1D(slope=approx_m, intercept=np.min(y), name='Baseline')
 
     xrange = np.max(x) - np.min(x)
     yrange = np.max(y) - np.min(y)
