@@ -153,7 +153,7 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=10,
 
 def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
                      niter=10, expo_hor=None, expo_ver=None,
-                     npix_tol=None, clip_sigma=3):
+                     npix_tol=None, clip_sigma=3, label="img"):
     if expo_hor is None or expo_ver is None:
         image_mean = (image_hor + image_ver) / 2
         expo_hor = expo_ver = np.ones_like(image_mean)
@@ -167,18 +167,20 @@ def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
     if HAS_MPL:
         fig = plt.figure()
         plt.imshow(image_hor[mask].reshape(masked_image.shape))
-        plt.savefig('img_hor.png')
+        plt.savefig(label + '_hor.png')
         plt.imshow(image_ver[mask].reshape(masked_image.shape))
-        plt.savefig('img_ver.png')
+        plt.savefig(label + '_ver.png')
+        plt.imshow((image_ver[mask] - image_hor[mask]).reshape(masked_image.shape))
+        plt.savefig(label + '_diff.png')
         plt.close(fig)
 
         fig = plt.figure()
         plt.imshow(expo_hor[mask].reshape(masked_image.shape))
-        plt.savefig('img_expoh.png')
+        plt.savefig(label + '_expoh.png')
         plt.imshow(expo_ver[mask].reshape(masked_image.shape))
-        plt.savefig('img_expov.png')
+        plt.savefig(label + '_expov.png')
         plt.imshow(image_mean[mask].reshape(masked_image.shape))
-        plt.savefig('img_initial.png')
+        plt.savefig(label + '_initial.png')
         plt.close(fig)
 
     image_mean[mask] = \
@@ -192,7 +194,7 @@ def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
 
     if HAS_MPL:
         plt.imshow(image_mean[mask].reshape(masked_image.shape))
-        plt.savefig('img_destr.png')
+        plt.savefig(label + '_destr.png')
 
     if alg == 'basket-weaving':
         return image_mean

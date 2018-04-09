@@ -60,6 +60,7 @@ matrix:
         - env: PYTHON_VERSION=3.4 SETUP_CMD='test' NUMPY_VERSION=1.11
     allow_failures:
         # Try Astropy development version
+        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage' PIP_DEPENDENCIES='patsy codecov faulthandler'
         - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.4 ASTROPY_VERSION=1.3 SETUP_CMD='test'
         - env: PYTHON_VERSION=3.4 SETUP_CMD='test' NUMPY_VERSION=1.11

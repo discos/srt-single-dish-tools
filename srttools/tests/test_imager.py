@@ -3,6 +3,8 @@
 from __future__ import (absolute_import, division,
                         print_function)
 import numpy as np
+import hashlib
+
 try:
     import contextlib2 as contextlib
     FileNotFoundError = IOError
@@ -58,6 +60,13 @@ def logger():
 
 
 np.random.seed(1241347)
+
+
+def _md5(file):
+    with open(file, 'rb') as fobj:
+        string = fobj.read()
+
+    return hashlib.md5(string).hexdigest()
 
 
 def _2d_gauss(x, y, sigma=2.5 / 60.):
@@ -229,6 +238,24 @@ class TestScanSet(object):
 
     def test_script_is_installed_prep(self):
         sp.check_call('SDTpreprocess -h'.split(' '))
+
+    def test_preprocess_no_config(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_preprocess([])
+        assert "Please specify the config file!" in str(excinfo)
+
+    def test_preprocess_single_files(self):
+        files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
+
+        main_preprocess(files[:2] + ['--debug'])
+
+    def test_preprocess_config(self):
+        main_preprocess(['-c', self.config_file])
+
+    def test_imager_no_config(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_imager([])
+        assert "Please specify the config file!" in str(excinfo)
 
     def test_load_table_and_config(self):
         from astropy.table import Table
@@ -807,22 +834,11 @@ class TestScanSet(object):
                       np.array(s['Feed0_RCP-filt'], dtype=bool))
         os.unlink(sname.replace('fits', 'hdf5'))
 
-    def test_preprocess_no_config(self):
+    def test_imager_global_fit_invalid(self):
+        '''Test image production.'''
         with pytest.raises(ValueError) as excinfo:
-            main_preprocess([])
-        assert "Please specify the config file!" in str(excinfo)
-
-    def test_preprocess_single_files(self):
-        files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
-        main_preprocess(files[:2])
-
-    def test_preprocess_config(self):
-        main_preprocess(['-c', self.config_file])
-
-    def test_imager_no_config(self):
-        with pytest.raises(ValueError) as excinfo:
-            main_imager([])
-        assert "Please specify the config file!" in str(excinfo)
+            main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
+            assert "Exclusion region has to be specified as " in str(excinfo)
 
     def test_imager_global_fit_valid(self):
         '''Test image production.'''
@@ -836,12 +852,6 @@ class TestScanSet(object):
 
         main_imager('test.hdf5 -g '
                     '-e {} {} {}'.format(*(excluded[0])).split(' '))
-
-    def test_imager_global_fit_invalid(self):
-        '''Test image production.'''
-        with pytest.raises(ValueError) as excinfo:
-            main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
-            assert "Exclusion region has to be specified as " in str(excinfo)
 
     @pytest.mark.skipif('not HAS_PYREGION')
     def test_global_fit_image_using_ds9_region(self):

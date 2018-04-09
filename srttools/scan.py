@@ -247,7 +247,22 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     srttools.fit.ref_mad
     """
     if len(dynamical_spectrum.shape) == 1:
+        if not debug or not HAS_MPL:
+            return None
+
+        lc = dynamical_spectrum
+        times = length * np.arange(lc.size) / lc.size
+
+        # Now, PLOT IT ALL --------------------------------
+        # Prepare subplots
+        fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+        plt.plot(times, lc)
+        plt.xlabel('Time')
+        plt.ylabel('Counts')
+        plt.savefig("{}_{}.pdf".format(outfile, label))
+        plt.close(fig)
         return None
+
     dynspec_len, nbin = dynamical_spectrum.shape
 
     # Calculate first light curve
@@ -559,7 +574,8 @@ class Scan(Table):
             if (('backsub' not in self.meta.keys() or
                     not self.meta['backsub'])) and not nosub:
                 logging.info('Subtracting the baseline')
-                self.baseline_subtract(avoid_regions=avoid_regions)
+                self.baseline_subtract(avoid_regions=avoid_regions,
+                                       plot=debug)
 
             if not nosave:
                 self.save()
@@ -619,7 +635,7 @@ class Scan(Table):
                 continue
             results = \
                 clean_scan_using_variability(
-                    self[ch], self['time'],
+                    self[ch], 86400 * (self['time'][-1] - self['time'][0]),
                     self[ch].meta['bandwidth'],
                     good_mask=good_mask,
                     freqsplat=freqsplat,
@@ -659,7 +675,8 @@ class Scan(Table):
                     self.remove_column(ch)
                 self[ch + 'TEMP'].name = ch
 
-    def baseline_subtract(self, kind='als', plot=False, avoid_regions=None):
+    def baseline_subtract(self, kind='als', plot=False, avoid_regions=None,
+                          **kwargs):
         """Subtract the baseline.
 
         Parameters
@@ -698,7 +715,8 @@ class Scan(Table):
                     dist = np.sqrt((ra_dist * np.cos(decs))**2 + dec_dist**2)
                     mask[dist < r[2]] = 0
             if kind == 'als' and not force_rough:
-                self[ch] = baseline_als(self['time'], self[ch], mask=mask)
+                self[ch] = baseline_als(self['time'], self[ch], mask=mask,
+                                        **kwargs)
             elif kind == 'rough' or force_rough:
                 self[ch] = baseline_rough(self['time'], self[ch], mask=mask)
             else:
