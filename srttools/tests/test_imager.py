@@ -3,6 +3,8 @@
 from __future__ import (absolute_import, division,
                         print_function)
 import numpy as np
+import hashlib
+
 try:
     import contextlib2 as contextlib
     FileNotFoundError = IOError
@@ -58,6 +60,13 @@ def logger():
 
 
 np.random.seed(1241347)
+
+
+def _md5(file):
+    with open(file, 'rb') as fobj:
+        string = fobj.read()
+
+    return hashlib.md5(string).hexdigest()
 
 
 def _2d_gauss(x, y, sigma=2.5 / 60.):
@@ -825,6 +834,12 @@ class TestScanSet(object):
                       np.array(s['Feed0_RCP-filt'], dtype=bool))
         os.unlink(sname.replace('fits', 'hdf5'))
 
+    def test_imager_global_fit_invalid(self):
+        '''Test image production.'''
+        with pytest.raises(ValueError) as excinfo:
+            main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
+            assert "Exclusion region has to be specified as " in str(excinfo)
+
     def test_imager_global_fit_valid(self):
         '''Test image production.'''
         # Get information on images
@@ -837,12 +852,6 @@ class TestScanSet(object):
 
         main_imager('test.hdf5 -g '
                     '-e {} {} {}'.format(*(excluded[0])).split(' '))
-
-    def test_imager_global_fit_invalid(self):
-        '''Test image production.'''
-        with pytest.raises(ValueError) as excinfo:
-            main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
-            assert "Exclusion region has to be specified as " in str(excinfo)
 
     @pytest.mark.skipif('not HAS_PYREGION')
     def test_global_fit_image_using_ds9_region(self):

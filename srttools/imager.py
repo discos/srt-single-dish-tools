@@ -684,7 +684,8 @@ class ScanSet(Table):
             print("Fitting channel {}".format(ch))
             feed = get_channel_feed(ch)
             self[ch + "_save"] = self[ch].copy()
-            self[ch] = Column(fit_full_image(self, chan=ch, feed=feed,
+            self[ch] = Column(fit_full_image(self, chan=ch,
+                                             feed=feed,
                                              excluded=excluded, par=par))
 
         self.calculate_images(no_offsets=no_offsets,
