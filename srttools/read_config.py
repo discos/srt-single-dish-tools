@@ -49,6 +49,10 @@ skydip_directories :
 ; calculating light curves, and ignored when calculating images
 
 noise_threshold : 5
+
+; For spectral rms smoothing, in percentage of then number of spectral bins.
+smooth_window : 0.05
+
 ;; Coordinates have to be specified in decimal degrees. ONLY use if different
 ;; from target coordinates!
 ;    reference_ra : 10.5
@@ -116,6 +120,7 @@ def read_config(fname=None):
     config_output['goodchans'] = None
     config_output['filtering_factor'] = '0'
     config_output['noise_threshold'] = '5'
+    config_output['smooth_window'] = '0.05'
 
     # --------------------------------------------------------------------
 
@@ -177,6 +182,7 @@ def read_config(fname=None):
             [int(n) for n in config_output['goodchans']]
 
     config_output['noise_threshold'] = float(config_output['noise_threshold'])
+    config_output['smooth_window'] = float(config_output['smooth_window'])
     config_output['filtering_factor'] = \
         float(config_output['filtering_factor'])
 

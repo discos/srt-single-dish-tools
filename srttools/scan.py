@@ -8,6 +8,7 @@ from .read_config import read_config, get_config_file
 from .fit import ref_mad, contiguous_regions
 import os
 import numpy as np
+from scipy.signal import medfilt
 from astropy.table import Table, Column
 try:
     import matplotlib.pyplot as plt
@@ -184,7 +185,8 @@ def _clean_dyn_spec(dynamical_spectrum, bad_intervals):
 def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  good_mask=None, freqsplat=None,
                                  noise_threshold=5, debug=True, nofilt=False,
-                                 outfile="out", label=""):
+                                 outfile="out", label="",
+                                 smoothing_window=0.05):
     """Clean a spectroscopic scan using the difference of channel variability.
 
     From the dynamical spectrum, i.e. the list of spectra obtained in each
@@ -228,6 +230,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         Root file name for the diagnostics plots (outfile_label.png)
     label : str
         Label to append to the filename (outfile_label.png)
+    smoothing_window : float
+        Width of smoothing window, in fraction of spectral length
 
     Returns
     -------
@@ -302,19 +306,16 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     # Some statistical information on spectral var
 
-    median_spectral_var = np.median(mod_spectral_var[freqmask])
+    # median_spectral_var = np.median(mod_spectral_var[freqmask])
     stdref = ref_mad(mod_spectral_var[freqmask], 20)
 
     # Calculate baseline of spectral var ---------------
     # Empyrical formula, with no physical meaning
-    lam = 10**(-6.2 + np.log2(nbin) * 1.2)
 
-    _, baseline = baseline_als(np.arange(binmax - binmin),
-                               np.array(mod_spectral_var[binmin:binmax]),
-                               return_baseline=True,
-                               lam=lam,
-                               p=0.001, offset_correction=False,
-                               outlier_purging=(False, True), niter=30)
+    smoothing_window_int = int(nbin * smoothing_window) // 2 * 2 + 1
+    smoothing_window_int = np.max([smoothing_window_int, 11])
+    baseline = medfilt(mod_spectral_var[binmin:binmax],
+                       smoothing_window_int)
 
     baseline = \
         np.concatenate((np.zeros(binmin) + baseline[0],
@@ -327,7 +328,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     if nofilt:
         wholemask = freqmask
     else:
-        threshold = baseline + 2 * noise_threshold * stdref
+        threshold = baseline + noise_threshold * stdref
         mask = spectral_var < threshold
 
         wholemask = freqmask & mask
@@ -428,7 +429,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_var.plot(allbins[1:], baseline[1:])
     ax_var.plot(allbins[1:], baseline[1:] + 2 * noise_threshold * stdref)
     minb = np.min(baseline[1:])
-    ax_var.set_ylim([minb, median_spectral_var + 10 * stdref])
+    ax_var.set_ylim([minb, np.max(baseline[1:]) + 10 * stdref])
 
     # Plot light curves
 
@@ -642,7 +643,8 @@ class Scan(Table):
                     noise_threshold=noise_threshold,
                     debug=debug, nofilt=nofilt,
                     outfile=root_name(self.meta['filename']),
-                    label="{}".format(ic))
+                    label="{}".format(ic),
+                    smoothing_window=self.meta['smooth_window'])
 
             if results is None:
                 continue

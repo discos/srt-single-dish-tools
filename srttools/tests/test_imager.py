@@ -249,6 +249,11 @@ class TestScanSet(object):
 
         main_preprocess(files[:2] + ['--debug'])
 
+    def test_preprocess_invalid(self):
+        with pytest.warns(UserWarning) as record:
+            main_preprocess([self.config_file])
+        assert "is not in a known format" in record[0].message.args[0]
+
     def test_preprocess_config(self):
         main_preprocess(['-c', self.config_file])
 
