@@ -1470,7 +1470,8 @@ def main_preprocess(args=None):
                 Scan(f, freqsplat=args.splat, nosub=not args.sub,
                      norefilt=False, debug=args.debug,
                      interactive=args.interactive,
-                     avoid_regions=excluded_radec)
+                     avoid_regions=excluded_radec,
+                     config_file=args.config)
             except OSError:
                 warnings.warn("File {} is not in a known format".format(f))
     else:

@@ -64,7 +64,7 @@ SDTfake
                             1-degree stripes, is specified as 120 120 60 60
       --beam-width BEAM_WIDTH
                             Gaussian beam width in arcminutes
-      --spacing SPACING     Spacing between scans in arcminutes
+      --spacing SPACING     Spacing between scans in arcminutes (default 0.5)
       -o OUTDIR_ROOT, --outdir-root OUTDIR_ROOT
                             Output directory root. Here, source and calibrator
                             scans/maps will be saved in outdir/gauss_ra,
@@ -87,7 +87,8 @@ SDTimage
                     [--sub] [--interactive] [--calibrate CALIBRATE] [--nofilt]
                     [-g] [-e EXCLUDE [EXCLUDE ...]] [--chans CHANS] [-o OUTFILE]
                     [-u UNIT] [--destripe] [--npix-tol NPIX_TOL] [--debug]
-                    [--quick] [--scrunch-channels] [--splat SPLAT]
+                    [--quick] [--scrunch-channels] [--bad-chans BAD_CHANS]
+                    [--splat SPLAT]
                     [file]
 
     Load a series of scans from a config file and produce a map.
@@ -131,6 +132,9 @@ SDTimage
       --quick               Calibrate after image creation, for speed (bad when
                             calibration depends on elevation)
       --scrunch-channels    Sum all the images from the single channels into one.
+      --bad-chans BAD_CHANS
+                            Channels to be discarded when scrunching, separated by
+                            a comma (e.g. --bad-chans Feed2_RCP,Feed3_RCP )
       --splat SPLAT         Spectral scans will be scrunched into a single channel
                             containing data in the given frequency range, starting
                             from the frequency of the first bin. E.g. '0:1000'

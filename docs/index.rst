@@ -283,22 +283,21 @@ it's sufficient to take them out of the list above.
 Preprocess the files
 ~~~~~~~~~~~~~~~~~~~~
 
-.. figure:: images/filtered_scan.png
+.. figure:: images/filtered_scan.jpg
    :width: 80 %
    :alt: scan filtering
    :align: center
 
    **Figure 2.** Output of the automatic filtering procedure for an OTF scan of a calibrator.
-   Channels with an rms that is a multiple of the mean standard deviation of the scan
-   (factor encoded in the ``noise_threshold`` key in the config file) are
-   automatically filtered out.
-   See bottom panel, where the cyan curved line is the running threshold to
-   select noisy channels, and black lines in the middle-top and top panels.
+   Channels where the root mean square of the signal is too high or too low are
+   automatically filtered out. The threshold is encoded in the ``noise_threshold``
+   variable in the config file. This is the number of standard deviations from the median
+   r.m.s. in a given interval.
    Optionally the user can choose the frequency interval (blue vertical lines).
    In the two right panels, one can see the scan before and after the cleaning.
    In the right-lower panel, the uncleaned scan is reported in grey to help
    the eye.
-   The rms of the dynamical spectrum before and after the cleaning is
+   The dynamical spectrum before and after the cleaning is
    shown in the two middle panels, and the effect of the cleaning on the scan
    is shown in the two right panels
 

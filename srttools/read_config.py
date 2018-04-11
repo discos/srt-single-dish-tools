@@ -50,7 +50,7 @@ skydip_directories :
 
 noise_threshold : 5
 
-; For spectral rms smoothing, in percentage of then number of spectral bins.
+;; For spectral rms smoothing, in percentage of then number of spectral bins.
 smooth_window : 0.05
 
 ;; Coordinates have to be specified in decimal degrees. ONLY use if different
@@ -66,9 +66,10 @@ pixel_size : 1
 ;; lines
 goodchans :
 
-;; Percentage of channels to filter out for rough RFI filtering (Spectral data
-;; only. PROBABLY OBSOLETE. AVOID IF UNSURE)
-filtering_factor : 0.
+[debugging]
+
+debug_file_format : pdf
+
     """
     with open(fname, 'w') as fobj:
         print(string, file=fobj)
@@ -121,6 +122,7 @@ def read_config(fname=None):
     config_output['filtering_factor'] = '0'
     config_output['noise_threshold'] = '5'
     config_output['smooth_window'] = '0.05'
+    config_output['debug_file_format'] = 'pdf'
 
     # --------------------------------------------------------------------
 
@@ -138,6 +140,14 @@ def read_config(fname=None):
         config_output['datadir'] = \
             os.path.abspath(os.path.join(os.path.split(fname)[0],
                                          config_output['datadir']))
+
+    try:
+        # Read analysis information
+        debugging_params = dict(Config.items('debugging'))
+
+        config_output.update(debugging_params)
+    except configparser.NoSectionError:
+        pass
 
     # Read analysis information
     analysis_params = dict(Config.items('analysis'))
