@@ -141,7 +141,8 @@ class ScanSet(Table):
         self.images_hor = None
         self.images_ver = None
 
-        if isinstance(data, collections.Iterable) and not isinstance(data, six.string_types):
+        if isinstance(data, collections.Iterable) and \
+                not isinstance(data, six.string_types):
             alldata = [ScanSet(d, norefilt=norefilt, config_file=config_file,
                                freqsplat=freqsplat, nofilt=nofilt,
                                nosub=nosub, **kwargs) for d in data]
@@ -501,7 +502,7 @@ class ScanSet(Table):
                                                                    dir_string),
                       end='\r')
             if onlychans is not None and ch not in onlychans and \
-                self.images is not None and ch in self.images.keys():
+                    self.images is not None and ch in self.images.keys():
                 images[ch] = \
                     self.images[ch]
                 images['{}-Sdev'.format(ch)] = \
@@ -766,7 +767,6 @@ class ScanSet(Table):
             self.images_ver = images
         else:
             self.images = images
-
 
     def interactive_display(self, ch=None, recreate=False, test=False):
         """Modify original scans from the image display."""
@@ -1411,6 +1411,7 @@ def main_imager(args=None):
                             bad_chans=bad_chans)
 
     scanset.write(outfile, overwrite=True)
+
 
 def main_preprocess(args=None):
     """Preprocess the data."""
