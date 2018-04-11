@@ -332,6 +332,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     else:
         threshold = baseline + noise_threshold * stdref
         mask = spectral_var < threshold
+        threshold = baseline - noise_threshold * stdref
+        mask = mask & (spectral_var > threshold)
 
         wholemask = freqmask & mask
 
@@ -393,7 +395,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_dynspec.set_ylabel('Sample')
     ax_cleanspec.set_ylabel('Sample')
     ax_var.set_ylabel('r.m.s.')
-    ax_var.set_xlabel('Frequency (MHz)')
+    ax_var.set_xlabel('Frequency from LO (MHz)')
     ax_cleanlc.set_xlabel('Counts')
 
     # Plot mean spectrum
@@ -430,9 +432,11 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_var.plot(allbins, cleaned_spectral_var,
                 zorder=10, color="k")
     ax_var.plot(allbins[1:], baseline[1:])
-    ax_var.plot(allbins[1:], baseline[1:] + 2 * noise_threshold * stdref)
-    minb = np.min(baseline[1:])
-    ax_var.set_ylim([minb, np.max(baseline[1:]) + 10 * stdref])
+    ax_var.plot(allbins[1:], baseline[1:] + noise_threshold * stdref, color='r', lw=2)
+    ax_var.plot(allbins[1:], baseline[1:] - noise_threshold * stdref, color='r', lw=2)
+    minb = np.min(baseline[1:]) - 2 * noise_threshold * stdref
+    maxb = np.max(baseline[1:]) + 2 * noise_threshold * stdref
+    ax_var.set_ylim([minb, maxb])
 
     # Plot light curves
 
