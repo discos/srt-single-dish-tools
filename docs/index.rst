@@ -283,7 +283,7 @@ it's sufficient to take them out of the list above.
 Preprocess the files
 ~~~~~~~~~~~~~~~~~~~~
 
-.. figure:: images/filtered_scan.png
+.. figure:: images/filtered_scan.jpg
    :width: 80 %
    :alt: scan filtering
    :align: center
