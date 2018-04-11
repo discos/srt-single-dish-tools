@@ -31,6 +31,7 @@ def create_dummy_config():
 
 class MyHandler(PatternMatchingEventHandler):
     patterns = ["*/*.fits"]
+
     def process(self, event):
         """
         event.event_type
@@ -65,9 +66,11 @@ class MyHandler(PatternMatchingEventHandler):
                 width = "50%"
             else:
                 width = "25%"
-            for i, fname in enumerate(sorted(allfiles)):
-                print("<div style=\"width:{}; float:left;\" />".format(width), file=fobj)
-                print("<img src=\"{}\" width=\"100%\"/>".format(fname), file=fobj)
+            for fname in sorted(allfiles):
+                print("<div style=\"width:{}; float:left;\" />".format(width),
+                      file=fobj)
+                print("<img src=\"{}\" width=\"100%\"/>".format(fname),
+                      file=fobj)
                 print("</div>", file=fobj)
 
     def on_created(self, event):

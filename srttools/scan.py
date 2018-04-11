@@ -432,8 +432,10 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_var.plot(allbins, cleaned_spectral_var,
                 zorder=10, color="k")
     ax_var.plot(allbins[1:], baseline[1:])
-    ax_var.plot(allbins[1:], baseline[1:] + noise_threshold * stdref, color='r', lw=2)
-    ax_var.plot(allbins[1:], baseline[1:] - noise_threshold * stdref, color='r', lw=2)
+    ax_var.plot(allbins[1:],
+                baseline[1:] + noise_threshold * stdref, color='r', lw=2)
+    ax_var.plot(allbins[1:],
+                baseline[1:] - noise_threshold * stdref, color='r', lw=2)
     minb = np.min(baseline[1:]) - 2 * noise_threshold * stdref
     maxb = np.max(baseline[1:]) + 2 * noise_threshold * stdref
     ax_var.set_ylim([minb, maxb])
@@ -606,10 +608,14 @@ class Scan(Table):
     def get_info_string(self, ch):
         infostr = "Target: {}\n".format(self.meta['SOURCE'])
         infostr += "Channel: {}\n".format(ch)
-        infostr += "Mean RA: {:.2f} d\n".format(np.degrees(np.mean(self["ra"])))
-        infostr += "Mean Dec: {:.2f} d\n".format(np.degrees(np.mean(self["dec"])))
-        infostr += "Mean Az: {:.2f} d\n".format(np.degrees(np.mean(self["az"])))
-        infostr += "Mean El: {:.2f} d\n".format(np.degrees(np.mean(self["el"])))
+        infostr += "Mean RA: {:.2f} d\n".format(
+            np.degrees(np.mean(self["ra"])))
+        infostr += "Mean Dec: {:.2f} d\n".format(
+            np.degrees(np.mean(self["dec"])))
+        infostr += "Mean Az: {:.2f} d\n".format(
+            np.degrees(np.mean(self["az"])))
+        infostr += "Mean El: {:.2f} d\n".format(
+            np.degrees(np.mean(self["el"])))
         infostr += "Receiver: {}\n".format(self.meta['receiver'])
         infostr += "Backend: {}\n".format(self.meta['backend'])
         infostr += "Frequency: {} MHz\n".format(self[ch].meta['frequency'])

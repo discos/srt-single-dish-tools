@@ -64,8 +64,10 @@ class TestMonitor(object):
     @pytest.mark.skipif('not HAS_WATCHDOG')
     def test_all_new_with_config(self):
         fname = create_dummy_config()
+
         def process():
             main_monitor([self.datadir, '--test', '-c', fname])
+
         w = threading.Thread(name='worker', target=process)
         w.start()
         time.sleep(1)
