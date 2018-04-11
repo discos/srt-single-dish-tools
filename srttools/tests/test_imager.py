@@ -245,7 +245,8 @@ class TestScanSet(object):
         main_preprocess(files[:2] + ['--debug', '-c', self.config_file])
         for file in files[:2]:
             # I used debug_file_format : eps in the config
-            assert os.path.exists(file.replace('.fits', '_0.eps'))
+            if HAS_MPL:
+                assert os.path.exists(file.replace('.fits', '_0.eps'))
 
     def test_script_is_installed_prep(self):
         sp.check_call('SDTpreprocess -h'.split(' '))
