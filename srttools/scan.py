@@ -187,7 +187,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  noise_threshold=5, debug=True, nofilt=False,
                                  outfile="out", label="",
                                  smoothing_window=0.05,
-                                 debug_file_format='pdf'):
+                                 debug_file_format='pdf',
+                                 info_string="Empty info string"):
     """Clean a spectroscopic scan using the difference of channel variability.
 
     From the dynamical spectrum, i.e. the list of spectra obtained in each
@@ -379,14 +380,15 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
     gs = GridSpec(4, 3, hspace=0, wspace=0,
                   height_ratios=(1.5, 1.5, 1.5, 1.5),
-                  width_ratios=(3, 0.3, 1.2))
+                  width_ratios=(3, 0., 1.2))
     ax_meanspec = plt.subplot(gs[0, 0])
     ax_dynspec = plt.subplot(gs[1, 0], sharex=ax_meanspec)
     ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec)
     ax_lc = plt.subplot(gs[1, 2], sharey=ax_dynspec)
     ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
     ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
-    # ax_varhist = plt.subplot(gs[3, 1], sharey=ax_var)
+    ax_text = plt.subplot(gs[0, 2])
+
     ax_meanspec.set_ylabel('Counts')
     ax_dynspec.set_ylabel('Sample')
     ax_cleanspec.set_ylabel('Sample')
@@ -452,13 +454,23 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         ax_var.plot(b * df, [maxsp] * 2, color='k', lw=2)
 
     # Indicate freqmin and freqmax
+    ax_var.set_xlim([0, allbins[-1]])
 
     ax_dynspec.axvline(freqmin)
     ax_dynspec.axvline(freqmax)
+    ax_cleanspec.axvline(freqmin)
+    ax_cleanspec.axvline(freqmax)
     ax_var.axvline(freqmin)
     ax_var.axvline(freqmax)
     ax_meanspec.axvline(freqmin)
     ax_meanspec.axvline(freqmax)
+
+    ax_text.text(0.05, 0.95, info_string, horizontalalignment='left',
+                 verticalalignment='top',
+                 transform=ax_text.transAxes, fontsize=20)
+    ax_text.axis("off")
+
+    fig.tight_layout()
 
     plt.savefig(
         "{}_{}.{}".format(outfile, label, debug_file_format))
@@ -587,6 +599,19 @@ class Scan(Table):
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
+    def get_info_string(self, ch):
+        str = "Target: {}\n".format(self.meta['SOURCE'])
+        str += "Channel: {}\n".format(ch)
+        str += "Mean RA: {:.2f} d\n".format(np.degrees(np.mean(self["ra"])))
+        str += "Mean Dec: {:.2f} d\n".format(np.degrees(np.mean(self["dec"])))
+        str += "Mean Az: {:.2f} d\n".format(np.degrees(np.mean(self["az"])))
+        str += "Mean El: {:.2f} d\n".format(np.degrees(np.mean(self["el"])))
+        str += "Receiver: {}\n".format(self.meta['receiver'])
+        str += "Backend: {}\n".format(self.meta['backend'])
+        str += "Frequency: {} MHz\n".format(self[ch].meta['frequency'])
+        str += "Bandwidth: {} MHz\n".format(self[ch].meta['bandwidth'])
+        return str
+
     def clean_and_splat(self, good_mask=None, freqsplat=None,
                         noise_threshold=5, debug=True,
                         save_spectrum=False, nofilt=False):
@@ -646,7 +671,8 @@ class Scan(Table):
                     outfile=root_name(self.meta['filename']),
                     label="{}".format(ic),
                     smoothing_window=self.meta['smooth_window'],
-                    debug_file_format=self.meta['debug_file_format'])
+                    debug_file_format=self.meta['debug_file_format'],
+                    info_string=self.get_info_string(ch))
 
             if results is None:
                 continue
