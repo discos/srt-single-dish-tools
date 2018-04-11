@@ -106,7 +106,12 @@ skydip_directories :
 noise_threshold : 5
 
 pixel_size : 0.8
-        """
+
+[debugging]
+
+debug_file_format : jpg
+
+"""
     if prefix is None:
         prefix = os.getcwd()
     import tempfile
@@ -159,10 +164,8 @@ class TestScanSet(object):
         klass.simulated_flux = 0.25
         # First off, simulate a beamed observation  -------
 
-        if not os.path.exists(klass.config_file):
-            print('Setting up simulated data.')
-            sim_config_file(klass.config_file, add_garbage=True,
-                            prefix="./")
+        sim_config_file(klass.config_file, add_garbage=True,
+                        prefix="./")
 
         if (not os.path.exists(klass.obsdir_ra)) or \
                 (not os.path.exists(klass.obsdir_dec)):
@@ -236,6 +239,14 @@ class TestScanSet(object):
     def test_script_is_installed(self):
         sp.check_call('SDTimage -h'.split(' '))
 
+    def test_preprocess_single_files(self):
+        files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
+
+        main_preprocess(files[:2] + ['--debug', '-c', self.config_file])
+        for file in files[:2]:
+            # I used debug_file_format : jpg in the config
+            assert os.path.exists(file.replace('.fits', '_0.jpg'))
+
     def test_script_is_installed_prep(self):
         sp.check_call('SDTpreprocess -h'.split(' '))
 
@@ -243,11 +254,6 @@ class TestScanSet(object):
         with pytest.raises(ValueError) as excinfo:
             main_preprocess([])
         assert "Please specify the config file!" in str(excinfo)
-
-    def test_preprocess_single_files(self):
-        files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
-
-        main_preprocess(files[:2] + ['--debug'])
 
     def test_preprocess_invalid(self):
         with pytest.warns(UserWarning) as record:

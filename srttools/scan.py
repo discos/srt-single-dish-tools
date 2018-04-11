@@ -186,7 +186,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  good_mask=None, freqsplat=None,
                                  noise_threshold=5, debug=True, nofilt=False,
                                  outfile="out", label="",
-                                 smoothing_window=0.05):
+                                 smoothing_window=0.05,
+                                 debug_file_format='pdf'):
     """Clean a spectroscopic scan using the difference of channel variability.
 
     From the dynamical spectrum, i.e. the list of spectra obtained in each
@@ -263,7 +264,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         plt.plot(times, lc)
         plt.xlabel('Time')
         plt.ylabel('Counts')
-        plt.savefig("{}_{}.pdf".format(outfile, label))
+        plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format))
         plt.close(fig)
         return None
 
@@ -460,7 +461,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_meanspec.axvline(freqmax)
 
     plt.savefig(
-        "{}_{}.pdf".format(outfile, label))
+        "{}_{}.{}".format(outfile, label, debug_file_format))
     plt.close(fig)
     return results
 
@@ -644,7 +645,8 @@ class Scan(Table):
                     debug=debug, nofilt=nofilt,
                     outfile=root_name(self.meta['filename']),
                     label="{}".format(ic),
-                    smoothing_window=self.meta['smooth_window'])
+                    smoothing_window=self.meta['smooth_window'],
+                    debug_file_format=self.meta['debug_file_format'])
 
             if results is None:
                 continue
