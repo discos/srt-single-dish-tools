@@ -604,17 +604,17 @@ class Scan(Table):
                          if chan_re.match(i)])
 
     def get_info_string(self, ch):
-        str = "Target: {}\n".format(self.meta['SOURCE'])
-        str += "Channel: {}\n".format(ch)
-        str += "Mean RA: {:.2f} d\n".format(np.degrees(np.mean(self["ra"])))
-        str += "Mean Dec: {:.2f} d\n".format(np.degrees(np.mean(self["dec"])))
-        str += "Mean Az: {:.2f} d\n".format(np.degrees(np.mean(self["az"])))
-        str += "Mean El: {:.2f} d\n".format(np.degrees(np.mean(self["el"])))
-        str += "Receiver: {}\n".format(self.meta['receiver'])
-        str += "Backend: {}\n".format(self.meta['backend'])
-        str += "Frequency: {} MHz\n".format(self[ch].meta['frequency'])
-        str += "Bandwidth: {} MHz\n".format(self[ch].meta['bandwidth'])
-        return str
+        infostr = "Target: {}\n".format(self.meta['SOURCE'])
+        infostr += "Channel: {}\n".format(ch)
+        infostr += "Mean RA: {:.2f} d\n".format(np.degrees(np.mean(self["ra"])))
+        infostr += "Mean Dec: {:.2f} d\n".format(np.degrees(np.mean(self["dec"])))
+        infostr += "Mean Az: {:.2f} d\n".format(np.degrees(np.mean(self["az"])))
+        infostr += "Mean El: {:.2f} d\n".format(np.degrees(np.mean(self["el"])))
+        infostr += "Receiver: {}\n".format(self.meta['receiver'])
+        infostr += "Backend: {}\n".format(self.meta['backend'])
+        infostr += "Frequency: {} MHz\n".format(self[ch].meta['frequency'])
+        infostr += "Bandwidth: {} MHz\n".format(self[ch].meta['bandwidth'])
+        return infostr
 
     def clean_and_splat(self, good_mask=None, freqsplat=None,
                         noise_threshold=5, debug=True,
