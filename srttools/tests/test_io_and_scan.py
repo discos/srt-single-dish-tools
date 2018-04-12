@@ -207,7 +207,8 @@ class Test2_Scan(object):
                  for r in record])
 
     @pytest.mark.parametrize('fname', ['srt_data.fits',
-                                       'srt_data_roach_polar.fits'])
+                                       'srt_data_roach_polar.fits',
+                                       'srt_data_xarcos.fits'])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
