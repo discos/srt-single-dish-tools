@@ -265,6 +265,9 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         plt.plot(times, lc)
         plt.xlabel('Time')
         plt.ylabel('Counts')
+        plt.gca().text(0.05, 0.95, info_string, horizontalalignment='left',
+                     verticalalignment='top',
+                     transform=plt.gca().transAxes, fontsize=20)
         plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format))
         plt.close(fig)
         return None
@@ -275,7 +278,10 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     times = length * np.arange(dynspec_len) / dynspec_len
     lc = np.sum(dynamical_spectrum, axis=1)
-    lc = baseline_als(times, lc)
+    if len(lc) > 10:
+        lc = baseline_als(times, lc)
+    else:
+        lc -= np.median(lc)
     lcbins = np.arange(len(lc))
 
     # Calculate spectral variability curve
@@ -343,7 +349,11 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     # Calculate frequency-masked lc
     lc_masked = np.sum(dynamical_spectrum[:, freqmask], axis=1)
-    lc_masked = baseline_als(times, lc_masked, outlier_purging=False)
+    # lc_masked = baseline_als(times, lc_masked, outlier_purging=False)
+    if len(lc_masked) > 10:
+        lc_masked = baseline_als(times, lc_masked, outlier_purging=False)
+    else:
+        lc_masked -= np.median(lc_masked)
 
     bad_intervals = contiguous_regions(np.logical_not(wholemask))
 
@@ -366,7 +376,10 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     std_varimg = np.std(cleaned_varimg[:, freqmask])
 
     lc_corr = np.sum(cleaned_dynamical_spectrum[:, freqmask], axis=1)
-    lc_corr = baseline_als(times, lc_corr, outlier_purging=False)
+    if len(lc_corr) > 10:
+        lc_corr = baseline_als(times, lc_corr, outlier_purging=False)
+    else:
+        lc_corr -= np.median(lc_corr)
 
     results = type('test', (), {})()  # create empty object
     results.lc = lc_corr
@@ -380,6 +393,22 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     # Now, PLOT IT ALL --------------------------------
     # Prepare subplots
     fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+
+    if len(lc_corr) < 10:
+        for i in dynamical_spectrum:
+            plt.plot(allbins[1:], i[1:])
+
+        plt.plot(allbins[1:], meanspec[1:])
+        plt.xlabel('Time')
+        plt.ylabel('Counts')
+        ax = plt.gca()
+        ax.text(0.05, 0.95, info_string, horizontalalignment='left',
+                     verticalalignment='top',
+                     transform=ax.transAxes, fontsize=20)
+        plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format))
+        plt.close(fig)
+        return results
+
     gs = GridSpec(4, 3, hspace=0, wspace=0,
                   height_ratios=(1.5, 1.5, 1.5, 1.5),
                   width_ratios=(3, 0., 1.2))
@@ -507,7 +536,8 @@ def frequency_filter(dynamical_spectrum, mask):
     return lc_corr
 
 
-chan_re = re.compile(r'^Ch[0-9]+$|^Feed[0-9]+_[a-zA-Z]+$')
+chan_re = re.compile(r'^Ch[0-9]+$|^Feed[0-9]+_[a-zA-Z]+$'
+                     r'|^Feed[0-9]+_[a-zA-Z]+_[0-9]$')
 
 
 def list_scans(datadir, dirlist):
@@ -602,6 +632,7 @@ class Scan(Table):
 
     def chan_columns(self):
         """List columns containing samples."""
+        print([(i, chan_re.match(i)) for i in self.columns])
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
@@ -667,7 +698,7 @@ class Scan(Table):
         is_polarized = False
         mask = True
         for ic, ch in enumerate(chans):
-            if ch.endswith('Q') or ch.endswith('U'):
+            if '_Q' in ch or '_U' in ch:
                 is_polarized = True
                 continue
             results = \
