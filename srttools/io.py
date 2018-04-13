@@ -214,6 +214,7 @@ def read_data_fitszilla(fname):
     section_table_data = lchdulist['SECTION TABLE'].data
     chan_ids = section_table_data['id']
     nbin_per_chan = section_table_data['bins']
+    sample_rate = section_table_data['sampleRate']
     if len(list(set(nbin_per_chan))) > 1:
         lchdulist.close()
 
@@ -374,6 +375,7 @@ def read_data_fitszilla(fname):
     rest_angles = get_rest_angle(xoffsets, yoffsets)
 
     for i in range(0, new_table['el'].shape[1]):
+        # print(i, new_table['el'].shape, xoffsets[i], yoffsets[i])
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
         if np.abs(xoffsets[i]) < np.radians(0.001 / 60.) * u.rad and \
            np.abs(yoffsets[i]) < np.radians(0.001 / 60.) * u.rad:
@@ -407,7 +409,6 @@ def read_data_fitszilla(fname):
         if is_single_channel:
             c = None
         chan_name = _chan_name(f, p, c)
-        print(chan_name)
         if bandwidths[ic] < 0:
             frequencies[ic] -= bandwidths[ic]
             bandwidths[ic] *= -1
@@ -425,6 +426,8 @@ def read_data_fitszilla(fname):
              'IF': int(IFs[ic]),
              'frequency': float(frequencies[ic]),
              'bandwidth': float(bandwidths[ic]),
+             'sample_rate': float(sample_rate[s]) * 1e6 * u.Hz,
+             'sample_time': (1 / (float(sample_rate[s]) * 1e6 * u.Hz)).to('s'),
              'xoffset': float(xoffsets[feeds[ic]].to(u.rad).value) * u.rad,
              'yoffset': float(yoffsets[feeds[ic]].to(u.rad).value) * u.rad,
              'relpower': float(relpowers[feeds[ic]])
@@ -452,6 +455,8 @@ def read_data_fitszilla(fname):
                      # There are two IFs for each section
                      'frequency': float(frequencies[2 * s]),
                      'bandwidth': float(bandwidths[2 * s]),
+                     'sample_rate': float(sample_rate[s]) * 1e6 * u.Hz,
+                     'sample_time': (1 / (float(sample_rate[s]) * 1e6 * u.Hz)).to('s'),
                      'xoffset': float(
                          xoffsets[feed].to(u.rad).value) * u.rad,
                      'yoffset': float(

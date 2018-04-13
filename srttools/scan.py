@@ -184,7 +184,7 @@ def _clean_dyn_spec(dynamical_spectrum, bad_intervals):
 
 def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  good_mask=None, freqsplat=None,
-                                 noise_threshold=5, debug=True, nofilt=False,
+                                 noise_threshold=5., debug=True, nofilt=False,
                                  outfile="out", label="",
                                  smoothing_window=0.05,
                                  debug_file_format='pdf',
@@ -632,7 +632,6 @@ class Scan(Table):
 
     def chan_columns(self):
         """List columns containing samples."""
-        print([(i, chan_re.match(i)) for i in self.columns])
         return np.array([i for i in self.columns
                          if chan_re.match(i)])
 
@@ -733,7 +732,7 @@ class Scan(Table):
 
         if is_polarized:
             for ic, ch in enumerate(chans):
-                if not ch.endswith('Q') and not ch.endswith('U'):
+                if not 'Q' in ch and not 'U' in ch:
                     continue
                 lc_corr = frequency_filter(self[ch], mask)
 
@@ -773,8 +772,11 @@ class Scan(Table):
                 plt.plot(self['time'], self[ch] - np.min(self[ch]),
                          alpha=0.5)
             force_rough = False
-            if ch.endswith('Q') or ch.endswith('U'):
+            if 'Q' in ch or 'U' in ch:
                 force_rough = True
+            if len(self[ch]) < 10:
+                self[ch] = self[ch] - np.median(self[ch])
+                continue
             mask = np.ones(len(self[ch]), dtype=bool)
             feed = get_channel_feed(ch)
             if avoid_regions is not None:
