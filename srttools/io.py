@@ -10,6 +10,7 @@ import os
 from astropy.time import Time
 import logging
 import warnings
+import copy
 
 
 __all__ = ["mkdir_p", "detect_data_kind", "correct_offsets", "observing_angle",
@@ -156,6 +157,59 @@ def get_rest_angle(xoffsets, yoffsets):
                                    w_0))) * u.rad
 
 
+def get_coords_from_altaz_offset(obstimes, el, az, xoffs, yoffs, location,
+                                 inplace=False):
+    """"""
+    # Calculate observing angle
+    if not inplace:
+        el = copy.deepcopy(el)
+        az = copy.deepcopy(az)
+
+    el += yoffs.to(u.rad).value
+    az += xoffs.to(u.rad).value / np.cos(el)
+
+    coords = AltAz(az=Angle(az), alt=Angle(el), location=location,
+                   obstime=obstimes)
+
+    # According to line_profiler, coords.icrs is *by far* the longest
+    # operation in this function, taking between 80 and 90% of the
+    # execution time. Need to study a way to avoid this.
+    coords_deg = coords.transform_to(ICRS)
+    ra = np.radians(coords_deg.ra)
+    dec = np.radians(coords_deg.dec)
+    return ra, dec
+
+
+def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
+    rest_angles = get_rest_angle(xoffsets, yoffsets)
+
+    if not inplace:
+        new_table = copy.deepcopy(new_table)
+
+    for i in range(0, new_table['el'].shape[1]):
+        obs_angle = observing_angle(rest_angles[i], new_table['derot_angle'])
+
+        # offsets < 0.001 arcseconds: don't correct (usually feed 0)
+        if np.abs(xoffsets[i]) < np.radians(0.001 / 60.) * u.rad and \
+                np.abs(yoffsets[i]) < np.radians(0.001 / 60.) * u.rad:
+            continue
+        xoffs, yoffs = correct_offsets(obs_angle, xoffsets[i], yoffsets[i])
+        obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
+
+        location = locations[new_table.meta['site']]
+        ra, dec = \
+            get_coords_from_altaz_offset(obstimes,
+                                         new_table['el'][:, i],
+                                         new_table['az'][:, i],
+                                         xoffs, yoffs,
+                                         location=location,
+                                         inplace=inplace)
+        new_table['ra'][:, i] = ra
+        new_table['dec'][:, i] = dec
+
+    return new_table
+
+
 def print_obs_info_fitszilla(fname):
     """Placeholder for function that prints out oberving information."""
     lchdulist = fits.open(fname)
@@ -186,6 +240,8 @@ def read_data_fitszilla(fname):
 
     # Open FITS file
     lchdulist = fits.open(fname)
+
+    is_new_fitszilla = np.any(['coord' in i.name.lower() for i in lchdulist])
 
     # ----------- Extract generic observation information ------------------
     source = lchdulist[0].header['SOURCE']
@@ -372,37 +428,23 @@ def read_data_fitszilla(fname):
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
 
-    rest_angles = get_rest_angle(xoffsets, yoffsets)
+    if not is_new_fitszilla:
+        update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=True)
+    else:
+        for i in range(len(xoffsets)):
+            try:
+                ext = lchdulist['Coord{}'.format(i)]
+                extdata = ext.data
+                ra, dec = extdata['raj2000'], extdata['decj2000']
+                el, az = extdata['el'], extdata['az']
+            except KeyError:
+                ra, dec = new_table['ra'][:, 0], new_table['dec'][:, 0]
+                el, az = new_table['el'][:, 0], new_table['az'][:, 0]
 
-    for i in range(0, new_table['el'].shape[1]):
-        # print(i, new_table['el'].shape, xoffsets[i], yoffsets[i])
-        # offsets < 0.001 arcseconds: don't correct (usually feed 0)
-        if np.abs(xoffsets[i]) < np.radians(0.001 / 60.) * u.rad and \
-           np.abs(yoffsets[i]) < np.radians(0.001 / 60.) * u.rad:
-            continue
-
-        # Calculate observing angle
-        obs_angle = observing_angle(rest_angles[i], new_table['derot_angle'])
-
-        xoffs, yoffs = correct_offsets(obs_angle, xoffsets[i], yoffsets[i])
-
-        new_table['el'][:, i] += yoffs.to(u.rad).value
-        new_table['az'][:, i] += \
-            xoffs.to(u.rad).value / np.cos(new_table['el'][:, i])
-
-        obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
-
-        coords = AltAz(az=Angle(new_table['az'][:, i]),
-                       alt=Angle(new_table['el'][:, i]),
-                       location=locations[site],
-                       obstime=obstimes)
-
-        # According to line_profiler, coords.icrs is *by far* the longest
-        # operation in this function, taking between 80 and 90% of the
-        # execution time. Need to study a way to avoid this.
-        coords_deg = coords.transform_to(ICRS)
-        new_table['ra'][:, i] = np.radians(coords_deg.ra)
-        new_table['dec'][:, i] = np.radians(coords_deg.dec)
+            new_table['ra'][:, i] = ra
+            new_table['dec'][:, i] = dec
+            new_table['el'][:, i] = el
+            new_table['az'][:, i] = az
 
     for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
         c = s
