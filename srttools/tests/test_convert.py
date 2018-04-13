@@ -24,11 +24,15 @@ class Test1_Scan(object):
 
     def test_conversion(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
-        scan0 = Scan(self.fname)
-        scan1 = Scan('converted.fits')
+        scan0 = Scan(self.fname, norefilt=False)
+        scan1 = Scan('converted.fits', norefilt=False)
         for col in ['ra', 'el', 'az', 'dec']:
             assert np.allclose(scan0[col], scan1[col])
         os.unlink('converted.fits')
+
+    def test_conversion_same_name_fails(self):
+        with pytest.raises(ValueError):
+            convert_to_complete_fitszilla(self.fname, self.fname)
 
     def test_main(self):
         converter_main([self.fname, '-f', 'fitsmod'])

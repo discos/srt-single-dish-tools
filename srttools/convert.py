@@ -12,7 +12,8 @@ from .io import get_rest_angle, observing_angle, locations
 
 
 def convert_to_complete_fitszilla(fname, outname):
-    assert outname != fname, 'Files cannot have the same name'
+    if outname == fname:
+        raise ValueError('Files cannot have the same name')
 
     lchdulist = fits.open(fname)
 
@@ -42,16 +43,16 @@ def convert_to_complete_fitszilla(fname, outname):
     derot_angle.unit = u.rad
     times = new_table['time']
 
-    for i in range(len(xoffsets)):
+    for i, (xoffset, yoffset) in enumerate(zip(xoffsets, yoffsets)):
         obs_angle = observing_angle(rest_angles[i], derot_angle)
 
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
-        if np.abs(xoffsets[i]) < np.radians(0.001 / 60.) * u.rad and \
-                np.abs(yoffsets[i]) < np.radians(0.001 / 60.) * u.rad:
+        if np.abs(xoffset) < np.radians(0.001 / 60.) * u.rad and \
+                np.abs(yoffset) < np.radians(0.001 / 60.) * u.rad:
             continue
         el = copy.deepcopy(el_save)
         az = copy.deepcopy(az_save)
-        xoffs, yoffs = correct_offsets(obs_angle, xoffsets[i], yoffsets[i])
+        xoffs, yoffs = correct_offsets(obs_angle, xoffset, yoffset)
         obstimes = Time(times * u.day, format='mjd', scale='utc')
 
         # el and az are also changed inside this function (inplace is True)
