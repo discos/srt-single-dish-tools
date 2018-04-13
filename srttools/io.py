@@ -174,6 +174,13 @@ def print_obs_info_fitszilla(fname):
     lchdulist.close()
 
 
+def _chan_name(f, p, c=None):
+    if c is not None:
+        return 'Feed{}_{}_{}'.format(f, p, c)
+    else:
+        return 'Feed{}_{}'.format(f, p)
+
+
 def read_data_fitszilla(fname):
     """Open a fitszilla FITS file and read all relevant information."""
 
@@ -207,6 +214,7 @@ def read_data_fitszilla(fname):
     section_table_data = lchdulist['SECTION TABLE'].data
     chan_ids = section_table_data['id']
     nbin_per_chan = section_table_data['bins']
+    sample_rate = section_table_data['sampleRate']
     if len(list(set(nbin_per_chan))) > 1:
         lchdulist.close()
 
@@ -224,10 +232,18 @@ def read_data_fitszilla(fname):
     feeds = rf_input_data['feed']
     IFs = rf_input_data['ifChain']
     polarizations = rf_input_data['polarization']
-    chan_names = ['Feed{}_{}'.format(f, p)
-                  for f, p in zip(feeds, polarizations)]
     frequencies = rf_input_data['frequency']
     bandwidths = rf_input_data['bandWidth']
+    sections = rf_input_data['section']
+    combinations = list(zip(frequencies, bandwidths))
+    combination_idx = np.arange(len(combinations))
+    if len(set(combinations)) > 1:
+        chan_names = [_chan_name(f, p, c)
+                      for f, p, c in zip(feeds, polarizations,
+                                         combination_idx)]
+    else:
+        chan_names = [_chan_name(f, p)
+                      for f, p in zip(feeds, polarizations)]
 
     # ----- Read the offsets of different feeds (nonzero only if multifeed)--
     feed_input_data = lchdulist['FEED TABLE'].data
@@ -245,11 +261,19 @@ def read_data_fitszilla(fname):
             continue
         data_table_data.rename_column(col, col.lower())
 
-    is_spectrum = 'SPECTRUM' in list(datahdu.header.values())
+    is_old_spectrum = 'SPECTRUM' in list(datahdu.header.values())
+    if is_old_spectrum:
+        data_table_data.rename_column('spectrum', 'ch0')
+        sections = np.array([0, 0])
+
+    is_spectrum = nbin_per_chan > 1
+
+    is_single_channel = len(set(combinations)) == 1
+
     if is_spectrum:
         nchan = len(chan_ids)
 
-        _, nbins = data_table_data['spectrum'].shape
+        _, nbins = data_table_data['ch0'].shape
 
         if nbin_per_chan * nchan * 2 == nbins and not is_polarized:
             warnings.warn('Data appear to contain polarization information '
@@ -265,23 +289,33 @@ def read_data_fitszilla(fname):
                              '{} total bins'.format(nbin_per_chan, nchan,
                                                     nbins))
 
-        for ic, ch in enumerate(chan_names):
+        for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
+            c = s
+            if is_single_channel:
+                c = None
+            section_name = 'ch{}'.format(s)
+            ch = _chan_name(f, p, c)
             data_table_data[ch] = \
-                data_table_data['spectrum'][:, ic * nbin_per_chan:
-                                            (ic + 1) * nbin_per_chan]
+                data_table_data[section_name][:, ic * nbin_per_chan:
+                                                     (ic + 1) * nbin_per_chan]
+
         if is_polarized:
-            if len(list(set(feeds))) > 1:
-                raise ValueError('Polarized data are only supported for single'
-                                 ' feed observations')
-            feed = feeds[0]
-            data_table_data['Feed{}_Q'.format(feed)] = \
-                data_table_data['spectrum'][:, 2 * nbin_per_chan:
-                                               3 * nbin_per_chan]
-            data_table_data['Feed{}_U'.format(feed)] = \
-                data_table_data['spectrum'][:, 3 * nbin_per_chan:
-                                               4 * nbin_per_chan]
-            chan_names += ['Feed{}_Q'.format(feed),
-                           'Feed{}_U'.format(feed)]
+            # for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
+            for s in list(set(sections)):
+                f = feeds[sections == s][0]
+                c = s
+                if is_single_channel:
+                    c = None
+
+                section_name = 'ch{}'.format(s)
+                qname, uname = _chan_name(f, 'Q', c), _chan_name(f, 'U', c)
+                data_table_data[qname] = \
+                    data_table_data[section_name][:, 2 * nbin_per_chan:
+                                                     3 * nbin_per_chan]
+                data_table_data[uname] = \
+                    data_table_data[section_name][:, 3 * nbin_per_chan:
+                                                     4 * nbin_per_chan]
+                chan_names += [qname, uname]
     else:
         for ic, ch in enumerate(chan_names):
             data_table_data[ch] = \
@@ -341,6 +375,7 @@ def read_data_fitszilla(fname):
     rest_angles = get_rest_angle(xoffsets, yoffsets)
 
     for i in range(0, new_table['el'].shape[1]):
+        # print(i, new_table['el'].shape, xoffsets[i], yoffsets[i])
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
         if np.abs(xoffsets[i]) < np.radians(0.001 / 60.) * u.rad and \
            np.abs(yoffsets[i]) < np.radians(0.001 / 60.) * u.rad:
@@ -369,8 +404,11 @@ def read_data_fitszilla(fname):
         new_table['ra'][:, i] = np.radians(coords_deg.ra)
         new_table['dec'][:, i] = np.radians(coords_deg.dec)
 
-    for ic, ch in enumerate(chan_ids):
-        chan_name = chan_names[ic]
+    for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
+        c = s
+        if is_single_channel:
+            c = None
+        chan_name = _chan_name(f, p, c)
         if bandwidths[ic] < 0:
             frequencies[ic] -= bandwidths[ic]
             bandwidths[ic] *= -1
@@ -388,6 +426,8 @@ def read_data_fitszilla(fname):
              'IF': int(IFs[ic]),
              'frequency': float(frequencies[ic]),
              'bandwidth': float(bandwidths[ic]),
+             'sample_rate': float(sample_rate[s]) * 1e6 * u.Hz,
+             'sample_time': (1 / (float(sample_rate[s]) * 1e6 * u.Hz)).to('s'),
              'xoffset': float(xoffsets[feeds[ic]].to(u.rad).value) * u.rad,
              'yoffset': float(yoffsets[feeds[ic]].to(u.rad).value) * u.rad,
              'relpower': float(relpowers[feeds[ic]])
@@ -398,9 +438,13 @@ def read_data_fitszilla(fname):
             np.ones(len(data_table_data[chan_name]), dtype=bool)
 
     if is_polarized:
-        for feed in list(set(feeds)):
+        for s in list(set(sections)):
+            feed = feeds[sections == s][0]
+            c = s
+            if is_single_channel:
+                c = None
             for stokes_par in 'QU':
-                chan_name = 'Feed{}_{}'.format(feed, stokes_par)
+                chan_name = _chan_name(feed, stokes_par, c)
                 new_table[chan_name] = \
                     data_table_data[chan_name]
 
@@ -408,8 +452,11 @@ def read_data_fitszilla(fname):
                     {'polarization': stokes_par,
                      'feed': int(feed),
                      'IF': -1,
-                     'frequency': float(frequencies[feed * 0]),
-                     'bandwidth': float(bandwidths[feed * 0]),
+                     # There are two IFs for each section
+                     'frequency': float(frequencies[2 * s]),
+                     'bandwidth': float(bandwidths[2 * s]),
+                     'sample_rate': float(sample_rate[s]) * 1e6 * u.Hz,
+                     'sample_time': (1 / (float(sample_rate[s]) * 1e6 * u.Hz)).to('s'),
                      'xoffset': float(
                          xoffsets[feed].to(u.rad).value) * u.rad,
                      'yoffset': float(

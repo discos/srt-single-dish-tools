@@ -175,6 +175,14 @@ class Test2_Scan(object):
         scan.write('scan.hdf5', overwrite=True)
         scan.baseline_subtract('rough', plot=True)
 
+    @pytest.mark.parametrize('fname', ['srt_data.fits',
+                                       'srt_data_roach_polar.fits',
+                                       'srt_data_xarcos.fits'])
+    def test_scan_loading(self, fname):
+        '''Test that data are read.'''
+
+        Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
+
     def test_scan_baseline_unknown(self):
         '''Test that data are read.'''
 
@@ -212,19 +220,38 @@ class Test2_Scan(object):
         scan = Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
         idx = 1 if '_multif' in fname else 0
-        ref_coords = SkyCoord(ra=scan['ra'][:, idx],
-                              dec=scan['dec'][:, idx],
-                              obstime=obstimes,
-                              location=locations[scan.meta['site']]
-                              )
-        altaz = ref_coords.altaz
 
-        diff = np.abs(
-            (altaz.az.to(u.rad) - scan['az'][:, idx]).to(u.arcsec).value)
-        assert np.all(diff < 1)
-        diff = np.abs(
-            (altaz.alt.to(u.rad) - scan['el'][:, idx]).to(u.arcsec).value)
-        assert np.all(diff < 1)
+        # Tolerance: +- 1 second of observation, or sample time, whichever is
+        # larger
+        sampletime = np.max([scan[ch].meta['sample_time'].value
+                             for ch in scan.chan_columns()])
+        sampletime = np.max([sampletime, 1]) * u.s
+
+        ref_coords0 = SkyCoord(ra=scan['ra'][:, idx],
+                               dec=scan['dec'][:, idx],
+                               obstime=obstimes - sampletime,
+                               location=locations[scan.meta['site']]
+                               )
+        ref_coords1 = SkyCoord(ra=scan['ra'][:, idx],
+                               dec=scan['dec'][:, idx],
+                               obstime=obstimes + sampletime,
+                               location=locations[scan.meta['site']]
+                               )
+
+        altaz0 = ref_coords0.altaz
+        altaz1 = ref_coords1.altaz
+
+        az0, az1 = altaz0.az.to(u.rad).value, altaz1.az.to(u.rad).value
+        tol = (30 * u.arcsec).to(u.rad).value
+        good0 = (scan['az'][:, idx] >= az0 - tol)&(scan['az'][:, idx] <= az1 + tol)
+        good1 = (scan['az'][:, idx] <= az1 + tol)&(scan['az'][:, idx] >= az0 - tol)
+        assert np.all(good0|good1)
+
+        el0, el1 = altaz0.alt.to(u.rad).value, altaz1.alt.to(u.rad).value
+        tol = (30 * u.arcsec).to(u.rad).value
+        good0 = (scan['el'][:, idx] >= el0 - tol)&(scan['el'][:, idx] <= el1 + tol)
+        good1 = (scan['el'][:, idx] <= el1 + tol)&(scan['el'][:, idx] >= el0 - tol)
+        assert np.all(good0|good1)
 
     @classmethod
     def teardown_class(klass):
