@@ -71,7 +71,7 @@ def convert_to_complete_fitszilla(fname, outname):
     lchdulist.writeto(outname + '.fits', overwrite=True)
 
 
-def converter_main(args=None):
+def main_convert(args=None):
     import argparse
 
     description = ('Load a series of scans and convert them to various'

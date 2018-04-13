@@ -1,8 +1,9 @@
-from srttools.convert import convert_to_complete_fitszilla, converter_main
+from srttools.convert import convert_to_complete_fitszilla, main_convert
 from srttools.scan import Scan
 import numpy as np
 import os
 import pytest
+import subprocess as sp
 
 
 class Test1_Scan(object):
@@ -22,6 +23,9 @@ class Test1_Scan(object):
         convert_to_complete_fitszilla(self.fname, 'converted')
         os.unlink('converted.fits')
 
+    def test_installed(self):
+        sp.check_call('SDTconvert -h'.split(' '))
+
     def test_conversion(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
         scan0 = Scan(self.fname, norefilt=False)
@@ -35,14 +39,14 @@ class Test1_Scan(object):
             convert_to_complete_fitszilla(self.fname, self.fname)
 
     def test_main(self):
-        converter_main([self.fname, '-f', 'fitsmod'])
+        main_convert([self.fname, '-f', 'fitsmod'])
         assert os.path.exists(self.fname.replace('.fits',
                                                  '_fitsmod.fits'))
         os.unlink(self.fname.replace('.fits', '_fitsmod.fits'))
 
     def test_main_garbage_format(self):
         with pytest.warns(UserWarning):
-            converter_main([self.fname, '-f', 'weruoiq'])
+            main_convert([self.fname, '-f', 'weruoiq'])
 
         assert not os.path.exists(self.fname.replace('.fits',
                                                      '_weruoiq.fits'))
