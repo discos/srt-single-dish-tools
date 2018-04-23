@@ -11,11 +11,16 @@ from astropy.time import Time
 import logging
 import warnings
 import copy
+import re
 
 
 __all__ = ["mkdir_p", "detect_data_kind", "correct_offsets", "observing_angle",
            "get_rest_angle", "print_obs_info_fitszilla", "read_data_fitszilla",
-           "read_data", "root_name"]
+           "read_data", "root_name", "get_chan_columns"]
+
+
+chan_re = re.compile(r'^Ch[0-9]+$|^Feed[0-9]+_[a-zA-Z]+$'
+                     r'|^Feed[0-9]+_[a-zA-Z]+_[0-9]$')
 
 
 locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
@@ -24,6 +29,16 @@ locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                        Angle("44:31:15", u.deg),
                                        25 * u.meter),
              'greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
+
+
+def get_chan_columns(table):
+    return np.array([i for i in table.columns
+                     if chan_re.match(i)])
+
+
+def get_channel_feed(ch):
+    if re.search('Feed?', ch):
+        return int(ch[4])
 
 
 def mkdir_p(path):
@@ -331,13 +346,16 @@ def read_data_fitszilla(fname):
 
         _, nbins = data_table_data['ch0'].shape
 
-        if nbin_per_chan * nchan * 2 == nbins and not is_polarized:
+        if (nbin_per_chan * nchan * 2 == nbins or nbin_per_chan * 4 == nbins) \
+                and not is_polarized:
             warnings.warn('Data appear to contain polarization information '
                           'but are classified as simple, not stokes, in the '
                           'Section table.')
             is_polarized = True
+
         if nbin_per_chan * nchan != nbins and \
-                nbin_per_chan * nchan * 2 != nbins:
+                nbin_per_chan * nchan * 2 != nbins and \
+                nbin_per_chan * 4 != nbins:
             lchdulist.close()
 
             raise ValueError('Something wrong with channel subdivision: '
@@ -387,7 +405,8 @@ def read_data_fitszilla(fname):
         logging.warning("Could not read temperature information from file."
                         "Exception: {}".format(str(e)))
         for ic, ch in enumerate(chan_names):
-            data_table_data[ch + '-Temp'] = 0.
+            data_table_data[ch + '-Temp'] = \
+                np.zeros_like(data_table_data['time'])
 
     info_to_retrieve = \
         ['time', 'derot_angle'] + [ch + '-Temp' for ch in chan_names]

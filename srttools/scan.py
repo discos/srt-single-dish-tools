@@ -2,7 +2,7 @@
 from __future__ import (absolute_import, division,
                         print_function)
 
-from .io import read_data, root_name
+from .io import read_data, root_name, get_chan_columns, get_channel_feed
 import glob
 from .read_config import read_config, get_config_file
 from .fit import ref_mad, contiguous_regions
@@ -21,7 +21,6 @@ from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
 from .utils import jit, vectorize, HAS_NUMBA
 
-import re
 import warnings
 import logging
 
@@ -102,11 +101,6 @@ def _split_freq_splat(freqsplat):
     freqmin, freqmax = \
         [float(f) for f in freqsplat.split(':')]
     return freqmin, freqmax
-
-
-def get_channel_feed(ch):
-    if re.search('Feed?', ch):
-        return int(ch[4])
 
 
 def interpret_frequency_range(freqsplat, bandwidth, nbin):
@@ -536,10 +530,6 @@ def frequency_filter(dynamical_spectrum, mask):
     return lc_corr
 
 
-chan_re = re.compile(r'^Ch[0-9]+$|^Feed[0-9]+_[a-zA-Z]+$'
-                     r'|^Feed[0-9]+_[a-zA-Z]+_[0-9]$')
-
-
 def list_scans(datadir, dirlist):
     """List all scans contained in the directory listed in config."""
     scan_list = []
@@ -558,7 +548,7 @@ class Scan(Table):
     def __init__(self, data=None, config_file=None, norefilt=True,
                  interactive=False, nosave=False, debug=False,
                  freqsplat=None, nofilt=False, nosub=False, avoid_regions=None,
-                 **kwargs):
+                 save_spectrum=False, **kwargs):
         """Load a Scan object
 
         Parameters
@@ -616,7 +606,7 @@ class Scan(Table):
 
             self.clean_and_splat(freqsplat=freqsplat, nofilt=nofilt,
                                  noise_threshold=self.meta['noise_threshold'],
-                                 debug=debug)
+                                 debug=debug, save_spectrum=save_spectrum)
 
             if interactive:
                 self.interactive_filter()
@@ -632,8 +622,7 @@ class Scan(Table):
 
     def chan_columns(self):
         """List columns containing samples."""
-        return np.array([i for i in self.columns
-                         if chan_re.match(i)])
+        return get_chan_columns(self)
 
     def get_info_string(self, ch):
         infostr = "Target: {}\n".format(self.meta['SOURCE'])
@@ -700,6 +689,7 @@ class Scan(Table):
             if '_Q' in ch or '_U' in ch:
                 is_polarized = True
                 continue
+
             results = \
                 clean_scan_using_variability(
                     self[ch], 86400 * (self['time'][-1] - self['time'][0]),

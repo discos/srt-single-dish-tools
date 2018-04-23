@@ -15,7 +15,7 @@ from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
 from .utils import standard_string, standard_byte, compare_strings
-from .utils import HAS_STATSM, calculate_moments
+from .utils import HAS_STATSM, calculate_moments, scantype
 
 import os
 import sys
@@ -64,57 +64,6 @@ def _get_flux_quantity(map_unit):
     except Exception:
         raise ValueError("Incorrect map_unit for flux conversion. Use one "
                          "of {}".format(list(FLUX_QUANTITIES.keys())))
-
-
-def _scantype(ras, decs, az=None, el=None):
-    """Get if scan is along RA or Dec, and if forward or backward.
-
-    Examples
-    --------
-    >>> ras = np.linspace(1, 1.5, 100)
-    >>> decs = np.linspace(0, 0.01, 100)
-    >>> els = np.linspace(0.5, 0.7, 100)
-    >>> azs = np.linspace(0.5, 0.7, 100)
-    >>> st = _scantype(ras, decs, azs, els)
-    >>> np.all(st[0] == ras)
-    True
-    >>> st[1] == 'RA>'
-    True
-    >>> # Opposite direction
-    >>> ras = np.linspace(1, 1.5, 100)[::-1]
-    >>> _scantype(ras, decs, azs, els)[1]
-    'RA<'
-    >>> # Do not specify El and Dec, and test that it still works
-    >>> _scantype(ras, decs)[1]
-    'RA<'
-    >>> els, ras = ras, els
-    >>> decs, azs = azs, decs
-    >>> _scantype(ras, decs, azs, els)[1]
-    'El<'
-    """
-    ravar = np.abs(ras[-1] - ras[0])
-    decvar = np.abs(decs[-1] - decs[0])
-    if el is not None:
-        elvar = np.abs(el[-1] - el[0])
-        azvar = np.abs(az[-1] - az[0])
-    else:
-        elvar = azvar = np.mean([ravar, decvar])
-
-    direction = np.asarray([['RA', 'Dec'], ['Az', 'El']])
-    vararray = np.asarray([[ravar, decvar], [azvar, elvar]])
-    scanarray = np.asarray([ras, decs, az, el])
-
-    minshift = np.argmin(vararray[:, ::-1])
-
-    xvariab = direction.flatten()[minshift]
-    x = scanarray[minshift]
-
-    if x[-1] > x[0]:
-        scan_direction = '>'
-    else:
-        scan_direction = '<'
-
-    return x, xvariab + scan_direction
 
 
 def read_calibrator_config():
@@ -260,13 +209,13 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         y = scan[channel]
 
         # Fit for gain curves
-        x, _ = _scantype(ras, decs, els, azs)
+        x, _ = scantype(ras, decs, els, azs)
         temperature_model, _ = \
             fit_baseline_plus_bell(x, temperature, kind='gauss')
         source_temperature = temperature_model['Bell'].amplitude.value
 
         # Fit RA and/or Dec
-        x, scan_type = _scantype(ras, decs)
+        x, scan_type = scantype(ras, decs)
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
 
         try:

@@ -4,6 +4,7 @@ import numpy as np
 import os
 import pytest
 import subprocess as sp
+import shutil
 
 
 class Test1_Scan(object):
@@ -18,6 +19,11 @@ class Test1_Scan(object):
             os.path.abspath(
                 os.path.join(klass.datadir,
                              'srt_data_tp_multif.fits'))
+
+        klass.skydip = \
+            os.path.abspath(
+                os.path.join(klass.datadir,
+                             'gauss_skydip'))
 
     def test_converter_basic(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
@@ -50,3 +56,13 @@ class Test1_Scan(object):
 
         assert not os.path.exists(self.fname.replace('.fits',
                                                      '_weruoiq.fits'))
+
+    def test_main_mbfits(self):
+        main_convert([self.skydip, '-f', 'mbfits', '--test'])
+        newdir = self.skydip + '_mbfits'
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        assert os.path.exists(os.path.join(newdir, 'GROUPING.fits'))
+        assert os.path.exists(os.path.join(newdir, 'SCAN.fits'))
+        shutil.rmtree(self.skydip + '_mbfits')
+

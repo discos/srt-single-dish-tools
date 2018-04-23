@@ -22,11 +22,12 @@ import copy
 import functools
 import collections
 from scipy.stats import binned_statistic_2d
-from .scan import Scan, chan_re, list_scans, get_channel_feed
+from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, jit
 
+from .io import chan_re, get_channel_feed
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable

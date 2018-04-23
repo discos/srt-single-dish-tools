@@ -6,9 +6,12 @@ from astropy.table import Table
 import numpy as np
 import copy
 import warnings
+import os
+import glob
 
 from .io import get_coords_from_altaz_offset, correct_offsets
 from .io import get_rest_angle, observing_angle, locations
+from .converters.mbfits import MBFITS_creator
 
 
 def convert_to_complete_fitszilla(fname, outname):
@@ -71,6 +74,33 @@ def convert_to_complete_fitszilla(fname, outname):
     lchdulist.writeto(outname + '.fits', overwrite=True)
 
 
+def launch_convert_coords(name, label):
+    allfiles = []
+    if os.path.isdir(name):
+        allfiles += glob.glob(os.path.join(name, '*.fits'))
+    else:
+        allfiles += [name]
+
+    for fname in allfiles:
+        outroot = fname.replace('.fits', '_' + label)
+        convert_to_complete_fitszilla(fname, outroot)
+
+
+def launch_mbfits_creator(name, label, test=False):
+    if not os.path.isdir(name):
+        return None
+    name = name.rstrip('/')
+    mbfits = MBFITS_creator(name + '_' + label, test=test)
+    summary = os.path.join(name, 'summary.fits')
+    if os.path.exists(summary):
+        mbfits.fill_in_summary(summary)
+
+    for fname in glob.glob(os.path.join(name, '*.fits')):
+        if 'summary.fits' in fname:
+            continue
+        mbfits.add_subscan(fname)
+
+
 def main_convert(args=None):
     import argparse
 
@@ -79,20 +109,26 @@ def main_convert(args=None):
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument("files", nargs='*',
-                        help="Single files to process",
+                        help="Single files to process or directories",
                         default=None, type=str)
 
     parser.add_argument("-f", "--format", type=str, default='fitsmod',
-                        help='Format of output files (default '
-                             'fitszilla_mod, indicating a fitszilla with '
+                        help='Format of output files (options: '
+                             'mbfits, indicating MBFITS v. 1.65; '
+                             'fitsmod (default), indicating a fitszilla with '
                              'converted coordinates for feed number *n* in '
                              'a separate COORDn extensions)')
+
+    parser.add_argument("--test",
+                        help="Only to be used in tests!",
+                        action='store_true', default=False)
 
     args = parser.parse_args(args)
 
     for fname in args.files:
-        outroot = fname.replace('.fits', '_' + args.format)
         if args.format == 'fitsmod':
-            convert_to_complete_fitszilla(fname, outroot)
+            launch_convert_coords(fname, args.format)
+        elif args.format == 'mbfits':
+            launch_mbfits_creator(fname, args.format, test=args.test)
         else:
             warnings.warn('Unknown output format')

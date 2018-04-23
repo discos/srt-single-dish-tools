@@ -9,11 +9,10 @@ import numpy as np
 from astropy.table import Table, Column
 from astropy.time import Time
 import warnings
-from .io import read_data
+from .io import read_data, chan_re
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
 from .utils import standard_string
-from .scan import chan_re
 
 try:
     from ConfigParser import ConfigParser
