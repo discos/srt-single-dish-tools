@@ -50,12 +50,25 @@ class Test1_Scan(object):
                                                  '_fitsmod.fits'))
         os.unlink(self.fname.replace('.fits', '_fitsmod.fits'))
 
+    def test_main_dir(self):
+        main_convert([self.skydip, '-f', 'fitsmod'])
+        newfile = os.path.join(self.skydip,
+                               'skydip_mod_fitsmod.fits')
+        assert os.path.exists(newfile)
+        os.unlink(newfile)
+
     def test_main_garbage_format(self):
         with pytest.warns(UserWarning):
             main_convert([self.fname, '-f', 'weruoiq'])
 
         assert not os.path.exists(self.fname.replace('.fits',
                                                      '_weruoiq.fits'))
+
+    def test_main_nondir_mbfits(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_convert([self.fname, '-f', 'mbfits'])
+
+        assert "Input for MBFITS conversion must be " in str(excinfo)
 
     def test_main_mbfits(self):
         main_convert([self.skydip, '-f', 'mbfits', '--test'])

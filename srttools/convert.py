@@ -82,13 +82,15 @@ def launch_convert_coords(name, label):
         allfiles += [name]
 
     for fname in allfiles:
+        if 'summary.fits' in fname:
+            continue
         outroot = fname.replace('.fits', '_' + label)
         convert_to_complete_fitszilla(fname, outroot)
 
 
 def launch_mbfits_creator(name, label, test=False):
     if not os.path.isdir(name):
-        return None
+        raise ValueError('Input for MBFITS conversion must be a directory.')
     name = name.rstrip('/')
     mbfits = MBFITS_creator(name + '_' + label, test=test)
     summary = os.path.join(name, 'summary.fits')
