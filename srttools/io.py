@@ -346,7 +346,7 @@ def read_data_fitszilla(fname):
 
         _, nbins = data_table_data['ch0'].shape
 
-        if (nbin_per_chan * nchan * 2 == nbins or nbin_per_chan * 4 == nbins) \
+        if nbin_per_chan * nchan * 2 == nbins \
                 and not is_polarized:
             warnings.warn('Data appear to contain polarization information '
                           'but are classified as simple, not stokes, in the '
@@ -354,8 +354,7 @@ def read_data_fitszilla(fname):
             is_polarized = True
 
         if nbin_per_chan * nchan != nbins and \
-                nbin_per_chan * nchan * 2 != nbins and \
-                nbin_per_chan * 4 != nbins:
+                nbin_per_chan * nchan * 2 != nbins and not is_polarized:
             lchdulist.close()
 
             raise ValueError('Something wrong with channel subdivision: '
@@ -545,3 +544,76 @@ def read_data(fname):
 def root_name(fname):
     """Return the file name without extension."""
     return os.path.splitext(fname)[0]
+
+
+def _try_type(value, type):
+    """
+    Examples
+    --------
+    >>> _try_type("1", int)
+    1
+    >>> _try_type(1.0, int)
+    1
+    >>> _try_type("ab", float)
+    'ab'
+    """
+    try:
+        return type(value)
+    except:
+        return value
+
+
+def bulk_change(file, path, value):
+    """Bulk change keyword or column values in FITS file.
+
+    Parameters
+    ----------
+    file : str
+        Input file
+    path : str
+        it has to be formatted as EXT,data,COLUMN or EXT,header,KEY depending
+        on what is being changed (a data column or a header key resp.). Ex.
+        1,TIME to change the values of column TIME in ext. n. 1
+    value : any acceptable type
+        Value to be filled in
+    """
+
+    hdul = fits.open(file)
+    ext, attr, key = path.split(',')
+    ext = _try_type(ext, int)
+
+    data = getattr(hdul[ext], attr)
+    data[key] = value
+    setattr(hdul[ext], attr, data)
+    hdul.writeto(file, overwrite=True)
+
+
+def main_bulk_change(args=None):
+    """Preprocess the data."""
+    import argparse
+
+    description = ('Change all values of a given column or header keyword in '
+                   'fits files')
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument("files", nargs='*',
+                        help="Single files to preprocess",
+                        default=None, type=str)
+
+    parser.add_argument("-k", "--key", type=str, required=True,
+                        help='Path to key or data column. E.g. '
+                             '"EXT,header,KEY" to change key KEY in the header'
+                             'in extension EXT; EXT,data,COL to change column'
+                             'COL in the data of extension EXT')
+
+    parser.add_argument("-v", "--value", default=None, type=str,
+                        help='Value to be written')
+
+    parser.add_argument("--debug", action='store_true', default=False,
+                        help='Plot stuff and be verbose')
+
+    args = parser.parse_args(args)
+
+    for f in args.files:
+        bulk_change(f, args.key, args.value)
+        print(f, 'updated')

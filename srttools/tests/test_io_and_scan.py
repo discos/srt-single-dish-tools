@@ -6,16 +6,19 @@ from __future__ import (absolute_import, division,
 from srttools.read_config import read_config
 from astropy.time import Time
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
 import astropy.units as u
 import pytest
 
 from srttools.scan import Scan, HAS_MPL
-from srttools.io import print_obs_info_fitszilla
+from srttools.io import print_obs_info_fitszilla, bulk_change, main_bulk_change
 from srttools.io import locations, read_data_fitszilla
+from srttools.utils import compare_anything
 import os
 import numpy as np
 import glob
 import logging
+import shutil
 try:
     import contextlib2 as contextlib
     FileNotFoundError = IOError
@@ -51,6 +54,42 @@ class Test1_Scan(object):
             os.path.abspath(os.path.join(klass.datadir, 'test_config.ini'))
 
         read_config(klass.config_file)
+
+    def test_bulk_change_hdr(self):
+        dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
+        shutil.copyfile(self.fname, dummyname)
+        with fits.open(dummyname) as hdul:
+            header_dict1 = dict(hdul[0].header.items())
+        bulk_change(dummyname, '0,header,DATE', 'aaaaa')
+        with fits.open(dummyname) as hdul:
+            date_obs_new = hdul[0].header['DATE']
+            header_dict2 = dict(hdul[0].header.items())
+        assert date_obs_new.strip() == 'aaaaa'
+        os.unlink(dummyname)
+        # Check that all other keywords are unchanged
+        header_dict1.pop('DATE')
+        header_dict2.pop('DATE')
+        assert compare_anything(header_dict1, header_dict2)
+
+    def test_bulk_change_data(self):
+        dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
+        shutil.copyfile(self.fname, dummyname)
+        bulk_change(dummyname, 'DATA TABLE,data,time', '0')
+        hdul = fits.open(dummyname)
+        time_new = np.array(hdul['DATA TABLE'].data['time'])
+        hdul.close()
+        assert np.all(time_new == 0)
+        os.unlink(dummyname)
+
+    def test_bulk_change_main(self):
+        dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
+        shutil.copyfile(self.fname, dummyname)
+        main_bulk_change([dummyname, '-k', 'DATA TABLE,data,time', '-v', '0'])
+        hdul = fits.open(dummyname)
+        time_new = np.array(hdul['DATA TABLE'].data['time'])
+        hdul.close()
+        assert np.all(time_new == 0)
+        os.unlink(dummyname)
 
     def test_temperatures_are_read(self):
         scan = read_data_fitszilla(os.path.join(self.datadir,
