@@ -113,6 +113,9 @@ class MBFITS_creator():
             if key in scandict:
                 scanheader[key] = hdudict[key]
 
+        groupheader['RA'] = np.degrees(hdudict['RightAscension'])
+        groupheader['DEC'] = np.degrees(hdudict['Declination'])
+
         hdul.close()
         grouphdul.writeto(os.path.join(self.dirname, self.GROUPING),
                           overwrite=True)
@@ -175,7 +178,7 @@ class MBFITS_creator():
             newhdu = fits.table_to_hdu(newtable)
             subs_par_template[1].data = newhdu.data
 
-            outdir = str(self.scan_count)
+            outdir = str(scan.meta['SubScanID'])
             mkdir_p(os.path.join(self.dirname, outdir))
             new_datapar = os.path.join(outdir,
                                        febe + '-DATAPAR.fits')
@@ -186,6 +189,12 @@ class MBFITS_creator():
             ############ Update ARRAYDATA ############
             subs_template[1] = \
                 _copy_hdu_and_adapt_length(subs_template[1], n)
+
+            subs_template[1].header['SUBSNUM'] = scan.meta['SubScanID']
+            subs_template[1].header['DATE-OBS'] = scan.meta['DATE-OBS']
+            subs_template[1].header['FEBE'] = scan.meta[febe]
+            subs_template[1].header['BASEBAND'] = 1
+            subs_template[1].header['CHANNELS'] = scan.meta['channels']
 
             newtable = Table(subs_template[1].data)
             newtable['MJD'] = scan['time']
@@ -201,6 +210,7 @@ class MBFITS_creator():
 
             # Finally, update GROUPING file
             grouping = fits.open(os.path.join(self.dirname, self.GROUPING))
+
             newtable = Table(grouping[1].data)
             if febe not in self.FEBE:
                 new_febe = self.add_febe(scan, ch, febe)

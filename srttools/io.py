@@ -259,9 +259,11 @@ def read_data_fitszilla(fname):
     is_new_fitszilla = np.any(['coord' in i.name.lower() for i in lchdulist])
 
     # ----------- Extract generic observation information ------------------
+    headerdict = dict(lchdulist[0].header.items())
     source = lchdulist[0].header['SOURCE']
     site = lchdulist[0].header['ANTENNA'].lower()
     receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
+
     ra = lchdulist[0].header['HIERARCH RIGHTASCENSION'] * u.rad
     dec = lchdulist[0].header['HIERARCH DECLINATION'] * u.rad
     ra_offset = dec_offset = az_offset = el_offset = 0 * u.rad
@@ -412,12 +414,15 @@ def read_data_fitszilla(fname):
 
     new_table = Table()
 
+    new_table.meta.update(headerdict)
     new_table.meta['SOURCE'] = source
     new_table.meta['site'] = site
     new_table.meta['backend'] = backend
     new_table.meta['receiver'] = receiver
     new_table.meta['RA'] = ra
     new_table.meta['Dec'] = dec
+    new_table.meta['channels'] = nbin_per_chan
+
     for i, off in zip("ra,dec,el,az".split(','),
                       [ra_offset, dec_offset, el_offset, az_offset]):
         new_table.meta[i + "_offset"] = off
