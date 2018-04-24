@@ -8,6 +8,8 @@ import logging
 import scipy
 import scipy.stats
 import six
+import shutil
+import os
 
 from collections import OrderedDict, Iterable
 
@@ -56,7 +58,6 @@ def _generic_dummy_decorator(*args, **kwargs):
 
         return decorator
 
-
 try:
     from numba import jit, vectorize
     HAS_NUMBA = True
@@ -91,6 +92,14 @@ except ImportError:
         else:
             center = np.median(data)
         return np.median((np.fabs(data - center)) / c, axis=axis)
+
+
+def force_move_file(src, dst):
+    try:
+        shutil.move(src, dst)
+    except FileExistsError:
+        os.unlink(dst)
+        shutil.move(src, dst)
 
 
 def standard_string(s):

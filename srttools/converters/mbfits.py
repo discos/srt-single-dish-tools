@@ -6,13 +6,13 @@ import os
 import numpy as np
 from srttools.io import mkdir_p, locations, read_data_fitszilla, \
     get_chan_columns, get_channel_feed
-from srttools.utils import scantype
+from srttools.utils import scantype, force_move_file
 
 
 def _copy_hdu_and_adapt_length(hdu, length):
     data = hdu.data
     columns = []
-    for i, col in enumerate(data.columns):
+    for col in data.columns:
         newvals = [data[col.name][0]] * length
         newcol = fits.Column(name=col.name, array=newvals,
                              format=col.format)
@@ -20,48 +20,6 @@ def _copy_hdu_and_adapt_length(hdu, length):
     newhdu = fits.BinTableHDU.from_columns(columns)
     newhdu.header = hdu.header
     return newhdu
-
-
-class MBFits_template(object):
-    def __init__(self, mbfits_dir='.'):
-        self.mbfits_dir = mbfits_dir
-        self.GROUPING = fits.open(os.path.join(mbfits_dir, 'GROUPING.fits'))
-        self.files = self.GROUPING[1].data['MEMBER_LOCATION']
-        self.extnames = self.GROUPING[1].data['EXTNAME']
-        self.febes = self.GROUPING[1].data['FEBE']
-        self.subsnums = self.GROUPING[1].data['SUBSNUM']
-        self.basebands = self.GROUPING[1].data['BASEBAND']
-
-        scan_file = self.files[self.extnames == 'SCAN-MBFITS'][0]
-        self.SCAN = fits.open(os.path.join(mbfits_dir, scan_file))
-
-        FEBE_combos = self.SCAN['SCAN-MBFITS'].data['FEBE']
-        print(FEBE_combos)
-        self.FEBEPARs ={}
-        for febe in FEBE_combos:
-            self.FEBEPARs[febe] = \
-                fits.open(os.path.join(mbfits_dir, febe + '-FEBEPAR.fits'))
-        self.time = None
-
-    def read_subscan(self, file):
-        hdul = fits.open(os.path.join(self.mbfits_dir, file))
-        if self.time is None:
-            self.time = hdul[1].data['MJD']
-        else:
-            try:
-                if not np.allclose(self.time, hdul[1].data['MJD']):
-                    raise ValueError('MJD mismatch in files')
-            except ValueError:
-                return None
-
-        return hdul[1].data['DATA']
-
-    def modify_subscan(self):
-        pass
-
-    def list_scans(self, febe, baseband):
-        good = (self.febes == febe) & (self.basebands == baseband)
-        return self.files[good]
 
 
 class MBFITS_creator():
@@ -93,10 +51,15 @@ class MBFITS_creator():
                               overwrite=True)
         scan_template.close()
         self.scan_count = 0
+        self.date_obs = None
 
     def fill_in_summary(self, summaryfile):
         hdul = fits.open(summaryfile)
         header = hdul[0].header
+        try:
+            self.date_obs = header['DATE-OBS']
+        except KeyError:
+            self.date_obs = header['DATE']
 
         grouphdul = fits.open(os.path.join(self.dirname, self.GROUPING))
         scanhdul = fits.open(os.path.join(self.dirname, self.SCAN))
@@ -115,14 +78,17 @@ class MBFITS_creator():
 
         groupheader['RA'] = np.degrees(hdudict['RightAscension'])
         groupheader['DEC'] = np.degrees(hdudict['Declination'])
+        groupheader['DATE-OBS'] = self.date_obs
+        scanheader['DATE-OBS'] = self.date_obs
 
         hdul.close()
-        grouphdul.writeto(os.path.join(self.dirname, self.GROUPING),
-                          overwrite=True)
-        scanhdul.writeto(os.path.join(self.dirname, self.SCAN),
-                          overwrite=True)
+        grouphdul.writeto('tmp.fits', overwrite=True)
         grouphdul.close()
+        force_move_file('tmp.fits', os.path.join(self.dirname, self.GROUPING))
+
+        scanhdul.writeto('tmp.fits', overwrite=True)
         scanhdul.close()
+        force_move_file('tmp.fits', os.path.join(self.dirname, self.SCAN))
 
     def add_subscan(self, scanfile):
         scan = read_data_fitszilla(scanfile)
@@ -182,17 +148,17 @@ class MBFITS_creator():
             mkdir_p(os.path.join(self.dirname, outdir))
             new_datapar = os.path.join(outdir,
                                        febe + '-DATAPAR.fits')
-            subs_par_template.writeto(os.path.join(self.dirname, new_datapar),
-                                      overwrite=True)
+            subs_par_template.writeto('tmp.fits', overwrite=True)
             subs_par_template.close()
+            force_move_file('tmp.fits', os.path.join(self.dirname, new_datapar))
 
             ############ Update ARRAYDATA ############
             subs_template[1] = \
                 _copy_hdu_and_adapt_length(subs_template[1], n)
 
             subs_template[1].header['SUBSNUM'] = scan.meta['SubScanID']
-            subs_template[1].header['DATE-OBS'] = scan.meta['DATE-OBS']
-            subs_template[1].header['FEBE'] = scan.meta[febe]
+            subs_template[1].header['DATE-OBS'] = self.date_obs
+            subs_template[1].header['FEBE'] = febe
             subs_template[1].header['BASEBAND'] = 1
             subs_template[1].header['CHANNELS'] = scan.meta['channels']
 
@@ -204,9 +170,9 @@ class MBFITS_creator():
 
             new_sub = \
                 os.path.join(outdir, febe + '-ARRAYDATA-1.fits')
-            subs_template.writeto(os.path.join(self.dirname, new_sub),
-                                  overwrite=True)
+            subs_template.writeto('tmp.fits', overwrite=True)
             subs_template.close()
+            force_move_file('tmp.fits', os.path.join(self.dirname, new_sub))
 
             # Finally, update GROUPING file
             grouping = fits.open(os.path.join(self.dirname, self.GROUPING))
@@ -223,8 +189,10 @@ class MBFITS_creator():
                               self.scan_count, febe, 1])
             new_hdu = fits.table_to_hdu(newtable)
             grouping[1].data = new_hdu.data
-            grouping.writeto(os.path.join(self.dirname, self.GROUPING),
-                             overwrite=True)
+            grouping.writeto('tmp.fits', overwrite=True)
+            grouping.close()
+            force_move_file('tmp.fits', os.path.join(self.dirname, self.GROUPING))
+
             if self.test:
                 break
 
@@ -256,9 +224,11 @@ class MBFITS_creator():
         # TODO: fill in the information given in the scan[ch]
 
         new_febe = os.path.join(self.dirname, febe_name)
-        febe_template.writeto(new_febe,
-                              overwrite=True)
+
+        febe_template.writeto('tmp.fits', overwrite=True)
         febe_template.close()
+        force_move_file('tmp.fits', new_febe)
+
 
         scan = fits.open(os.path.join(self.dirname, self.SCAN))
         newtable = Table(scan[1].data)
@@ -270,31 +240,8 @@ class MBFITS_creator():
 
         new_hdu = fits.table_to_hdu(newtable)
         scan[1].data = new_hdu.data
-        scan.writeto(os.path.join(self.dirname, self.SCAN),
-                     overwrite=True)
+        scan.writeto('tmp.fits', overwrite=True)
+        scan.close()
+        force_move_file('tmp.fits', os.path.join(self.dirname, self.SCAN))
+
         return new_febe
-
-
-if __name__ == '__main__':
-    import sys
-    from srttools.scan import Scan
-    file = MBFits_template(sys.argv[1])
-    febe = 'FLASH460L-XFFTS'
-    print(file.list_scans(febe, 1))
-    print(file.list_scans(febe, 2))
-    files = file.list_scans(febe, 1)
-
-    print(file.read_subscan(files[0]))
-
-    created_file = MBFITS_creator('try')
-
-    created_file.add_subscan(sys.argv[2])
-
-    file = MBFits_template('try')
-
-    febe = 'CCB0RCP-ROACH2'
-    print(file.list_scans(febe, 1))
-    print(file.list_scans(febe, 2))
-    files = file.list_scans(febe, 1)
-
-    print(file.read_subscan(files[0]))

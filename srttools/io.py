@@ -12,6 +12,7 @@ import logging
 import warnings
 import copy
 import re
+from .utils import force_move_file
 
 
 __all__ = ["mkdir_p", "detect_data_kind", "correct_offsets", "observing_angle",
@@ -551,7 +552,7 @@ def root_name(fname):
     return os.path.splitext(fname)[0]
 
 
-def _try_type(value, type):
+def _try_type(value, dtype):
     """
     Examples
     --------
@@ -563,8 +564,8 @@ def _try_type(value, type):
     'ab'
     """
     try:
-        return type(value)
-    except:
+        return dtype(value)
+    except ValueError:
         return value
 
 
@@ -590,7 +591,10 @@ def bulk_change(file, path, value):
     data = getattr(hdul[ext], attr)
     data[key] = value
     setattr(hdul[ext], attr, data)
-    hdul.writeto(file, overwrite=True)
+
+    hdul.writeto('tmp.fits', overwrite=True)
+    hdul.close()
+    force_move_file('tmp.fits', file)
 
 
 def main_bulk_change(args=None):
