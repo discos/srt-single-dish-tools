@@ -228,20 +228,18 @@ def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
 
 def print_obs_info_fitszilla(fname):
     """Placeholder for function that prints out oberving information."""
-    lchdulist = fits.open(fname)
-    section_table_data = lchdulist['SECTION TABLE'].data
-    sample_rates = section_table_data['sampleRate']
+    with fits.open(fname) as lchdulist:
+        section_table_data = lchdulist['SECTION TABLE'].data
+        sample_rates = section_table_data['sampleRate']
 
-    print('Sample rates:', sample_rates)
+        print('Sample rates:', sample_rates)
 
-    rf_input_data = lchdulist['RF INPUTS'].data
-    print('Feeds          :', rf_input_data['feed'])
-    print('IFs            :', rf_input_data['ifChain'])
-    print('Polarizations  :', rf_input_data['polarization'])
-    print('Frequencies    :', rf_input_data['frequency'])
-    print('Bandwidths     :', rf_input_data['bandWidth'])
-
-    lchdulist.close()
+        rf_input_data = lchdulist['RF INPUTS'].data
+        print('Feeds          :', rf_input_data['feed'])
+        print('IFs            :', rf_input_data['ifChain'])
+        print('Polarizations  :', rf_input_data['polarization'])
+        print('Frequencies    :', rf_input_data['frequency'])
+        print('Bandwidths     :', rf_input_data['bandWidth'])
 
 
 def _chan_name(f, p, c=None):
@@ -252,10 +250,13 @@ def _chan_name(f, p, c=None):
 
 
 def read_data_fitszilla(fname):
-    """Open a fitszilla FITS file and read all relevant information."""
+    with fits.open(fname) as lchdulist:
+        retval = _read_data_fitszilla(lchdulist)
+    return retval
 
-    # Open FITS file
-    lchdulist = fits.open(fname)
+
+def _read_data_fitszilla(lchdulist):
+    """Open a fitszilla FITS file and read all relevant information."""
 
     is_new_fitszilla = np.any(['coord' in i.name.lower() for i in lchdulist])
 
@@ -290,8 +291,6 @@ def read_data_fitszilla(fname):
     nbin_per_chan = section_table_data['bins']
     sample_rate = section_table_data['sampleRate']
     if len(list(set(nbin_per_chan))) > 1:
-        lchdulist.close()
-
         raise ValueError('Only datasets with the same nbin per channel are '
                          'supported at the moment')
     nbin_per_chan = list(set(nbin_per_chan))[0]
@@ -358,8 +357,6 @@ def read_data_fitszilla(fname):
 
         if nbin_per_chan * nchan != nbins and \
                 nbin_per_chan * nchan * 2 != nbins and not is_polarized:
-            lchdulist.close()
-
             raise ValueError('Something wrong with channel subdivision: '
                              '{} bins/channel, {} channels, '
                              '{} total bins'.format(nbin_per_chan, nchan,
@@ -498,6 +495,8 @@ def read_data_fitszilla(fname):
              'yoffset': float(yoffsets[feeds[ic]].to(u.rad).value) * u.rad,
              'relpower': float(relpowers[feeds[ic]])
              }
+        new_table[chan_name].meta.update(headerdict)
+        new_table[chan_name].meta.update(new_table.meta)
         new_table[chan_name].meta.update(newmeta)
 
         new_table[chan_name + '-filt'] = \
@@ -529,12 +528,13 @@ def read_data_fitszilla(fname):
                          yoffsets[feed].to(u.rad).value) * u.rad,
                      'relpower': 1.
                      }
+                new_table[chan_name].meta.update(headerdict)
+                new_table[chan_name].meta.update(new_table.meta)
                 new_table[chan_name].meta.update(newmeta)
 
                 new_table[chan_name + '-filt'] = \
                     np.ones(len(data_table_data[chan_name]), dtype=bool)
 
-    lchdulist.close()
     return new_table
 
 
@@ -584,16 +584,15 @@ def bulk_change(file, path, value):
         Value to be filled in
     """
 
-    hdul = fits.open(file)
-    ext, attr, key = path.split(',')
-    ext = _try_type(ext, int)
+    with fits.open(file) as hdul:
+        ext, attr, key = path.split(',')
+        ext = _try_type(ext, int)
 
-    data = getattr(hdul[ext], attr)
-    data[key] = value
-    setattr(hdul[ext], attr, data)
+        data = getattr(hdul[ext], attr)
+        data[key] = value
+        setattr(hdul[ext], attr, data)
 
-    hdul.writeto('tmp.fits', overwrite=True)
-    hdul.close()
+        hdul.writeto('tmp.fits', overwrite=True)
     force_move_file('tmp.fits', file)
 
 

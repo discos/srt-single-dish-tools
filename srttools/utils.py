@@ -95,11 +95,27 @@ except ImportError:
 
 
 def force_move_file(src, dst):
-    try:
-        shutil.move(src, dst)
-    except FileExistsError:
+    """Force moving a file, even if it exists.
+
+    Examples
+    --------
+    >>> with open('bla', 'w') as fobj:
+    ...    print(file=fobj)
+    >>> with open('bla2', 'w') as fobj:
+    ...    print(file=fobj)
+    >>> force_move_file('bla', './bla') is None
+    True
+    >>> force_move_file('bla2', 'bla') == 'bla'
+    True
+    >>> os.path.exists('bla2')
+    False
+    """
+    if os.path.abspath(src) == os.path.abspath(dst):
+        return None
+    if os.path.exists(dst):
         os.unlink(dst)
-        shutil.move(src, dst)
+    shutil.move(src, dst)
+    return dst
 
 
 def standard_string(s):

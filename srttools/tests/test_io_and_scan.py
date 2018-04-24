@@ -75,9 +75,8 @@ class Test1_Scan(object):
         dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
         shutil.copyfile(self.fname, dummyname)
         bulk_change(dummyname, 'DATA TABLE,data,time', '0')
-        hdul = fits.open(dummyname)
-        time_new = np.array(hdul['DATA TABLE'].data['time'])
-        hdul.close()
+        with fits.open(dummyname) as hdul:
+            time_new = np.array(hdul['DATA TABLE'].data['time'])
         assert np.all(time_new == 0)
         os.unlink(dummyname)
 
@@ -85,9 +84,8 @@ class Test1_Scan(object):
         dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
         shutil.copyfile(self.fname, dummyname)
         main_bulk_change([dummyname, '-k', 'DATA TABLE,data,time', '-v', '0'])
-        hdul = fits.open(dummyname)
-        time_new = np.array(hdul['DATA TABLE'].data['time'])
-        hdul.close()
+        with fits.open(dummyname) as hdul:
+            time_new = np.array(hdul['DATA TABLE'].data['time'])
         assert np.all(time_new == 0)
         os.unlink(dummyname)
 

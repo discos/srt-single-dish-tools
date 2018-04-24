@@ -8,6 +8,7 @@ import copy
 import warnings
 import os
 import glob
+import shutil
 
 from .io import get_coords_from_altaz_offset, correct_offsets
 from .io import get_rest_angle, observing_angle, locations
@@ -17,8 +18,12 @@ from .converters.mbfits import MBFITS_creator
 def convert_to_complete_fitszilla(fname, outname):
     if outname == fname:
         raise ValueError('Files cannot have the same name')
+    with fits.open(fname) as lchdulist:
+        _convert_to_complete_fitszilla(lchdulist, outname)
+        lchdulist.writeto(outname + '.fits', overwrite=True)
 
-    lchdulist = fits.open(fname)
+
+def _convert_to_complete_fitszilla(lchdulist, outname):
 
     feed_input_data = lchdulist['FEED TABLE'].data
     xoffsets = feed_input_data['xOffset'] * u.rad
@@ -71,8 +76,6 @@ def convert_to_complete_fitszilla(fname, outname):
         new_data_extension.name = 'Coord{}'.format(i)
         lchdulist.append(new_data_extension)
 
-    lchdulist.writeto(outname + '.fits', overwrite=True)
-
 
 def launch_convert_coords(name, label):
     allfiles = []
@@ -92,7 +95,8 @@ def launch_mbfits_creator(name, label, test=False):
     if not os.path.isdir(name):
         raise ValueError('Input for MBFITS conversion must be a directory.')
     name = name.rstrip('/')
-    mbfits = MBFITS_creator(name + '_' + label, test=test)
+    random_name = 'tmp_' + str(np.random.random())
+    mbfits = MBFITS_creator(random_name, test=test)
     summary = os.path.join(name, 'summary.fits')
     if os.path.exists(summary):
         mbfits.fill_in_summary(summary)
@@ -101,6 +105,11 @@ def launch_mbfits_creator(name, label, test=False):
         if 'summary.fits' in fname:
             continue
         mbfits.add_subscan(fname)
+
+    if os.path.exists(name + '_' + label):
+        shutil.rmtree(name + '_' + label)
+
+    shutil.move(random_name, name + '_' + label)
 
 
 def main_convert(args=None):

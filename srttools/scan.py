@@ -31,7 +31,7 @@ __all__ = ["Scan", "interpret_frequency_range", "clean_scan_using_variability",
 
 if HAS_NUMBA:
     @vectorize
-    def normalize_angle_mpPI(angle):
+    def normalize_angle_mpPI(angle):  # pragma: no cover
         """Normalize angle between minus pi and pi."""
         TWOPI = 2 * np.pi
         while angle > np.pi:
