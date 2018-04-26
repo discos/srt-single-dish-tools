@@ -104,7 +104,7 @@ class MBFITS_creator():
             scan_template.writeto(os.path.join(self.dirname, self.SCAN),
                                   overwrite=True)
         self.scan_count = 0
-        self.date_obs = None
+        self.date_obs = Time.now()
 
     def fill_in_summary(self, summaryfile):
         with fits.open(summaryfile) as hdul:
@@ -149,6 +149,10 @@ class MBFITS_creator():
         subscan = read_data_fitszilla(scanfile)
         self.scan_count += 1
 
+        time = Time(subscan['time'] * u.day, scale='utc', format='mjd')
+        if self.date_obs.mjd > time[0].mjd:
+            self.date_obs = time[0]
+
         chans = get_chan_columns(subscan)
         for ch in chans:
             feed = get_channel_feed(ch)
@@ -166,7 +170,6 @@ class MBFITS_creator():
                     _copy_hdu_and_adapt_length(subs_par_template[1], n)
 
                 newtable = Table(subs_par_template[1].data)
-                time = Time(subscan['time'] * u.day, scale='utc', format='mjd')
                 newtable['MJD'] = subscan['time']
                 newtable['LST'][:] = \
                     time.sidereal_time('apparent',
@@ -222,7 +225,7 @@ class MBFITS_creator():
                 subs_template[1].header = \
                     reset_all_keywords(subs_template[1].header)
                 subs_template[1].header['SUBSNUM'] = subscan.meta['SubScanID']
-                subs_template[1].header['DATE-OBS'] = self.date_obs.value
+                subs_template[1].header['DATE-OBS'] = self.date_obs.fits
                 subs_template[1].header['FEBE'] = febe
                 subs_template[1].header['BASEBAND'] = 1
                 subs_template[1].header['CHANNELS'] = subscan.meta['channels']
@@ -305,7 +308,7 @@ class MBFITS_creator():
 
             new_febe = os.path.join(self.dirname, febe_name)
 
-            febe_template[1].header['DATE-OBS'] = self.date_obs.value
+            febe_template[1].header['DATE-OBS'] = self.date_obs.fits
             febe_template[1].header['FEBE'] = febe
             febe_template[1].header = \
                 reset_all_keywords(febe_template[1].header)
