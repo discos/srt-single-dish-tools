@@ -5,6 +5,7 @@ import os
 import pytest
 import subprocess as sp
 import shutil
+import glob
 
 
 class Test1_Scan(object):
@@ -78,4 +79,12 @@ class Test1_Scan(object):
         assert os.path.exists(os.path.join(newdir, 'GROUPING.fits'))
         assert os.path.exists(os.path.join(newdir, 'SCAN.fits'))
         shutil.rmtree(self.skydip + '_mbfits')
+
+    def test_main_mbfitsw(self):
+        main_convert([self.skydip, '-f', 'mbfitsw', '--test'])
+        newfiles = glob.glob(self.skydip + '*KKG*.fits')
+        assert len(newfiles) > 0
+        shutil.rmtree(self.skydip + '_mbfitsw')
+        for fname in newfiles:
+            os.unlink(fname)
 

@@ -91,7 +91,7 @@ def launch_convert_coords(name, label):
         convert_to_complete_fitszilla(fname, outroot)
 
 
-def launch_mbfits_creator(name, label, test=False):
+def launch_mbfits_creator(name, label, test=False, wrap=False):
     if not os.path.isdir(name):
         raise ValueError('Input for MBFITS conversion must be a directory.')
     name = name.rstrip('/')
@@ -108,6 +108,11 @@ def launch_mbfits_creator(name, label, test=False):
 
     if os.path.exists(name + '_' + label):
         shutil.rmtree(name + '_' + label)
+
+    if wrap:
+        fnames = mbfits.wrap_up_file()
+        for febe, fname in fnames.items():
+            shutil.move(fname, name + '.' + febe + '.fits')
 
     shutil.move(random_name, name + '_' + label)
 
@@ -126,6 +131,8 @@ def main_convert(args=None):
     parser.add_argument("-f", "--format", type=str, default='fitsmod',
                         help='Format of output files (options: '
                              'mbfits, indicating MBFITS v. 1.65; '
+                             'mbfitsw, indicating MBFITS v. 1.65 wrapped in a'
+                             'single file for each FEBE; '
                              'fitsmod (default), indicating a fitszilla with '
                              'converted coordinates for feed number *n* in '
                              'a separate COORDn extensions)')
@@ -140,6 +147,10 @@ def main_convert(args=None):
         if args.format == 'fitsmod':
             launch_convert_coords(fname, args.format)
         elif args.format == 'mbfits':
-            launch_mbfits_creator(fname, args.format, test=args.test)
+            launch_mbfits_creator(fname, args.format, test=args.test,
+                                  wrap=False)
+        elif args.format == 'mbfitsw':
+            launch_mbfits_creator(fname, args.format, test=args.test,
+                                  wrap=True)
         else:
             warnings.warn('Unknown output format')

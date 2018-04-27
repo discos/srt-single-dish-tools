@@ -93,8 +93,8 @@ class MBFITS_creator():
                                     'GROUPING.fits')) as grouping_template:
             grouping_template[1].data = grouping_template[1].data[:1]
 
-            grouping_template.writeto(os.path.join(self.dirname, self.GROUPING),
-                                      overwrite=True)
+            grouping_template.writeto(
+                os.path.join(self.dirname, self.GROUPING), overwrite=True)
 
         self.SCAN = 'SCAN.fits'
         with fits.open(os.path.join(self.template_dir,
@@ -164,7 +164,6 @@ class MBFITS_creator():
                                    'FLASH460L-XFFTS-DATAPAR.fits')
             with fits.open(datapar) as subs_par_template:
                 n = len(subscan)
-
                 ############ Update DATAPAR ############
                 subs_par_template[1] = \
                     _copy_hdu_and_adapt_length(subs_par_template[1], n)
@@ -173,7 +172,8 @@ class MBFITS_creator():
                 newtable['MJD'] = subscan['time']
                 newtable['LST'][:] = \
                     time.sidereal_time('apparent',
-                                       locations[subscan.meta['site']].lon).value
+                                       locations[subscan.meta['site']].lon
+                                       ).value
                 newtable['INTEGTIM'][:] = \
                     subscan['Feed0_LCP'].meta['sample_rate']
                 newtable['RA'] = subscan['ra']
@@ -337,4 +337,43 @@ class MBFITS_creator():
             scan.writeto('tmp.fits', overwrite=True)
         force_move_file('tmp.fits', os.path.join(self.dirname, self.SCAN))
 
-        return new_febe
+        return febe_name
+
+    def wrap_up_file(self):
+        import copy
+        prihdu = fits.PrimaryHDU()
+        with fits.open(os.path.join(self.dirname, self.GROUPING)) as grouhdl:
+            prihdu.header = copy.deepcopy(grouhdl[0].header)
+            file_list = list(zip(grouhdl[1].data['MEMBER_LOCATION'],
+                                 grouhdl[1].data['EXTNAME'],
+                                 grouhdl[1].data['FEBE']))
+
+        hdulists = {}
+        for febe in self.FEBE.keys():
+            hdulists[febe] = fits.HDUList([prihdu])
+
+            with fits.open(os.path.join(self.dirname, self.SCAN)) as scanhdul:
+                scanhdul[1].data['FEBE'] = [febe]
+                newhdu = type(scanhdul[1])()
+                newhdu.data = scanhdul[1].data
+                newhdu.header = scanhdul[1].header
+                hdulists[febe].append(newhdu)
+
+        for fname, ext, febe in file_list:
+            if febe == '':
+                continue
+            with fits.open(os.path.join(self.dirname, fname)) as hl:
+                print(fname, ext, febe)
+                newhdu = type(hl[1])()
+                newhdu.data = hl[1].data
+                newhdu.header = hl[1].header
+                hdulists[febe].append(newhdu)
+
+        fnames = {}
+        for febe, hdulist in hdulists.items():
+            fname = self.dirname + '.' + febe + '.fits'
+            hdulist.writeto(fname, overwrite=True)
+            hdulist.close()
+            fnames[febe] = fname
+
+        return fnames
