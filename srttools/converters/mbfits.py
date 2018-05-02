@@ -5,7 +5,7 @@ import astropy.units as u
 import os
 import numpy as np
 from srttools.io import mkdir_p, locations, read_data_fitszilla, \
-    get_chan_columns, get_channel_feed
+    get_chan_columns, get_channel_feed, classify_chan_columns
 from srttools.utils import scantype, force_move_file
 
 
@@ -49,6 +49,39 @@ keywords_to_reset = ['11CD2F', '11CD2I', '11CD2J', '11CD2R', '11CD2S',
     'SIDEBAND', 'SIG_ONLN', 'SIG_POL', 'SKYFREQ', 'SWTCHMOD', 'TBLANK',
     'TRANSITI', 'TSYNC', 'WCSNM2F', 'WCSNM2I', 'WCSNM2J', 'WCSNM2R',
     'WCSNM2S', 'WOBTHROW', 'WOBUSED']
+
+
+def pack_data(scan, polar_dict):
+    """Pack data into MBFITS-ready format
+
+    Examples
+    --------
+    >>> scan = {'Feed0_LCP': np.arange(4), 'Feed0_RCP': np.arange(4, 8)}
+    >>> polar = {'LCP': 'Feed0_LCP', 'RCP': 'Feed0_RCP'}
+    >>> res = pack_data(scan, polar)
+    >>> np.allclose(res, [[0, 4], [1, 5], [2, 6], [3, 7]])
+    True
+    >>> scan = {'Feed0_LCP': np.arange(2), 'Feed0_RCP': np.arange(2, 4),
+    ...         'Feed0_Q': np.arange(4, 6), 'Feed0_U': np.arange(6, 8)}
+    >>> polar = {'LCP': 'Feed0_LCP', 'RCP': 'Feed0_RCP', 'Q': 'Feed0_Q',
+    ...          'U': 'Feed0_U'}
+    >>> res = pack_data(scan, polar)
+    >>> np.allclose(res, [[0, 2, 4, 6], [1, 3, 5, 7]])
+    True
+    """
+
+    polar_list = list(polar_dict.keys())
+    if 'LCP' in polar_list:
+        data = [scan[polar_dict['LCP']], scan[polar_dict['RCP']]]
+        try:
+            data.append(scan[polar_dict['Q']])
+            data.append(scan[polar_dict['U']])
+        except KeyError:
+            pass
+    else:  # pragma: no cover
+        raise ValueError('Polarization kind not implemented yet')
+
+    return np.array(data).T
 
 
 def reset_all_keywords(header):
@@ -154,10 +187,11 @@ class MBFITS_creator():
             self.date_obs = time[0]
 
         chans = get_chan_columns(subscan)
-        for ch in chans:
-            feed = get_channel_feed(ch)
-            polar = subscan[ch].meta['polarization']
-            felabel = subscan.meta['receiver'] + '{}{}'.format(feed, polar)
+
+        combinations = classify_chan_columns(chans)
+
+        for feed in combinations:
+            felabel = subscan.meta['receiver'] + '{}'.format(feed)
             febe = felabel + '-' + subscan.meta['backend']
 
             datapar = os.path.join(self.template_dir, '1',
@@ -217,30 +251,41 @@ class MBFITS_creator():
             arraydata = os.path.join(self.template_dir, '1',
                                      'FLASH460L-XFFTS-ARRAYDATA-1.fits')
 
-            ############ Update ARRAYDATA ############
-            with fits.open(arraydata) as subs_template:
-                subs_template[1] = \
-                    _copy_hdu_and_adapt_length(subs_template[1], n)
+            new_rows = []
+            for baseband in combinations[feed]:
+                ch = list(combinations[feed][baseband].values())[0]
+                packed_data = pack_data(subscan, combinations[feed][baseband])
+                ############ Update ARRAYDATA ############
+                with fits.open(arraydata) as subs_template:
+                    subs_template[1] = \
+                        _copy_hdu_and_adapt_length(subs_template[1], n)
 
-                subs_template[1].header = \
-                    reset_all_keywords(subs_template[1].header)
-                subs_template[1].header['SUBSNUM'] = subscan.meta['SubScanID']
-                subs_template[1].header['DATE-OBS'] = self.date_obs.fits
-                subs_template[1].header['FEBE'] = febe
-                subs_template[1].header['BASEBAND'] = 1
-                subs_template[1].header['CHANNELS'] = subscan.meta['channels']
+                    subs_template[1].header = \
+                        reset_all_keywords(subs_template[1].header)
+                    subs_template[1].header['SUBSNUM'] = \
+                        subscan.meta['SubScanID']
+                    subs_template[1].header['DATE-OBS'] = self.date_obs.fits
+                    subs_template[1].header['FEBE'] = febe
+                    subs_template[1].header['BASEBAND'] = 1
+                    subs_template[1].header['CHANNELS'] = \
+                        subscan.meta['channels']
 
-                newtable = Table(subs_template[1].data)
-                newtable['MJD'] = subscan['time']
-                newtable['DATA'] = subscan['Feed0_LCP']
-                newhdu = fits.table_to_hdu(newtable)
-                subs_template[1].data = newhdu.data
+                    newtable = Table(subs_template[1].data)
+                    newtable['MJD'] = subscan['time']
+                    newtable['DATA'] = packed_data
+                    newhdu = fits.table_to_hdu(newtable)
+                    subs_template[1].data = newhdu.data
 
-                new_sub = \
-                    os.path.join(outdir, febe + '-ARRAYDATA-1.fits')
-                subs_template.writeto('tmp.fits', overwrite=True)
+                    new_sub = \
+                        os.path.join(outdir,
+                                     febe + '-ARRAYDATA-{}.fits'.format(baseband))
+                    subs_template.writeto('tmp.fits', overwrite=True)
 
-            force_move_file('tmp.fits', os.path.join(self.dirname, new_sub))
+                    new_rows.append([2, new_sub, 'URL', 'ARRAYDATA-MBFITS',
+                                     self.scan_count, febe, baseband])
+
+                force_move_file('tmp.fits',
+                                os.path.join(self.dirname, new_sub))
 
             # Finally, update GROUPING file
             with fits.open(os.path.join(self.dirname,
@@ -264,8 +309,9 @@ class MBFITS_creator():
 
                 newtable.add_row([2, new_datapar, 'URL', 'DATAPAR-MBFITS',
                                   -999, febe, -999])
-                newtable.add_row([2, new_sub, 'URL', 'ARRAYDATA-MBFITS',
-                                  self.scan_count, febe, 1])
+
+                for row in new_rows:
+                    newtable.add_row(row)
                 new_hdu = fits.table_to_hdu(newtable)
                 grouping[1].data = new_hdu.data
                 grouping[0].header['INSTRUME'] = subscan[ch].meta['backend']
@@ -282,12 +328,8 @@ class MBFITS_creator():
     def add_febe(self, subscan, channel, febe):
         feed = get_channel_feed(channel)
         meta = subscan[channel].meta
-        polar = meta['polarization']
+        polar = 'N'
         polar_code = polar[0]
-        if polar_code == 'H':
-            polar_code = 'X'
-        elif polar_code == 'V':
-            polar_code = 'Y'
 
         febe_name = febe + '-FEBEPAR.fits'
 
@@ -363,7 +405,6 @@ class MBFITS_creator():
             if febe == '':
                 continue
             with fits.open(os.path.join(self.dirname, fname)) as hl:
-                print(fname, ext, febe)
                 newhdu = type(hl[1])()
                 newhdu.data = hl[1].data
                 newhdu.header = hl[1].header

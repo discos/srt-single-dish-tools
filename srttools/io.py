@@ -20,8 +20,9 @@ __all__ = ["mkdir_p", "detect_data_kind", "correct_offsets", "observing_angle",
            "read_data", "root_name", "get_chan_columns"]
 
 
-chan_re = re.compile(r'^Ch[0-9]+$|^Feed[0-9]+_[a-zA-Z]+$'
-                     r'|^Feed[0-9]+_[a-zA-Z]+_[0-9]$')
+chan_re = re.compile(r'^Ch([0-9]+)$'
+                     r'|^Feed([0-9]+)_([a-zA-Z]+)$'
+                     r'|^Feed([0-9]+)_([a-zA-Z]+)_([0-9]+)$')
 
 
 locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
@@ -30,6 +31,90 @@ locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                        Angle("44:31:15", u.deg),
                                        25 * u.meter),
              'greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
+
+
+def interpret_chan_name(chan_name):
+    """Get feed, polarization and baseband info from chan name.
+
+    Examples
+    >>> feed, polar, baseband = interpret_chan_name('blablabal')
+    >>> feed  # None
+    >>> polar  # None
+    >>> baseband  # None
+    >>> feed, polar, baseband = interpret_chan_name('Ch0')
+    >>> feed
+    0
+    >>> polar  # None
+    >>> baseband  # None
+    >>> feed, polar, baseband = interpret_chan_name('Feed1_LCP')
+    >>> feed
+    1
+    >>> polar
+    'LCP'
+    >>> baseband  # None
+    >>> feed, polar, baseband = interpret_chan_name('Feed2_LCP_3')
+    >>> feed
+    2
+    >>> polar
+    'LCP'
+    >>> baseband
+    3
+    """
+    matchobj = chan_re.match(chan_name)
+    if not matchobj:
+        return None, None, None
+
+    matches = [matchobj.group(i) for i in range(7)]
+    polar, baseband = None, None
+    if matches[6] is not None:
+        baseband = int(matchobj.group(6))
+        polar = matchobj.group(5)
+        feed = int(matchobj.group(4))
+    elif matches[3] is not None:
+        polar = matchobj.group(3)
+        feed = int(matchobj.group(2))
+    else:
+        feed = int(matchobj.group(1))
+
+    return feed, polar, baseband
+
+
+def classify_chan_columns(chans):
+    """Classify the name of channels per feed, polarization, baseband.
+
+    Examples
+    --------
+    >>> chans = ['Feed0_LCP_3', 'Feed0_RCP_3']
+    >>> classif = classify_chan_columns(chans)
+    >>> classif[0][3]['LCP']
+    'Feed0_LCP_3'
+    >>> classif[0][3]['RCP']
+    'Feed0_RCP_3'
+    >>> chans = ['Ch0']
+    >>> classif = classify_chan_columns(chans)
+    >>> classif[0][1]['N']
+    'Ch0'
+    >>> chans = ['Feed0_LCP']
+    >>> classif = classify_chan_columns(chans)
+    >>> classif[0][1]['LCP']
+    'Feed0_LCP'
+    """
+    combinations = {}
+    for ch in chans:
+        feed, polar, baseband = interpret_chan_name(ch)
+        if baseband is None:
+            baseband = 1
+        if polar is None:
+            polar = 'N'
+        if feed not in combinations:
+            combinations[feed] = {}
+
+        if baseband not in combinations[feed]:
+            combinations[feed][baseband] = {}
+
+        combinations[feed][baseband][polar] = ch
+
+    return combinations
 
 
 def get_chan_columns(table):
