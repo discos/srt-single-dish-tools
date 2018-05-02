@@ -25,6 +25,10 @@ class Test1_Scan(object):
             os.path.abspath(
                 os.path.join(klass.datadir,
                              'gauss_skydip'))
+        klass.example = \
+            os.path.abspath(
+                os.path.join(klass.datadir,
+                             'example_polar'))
 
     def test_converter_basic(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
@@ -85,6 +89,14 @@ class Test1_Scan(object):
         newfiles = glob.glob(self.skydip + '*KKG*.fits')
         assert len(newfiles) > 0
         shutil.rmtree(self.skydip + '_mbfitsw')
+        for fname in newfiles:
+            os.unlink(fname)
+
+    def test_main_mbfitsw_polar(self):
+        main_convert([self.example, '-f', 'mbfitsw', '--test'])
+        newfiles = glob.glob(self.example + '*CCB*.fits')
+        assert len(newfiles) > 0
+        shutil.rmtree(self.example + '_mbfitsw')
         for fname in newfiles:
             os.unlink(fname)
 
