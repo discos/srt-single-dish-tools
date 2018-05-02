@@ -1195,11 +1195,16 @@ class ScanSet(Table):
         for ch in keys:
             is_sdev = ch.endswith('Sdev')
             is_expo = 'EXPO' in ch
+            is_outl = 'Outliers' in ch
+            is_stokes = ('Q' in ch) or ('U' in ch)
+
+            do_moments = not (is_sdev or is_expo or is_stokes or is_outl)
+            do_moments = do_moments and altaz and HAS_MAHO
 
             if is_sdev and not save_sdev:
                 continue
 
-            if altaz and HAS_MAHO and not is_sdev and not is_expo:
+            if do_moments:
                 moments_dict = \
                     self.calculate_zernike_moments(images[ch], cm=None,
                                                    radius=0.3, norder=8,
