@@ -144,7 +144,8 @@ class Test1_Scan(object):
     @pytest.mark.parametrize('fname', ['med_data.fits',
                                        'srt_data_tp_multif.fits'])
     def test_coordinate_conversion_works(self, fname):
-        scan = Scan(os.path.join(self.datadir, fname))
+        scan = Scan(os.path.join(self.datadir, fname), norefilt=False)
+        print(scan.meta)
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
         idx = 1 if '_multif' in fname else 0
         ref_coords = SkyCoord(ra=scan['ra'][:, idx],
@@ -254,7 +255,8 @@ class Test2_Scan(object):
     @pytest.mark.parametrize('fname', ['srt_data.fits',
                                        'srt_data_roach_polar.fits'])
     def test_coordinate_conversion_works(self, fname):
-        scan = Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
+        scan = Scan(os.path.join(self.datadir, 'spectrum', fname),
+                    norefilt=False, debug=True)
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
         idx = 1 if '_multif' in fname else 0
 

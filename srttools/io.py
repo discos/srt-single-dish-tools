@@ -313,7 +313,7 @@ def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
 
 def print_obs_info_fitszilla(fname):
     """Placeholder for function that prints out oberving information."""
-    with fits.open(fname) as lchdulist:
+    with fits.open(fname, memmap=False) as lchdulist:
         section_table_data = lchdulist['SECTION TABLE'].data
         sample_rates = section_table_data['sampleRate']
 
@@ -335,7 +335,7 @@ def _chan_name(f, p, c=None):
 
 
 def read_data_fitszilla(fname):
-    with fits.open(fname) as lchdulist:
+    with fits.open(fname, memmap=False) as lchdulist:
         retval = _read_data_fitszilla(lchdulist)
     return retval
 
@@ -669,7 +669,7 @@ def bulk_change(file, path, value):
         Value to be filled in
     """
 
-    with fits.open(file) as hdul:
+    with fits.open(file, memmap=False) as hdul:
         ext, attr, key = path.split(',')
         ext = _try_type(ext, int)
 

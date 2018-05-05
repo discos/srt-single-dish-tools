@@ -18,7 +18,7 @@ from .converters.mbfits import MBFITS_creator
 def convert_to_complete_fitszilla(fname, outname):
     if outname == fname:
         raise ValueError('Files cannot have the same name')
-    with fits.open(fname) as lchdulist:
+    with fits.open(fname, memmap=False) as lchdulist:
         _convert_to_complete_fitszilla(lchdulist, outname)
         lchdulist.writeto(outname + '.fits', overwrite=True)
 
@@ -89,8 +89,14 @@ def launch_convert_coords(name, label):
             continue
         outroot = fname.replace('.fits', '_' + label)
         convert_to_complete_fitszilla(fname, outroot)
+    return outroot
 
 
+# from memory_profiler import profile
+# fp = open('memory_profiler_basic_mean.log', 'w+')
+# precision = 10
+#
+# @profile(precision=precision, stream=fp)
 def launch_mbfits_creator(name, label, test=False, wrap=False):
     if not os.path.isdir(name):
         raise ValueError('Input for MBFITS conversion must be a directory.')
@@ -106,6 +112,7 @@ def launch_mbfits_creator(name, label, test=False, wrap=False):
             continue
         mbfits.add_subscan(fname)
 
+    mbfits.update_scan_info()
     if os.path.exists(name + '_' + label):
         shutil.rmtree(name + '_' + label)
 
@@ -113,8 +120,28 @@ def launch_mbfits_creator(name, label, test=False, wrap=False):
         fnames = mbfits.wrap_up_file()
         for febe, fname in fnames.items():
             shutil.move(fname, name + '.' + febe + '.fits')
+    outname = name + '_' + label
+    shutil.move(random_name, outname)
+    return outname, mbfits
 
-    shutil.move(random_name, name + '_' + label)
+
+def match_srt_name(name):
+    """
+    Examples
+    --------
+    >>> matchobj = match_srt_name('20180212-150835-S0000-3C84_RA')
+    >>> matchobj.group(1)
+    '20180212'
+    >>> matchobj.group(2)
+    '150835'
+    >>> matchobj.group(3)
+    'S0000'
+    >>> matchobj.group(4)
+    '3C84_RA'
+    """
+    import re
+    name_re = re.compile(r'([0-9]+).([0-9]+)-([^\-]+)-([^\-]+)')
+    return name_re.match(name)
 
 
 def main_convert(args=None):
@@ -143,14 +170,31 @@ def main_convert(args=None):
 
     args = parser.parse_args(args)
 
+    outnames = []
     for fname in args.files:
         if args.format == 'fitsmod':
-            launch_convert_coords(fname, args.format)
+            outname = launch_convert_coords(fname, args.format)
+            outnames.append(outname)
         elif args.format == 'mbfits':
-            launch_mbfits_creator(fname, args.format, test=args.test,
-                                  wrap=False)
+            outname, mbfits = \
+                launch_mbfits_creator(fname, args.format, test=args.test,
+                                      wrap=False)
+
+            matchobj = match_srt_name(fname)
+            if matchobj:
+                date = matchobj.group(1)
+
+                new_name = '{site}_{date}_{scanno:04d}_{febe}'.format(
+                    site=mbfits.site.strip().upper(), date=date,
+                    scanno=mbfits.obsid, febe=list(mbfits.FEBE.keys())[0])
+                shutil.move(outname, new_name)
+                outname = new_name
+            outnames.append(outname)
         elif args.format == 'mbfitsw':
-            launch_mbfits_creator(fname, args.format, test=args.test,
-                                  wrap=True)
+            outname, mbfits = \
+                launch_mbfits_creator(fname, args.format, test=args.test,
+                                      wrap=True)
+            outnames.append(outname)
         else:
             warnings.warn('Unknown output format')
+    return outnames

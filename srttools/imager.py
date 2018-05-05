@@ -689,6 +689,7 @@ class ScanSet(Table):
             self[ch] = Column(fit_full_image(self, chan=ch,
                                              feed=feed,
                                              excluded=excluded, par=par))
+            self[ch].meta = self[ch + '_save'].meta
 
         self.calculate_images(no_offsets=no_offsets,
                               altaz=altaz, calibration=calibration,
@@ -1403,8 +1404,6 @@ def main_imager(args=None):
 
     if args.interactive:
         scanset.interactive_display()
-
-    scanset.write(outfile, overwrite=True)
 
     if args.global_fit:
         scanset.fit_full_images(excluded=excluded_xy, chans=args.chans,

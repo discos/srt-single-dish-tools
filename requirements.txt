@@ -3,3 +3,4 @@ pytest
 pip
 h5py
 pyyaml
+astropy>=3

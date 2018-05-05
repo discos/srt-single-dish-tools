@@ -89,7 +89,11 @@ and install the dependencies (including a few optional but recommended):
 
 .. code-block:: console
 
-    (py3) $ conda install astropy scipy numpy matplotlib pyyaml h5py statsmodels numba
+    (py3) $ conda install astropy>=3 scipy numpy matplotlib pyyaml h5py statsmodels numba
+
+.. code-block:: console
+
+    $ pip install pyregion
 
 
 Other Python distributions
@@ -100,7 +104,7 @@ recommended):
 
 .. code-block:: console
 
-    $ pip install astropy scipy numpy matplotlib pyyaml h5py statsmodels numba
+    $ pip install astropy>=3 scipy numpy matplotlib pyyaml h5py statsmodels numba pyregion
 
 Cloning and installation
 ~~~~~~~~~~~~~~~~~~~~~~~~

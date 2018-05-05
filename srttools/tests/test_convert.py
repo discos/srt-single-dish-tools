@@ -75,15 +75,6 @@ class Test1_Scan(object):
 
         assert "Input for MBFITS conversion must be " in str(excinfo)
 
-    def test_main_mbfits(self):
-        main_convert([self.skydip, '-f', 'mbfits', '--test'])
-        newdir = self.skydip + '_mbfits'
-        assert os.path.exists(newdir)
-        assert os.path.isdir(newdir)
-        assert os.path.exists(os.path.join(newdir, 'GROUPING.fits'))
-        assert os.path.exists(os.path.join(newdir, 'SCAN.fits'))
-        shutil.rmtree(self.skydip + '_mbfits')
-
     def test_main_mbfitsw(self):
         main_convert([self.skydip, '-f', 'mbfitsw', '--test'])
         newfiles = glob.glob(self.skydip + '*KKG*.fits')
@@ -100,3 +91,10 @@ class Test1_Scan(object):
         for fname in newfiles:
             os.unlink(fname)
 
+    def test_main_mbfits(self):
+        newdir = main_convert([self.skydip, '-f', 'mbfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        assert os.path.exists(os.path.join(newdir, 'GROUPING.fits'))
+        assert os.path.exists(os.path.join(newdir, 'SCAN.fits'))
+        shutil.rmtree(self.skydip + '_mbfits')
