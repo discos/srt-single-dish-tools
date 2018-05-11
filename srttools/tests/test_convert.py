@@ -6,6 +6,7 @@ import pytest
 import subprocess as sp
 import shutil
 import glob
+from astropy.io import fits
 
 try:
     import matplotlib.pyplot as plt
@@ -87,6 +88,9 @@ class Test1_Scan(object):
         newfiles = glob.glob(self.skydip + '*KKG*.fits')
         assert len(newfiles) > 0
         shutil.rmtree(self.skydip + '_mbfitsw')
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SCAN-MBFITS'].header
+            assert header['SCANTYPE'] == 'SKYDIP'
         for fname in newfiles:
             os.unlink(fname)
 
@@ -96,6 +100,9 @@ class Test1_Scan(object):
         newfiles = glob.glob(self.example + '*CCB*.fits')
         assert len(newfiles) > 0
         shutil.rmtree(self.example + '_mbfitsw')
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SCAN-MBFITS'].header
+            assert header['SCANTYPE'] == 'MAP'
         for fname in newfiles:
             os.unlink(fname)
 
@@ -105,5 +112,9 @@ class Test1_Scan(object):
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
         assert os.path.exists(os.path.join(newdir, 'GROUPING.fits'))
-        assert os.path.exists(os.path.join(newdir, 'SCAN.fits'))
+        scanfile = os.path.join(newdir, 'SCAN.fits')
+        assert os.path.exists(scanfile)
+        with fits.open(scanfile) as hdul:
+            header = hdul[1].header
+            assert header['SCANTYPE'] == 'SKYDIP'
         shutil.rmtree(self.skydip + '_mbfits')

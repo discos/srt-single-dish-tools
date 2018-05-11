@@ -5,7 +5,7 @@ import astropy.units as u
 import os
 import numpy as np
 from srttools.io import mkdir_p, locations, read_data_fitszilla, \
-    get_chan_columns, classify_chan_columns
+    get_chan_columns, classify_chan_columns, infer_skydip_from_elevation
 from srttools.utils import scantype, force_move_file
 import warnings
 
@@ -18,13 +18,13 @@ def default_scan_info_table():
                         'el_min', 'el_max', 'el_d',
                         'glon_min', 'glon_max', 'glon_d',
                         'glat_min', 'glat_max', 'glat_d',
-                        'kind', 'direction'],
+                        'is_skydip', 'kind', 'direction'],
 
                  dtype=[int,
                         float, float, float, float, float, float,
                         float, float, float, float, float, float,
                         float, float, float, float, float, float,
-                        'S10', 'S5'])
+                        bool, 'S10', 'S5'])
 
 
 def minmax(array):
@@ -58,6 +58,7 @@ def get_subscan_info(subscan):
     decmin, decmax = minmax(subscan['dec'])
     azmin, azmax = minmax(subscan['az'])
     elmin, elmax = minmax(subscan['el'])
+    is_skydip = subscan.meta['is_skydip']
 
     d_ra = median_diff(subscan['ra'])
     d_dec = median_diff(subscan['dec'])
@@ -87,7 +88,7 @@ def get_subscan_info(subscan):
     info.add_row([scan_id,
                   ramin, ramax, d_ra, decmin, decmax, d_dec,
                   azmin, azmax, d_az, elmin, elmax, d_el,
-                  0, 0, 0, 0, 0, 0, kind, direction])
+                  0, 0, 0, 0, 0, 0, is_skydip, kind, direction])
 
     return info
 
@@ -114,6 +115,7 @@ def format_direction(direction):
 def get_observing_strategy_from_subscan_info(info):
     """Get observing strategy from subscan information."""
     kinds = info['kind']
+    skydips = info['is_skydip']
     lines = info[kinds == 'line']
     points = info[kinds == 'point']
     ctype = 'RA/DEC'
@@ -128,7 +130,13 @@ def get_observing_strategy_from_subscan_info(info):
     length = 0
     stype = 'MAP'
     direction = 'Unkn'
-    if len(lines) > len(points):
+
+    if np.all(skydips):
+        stype = 'SKYDIP'
+        mode = 'OTF'
+        geom = 'LINE'
+        direction = 'ALAT'
+    elif len(lines) > len(points):
         mode = 'OTF'
         ra_lines = lines[lines['direction'] == 'ra']
         dec_lines = lines[lines['direction'] == 'dec']

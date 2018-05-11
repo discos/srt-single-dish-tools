@@ -258,6 +258,15 @@ def get_rest_angle(xoffsets, yoffsets):
                                    w_0))) * u.rad
 
 
+def infer_skydip_from_elevation(elevation, azimuth=None):
+    if azimuth is None:
+        azimuth = np.array([0, 0])
+
+    el_condition = np.max(elevation) - np.min(elevation) > np.pi / 3.
+    az_condition = np.max(azimuth) - np.min(azimuth) < 0.1 / 180. * np.pi
+    return az_condition & el_condition
+
+
 def get_coords_from_altaz_offset(obstimes, el, az, xoffs, yoffs, location,
                                  inplace=False):
     """"""
@@ -530,6 +539,10 @@ def _read_data_fitszilla(lchdulist):
     new_table['az'] = \
         np.tile(data_table_data['az'],
                 (np.max(feeds) + 1, 1)).transpose()
+
+    new_table.meta['is_skydip'] = \
+        infer_skydip_from_elevation(data_table_data['el'],
+                                    data_table_data['az'])
 
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
