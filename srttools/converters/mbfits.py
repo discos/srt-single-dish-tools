@@ -5,13 +5,13 @@ import astropy.units as u
 import os
 import numpy as np
 from srttools.io import mkdir_p, locations, read_data_fitszilla, \
-    get_chan_columns, classify_chan_columns, infer_skydip_from_elevation
+    get_chan_columns, classify_chan_columns
 from srttools.utils import scantype, force_move_file
 import warnings
 
 
 def default_scan_info_table():
-    return Table(names=['scan_id',
+    return Table(names=['scan_id', 'start', 'stop',
                         'ra_min', 'ra_max', 'ra_d',
                         'dec_min', 'dec_max', 'dec_d',
                         'az_min', 'az_max', 'az_d',
@@ -20,7 +20,7 @@ def default_scan_info_table():
                         'glat_min', 'glat_max', 'glat_d',
                         'is_skydip', 'kind', 'direction'],
 
-                 dtype=[int,
+                 dtype=[int, float, float,
                         float, float, float, float, float, float,
                         float, float, float, float, float, float,
                         float, float, float, float, float, float,
@@ -54,6 +54,7 @@ def median_diff(array, sorting=False):
 def get_subscan_info(subscan):
     info = default_scan_info_table()
     scan_id = subscan.meta['SubScanID']
+    start, stop = minmax(subscan['time'])
     ramin, ramax = minmax(subscan['ra'])
     decmin, decmax = minmax(subscan['dec'])
     azmin, azmax = minmax(subscan['az'])
@@ -85,7 +86,7 @@ def get_subscan_info(subscan):
         kind = 'line'
         direction = directions[np.argmax(allvars)]
 
-    info.add_row([scan_id,
+    info.add_row([scan_id, start, stop,
                   ramin, ramax, d_ra, decmin, decmax, d_dec,
                   azmin, azmax, d_az, elmin, elmax, d_el,
                   0, 0, 0, 0, 0, 0, is_skydip, kind, direction])
@@ -119,7 +120,8 @@ def get_observing_strategy_from_subscan_info(info):
     lines = info[kinds == 'line']
     points = info[kinds == 'point']
     ctype = 'RA/DEC'
-    columns = info.colnames[1:-2]
+    durations = info['stop'] - info['start']
+    columns = info.colnames[3:-2]
 
     sep = np.max([median_diff(info[col], sorting=True) for col in columns])
     if np.isnan(sep) or np.isinf(sep):
@@ -127,9 +129,9 @@ def get_observing_strategy_from_subscan_info(info):
 
     zigzag = False
 
-    length = 0
     stype = 'MAP'
     direction = 'Unkn'
+    length = 0
 
     if np.all(skydips):
         stype = 'SKYDIP'
@@ -152,7 +154,6 @@ def get_observing_strategy_from_subscan_info(info):
         sample_dist_lon = lon_lines[dlon + '_d']
         sample_dist_lat = lon_lines[dlat + '_d']
 
-        geom = 'SINGLE'
         if len(lon_lines) == len(lat_lines):
             geom = 'CROSS'
             sep = 0
@@ -160,12 +161,14 @@ def get_observing_strategy_from_subscan_info(info):
             length = \
                 np.median(lon_lines[dlon + '_max'] - lon_lines[dlon + '_min'])
         elif len(lon_lines) > len(lat_lines):
+            geom = 'LINE'
             # if we see an inversion of direction, set zigzag to True
             zigzag = np.any(sample_dist_lon[:-1] * sample_dist_lon[1:] < 0)
             length = \
                 np.median(lon_lines[dlat + '_max'] - lon_lines[dlat + '_min'])
             direction = format_direction(dlon)
         else:
+            geom = 'LINE'
             zigzag = np.any(sample_dist_lat[:-1] * sample_dist_lat[1:] < 0)
             direction = format_direction(dlat)
             length = \
@@ -173,7 +176,7 @@ def get_observing_strategy_from_subscan_info(info):
 
     else:
         mode = 'RASTER'
-        geom = ''
+        geom = 'SINGLE'
 
     results = type('results', (), {})()
     results.mode = mode
@@ -184,6 +187,7 @@ def get_observing_strategy_from_subscan_info(info):
     results.type = stype
     results.ctype = ctype
     results.stype = stype
+    results.scanvel = length / np.median(durations)
     results.direction = direction
     results.nobs = len(info['scan_id'])
     return results
@@ -331,6 +335,7 @@ class MBFITS_creator():
         self.ra = 0
         self.dec = 0
         self.site = None
+        self.lst = 1e32
 
     def fill_in_summary(self, summaryfile):
         print('Loading {}'.format(summaryfile))
@@ -421,6 +426,8 @@ class MBFITS_creator():
                     time.sidereal_time('apparent',
                                        locations[subscan.meta['site']].lon
                                        ).value
+                if newtable['LST'][0] < self.lst:
+                    self.lst = newtable['LST'][0]
                 newtable['INTEGTIM'][:] = \
                     subscan['Feed0_LCP'].meta['sample_rate']
                 newtable['RA'] = subscan['ra'].to(u.deg)
@@ -436,7 +443,9 @@ class MBFITS_creator():
                     baslon, baslat = \
                         subscan['ra'].to(u.deg), subscan['dec'].to(u.deg)
                     yoff = baslat.value - self.dec
-                    xoff = (baslon.value - self.ra) * np.cos(np.radians(yoff))
+                    # GLS projection
+                    xoff = \
+                        (baslon.value - self.ra) * np.cos(np.radians(self.dec))
                     newtable['LONGOFF'] = xoff
                     newtable['LATOFF'] = yoff
                 elif direction_cut in ['el', 'az']:
@@ -655,25 +664,43 @@ class MBFITS_creator():
             scanheader = scanhdul[1].header
             # Todo: update with correct keywords
             scanheader['CTYPE'] = info.ctype
-            scanheader['CTYPE1'] = 'RA---SFL'
-            scanheader['CTYPE2'] = 'DEC--SFL'
+            scanheader['CTYPE1'] = 'RA---GLS'
+            scanheader['CTYPE2'] = 'DEC--GLS'
             scanheader['CRVAL1'] = self.ra
             scanheader['CRVAL2'] = self.dec
             scanheader['BLONGOBJ'] = self.ra
-            scanheader['BLATGOBJ'] = self.dec
+            scanheader['BLATOBJ'] = self.dec
+            scanheader['LONGOBJ'] = 0
+            scanheader['LATOBJ'] = 0
+            scanheader['EQUINOX'] = 2000.
+            scanheader['GRPLC1'] = 'GROUPING.fits'
+            scanheader['LST'] = self.lst
+            scanheader['LATPOLE'] = 90.
+            scanheader['LONPOLE'] = 0.
+            scanheader['PATLONG'] = 0
+            scanheader['MOVEFRAM'] = False
             if info.ctype == 'ALON/ALAT':
                 scanheader['WCSNAME'] = 'Absolute horizontal'
             scanheader['SCANTYPE'] = info.stype.upper()
             scanheader['SCANDIR'] = info.direction.upper()
+            scanheader['SCANXVEL'] = info.scanvel
             scanheader['SCANMODE'] = info.mode.upper()
             scanheader['SCANGEOM'] = info.geom.upper()
+            scanheader['SCANLINE'] = 1
             scanheader['SCANLEN'] = np.degrees(info.length)
             scanheader['SCANYSPC'] = np.degrees(info.sep)
             scanheader['SCANXSPC'] = np.degrees(info.sep)
+            scanheader['SCANPAR1'] = -999
+            scanheader['SCANPAR2'] = -999
             scanheader['ZIGZAG'] = info.zigzag
-            scanheader['PHASE1'] = 'NONE'
+            scanheader['PHASE1'] = 'sig'
+            scanheader['PHASE2'] = 'sig'
             scanheader['NOBS'] = info.nobs
             scanheader['NSUBS'] = info.nobs
+            scanheader['WOBCYCLE'] = 0.
+            scanheader['WOBDIR'] = 'NONE'
+            scanheader['WOBMODE'] = 'NONE'
+            scanheader['WOBPATT'] = 'NONE'
             scanhdul.writeto('tmp.fits', overwrite=True)
         force_move_file('tmp.fits', os.path.join(self.dirname, self.SCAN))
 

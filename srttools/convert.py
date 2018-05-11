@@ -187,6 +187,8 @@ def main_convert(args=None):
                 new_name = '{site}_{date}_{scanno:04d}_{febe}'.format(
                     site=mbfits.site.strip().upper(), date=date,
                     scanno=mbfits.obsid, febe=list(mbfits.FEBE.keys())[0])
+                if os.path.exists(new_name):
+                    shutil.rmtree(new_name)
                 shutil.move(outname, new_name)
                 outname = new_name
             outnames.append(outname)
