@@ -97,7 +97,7 @@ def launch_convert_coords(name, label):
 # precision = 10
 #
 # @profile(precision=precision, stream=fp)
-def launch_mbfits_creator(name, label, test=False, wrap=False):
+def launch_mbfits_creator(name, label, test=False, wrap=False, detrend=False):
     if not os.path.isdir(name):
         raise ValueError('Input for MBFITS conversion must be a directory.')
     name = name.rstrip('/')
@@ -107,10 +107,10 @@ def launch_mbfits_creator(name, label, test=False, wrap=False):
     if os.path.exists(summary):
         mbfits.fill_in_summary(summary)
 
-    for fname in glob.glob(os.path.join(name, '*.fits')):
+    for fname in sorted(glob.glob(os.path.join(name, '*.fits'))):
         if 'summary.fits' in fname:
             continue
-        mbfits.add_subscan(fname)
+        mbfits.add_subscan(fname, detrend=detrend)
 
     mbfits.update_scan_info()
     if os.path.exists(name + '_' + label):
@@ -168,6 +168,10 @@ def main_convert(args=None):
                         help="Only to be used in tests!",
                         action='store_true', default=False)
 
+    parser.add_argument("--detrend",
+                        help="Detrend data before converting to MBFITS",
+                        action='store_true', default=False)
+
     args = parser.parse_args(args)
 
     outnames = []
@@ -178,7 +182,7 @@ def main_convert(args=None):
         elif args.format == 'mbfits':
             outname, mbfits = \
                 launch_mbfits_creator(fname, args.format, test=args.test,
-                                      wrap=False)
+                                      wrap=False, detrend=args.detrend)
 
             matchobj = match_srt_name(fname)
             if matchobj:
@@ -195,7 +199,7 @@ def main_convert(args=None):
         elif args.format == 'mbfitsw':
             outname, mbfits = \
                 launch_mbfits_creator(fname, args.format, test=args.test,
-                                      wrap=True)
+                                      wrap=True, detrend=args.detrend)
             outnames.append(outname)
         else:
             warnings.warn('Unknown output format')

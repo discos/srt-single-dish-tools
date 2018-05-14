@@ -11,6 +11,7 @@ import numpy as np
 import astropy
 from astropy import wcs
 from astropy.table import Table, vstack, Column
+from astropy.utils.metadata import MergeConflictWarning
 import astropy.io.fits as fits
 import astropy.units as u
 import sys
@@ -216,7 +217,9 @@ class ScanSet(Table):
                 tables.append(s)
 
             try:
-                scan_table = Table(vstack(tables))
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', MergeConflictWarning)
+                    scan_table = Table(vstack(tables))
             except TableMergeError as e:
                 warnings.warn("ERROR while merging tables. {}"
                               "Debug: tables:".format(str(e)))

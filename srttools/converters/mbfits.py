@@ -7,6 +7,7 @@ import numpy as np
 from srttools.io import mkdir_p, locations, read_data_fitszilla, \
     get_chan_columns, classify_chan_columns
 from srttools.utils import scantype, force_move_file
+from srttools.fit import detrend_spectroscopic_data
 import warnings
 
 
@@ -120,12 +121,9 @@ def get_observing_strategy_from_subscan_info(info):
     lines = info[kinds == 'line']
     points = info[kinds == 'point']
     ctype = 'RA/DEC'
-    durations = info['stop'] - info['start']
-    columns = info.colnames[3:-2]
+    durations = (info['stop'] - info['start']) * 86400
 
-    sep = np.max([median_diff(info[col], sorting=True) for col in columns])
-    if np.isnan(sep) or np.isinf(sep):
-        sep = 0
+    xspc = (0, 0)
 
     zigzag = False
 
@@ -145,10 +143,17 @@ def get_observing_strategy_from_subscan_info(info):
         az_lines = lines[lines['direction'] == 'az']
         el_lines = lines[lines['direction'] == 'el']
 
-        lon_lines, dlon = \
-            (ra_lines, 'ra') if len(ra_lines) > len(az_lines) else (az_lines, 'az')
-        lat_lines, dlat = \
-            (dec_lines, 'dec') if len(dec_lines) > len(el_lines) else (el_lines, 'el')
+        directions = np.array(['ra', 'dec', 'az', 'el'])
+        nsub = np.array([len(lines[lines['direction'] == d])
+                         for d in directions])
+
+        direction = directions[np.argmax(nsub)]
+        if direction in ['ra', 'dec']:
+            lon_lines, dlon, lat_lines, dlat = ra_lines, 'ra', dec_lines, 'dec'
+        elif direction in ['az', 'el']:
+            lon_lines, dlon, lat_lines, dlat = az_lines, 'az', el_lines, 'el'
+        else:
+            raise ValueError('Unknown scan direction')
 
         ctype = format_direction(dlon) + '/' + format_direction(dlat)
         sample_dist_lon = lon_lines[dlon + '_d']
@@ -156,7 +161,6 @@ def get_observing_strategy_from_subscan_info(info):
 
         if len(lon_lines) == len(lat_lines):
             geom = 'CROSS'
-            sep = 0
             zigzag = True
             length = \
                 np.median(lon_lines[dlon + '_max'] - lon_lines[dlon + '_min'])
@@ -165,14 +169,18 @@ def get_observing_strategy_from_subscan_info(info):
             # if we see an inversion of direction, set zigzag to True
             zigzag = np.any(sample_dist_lon[:-1] * sample_dist_lon[1:] < 0)
             length = \
-                np.median(lon_lines[dlat + '_max'] - lon_lines[dlat + '_min'])
+                np.median(lon_lines[dlon + '_max'] - lon_lines[dlon + '_min'])
             direction = format_direction(dlon)
+            xspc = 0
+            yspc = median_diff(info[dlat + '_min'], sorting=True)
         else:
             geom = 'LINE'
             zigzag = np.any(sample_dist_lat[:-1] * sample_dist_lat[1:] < 0)
-            direction = format_direction(dlat)
             length = \
-                np.median(lat_lines[dlon + '_max'] - lat_lines[dlon + '_min'])
+                np.median(lat_lines[dlat + '_max'] - lat_lines[dlat + '_min'])
+            direction = format_direction(dlat)
+            yspc = 0
+            xspc = median_diff(info[dlon + '_min'], sorting=True)
 
     else:
         mode = 'RASTER'
@@ -181,7 +189,7 @@ def get_observing_strategy_from_subscan_info(info):
     results = type('results', (), {})()
     results.mode = mode
     results.geom = geom
-    results.sep = sep
+    results.sep = (xspc, yspc)
     results.zigzag = zigzag
     results.length = length
     results.type = stype
@@ -190,6 +198,7 @@ def get_observing_strategy_from_subscan_info(info):
     results.scanvel = length / np.median(durations)
     results.direction = direction
     results.nobs = len(info['scan_id'])
+    results.scantime = np.median(durations)
     return results
 
 
@@ -236,7 +245,7 @@ keywords_to_reset = [
     'WCSNM2S', 'WOBTHROW', 'WOBUSED']
 
 
-def pack_data(scan, polar_dict):
+def pack_data(scan, polar_dict, detrend=False):
     """Pack data into MBFITS-ready format
 
     Examples
@@ -272,6 +281,12 @@ def pack_data(scan, polar_dict):
     else:  # pragma: no cover
         raise ValueError('Polarization kind not implemented yet')
 
+    if detrend:
+        new_data = []
+        for d in data:
+            detr, _ = detrend_spectroscopic_data(0, d, 'als')
+            new_data.append(detr)
+        data = new_data
     return np.stack(data, axis=1)
 
 
@@ -365,20 +380,20 @@ class MBFITS_creator():
             groupheader['DEC'] = self.dec
             groupheader['DATE-OBS'] = self.date_obs.value
             groupheader['MJD-OBS'] = self.date_obs.mjd
+            groupheader['SCANNUM'] = self.obsid
             grouphdul.writeto('tmp.fits', overwrite=True)
 
         force_move_file('tmp.fits', os.path.join(self.dirname, self.GROUPING))
 
         with fits.open(os.path.join(self.dirname, self.SCAN),
                        memmap=False) as scanhdul:
-            scanheader = scanhdul[1].header
+            scanheader = reset_all_keywords(scanhdul[1].header)
             scandict = dict(scanheader.items())
             for key in hdudict.keys():
                 if key[:5] in ['NAXIS', 'PGCOU', 'GCOUN']:
                     continue
                 if key in scandict:
                     scanheader[key] = hdudict[key]
-            scanheader = reset_all_keywords(scanheader)
             # Todo: update with correct keywords
             scanheader['DATE-OBS'] = self.date_obs.value
             scanheader['MJD'] = self.date_obs.mjd
@@ -387,7 +402,7 @@ class MBFITS_creator():
 
         force_move_file('tmp.fits', os.path.join(self.dirname, self.SCAN))
 
-    def add_subscan(self, scanfile):
+    def add_subscan(self, scanfile, detrend=False):
         print('Loading {}'.format(scanfile))
 
         subscan = read_data_fitszilla(scanfile)
@@ -440,13 +455,14 @@ class MBFITS_creator():
                 direction_cut = \
                     direction.replace('<', '').replace('>', '').lower()
                 if direction_cut in ['ra', 'dec']:
-                    baslon, baslat = \
-                        subscan['ra'].to(u.deg), subscan['dec'].to(u.deg)
+                    baslon = subscan['ra'].to(u.deg)
+                    baslat = subscan['dec'].to(u.deg)
+
                     yoff = baslat.value - self.dec
                     # GLS projection
                     xoff = \
-                        (baslon.value - self.ra) * np.cos(np.radians(self.dec))
-                    newtable['LONGOFF'] = xoff
+                        (baslon.value - self.ra)
+                    newtable['LONGOFF'] = xoff * np.cos(np.radians(self.dec))
                     newtable['LATOFF'] = yoff
                 elif direction_cut in ['el', 'az']:
                     warnings.warn('AltAz projection not implemented properly')
@@ -470,6 +486,7 @@ class MBFITS_creator():
                 subs_par_template[1].header['FEBE'] = febe
                 subs_par_template[1].header['SCANDIR'] = \
                     format_direction(direction_cut).upper()
+                subs_par_template[1].header['SCANNUM'] = self.obsid
 
                 outdir = str(subscan.meta['SubScanID'])
                 mkdir_p(os.path.join(self.dirname, outdir))
@@ -488,7 +505,9 @@ class MBFITS_creator():
             for baseband in combinations[feed]:
                 nbands = np.max(bands)
                 ch = list(combinations[feed][baseband].values())[0]
-                packed_data = pack_data(subscan, combinations[feed][baseband])
+
+                packed_data = pack_data(subscan, combinations[feed][baseband],
+                                        detrend=detrend)
                 # ------------- Update ARRAYDATA -------------
                 with fits.open(arraydata, memmap=False) as subs_template:
                     subs_template[1] = \
@@ -497,6 +516,7 @@ class MBFITS_creator():
                     new_header = \
                         reset_all_keywords(subs_template[1].header)
 
+                    new_header['SCANNUM'] = self.obsid
                     new_header['SUBSNUM'] = subscan.meta['SubScanID']
                     new_header['DATE-OBS'] = self.date_obs.fits
                     new_header['FEBE'] = febe
@@ -624,6 +644,8 @@ class MBFITS_creator():
             febe_template[1].header['NUSEBAND'] = max(bands)
             febe_template[1].header['NPHASES'] = 1
             febe_template[1].header['SWTCHMOD'] = 'NONE'
+            febe_template[1].header['SCANNUM'] = self.obsid
+
             if 'Q' in feed_info[feed][bands[0]].keys():
                 febe_template[1].header['FDTYPCOD'] = '1:L, 2:R, 3:Q, 4:U'
             else:
@@ -670,8 +692,8 @@ class MBFITS_creator():
             scanheader['CRVAL2'] = self.dec
             scanheader['BLONGOBJ'] = self.ra
             scanheader['BLATOBJ'] = self.dec
-            scanheader['LONGOBJ'] = 0
-            scanheader['LATOBJ'] = 0
+            scanheader['LONGOBJ'] = self.ra if not info.ctype[0] == 'A' else 0
+            scanheader['LATOBJ'] = self.dec if not info.ctype[0] == 'A' else 0
             scanheader['EQUINOX'] = 2000.
             scanheader['GRPLC1'] = 'GROUPING.fits'
             scanheader['LST'] = self.lst
@@ -684,12 +706,14 @@ class MBFITS_creator():
             scanheader['SCANTYPE'] = info.stype.upper()
             scanheader['SCANDIR'] = info.direction.upper()
             scanheader['SCANXVEL'] = info.scanvel
+            scanheader['SCANTIME'] = info.scantime
             scanheader['SCANMODE'] = info.mode.upper()
             scanheader['SCANGEOM'] = info.geom.upper()
             scanheader['SCANLINE'] = 1
             scanheader['SCANLEN'] = np.degrees(info.length)
-            scanheader['SCANYSPC'] = np.degrees(info.sep)
-            scanheader['SCANXSPC'] = np.degrees(info.sep)
+
+            scanheader['SCANYSPC'] = np.degrees(info.sep[1])
+            scanheader['SCANXSPC'] = np.degrees(info.sep[0])
             scanheader['SCANPAR1'] = -999
             scanheader['SCANPAR2'] = -999
             scanheader['ZIGZAG'] = info.zigzag
