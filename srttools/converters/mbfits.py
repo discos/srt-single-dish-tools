@@ -123,7 +123,7 @@ def get_observing_strategy_from_subscan_info(info):
     ctype = 'RA/DEC'
     durations = (info['stop'] - info['start']) * 86400
 
-    xspc = (0, 0)
+    xspc, yspc = (0, 0)
 
     zigzag = False
 

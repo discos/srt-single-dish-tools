@@ -342,7 +342,7 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None,
     return y
 
 
-def _als(y, lam, p, niter=10):
+def _als(y, lam, p, niter=30):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
     Modifications to the routine from Eilers & Boelens 2005
@@ -438,10 +438,9 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
 
     N = len(y)
     if N > 40:
-        approx_m = (np.median(y[-20:]) - np.median(y[:20])) / N
+        approx_m = (np.median(y[-20:]) - np.median(y[:20])) / (N - 20)
     else:
         approx_m = (y[-1] - y[0]) / N
-
     approx_baseline = approx_m * np.arange(N)
     y = y - approx_baseline
     y_mod = purge_outliers(y, up=outlier_purging[0],
@@ -450,49 +449,54 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
 
     z = _als(y_mod, lam, p, niter=niter)
 
-    ysub = y_mod - z
     offset = 0
+    ysub = y_mod - z
     if offset_correction:
         std = ref_std(ysub, np.max([len(y) // 20, 20]))
 
         good = np.abs(ysub) < 10 * std
+
+        if len(ysub[good]) < 20:
+            good = np.ones(len(ysub), dtype=bool)
 
         offset = np.median(ysub[good])
         if np.isnan(offset):
             offset = 0
 
     if return_baseline:
-        return y - z - offset - approx_baseline, z + offset + approx_baseline
+        return y - z - offset, z + offset + approx_baseline
     else:
-        return y - z - offset - approx_baseline
+        return y - z - offset
 
 
-def detrend_spectroscopic_data(x, spectrum, kind='als'):
+def detrend_spectroscopic_data(x, spectrum, kind='als', outlier_purging=True):
     """Take the baseline off the spectroscopic data.
 
     Examples
     --------
-    >>> spectrum = np.vstack([np.arange(0 + i, 1 + i, 0.2)
-    ...                       for i in np.arange(0., 1, 0.1)])
+    >>> spectrum = np.vstack([np.arange(0 + i, 2 + i, 1/3)
+    ...                       for i in np.arange(0., 4, 1/16)])
     >>> x = np.arange(spectrum.shape[0])
-    >>> detr = detrend_spectroscopic_data(x, spectrum, kind='als')
-    >>> np.allclose(detr, 0, atol=1e-4)
+    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='rough')
+    >>> np.allclose(detr, 0, atol=1e-3)
     True
-    >>> detr = detrend_spectroscopic_data(x, spectrum, kind='rough')
-    >>> np.allclose(detr, 0, atol=1e-4)
+    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='als',
+    ...                                      outlier_purging=False)
+    >>> np.allclose(detr, 0, atol=1e-2)
     True
-    >>> detr = detrend_spectroscopic_data(x, spectrum, kind='blabla')
+    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='blabla')
     >>> np.all(detr == spectrum)
     True
     """
     y = np.sum(spectrum, axis=1)
     if kind == 'als':
-        y_sub, baseline = baseline_als(x, y, return_baseline=True)
+        y_sub, baseline = baseline_als(x, y, return_baseline=True,
+                                       outlier_purging=outlier_purging)
     elif kind == 'rough':
         y_sub, baseline = baseline_rough(x, y, return_baseline=True)
     else:
         warnings.warn('Baseline kind unknown')
-        return spectrum
+        return spectrum, np.ones_like(spectrum)
 
     if len(spectrum.shape) == 1:
         return y_sub, baseline
