@@ -711,3 +711,27 @@ def scantype(ra, dec, az=None, el=None):
     scanarray_initial = np.asarray([ra, dec, az, el])
 
     return scanarray_initial[minshift], xvariab + scan_direction
+
+
+def minmax(array):
+    return np.min(array), np.max(array)
+
+
+def median_diff(array, sorting=False):
+    """Median difference after reordering the array or not.
+
+    Examples
+    --------
+    >>> median_diff([1, 2, 0, 4, -1, -2])
+    -1.0
+    >>> median_diff([1, 2, 0, 4, -1, -2], sorting=True)
+    1.0
+    """
+    if len(array) == 0:
+        return 0
+    array = np.array(array)
+    # No NaNs
+    array = array[array == array]
+    if sorting:
+        array = sorted(array)
+    return np.median(np.diff(array))

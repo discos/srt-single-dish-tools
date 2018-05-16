@@ -8,7 +8,7 @@ import traceback
 import warnings
 import collections
 import copy
-from .utils import mad, HAS_MPL
+from .utils import mad, HAS_MPL, minmax
 
 
 __all__ = ["contiguous_regions", "ref_std", "ref_mad", "linear_fun",
@@ -394,7 +394,7 @@ def _als(y, lam, p, niter=30):
     return z
 
 
-def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
+def baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
                  offset_correction=True, mask=None,
                  outlier_purging=True):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
@@ -444,11 +444,17 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
 
     N = len(y)
     if N > 40:
-        approx_m = (np.median(y[-20:]) - np.median(y[:20])) / (N - 20)
+        med_start = np.median(y[:20])
+        med_stop = np.median(y[-20:])
+        approx_m = (med_stop - med_start) / (N - 20)
     else:
-        approx_m = (y[-1] - y[0]) / N
-    approx_baseline = approx_m * np.arange(N)
+        approx_m = (y[-1] - y[0]) / (N - 1)
+
+    approx_q = y[0]
+
+    approx_baseline = approx_m * np.arange(N) + approx_q
     y = y - approx_baseline
+
     y_mod = purge_outliers(y, up=outlier_purging[0],
                            down=outlier_purging[1],
                            mask=mask)

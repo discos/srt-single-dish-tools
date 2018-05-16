@@ -38,7 +38,7 @@ class TestStuff(object):
     def test_detrend_spectroscopic_data_als(self, nx, ny):
         x, spectrum = _setup_spectra(nx, ny)
         detr, _ = detrend_spectroscopic_data(x, spectrum, kind='als',
-                                             outlier_purging = False)
+                                             outlier_purging=False)
         assert np.allclose(detr, 0., atol=1e-2)
 
     @pytest.mark.parametrize('nx,ny', list_of_par_pairs)
