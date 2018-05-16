@@ -4,7 +4,7 @@ from __future__ import (absolute_import, division,
                         print_function)
 from srttools.fit import fit_baseline_plus_bell, purge_outliers, align
 from srttools.fit import baseline_rough, ref_mad, ref_std, _rolling_window
-from srttools.fit import linear_fit, offset_fit
+from srttools.fit import linear_fit, offset_fit, detrend_spectroscopic_data
 
 import numpy as np
 import pytest
@@ -14,6 +14,29 @@ np.random.seed(1231636)
 
 def _test_shape(x):
     return 100 * np.exp(-(x - 50) ** 2 / 3)
+
+
+class TestStuff(object):
+    @classmethod
+    def setup_class(cls):
+        cls.spectrum = np.vstack([np.arange(0 + i, 2 + i, 1 / 3)
+                                  for i in np.arange(0., 4, 1 / 16)])
+        cls.x = np.arange(cls.spectrum.shape[0])
+
+    def test_detrend_spectroscopic_data(self):
+        detr, _ = detrend_spectroscopic_data(self.x, self.spectrum,
+                                             kind='rough')
+        assert np.allclose(detr, 0., atol=1e-3)
+
+    def test_detrend_spectroscopic_data_als(self):
+        detr, _ = detrend_spectroscopic_data(self.x, self.spectrum, kind='als',
+                                             outlier_purging = False)
+        assert np.allclose(detr, 0., atol=1e-2)
+
+    def test_detrend_spectroscopic_data_garbage(self):
+        detr, _ = detrend_spectroscopic_data(self.x, self.spectrum,
+                                             kind='blabla')
+        assert np.all(detr == self.spectrum)
 
 
 class TestFit(object):

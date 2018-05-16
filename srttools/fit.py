@@ -480,13 +480,6 @@ def detrend_spectroscopic_data(x, spectrum, kind='als', outlier_purging=True):
     >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='rough')
     >>> np.allclose(detr, 0, atol=1e-3)
     True
-    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='als',
-    ...                                      outlier_purging=False)
-    >>> np.allclose(detr, 0, atol=1e-2)
-    True
-    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='blabla')
-    >>> np.all(detr == spectrum)
-    True
     """
     y = np.sum(spectrum, axis=1)
     if kind == 'als':
