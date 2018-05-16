@@ -216,8 +216,9 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
     baseline : array-like, same size as y
         Fitted baseline
     """
+    N = len(y)
     if start_pars is None:
-        if len(y) > 40:
+        if N > 40:
             m0 = (np.median(y[-20:]) - np.median(y[:20])) / \
                        (np.mean(x[-20:]) - np.mean(x[:20]))
         else:
@@ -226,8 +227,6 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
         q0 = min(y)
         start_pars = [q0, m0]
 
-    nbin = len(x)
-
     lc = y.copy()
     time = x.copy()
 
@@ -235,33 +234,40 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
         mask = np.ones(len(time), dtype=bool)
     total_trend = 0
 
-    local_std = ref_std(lc, np.max([nbin // 20, 20]))
-
-    for percentage in [0.8, 0.15]:
-        time_to_fit = time[mask][1:-1]
-        lc_to_fit = lc[mask][1:-1]
-        if len(time_to_fit) < len(start_pars):
-            break
-
-        sorted_els = np.argsort(lc_to_fit)
-        # Select the lowest half elements
-        good = sorted_els[: int(nbin * percentage)]
-
-        if np.std(lc_to_fit[good]) < 2 * local_std:
-            good = np.ones(len(lc_to_fit), dtype=bool)
-
-        time_filt = time_to_fit[good]
-        lc_filt = lc_to_fit[good]
-        if len(time_filt) < len(start_pars):
-            break
-        back_in_order = np.argsort(time_filt)
-        lc_filt = lc_filt[back_in_order]
-        time_filt = time_filt[back_in_order]
-
-        par = linear_fit(time_filt, lc_filt, start_pars)
+    if N < 20:
+        par = linear_fit(time, lc, start_pars)
 
         lc = lc - linear_fun(time, *par)
         total_trend = total_trend + linear_fun(time, *par)
+    else:
+        local_std = ref_std(lc, np.max([N // 20, 20]))
+
+
+        for percentage in [0.8, 0.15]:
+            time_to_fit = time[mask][1:-1]
+            lc_to_fit = lc[mask][1:-1]
+            if len(time_to_fit) < len(start_pars):
+                break
+
+            sorted_els = np.argsort(lc_to_fit)
+            # Select the lowest half elements
+            good = sorted_els[: int(N * percentage)]
+
+            if np.std(lc_to_fit[good]) < 2 * local_std:
+                good = np.ones(len(lc_to_fit), dtype=bool)
+
+            time_filt = time_to_fit[good]
+            lc_filt = lc_to_fit[good]
+            if len(time_filt) < len(start_pars):
+                break
+            back_in_order = np.argsort(time_filt)
+            lc_filt = lc_filt[back_in_order]
+            time_filt = time_filt[back_in_order]
+
+            par = linear_fit(time_filt, lc_filt, start_pars)
+
+            lc = lc - linear_fun(time, *par)
+            total_trend = total_trend + linear_fun(time, *par)
 
     if return_baseline:
         return lc, total_trend

@@ -16,27 +16,37 @@ def _test_shape(x):
     return 100 * np.exp(-(x - 50) ** 2 / 3)
 
 
-class TestStuff(object):
-    @classmethod
-    def setup_class(cls):
-        cls.spectrum = np.vstack([np.arange(0 + i, 2 + i, 1 / 3)
-                                  for i in np.arange(0., 4, 1 / 16)])
-        cls.x = np.arange(cls.spectrum.shape[0])
+def _setup_spectra(nx, ny):
+    spectrum = np.vstack([np.linspace(0 + i, 2 + i, nx)
+                              for i in np.linspace(0., 4, ny)])
+    x = np.arange(spectrum.shape[0])
+    return x, spectrum
 
-    def test_detrend_spectroscopic_data(self):
-        detr, _ = detrend_spectroscopic_data(self.x, self.spectrum,
+
+list_of_par_pairs = [(2 * n + 1, 2 * m + 1)
+                     for (n, m) in zip(np.random.randint(1, 50, 10),
+                                       np.random.randint(1, 50, 10))]
+class TestStuff(object):
+    @pytest.mark.parametrize('nx,ny', list_of_par_pairs)
+    def test_detrend_spectroscopic_data(self, nx, ny):
+        x, spectrum = _setup_spectra(nx, ny)
+        detr, _ = detrend_spectroscopic_data(x, spectrum,
                                              kind='rough')
         assert np.allclose(detr, 0., atol=1e-3)
 
-    def test_detrend_spectroscopic_data_als(self):
-        detr, _ = detrend_spectroscopic_data(self.x, self.spectrum, kind='als',
+    @pytest.mark.parametrize('nx,ny', list_of_par_pairs)
+    def test_detrend_spectroscopic_data_als(self, nx, ny):
+        x, spectrum = _setup_spectra(nx, ny)
+        detr, _ = detrend_spectroscopic_data(x, spectrum, kind='als',
                                              outlier_purging = False)
         assert np.allclose(detr, 0., atol=1e-2)
 
-    def test_detrend_spectroscopic_data_garbage(self):
-        detr, _ = detrend_spectroscopic_data(self.x, self.spectrum,
+    @pytest.mark.parametrize('nx,ny', list_of_par_pairs)
+    def test_detrend_spectroscopic_data_garbage(self, nx, ny):
+        x, spectrum = _setup_spectra(nx, ny)
+        detr, _ = detrend_spectroscopic_data(x, spectrum,
                                              kind='blabla')
-        assert np.all(detr == self.spectrum)
+        assert np.all(detr == spectrum)
 
 
 class TestFit(object):
