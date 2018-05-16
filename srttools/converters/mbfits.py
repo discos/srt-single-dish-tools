@@ -6,7 +6,7 @@ import os
 import numpy as np
 from srttools.io import mkdir_p, locations, read_data_fitszilla, \
     get_chan_columns, classify_chan_columns
-from srttools.utils import scantype, force_move_file
+from srttools.utils import scantype, force_move_file, minmax, median_diff
 from srttools.fit import detrend_spectroscopic_data
 import warnings
 
@@ -26,30 +26,6 @@ def default_scan_info_table():
                         float, float, float, float, float, float,
                         float, float, float, float, float, float,
                         bool, 'S10', 'S5'])
-
-
-def minmax(array):
-    return np.min(array), np.max(array)
-
-
-def median_diff(array, sorting=False):
-    """Median difference after reordering the array or not.
-
-    Examples
-    --------
-    >>> median_diff([1, 2, 0, 4, -1, -2])
-    -1.0
-    >>> median_diff([1, 2, 0, 4, -1, -2], sorting=True)
-    1.0
-    """
-    if len(array) == 0:
-        return 0
-    array = np.array(array)
-    # No NaNs
-    array = array[array == array]
-    if sorting:
-        array = sorted(array)
-    return np.median(np.diff(array))
 
 
 def get_subscan_info(subscan):

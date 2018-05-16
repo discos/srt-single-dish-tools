@@ -216,8 +216,9 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
     baseline : array-like, same size as y
         Fitted baseline
     """
+    N = len(y)
     if start_pars is None:
-        if len(y) > 40:
+        if N > 40:
             m0 = (np.median(y[-20:]) - np.median(y[:20])) / \
                        (np.mean(x[-20:]) - np.mean(x[:20]))
         else:
@@ -226,8 +227,6 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
         q0 = min(y)
         start_pars = [q0, m0]
 
-    nbin = len(x)
-
     lc = y.copy()
     time = x.copy()
 
@@ -235,33 +234,39 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
         mask = np.ones(len(time), dtype=bool)
     total_trend = 0
 
-    local_std = ref_std(lc, np.max([nbin // 20, 20]))
-
-    for percentage in [0.8, 0.15]:
-        time_to_fit = time[mask][1:-1]
-        lc_to_fit = lc[mask][1:-1]
-        if len(time_to_fit) < len(start_pars):
-            break
-
-        sorted_els = np.argsort(lc_to_fit)
-        # Select the lowest half elements
-        good = sorted_els[: int(nbin * percentage)]
-
-        if np.std(lc_to_fit[good]) < 2 * local_std:
-            good = np.ones(len(lc_to_fit), dtype=bool)
-
-        time_filt = time_to_fit[good]
-        lc_filt = lc_to_fit[good]
-        if len(time_filt) < len(start_pars):
-            break
-        back_in_order = np.argsort(time_filt)
-        lc_filt = lc_filt[back_in_order]
-        time_filt = time_filt[back_in_order]
-
-        par = linear_fit(time_filt, lc_filt, start_pars)
+    if N < 20:
+        par = linear_fit(time, lc, start_pars)
 
         lc = lc - linear_fun(time, *par)
         total_trend = total_trend + linear_fun(time, *par)
+    else:
+        local_std = ref_std(lc, np.max([N // 20, 20]))
+
+        for percentage in [0.8, 0.15]:
+            time_to_fit = time[mask][1:-1]
+            lc_to_fit = lc[mask][1:-1]
+            if len(time_to_fit) < len(start_pars):
+                break
+
+            sorted_els = np.argsort(lc_to_fit)
+            # Select the lowest half elements
+            good = sorted_els[: int(N * percentage)]
+
+            if np.std(lc_to_fit[good]) < 2 * local_std:
+                good = np.ones(len(lc_to_fit), dtype=bool)
+
+            time_filt = time_to_fit[good]
+            lc_filt = lc_to_fit[good]
+            if len(time_filt) < len(start_pars):
+                break
+            back_in_order = np.argsort(time_filt)
+            lc_filt = lc_filt[back_in_order]
+            time_filt = time_filt[back_in_order]
+
+            par = linear_fit(time_filt, lc_filt, start_pars)
+
+            lc = lc - linear_fun(time, *par)
+            total_trend = total_trend + linear_fun(time, *par)
 
     if return_baseline:
         return lc, total_trend
@@ -388,7 +393,7 @@ def _als(y, lam, p, niter=30):
     return z
 
 
-def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
+def baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
                  offset_correction=True, mask=None,
                  outlier_purging=True):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
@@ -438,11 +443,17 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
 
     N = len(y)
     if N > 40:
-        approx_m = (np.median(y[-20:]) - np.median(y[:20])) / (N - 20)
+        med_start = np.median(y[:20])
+        med_stop = np.median(y[-20:])
+        approx_m = (med_stop - med_start) / (N - 20)
     else:
-        approx_m = (y[-1] - y[0]) / N
-    approx_baseline = approx_m * np.arange(N)
+        approx_m = (y[-1] - y[0]) / (N - 1)
+
+    approx_q = y[0]
+
+    approx_baseline = approx_m * np.arange(N) + approx_q
     y = y - approx_baseline
+
     y_mod = purge_outliers(y, up=outlier_purging[0],
                            down=outlier_purging[1],
                            mask=mask)
@@ -479,13 +490,6 @@ def detrend_spectroscopic_data(x, spectrum, kind='als', outlier_purging=True):
     >>> x = np.arange(spectrum.shape[0])
     >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='rough')
     >>> np.allclose(detr, 0, atol=1e-3)
-    True
-    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='als',
-    ...                                      outlier_purging=False)
-    >>> np.allclose(detr, 0, atol=1e-2)
-    True
-    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='blabla')
-    >>> np.all(detr == spectrum)
     True
     """
     y = np.sum(spectrum, axis=1)
@@ -541,7 +545,8 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     approx_m = (np.median(y[-20:]) - np.median(y[:20])) / \
                (np.mean(x[-20:]) - np.mean(x[:20]))
 
-    base = models.Linear1D(slope=approx_m, intercept=np.min(y), name='Baseline')
+    base = models.Linear1D(slope=approx_m, intercept=np.min(y),
+                           name='Baseline')
 
     xrange = np.max(x) - np.min(x)
     yrange = np.max(y) - np.min(y)

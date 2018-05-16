@@ -4,7 +4,7 @@ from __future__ import (absolute_import, division,
                         print_function)
 from srttools.fit import fit_baseline_plus_bell, purge_outliers, align
 from srttools.fit import baseline_rough, ref_mad, ref_std, _rolling_window
-from srttools.fit import linear_fit, offset_fit
+from srttools.fit import linear_fit, offset_fit, detrend_spectroscopic_data
 
 import numpy as np
 import pytest
@@ -14,6 +14,42 @@ np.random.seed(1231636)
 
 def _test_shape(x):
     return 100 * np.exp(-(x - 50) ** 2 / 3)
+
+
+def _setup_spectra(nx, ny):
+    spectrum = np.vstack([np.linspace(0 + i, 2 + i, nx)
+                          for i in np.linspace(0., 4, ny)]) + 1
+    spectrum_noisy = np.random.normal(spectrum, 0.00001)
+    x = np.arange(spectrum.shape[0])
+    return x, spectrum_noisy
+
+
+list_of_par_pairs = [(2 * n + 1, 2 * m + 1)
+                     for (n, m) in zip(np.random.randint(1, 50, 10),
+                                       np.random.randint(1, 50, 10))]
+
+
+class TestStuff(object):
+    @pytest.mark.parametrize('nx,ny', list_of_par_pairs)
+    def test_detrend_spectroscopic_data(self, nx, ny):
+        x, spectrum = _setup_spectra(nx, ny)
+        detr, _ = detrend_spectroscopic_data(x, spectrum,
+                                             kind='rough')
+        assert np.allclose(detr, 0., atol=1e-3)
+
+    @pytest.mark.parametrize('nx,ny', list_of_par_pairs)
+    def test_detrend_spectroscopic_data_als(self, nx, ny):
+        x, spectrum = _setup_spectra(nx, ny)
+        detr, _ = detrend_spectroscopic_data(x, spectrum, kind='als',
+                                             outlier_purging=False)
+        assert np.allclose(detr, 0., atol=1e-2)
+
+    @pytest.mark.parametrize('nx,ny', list_of_par_pairs)
+    def test_detrend_spectroscopic_data_garbage(self, nx, ny):
+        x, spectrum = _setup_spectra(nx, ny)
+        detr, _ = detrend_spectroscopic_data(x, spectrum,
+                                             kind='blabla')
+        assert np.all(detr == spectrum)
 
 
 class TestFit(object):

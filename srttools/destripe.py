@@ -170,7 +170,8 @@ def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
         plt.savefig(label + '_hor.png')
         plt.imshow(image_ver[mask].reshape(masked_image.shape))
         plt.savefig(label + '_ver.png')
-        plt.imshow((image_ver[mask] - image_hor[mask]).reshape(masked_image.shape))
+        diff_img = image_ver[mask] - image_hor[mask]
+        plt.imshow(diff_img.reshape(masked_image.shape))
         plt.savefig(label + '_diff.png')
         plt.close(fig)
 
