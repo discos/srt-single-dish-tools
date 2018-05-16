@@ -1,4 +1,4 @@
-from astropy.io.fits import open as fitsopen
+from astropy.io import fits
 import numpy as np
 from scipy.optimize import curve_fit
 from .utils import HAS_MPL
@@ -43,10 +43,10 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
         Dictionary containing the opacities calculated for each channel, plus
         the time in the middle of the observation.
     """
-    hdulist = fitsopen(file)
-    data = hdulist['DATA TABLE'].data
-    tempdata = hdulist['ANTENNA TEMP TABLE'].data
-    rfdata = hdulist['RF INPUTS'].data
+    with fits.open(file) as hdulist:
+        data = hdulist['DATA TABLE'].data
+        tempdata = hdulist['ANTENNA TEMP TABLE'].data
+        rfdata = hdulist['RF INPUTS'].data
 
     time = np.mean(data['Time'])
 

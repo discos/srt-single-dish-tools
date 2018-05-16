@@ -6,16 +6,24 @@ from astropy.table import Table
 import numpy as np
 import copy
 import warnings
+import os
+import glob
+import shutil
 
 from .io import get_coords_from_altaz_offset, correct_offsets
 from .io import get_rest_angle, observing_angle, locations
+from .converters.mbfits import MBFITS_creator
 
 
 def convert_to_complete_fitszilla(fname, outname):
     if outname == fname:
         raise ValueError('Files cannot have the same name')
+    with fits.open(fname, memmap=False) as lchdulist:
+        _convert_to_complete_fitszilla(lchdulist, outname)
+        lchdulist.writeto(outname + '.fits', overwrite=True)
 
-    lchdulist = fits.open(fname)
+
+def _convert_to_complete_fitszilla(lchdulist, outname):
 
     feed_input_data = lchdulist['FEED TABLE'].data
     xoffsets = feed_input_data['xOffset'] * u.rad
@@ -68,7 +76,72 @@ def convert_to_complete_fitszilla(fname, outname):
         new_data_extension.name = 'Coord{}'.format(i)
         lchdulist.append(new_data_extension)
 
-    lchdulist.writeto(outname + '.fits', overwrite=True)
+
+def launch_convert_coords(name, label):
+    allfiles = []
+    if os.path.isdir(name):
+        allfiles += glob.glob(os.path.join(name, '*.fits'))
+    else:
+        allfiles += [name]
+
+    for fname in allfiles:
+        if 'summary.fits' in fname:
+            continue
+        outroot = fname.replace('.fits', '_' + label)
+        convert_to_complete_fitszilla(fname, outroot)
+    return outroot
+
+
+# from memory_profiler import profile
+# fp = open('memory_profiler_basic_mean.log', 'w+')
+# precision = 10
+#
+# @profile(precision=precision, stream=fp)
+def launch_mbfits_creator(name, label, test=False, wrap=False, detrend=False):
+    if not os.path.isdir(name):
+        raise ValueError('Input for MBFITS conversion must be a directory.')
+    name = name.rstrip('/')
+    random_name = 'tmp_' + str(np.random.random())
+    mbfits = MBFITS_creator(random_name, test=test)
+    summary = os.path.join(name, 'summary.fits')
+    if os.path.exists(summary):
+        mbfits.fill_in_summary(summary)
+
+    for fname in sorted(glob.glob(os.path.join(name, '*.fits'))):
+        if 'summary.fits' in fname:
+            continue
+        mbfits.add_subscan(fname, detrend=detrend)
+
+    mbfits.update_scan_info()
+    if os.path.exists(name + '_' + label):
+        shutil.rmtree(name + '_' + label)
+
+    if wrap:
+        fnames = mbfits.wrap_up_file()
+        for febe, fname in fnames.items():
+            shutil.move(fname, name + '.' + febe + '.fits')
+    outname = name + '_' + label
+    shutil.move(random_name, outname)
+    return outname, mbfits
+
+
+def match_srt_name(name):
+    """
+    Examples
+    --------
+    >>> matchobj = match_srt_name('20180212-150835-S0000-3C84_RA')
+    >>> matchobj.group(1)
+    '20180212'
+    >>> matchobj.group(2)
+    '150835'
+    >>> matchobj.group(3)
+    'S0000'
+    >>> matchobj.group(4)
+    '3C84_RA'
+    """
+    import re
+    name_re = re.compile(r'([0-9]+).([0-9]+)-([^\-]+)-([^\-]+)')
+    return name_re.match(name)
 
 
 def main_convert(args=None):
@@ -79,20 +152,55 @@ def main_convert(args=None):
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument("files", nargs='*',
-                        help="Single files to process",
+                        help="Single files to process or directories",
                         default=None, type=str)
 
     parser.add_argument("-f", "--format", type=str, default='fitsmod',
-                        help='Format of output files (default '
-                             'fitszilla_mod, indicating a fitszilla with '
+                        help='Format of output files (options: '
+                             'mbfits, indicating MBFITS v. 1.65; '
+                             'mbfitsw, indicating MBFITS v. 1.65 wrapped in a'
+                             'single file for each FEBE; '
+                             'fitsmod (default), indicating a fitszilla with '
                              'converted coordinates for feed number *n* in '
                              'a separate COORDn extensions)')
 
+    parser.add_argument("--test",
+                        help="Only to be used in tests!",
+                        action='store_true', default=False)
+
+    parser.add_argument("--detrend",
+                        help="Detrend data before converting to MBFITS",
+                        action='store_true', default=False)
+
     args = parser.parse_args(args)
 
+    outnames = []
     for fname in args.files:
-        outroot = fname.replace('.fits', '_' + args.format)
         if args.format == 'fitsmod':
-            convert_to_complete_fitszilla(fname, outroot)
+            outname = launch_convert_coords(fname, args.format)
+            outnames.append(outname)
+        elif args.format == 'mbfits':
+            outname, mbfits = \
+                launch_mbfits_creator(fname, args.format, test=args.test,
+                                      wrap=False, detrend=args.detrend)
+
+            matchobj = match_srt_name(fname)
+            if matchobj:
+                date = matchobj.group(1)
+
+                new_name = '{site}_{date}_{scanno:04d}_{febe}'.format(
+                    site=mbfits.site.strip().upper(), date=date,
+                    scanno=mbfits.obsid, febe=list(mbfits.FEBE.keys())[0])
+                if os.path.exists(new_name):
+                    shutil.rmtree(new_name)
+                shutil.move(outname, new_name)
+                outname = new_name
+            outnames.append(outname)
+        elif args.format == 'mbfitsw':
+            outname, mbfits = \
+                launch_mbfits_creator(fname, args.format, test=args.test,
+                                      wrap=True, detrend=args.detrend)
+            outnames.append(outname)
         else:
             warnings.warn('Unknown output format')
+    return outnames

@@ -217,8 +217,11 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
         Fitted baseline
     """
     if start_pars is None:
-        m0 = (np.median(y[-20:]) - np.median(y[:20])) / \
-                   (np.mean(x[-20:]) - np.mean(x[:20]))
+        if len(y) > 40:
+            m0 = (np.median(y[-20:]) - np.median(y[:20])) / \
+                       (np.mean(x[-20:]) - np.mean(x[:20]))
+        else:
+            m0 = (y[-1] - y[0])/(x[-1] - x[0])
 
         q0 = min(y)
         start_pars = [q0, m0]
@@ -237,6 +240,8 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
     for percentage in [0.8, 0.15]:
         time_to_fit = time[mask][1:-1]
         lc_to_fit = lc[mask][1:-1]
+        if len(time_to_fit) < len(start_pars):
+            break
 
         sorted_els = np.argsort(lc_to_fit)
         # Select the lowest half elements
@@ -247,6 +252,8 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
 
         time_filt = time_to_fit[good]
         lc_filt = lc_to_fit[good]
+        if len(time_filt) < len(start_pars):
+            break
         back_in_order = np.argsort(time_filt)
         lc_filt = lc_filt[back_in_order]
         time_filt = time_filt[back_in_order]
@@ -335,7 +342,7 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None,
     return y
 
 
-def _als(y, lam, p, niter=10):
+def _als(y, lam, p, niter=30):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
     Modifications to the routine from Eilers & Boelens 2005
@@ -430,27 +437,77 @@ def baseline_als(x, y, lam=None, p=None, niter=10, return_baseline=False,
         p = 0.001
 
     N = len(y)
-    approx_m = (np.median(y[-20:]) - np.median(y[:20])) / N
-    y = y - approx_m * np.arange(N)
+    if N > 40:
+        approx_m = (np.median(y[-20:]) - np.median(y[:20])) / (N - 20)
+    else:
+        approx_m = (y[-1] - y[0]) / N
+    approx_baseline = approx_m * np.arange(N)
+    y = y - approx_baseline
     y_mod = purge_outliers(y, up=outlier_purging[0],
                            down=outlier_purging[1],
                            mask=mask)
 
     z = _als(y_mod, lam, p, niter=niter)
 
-    ysub = y_mod - z
     offset = 0
+    ysub = y_mod - z
     if offset_correction:
         std = ref_std(ysub, np.max([len(y) // 20, 20]))
 
         good = np.abs(ysub) < 10 * std
 
+        if len(ysub[good]) < 20:
+            good = np.ones(len(ysub), dtype=bool)
+
         offset = np.median(ysub[good])
+        if np.isnan(offset):
+            offset = 0
 
     if return_baseline:
-        return y - z - offset, z + offset
+        return y - z - offset, z + offset + approx_baseline
     else:
         return y - z - offset
+
+
+def detrend_spectroscopic_data(x, spectrum, kind='als', outlier_purging=True):
+    """Take the baseline off the spectroscopic data.
+
+    Examples
+    --------
+    >>> spectrum = np.vstack([np.arange(0 + i, 2 + i, 1/3)
+    ...                       for i in np.arange(0., 4, 1/16)])
+    >>> x = np.arange(spectrum.shape[0])
+    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='rough')
+    >>> np.allclose(detr, 0, atol=1e-3)
+    True
+    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='als',
+    ...                                      outlier_purging=False)
+    >>> np.allclose(detr, 0, atol=1e-2)
+    True
+    >>> detr, _ = detrend_spectroscopic_data(x, spectrum, kind='blabla')
+    >>> np.all(detr == spectrum)
+    True
+    """
+    y = np.sum(spectrum, axis=1)
+    if kind == 'als':
+        y_sub, baseline = baseline_als(x, y, return_baseline=True,
+                                       outlier_purging=outlier_purging)
+    elif kind == 'rough':
+        y_sub, baseline = baseline_rough(x, y, return_baseline=True)
+    else:
+        warnings.warn('Baseline kind unknown')
+        return spectrum, np.ones_like(spectrum)
+
+    if len(spectrum.shape) == 1:
+        return y_sub, baseline
+
+    shape = spectrum.shape
+    tiled_baseline = np.tile(baseline, (shape[1], 1)).transpose()
+    tiled_norm = np.tile(y, (shape[1], 1)).transpose()
+
+    tiled_baseline = tiled_baseline / tiled_norm * spectrum
+
+    return spectrum - tiled_baseline, tiled_baseline
 
 
 def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):

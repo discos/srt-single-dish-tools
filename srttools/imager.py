@@ -11,6 +11,7 @@ import numpy as np
 import astropy
 from astropy import wcs
 from astropy.table import Table, vstack, Column
+from astropy.utils.metadata import MergeConflictWarning
 import astropy.io.fits as fits
 import astropy.units as u
 import sys
@@ -22,11 +23,12 @@ import copy
 import functools
 import collections
 from scipy.stats import binned_statistic_2d
-from .scan import Scan, chan_re, list_scans, get_channel_feed
+from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, jit
 
+from .io import chan_re, get_channel_feed
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
@@ -215,7 +217,9 @@ class ScanSet(Table):
                 tables.append(s)
 
             try:
-                scan_table = Table(vstack(tables))
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', MergeConflictWarning)
+                    scan_table = Table(vstack(tables))
             except TableMergeError as e:
                 warnings.warn("ERROR while merging tables. {}"
                               "Debug: tables:".format(str(e)))
@@ -688,6 +692,7 @@ class ScanSet(Table):
             self[ch] = Column(fit_full_image(self, chan=ch,
                                              feed=feed,
                                              excluded=excluded, par=par))
+            self[ch].meta = self[ch + '_save'].meta
 
         self.calculate_images(no_offsets=no_offsets,
                               altaz=altaz, calibration=calibration,
@@ -1194,11 +1199,16 @@ class ScanSet(Table):
         for ch in keys:
             is_sdev = ch.endswith('Sdev')
             is_expo = 'EXPO' in ch
+            is_outl = 'Outliers' in ch
+            is_stokes = ('Q' in ch) or ('U' in ch)
+
+            do_moments = not (is_sdev or is_expo or is_stokes or is_outl)
+            do_moments = do_moments and altaz and HAS_MAHO
 
             if is_sdev and not save_sdev:
                 continue
 
-            if altaz and HAS_MAHO and not is_sdev and not is_expo:
+            if do_moments:
                 moments_dict = \
                     self.calculate_zernike_moments(images[ch], cm=None,
                                                    radius=0.3, norder=8,
@@ -1397,8 +1407,6 @@ def main_imager(args=None):
 
     if args.interactive:
         scanset.interactive_display()
-
-    scanset.write(outfile, overwrite=True)
 
     if args.global_fit:
         scanset.fit_full_images(excluded=excluded_xy, chans=args.chans,

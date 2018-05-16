@@ -8,6 +8,8 @@ import logging
 import scipy
 import scipy.stats
 import six
+import shutil
+import os
 
 from collections import OrderedDict, Iterable
 
@@ -56,7 +58,6 @@ def _generic_dummy_decorator(*args, **kwargs):
 
         return decorator
 
-
 try:
     from numba import jit, vectorize
     HAS_NUMBA = True
@@ -91,6 +92,30 @@ except ImportError:
         else:
             center = np.median(data)
         return np.median((np.fabs(data - center)) / c, axis=axis)
+
+
+def force_move_file(src, dst):
+    """Force moving a file, even if it exists.
+
+    Examples
+    --------
+    >>> with open('bla', 'w') as fobj:
+    ...    print(file=fobj)
+    >>> with open('bla2', 'w') as fobj:
+    ...    print(file=fobj)
+    >>> force_move_file('bla', './bla') is None
+    True
+    >>> force_move_file('bla2', 'bla') == 'bla'
+    True
+    >>> os.path.exists('bla2')
+    False
+    """
+    if os.path.abspath(src) == os.path.abspath(dst):
+        return None
+    if os.path.exists(dst):
+        os.unlink(dst)
+    shutil.move(src, dst)
+    return dst
 
 
 def standard_string(s):
@@ -609,3 +634,80 @@ def calculate_moments(y, imax=None, window_length=5):
     moments['skewness'] = xslice_dist.stats(moments='s')
     moments['kurtosis'] = xslice_dist.stats(moments='k')
     return moments
+
+
+def scantype(ra, dec, az=None, el=None):
+    """Get if scan is along RA or Dec, and if forward or backward.
+
+    Examples
+    --------
+    >>> ras = np.linspace(1, 1.5, 100)
+    >>> decs = np.linspace(0, 0.01, 100)
+    >>> els = np.linspace(0.5, 0.7, 100)
+    >>> azs = np.linspace(0.5, 0.7, 100)
+    >>> st = scantype(ras, decs, azs, els)
+    >>> np.all(st[0] == ras)
+    True
+    >>> st[1] == 'RA>'
+    True
+    >>> # Opposite direction
+    >>> ras = np.linspace(1, 1.5, 100)[::-1]
+    >>> scantype(ras, decs, azs, els)[1]
+    'RA<'
+    >>> # Do not specify El and Dec, and test that it still works
+    >>> scantype(ras, decs)[1]
+    'RA<'
+    >>> els, ras = ras, els
+    >>> decs, azs = azs, decs
+    >>> scantype(ras, decs, azs, els)[1]
+    'El<'
+    >>> ras = list(zip(np.linspace(1, 1.5, 100), np.linspace(1, 1.5, 100)))
+    >>> decs = list(zip(np.linspace(0, 0.01, 100), np.linspace(0, 0.01, 100)))
+    >>> els = list(zip(np.linspace(0.5, 0.7, 100), np.linspace(0.5, 0.7, 100)))
+    >>> azs = list(zip(np.linspace(0.5, 0.7, 100), np.linspace(0.5, 0.7, 100)))
+    >>> st = scantype(ras, decs, azs, els)
+    >>> np.all(st[0] == ras)
+    True
+    >>> st[1] == 'RA>'
+    True
+    """
+    ra = np.asarray(ra)
+    dec = np.asarray(dec)
+    if el is not None:
+        el = np.asarray(el)
+        az = np.asarray(az)
+
+    ras, decs, azs, els = ra, dec, az, el
+
+    if len(ras.shape) > 1:
+        ras = ras[:, 0]
+        decs = decs[:, 0]
+        if els is not None:
+            els = els[:, 0]
+            azs = azs[:, 0]
+
+    ravar = np.abs(ras[-1] - ras[0])
+    decvar = np.abs(decs[-1] - decs[0])
+    if els is not None:
+        elvar = np.abs(els[-1] - els[0])
+        azvar = np.abs(azs[-1] - azs[0])
+    else:
+        elvar = azvar = np.mean([ravar, decvar])
+
+    direction = np.asarray([['RA', 'Dec'], ['Az', 'El']])
+    vararray = np.asarray([[ravar, decvar], [azvar, elvar]])
+    scanarray = np.asarray([ras, decs, azs, els])
+
+    minshift = np.argmin(vararray[:, ::-1])
+
+    xvariab = direction.flatten()[minshift]
+    x = scanarray[minshift]
+
+    if x[-1] > x[0]:
+        scan_direction = '>'
+    else:
+        scan_direction = '<'
+
+    scanarray_initial = np.asarray([ra, dec, az, el])
+
+    return scanarray_initial[minshift], xvariab + scan_direction

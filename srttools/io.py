@@ -11,11 +11,18 @@ from astropy.time import Time
 import logging
 import warnings
 import copy
+import re
+from .utils import force_move_file
 
 
 __all__ = ["mkdir_p", "detect_data_kind", "correct_offsets", "observing_angle",
            "get_rest_angle", "print_obs_info_fitszilla", "read_data_fitszilla",
-           "read_data", "root_name"]
+           "read_data", "root_name", "get_chan_columns"]
+
+
+chan_re = re.compile(r'^Ch([0-9]+)$'
+                     r'|^Feed([0-9]+)_([a-zA-Z]+)$'
+                     r'|^Feed([0-9]+)_([a-zA-Z]+)_([0-9]+)$')
 
 
 locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
@@ -24,6 +31,100 @@ locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                        Angle("44:31:15", u.deg),
                                        25 * u.meter),
              'greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
+
+
+def interpret_chan_name(chan_name):
+    """Get feed, polarization and baseband info from chan name.
+
+    Examples
+    >>> feed, polar, baseband = interpret_chan_name('blablabal')
+    >>> feed  # None
+    >>> polar  # None
+    >>> baseband  # None
+    >>> feed, polar, baseband = interpret_chan_name('Ch0')
+    >>> feed
+    0
+    >>> polar  # None
+    >>> baseband  # None
+    >>> feed, polar, baseband = interpret_chan_name('Feed1_LCP')
+    >>> feed
+    1
+    >>> polar
+    'LCP'
+    >>> baseband  # None
+    >>> feed, polar, baseband = interpret_chan_name('Feed2_LCP_3')
+    >>> feed
+    2
+    >>> polar
+    'LCP'
+    >>> baseband
+    3
+    """
+    matchobj = chan_re.match(chan_name)
+    if not matchobj:
+        return None, None, None
+
+    matches = [matchobj.group(i) for i in range(7)]
+    polar, baseband = None, None
+    if matches[6] is not None:
+        baseband = int(matchobj.group(6))
+        polar = matchobj.group(5)
+        feed = int(matchobj.group(4))
+    elif matches[3] is not None:
+        polar = matchobj.group(3)
+        feed = int(matchobj.group(2))
+    else:
+        feed = int(matchobj.group(1))
+
+    return feed, polar, baseband
+
+
+def classify_chan_columns(chans):
+    """Classify the name of channels per feed, polarization, baseband.
+
+    Examples
+    --------
+    >>> chans = ['Feed0_LCP_3', 'Feed0_RCP_3']
+    >>> classif = classify_chan_columns(chans)
+    >>> classif[0][3]['LCP']
+    'Feed0_LCP_3'
+    >>> classif[0][3]['RCP']
+    'Feed0_RCP_3'
+    >>> chans = ['Ch0']
+    >>> classif = classify_chan_columns(chans)
+    >>> classif[0][1]['N']
+    'Ch0'
+    >>> chans = ['Feed0_LCP']
+    >>> classif = classify_chan_columns(chans)
+    >>> classif[0][1]['LCP']
+    'Feed0_LCP'
+    """
+    combinations = {}
+    for ch in chans:
+        feed, polar, baseband = interpret_chan_name(ch)
+        if baseband is None:
+            baseband = 1
+        if polar is None:
+            polar = 'N'
+        if feed not in combinations:
+            combinations[feed] = {}
+
+        if baseband not in combinations[feed]:
+            combinations[feed][baseband] = {}
+
+        combinations[feed][baseband][polar] = ch
+
+    return combinations
+
+
+def get_chan_columns(table):
+    return np.array([i for i in table.columns
+                     if chan_re.match(i)])
+
+
+def get_channel_feed(ch):
+    if re.search('Feed?', ch):
+        return int(ch[4])
 
 
 def mkdir_p(path):
@@ -157,6 +258,15 @@ def get_rest_angle(xoffsets, yoffsets):
                                    w_0))) * u.rad
 
 
+def infer_skydip_from_elevation(elevation, azimuth=None):
+    if azimuth is None:
+        azimuth = np.array([0, 0])
+
+    el_condition = np.max(elevation) - np.min(elevation) > np.pi / 3.
+    az_condition = np.max(azimuth) - np.min(azimuth) < 0.1 / 180. * np.pi
+    return az_condition & el_condition
+
+
 def get_coords_from_altaz_offset(obstimes, el, az, xoffs, yoffs, location,
                                  inplace=False):
     """"""
@@ -212,20 +322,18 @@ def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
 
 def print_obs_info_fitszilla(fname):
     """Placeholder for function that prints out oberving information."""
-    lchdulist = fits.open(fname)
-    section_table_data = lchdulist['SECTION TABLE'].data
-    sample_rates = section_table_data['sampleRate']
+    with fits.open(fname, memmap=False) as lchdulist:
+        section_table_data = lchdulist['SECTION TABLE'].data
+        sample_rates = section_table_data['sampleRate']
 
-    print('Sample rates:', sample_rates)
+        print('Sample rates:', sample_rates)
 
-    rf_input_data = lchdulist['RF INPUTS'].data
-    print('Feeds          :', rf_input_data['feed'])
-    print('IFs            :', rf_input_data['ifChain'])
-    print('Polarizations  :', rf_input_data['polarization'])
-    print('Frequencies    :', rf_input_data['frequency'])
-    print('Bandwidths     :', rf_input_data['bandWidth'])
-
-    lchdulist.close()
+        rf_input_data = lchdulist['RF INPUTS'].data
+        print('Feeds          :', rf_input_data['feed'])
+        print('IFs            :', rf_input_data['ifChain'])
+        print('Polarizations  :', rf_input_data['polarization'])
+        print('Frequencies    :', rf_input_data['frequency'])
+        print('Bandwidths     :', rf_input_data['bandWidth'])
 
 
 def _chan_name(f, p, c=None):
@@ -236,17 +344,22 @@ def _chan_name(f, p, c=None):
 
 
 def read_data_fitszilla(fname):
-    """Open a fitszilla FITS file and read all relevant information."""
+    with fits.open(fname, memmap=False) as lchdulist:
+        retval = _read_data_fitszilla(lchdulist)
+    return retval
 
-    # Open FITS file
-    lchdulist = fits.open(fname)
+
+def _read_data_fitszilla(lchdulist):
+    """Open a fitszilla FITS file and read all relevant information."""
 
     is_new_fitszilla = np.any(['coord' in i.name.lower() for i in lchdulist])
 
     # ----------- Extract generic observation information ------------------
+    headerdict = dict(lchdulist[0].header.items())
     source = lchdulist[0].header['SOURCE']
     site = lchdulist[0].header['ANTENNA'].lower()
     receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
+
     ra = lchdulist[0].header['HIERARCH RIGHTASCENSION'] * u.rad
     dec = lchdulist[0].header['HIERARCH DECLINATION'] * u.rad
     ra_offset = dec_offset = az_offset = el_offset = 0 * u.rad
@@ -272,8 +385,6 @@ def read_data_fitszilla(fname):
     nbin_per_chan = section_table_data['bins']
     sample_rate = section_table_data['sampleRate']
     if len(list(set(nbin_per_chan))) > 1:
-        lchdulist.close()
-
         raise ValueError('Only datasets with the same nbin per channel are '
                          'supported at the moment')
     nbin_per_chan = list(set(nbin_per_chan))[0]
@@ -331,15 +442,15 @@ def read_data_fitszilla(fname):
 
         _, nbins = data_table_data['ch0'].shape
 
-        if nbin_per_chan * nchan * 2 == nbins and not is_polarized:
+        if nbin_per_chan * nchan * 2 == nbins \
+                and not is_polarized:
             warnings.warn('Data appear to contain polarization information '
                           'but are classified as simple, not stokes, in the '
                           'Section table.')
             is_polarized = True
-        if nbin_per_chan * nchan != nbins and \
-                nbin_per_chan * nchan * 2 != nbins:
-            lchdulist.close()
 
+        if nbin_per_chan * nchan != nbins and \
+                nbin_per_chan * nchan * 2 != nbins and not is_polarized:
             raise ValueError('Something wrong with channel subdivision: '
                              '{} bins/channel, {} channels, '
                              '{} total bins'.format(nbin_per_chan, nchan,
@@ -387,19 +498,23 @@ def read_data_fitszilla(fname):
         logging.warning("Could not read temperature information from file."
                         "Exception: {}".format(str(e)))
         for ic, ch in enumerate(chan_names):
-            data_table_data[ch + '-Temp'] = 0.
+            data_table_data[ch + '-Temp'] = \
+                np.zeros_like(data_table_data['time'])
 
     info_to_retrieve = \
         ['time', 'derot_angle'] + [ch + '-Temp' for ch in chan_names]
 
     new_table = Table()
 
+    new_table.meta.update(headerdict)
     new_table.meta['SOURCE'] = source
     new_table.meta['site'] = site
     new_table.meta['backend'] = backend
     new_table.meta['receiver'] = receiver
     new_table.meta['RA'] = ra
     new_table.meta['Dec'] = dec
+    new_table.meta['channels'] = nbin_per_chan
+
     for i, off in zip("ra,dec,el,az".split(','),
                       [ra_offset, dec_offset, el_offset, az_offset]):
         new_table.meta[i + "_offset"] = off
@@ -424,6 +539,10 @@ def read_data_fitszilla(fname):
     new_table['az'] = \
         np.tile(data_table_data['az'],
                 (np.max(feeds) + 1, 1)).transpose()
+
+    new_table.meta['is_skydip'] = \
+        infer_skydip_from_elevation(data_table_data['el'],
+                                    data_table_data['az'])
 
     for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
         new_table[info].unit = u.radian
@@ -474,6 +593,8 @@ def read_data_fitszilla(fname):
              'yoffset': float(yoffsets[feeds[ic]].to(u.rad).value) * u.rad,
              'relpower': float(relpowers[feeds[ic]])
              }
+        new_table[chan_name].meta.update(headerdict)
+        new_table[chan_name].meta.update(new_table.meta)
         new_table[chan_name].meta.update(newmeta)
 
         new_table[chan_name + '-filt'] = \
@@ -505,12 +626,13 @@ def read_data_fitszilla(fname):
                          yoffsets[feed].to(u.rad).value) * u.rad,
                      'relpower': 1.
                      }
+                new_table[chan_name].meta.update(headerdict)
+                new_table[chan_name].meta.update(new_table.meta)
                 new_table[chan_name].meta.update(newmeta)
 
                 new_table[chan_name + '-filt'] = \
                     np.ones(len(data_table_data[chan_name]), dtype=bool)
 
-    lchdulist.close()
     return new_table
 
 
@@ -526,3 +648,78 @@ def read_data(fname):
 def root_name(fname):
     """Return the file name without extension."""
     return os.path.splitext(fname)[0]
+
+
+def _try_type(value, dtype):
+    """
+    Examples
+    --------
+    >>> _try_type("1", int)
+    1
+    >>> _try_type(1.0, int)
+    1
+    >>> _try_type("ab", float)
+    'ab'
+    """
+    try:
+        return dtype(value)
+    except ValueError:
+        return value
+
+
+def bulk_change(file, path, value):
+    """Bulk change keyword or column values in FITS file.
+
+    Parameters
+    ----------
+    file : str
+        Input file
+    path : str
+        it has to be formatted as EXT,data,COLUMN or EXT,header,KEY depending
+        on what is being changed (a data column or a header key resp.). Ex.
+        1,TIME to change the values of column TIME in ext. n. 1
+    value : any acceptable type
+        Value to be filled in
+    """
+
+    with fits.open(file, memmap=False) as hdul:
+        ext, attr, key = path.split(',')
+        ext = _try_type(ext, int)
+
+        data = getattr(hdul[ext], attr)
+        data[key] = value
+        setattr(hdul[ext], attr, data)
+
+        hdul.writeto('tmp.fits', overwrite=True)
+    force_move_file('tmp.fits', file)
+
+
+def main_bulk_change(args=None):
+    """Preprocess the data."""
+    import argparse
+
+    description = ('Change all values of a given column or header keyword in '
+                   'fits files')
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument("files", nargs='*',
+                        help="Single files to preprocess",
+                        default=None, type=str)
+
+    parser.add_argument("-k", "--key", type=str, required=True,
+                        help='Path to key or data column. E.g. '
+                             '"EXT,header,KEY" to change key KEY in the header'
+                             'in extension EXT; EXT,data,COL to change column'
+                             'COL in the data of extension EXT')
+
+    parser.add_argument("-v", "--value", default=None, type=str,
+                        help='Value to be written')
+
+    parser.add_argument("--debug", action='store_true', default=False,
+                        help='Plot stuff and be verbose')
+
+    args = parser.parse_args(args)
+
+    for f in args.files:
+        bulk_change(f, args.key, args.value)
+        print(f, 'updated')
