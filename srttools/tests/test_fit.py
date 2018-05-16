@@ -27,6 +27,8 @@ def _setup_spectra(nx, ny):
 list_of_par_pairs = [(2 * n + 1, 2 * m + 1)
                      for (n, m) in zip(np.random.randint(1, 50, 10),
                                        np.random.randint(1, 50, 10))]
+
+
 class TestStuff(object):
     @pytest.mark.parametrize('nx,ny', list_of_par_pairs)
     def test_detrend_spectroscopic_data(self, nx, ny):

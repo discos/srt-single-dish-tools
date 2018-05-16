@@ -462,9 +462,9 @@ def _read_data_fitszilla(lchdulist):
                 c = None
             section_name = 'ch{}'.format(s)
             ch = _chan_name(f, p, c)
+            start, end = ic * nbin_per_chan, (ic + 1) * nbin_per_chan
             data_table_data[ch] = \
-                data_table_data[section_name][:, ic * nbin_per_chan:
-                                                     (ic + 1) * nbin_per_chan]
+                data_table_data[section_name][:, start:end]
 
         if is_polarized:
             # for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
@@ -476,12 +476,12 @@ def _read_data_fitszilla(lchdulist):
 
                 section_name = 'ch{}'.format(s)
                 qname, uname = _chan_name(f, 'Q', c), _chan_name(f, 'U', c)
+                qstart, qend = 2 * nbin_per_chan, 3 * nbin_per_chan
+                ustart, uend = 3 * nbin_per_chan, 4 * nbin_per_chan
                 data_table_data[qname] = \
-                    data_table_data[section_name][:, 2 * nbin_per_chan:
-                                                     3 * nbin_per_chan]
+                    data_table_data[section_name][:, qstart:qend]
                 data_table_data[uname] = \
-                    data_table_data[section_name][:, 3 * nbin_per_chan:
-                                                     4 * nbin_per_chan]
+                    data_table_data[section_name][:, ustart:uend]
                 chan_names += [qname, uname]
     else:
         for ic, ch in enumerate(chan_names):
@@ -610,6 +610,7 @@ def _read_data_fitszilla(lchdulist):
                 chan_name = _chan_name(feed, stokes_par, c)
                 new_table[chan_name] = \
                     data_table_data[chan_name]
+                sample_time = (1 / (float(sample_rate[s]) * 1e6 * u.Hz))
 
                 newmeta = \
                     {'polarization': stokes_par,
@@ -619,7 +620,7 @@ def _read_data_fitszilla(lchdulist):
                      'frequency': float(frequencies[2 * s]),
                      'bandwidth': float(bandwidths[2 * s]),
                      'sample_rate': float(sample_rate[s]) * 1e6 * u.Hz,
-                     'sample_time': (1 / (float(sample_rate[s]) * 1e6 * u.Hz)).to('s'),
+                     'sample_time': sample_time.to('s'),
                      'xoffset': float(
                          xoffsets[feed].to(u.rad).value) * u.rad,
                      'yoffset': float(

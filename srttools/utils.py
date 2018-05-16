@@ -58,6 +58,7 @@ def _generic_dummy_decorator(*args, **kwargs):
 
         return decorator
 
+
 try:
     from numba import jit, vectorize
     HAS_NUMBA = True
@@ -301,6 +302,7 @@ def ds9_like_log_scale(im_to_analyze, a=1000):
     After normalizing the image from 0 to 1, the log-rescaled image is
     log(ax + 1) / log a, with ``x`` the normalized image and ``a`` a
     constant fixed here at 1000
+
     Parameters
     ----------
     im_to_analyze : 2d array

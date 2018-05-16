@@ -260,8 +260,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         plt.xlabel('Time')
         plt.ylabel('Counts')
         plt.gca().text(0.05, 0.95, info_string, horizontalalignment='left',
-                     verticalalignment='top',
-                     transform=plt.gca().transAxes, fontsize=20)
+                       verticalalignment='top',
+                       transform=plt.gca().transAxes, fontsize=20)
         plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format))
         plt.close(fig)
         return None
@@ -397,8 +397,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         plt.ylabel('Counts')
         ax = plt.gca()
         ax.text(0.05, 0.95, info_string, horizontalalignment='left',
-                     verticalalignment='top',
-                     transform=ax.transAxes, fontsize=20)
+                verticalalignment='top',
+                transform=ax.transAxes, fontsize=20)
         plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format))
         plt.close(fig)
         return results
@@ -722,7 +722,7 @@ class Scan(Table):
 
         if is_polarized:
             for ic, ch in enumerate(chans):
-                if not 'Q' in ch and not 'U' in ch:
+                if 'Q' not in ch and 'U' not in ch:
                     continue
                 lc_corr = frequency_filter(self[ch], mask)
 

@@ -242,7 +242,6 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
     else:
         local_std = ref_std(lc, np.max([N // 20, 20]))
 
-
         for percentage in [0.8, 0.15]:
             time_to_fit = time[mask][1:-1]
             lc_to_fit = lc[mask][1:-1]
@@ -546,7 +545,8 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     approx_m = (np.median(y[-20:]) - np.median(y[:20])) / \
                (np.mean(x[-20:]) - np.mean(x[:20]))
 
-    base = models.Linear1D(slope=approx_m, intercept=np.min(y), name='Baseline')
+    base = models.Linear1D(slope=approx_m, intercept=np.min(y),
+                           name='Baseline')
 
     xrange = np.max(x) - np.min(x)
     yrange = np.max(y) - np.min(y)
