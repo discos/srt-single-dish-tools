@@ -8,7 +8,7 @@ import traceback
 import warnings
 import collections
 import copy
-from .utils import mad, HAS_MPL, minmax
+from .utils import mad, HAS_MPL
 
 
 __all__ = ["contiguous_regions", "ref_std", "ref_mad", "linear_fun",

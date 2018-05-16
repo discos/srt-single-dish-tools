@@ -18,9 +18,10 @@ def _test_shape(x):
 
 def _setup_spectra(nx, ny):
     spectrum = np.vstack([np.linspace(0 + i, 2 + i, nx)
-                              for i in np.linspace(0., 4, ny)])
+                          for i in np.linspace(0., 4, ny)]) + 1
+    spectrum_noisy = np.random.normal(spectrum, 0.00001)
     x = np.arange(spectrum.shape[0])
-    return x, spectrum
+    return x, spectrum_noisy
 
 
 list_of_par_pairs = [(2 * n + 1, 2 * m + 1)
