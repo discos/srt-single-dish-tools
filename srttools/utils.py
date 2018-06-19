@@ -325,7 +325,7 @@ def ds9_like_log_scale(im_to_analyze, a=1000):
     return np.log(a * rescaled_image + 1) / np.log(a)
 
 
-def get_center_of_mass(im, radius=1):
+def get_center_of_mass(im, radius=1, approx=None):
     """Get center of mass of image, filtering by radius around the maximum.
 
     Examples
@@ -345,16 +345,23 @@ def get_center_of_mass(im, radius=1):
     ...                   [0, 0,0,0,0, 0]))
     >>> cm = get_center_of_mass(image, radius=0.4)
     >>> np.all(cm == np.array([2.5, 2.5]))
+    False
+    >>> cm = get_center_of_mass(image, radius=0.4, approx='max')
+    >>> np.all(cm == np.array([2.5, 2.5]))
     True
     >>> cm = get_center_of_mass(image)
     >>> np.all(cm == np.array([3., 2.5]))
     True
     """
     import scipy.ndimage
-    img_max = np.unravel_index(im.argmax(), im.shape)
+    if approx is None:
+        approx = np.array(im.shape) // 2
+    elif approx == 'max':
+        approx = np.unravel_index(im.argmax(), im.shape)
+
     npix = int(radius * min(im.shape))
-    xmin, xmax = max(0, img_max[0] - npix), min(img_max[0] + npix, im.shape[0])
-    ymin, ymax = max(0, img_max[1] - npix), min(img_max[1] + npix, im.shape[1])
+    xmin, xmax = max(0, approx[0] - npix), min(approx[0] + npix, im.shape[0])
+    ymin, ymax = max(0, approx[1] - npix), min(approx[1] + npix, im.shape[1])
     good_x = slice(xmin, xmax)
     good_y = slice(ymin, ymax)
     cm = np.asarray(
@@ -412,7 +419,10 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
                                                      zeros_are_invalid=True)
 
     if cm is None or np.any(np.isnan(cm)):
-        cm = get_center_of_mass(im_to_analyze, radius)
+        cm = get_center_of_mass(im_to_analyze, radius, approx='max')
+    if (cm[0] >= im_to_analyze.shape[0]) or (cm[1] >= im_to_analyze.shape[1]) \
+            or (cm[0] < 1) or (cm[1] < 1):
+        cm = np.array(im_to_analyze.shape) // 2
 
     if use_log:
         im_to_analyze = ds9_like_log_scale(im_to_analyze, 1000)
@@ -513,8 +523,9 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
     im_to_analyze = interpolate_invalid_points_image(im_to_analyze,
                                                      zeros_are_invalid=True)
     if cm is None:
-        cm = get_center_of_mass(im_to_analyze, radius)
-    if (cm[0] >= im_to_analyze.shape[0]) or (cm[1] >= im_to_analyze.shape[1]):
+        cm = get_center_of_mass(im_to_analyze, radius, approx='max')
+    if (cm[0] >= im_to_analyze.shape[0]) or (cm[1] >= im_to_analyze.shape[1]) \
+            or (cm[0] < 1) or (cm[1] < 1):
         cm = np.array(im_to_analyze.shape) // 2
 
     if use_log:
