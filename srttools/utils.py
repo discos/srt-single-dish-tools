@@ -427,9 +427,15 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
     if HAS_MPL:
         fig = plt.figure('Zernike moments', figsize=(10, 10))
         x, y = np.int(cm[0]), np.int(cm[1])
-        plt.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[x, y],
+        shape = im_to_analyze.shape
+        vmax = np.max(im_to_analyze)
+
+        if (x < shape[0]) & (y < shape[1]):
+            vmax = im_to_analyze[x, y]
+
+        plt.imshow(im_to_analyze, vmin=0, vmax=vmax,
                    origin='lower', cmap='magma')
-        circle = plt.Circle(cm, radius_pix, color='r', fill=False)
+        circle = plt.Circle((y, x), radius_pix, color='r', fill=False)
         plt.gca().add_patch(circle)
         plt.colorbar()
 
@@ -508,6 +514,8 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
                                                      zeros_are_invalid=True)
     if cm is None:
         cm = get_center_of_mass(im_to_analyze, radius)
+    if (cm[0] >= im_to_analyze.shape[0]) or (cm[1] >= im_to_analyze.shape[1]):
+        cm = np.array(im_to_analyze.shape) // 2
 
     if use_log:
         im_to_analyze = ds9_like_log_scale(im_to_analyze, 1000)
@@ -544,7 +552,7 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
                       origin='lower', cmap='magma')
 
         img_ax.axvline(cm[1], color='white')
-        img_ax.axhline(cm[1], color='white')
+        img_ax.axhline(cm[0], color='white')
 
         ver_ax.plot(y_slice - np.max(y_slice) + 1, y_pixels)
 
