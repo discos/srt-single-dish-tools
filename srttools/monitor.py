@@ -98,6 +98,9 @@ def main_monitor(args=None):
                         action='store_true', default=False)
     args = parser.parse_args(args)
 
+    if not HAS_WATCHDOG:
+        raise ImportError('To use SDTmonitor, you need to install watchdog: \n'
+                          '\n   > pip install watchdog')
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S')
