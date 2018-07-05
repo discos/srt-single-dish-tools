@@ -336,6 +336,10 @@ class MBFITS_creator():
 
         self.ra = np.degrees(hdudict['RightAscension'])
         self.dec = np.degrees(hdudict['Declination'])
+        self.restfreq = None
+        if 'RESTFREQ1' in hdudict:
+            self.resfreq = hdudict['RESTFREQ1']
+
         try:
             self.date_obs = Time(hdudict['DATE-OBS'])
         except KeyError:
@@ -499,13 +503,16 @@ class MBFITS_creator():
                     new_header['BASEBAND'] = baseband
                     new_header['NUSEBAND'] = nbands
                     new_header['CHANNELS'] = subscan.meta['channels']
-                    new_header['SKYFREQ'] = subscan[ch].meta['frequency'] * 1e6
-                    new_header['RESTFREQ'] = \
-                        subscan[ch].meta['frequency'] * 1e6
-                    new_header['BANDWID'] = \
-                        subscan[ch].meta['bandwidth'] * 1e6
-                    new_header['FREQRES'] = \
-                        new_header['BANDWID'] / new_header['CHANNELS']
+                    new_header['SKYFREQ'] = \
+                        subscan[ch].meta['frequency'].to('Hz').value
+                    if self.restfreq is not None:
+                        new_header['RESTFREQ'] = self.restfreq
+                    else:
+                        new_header['RESTFREQ'] = new_header['SKYFREQ']
+                    bandwidth = subscan[ch].meta['bandwidth'].to('Hz').value
+                    new_header['BANDWID'] = bandwidth
+
+                    new_header['FREQRES'] = bandwidth / new_header['CHANNELS']
 
                     # Todo: check sideband
                     new_header['SIDEBAND'] = 'USB'
@@ -550,9 +557,9 @@ class MBFITS_creator():
 
                     grouping[0].header['FEBE{}'.format(nfebe)] = febe
                     grouping[0].header['FREQ{}'.format(nfebe)] = \
-                        subscan[ch].meta['frequency'] * 1e6
+                        subscan[ch].meta['frequency'].to('Hz').value
                     grouping[0].header['BWID{}'.format(nfebe)] = \
-                        subscan[ch].meta['bandwidth'] * 1e6
+                        subscan[ch].meta['bandwidth'].to('Hz').value
                     grouping[0].header['LINE{}'.format(nfebe)] = ''
 
                     newtable.add_row([2, new_febe, 'URL', 'FEBEPAR-MBFITS',
