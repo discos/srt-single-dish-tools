@@ -118,6 +118,8 @@ class Test1_Scan(object):
         scan.write('scan.hdf5', overwrite=True)
         scan2 = Scan('scan.hdf5')
         assert scan.meta == scan2.meta
+        for col in scan.colnames:
+            assert scan[col].meta == scan2[col].meta
 
     def test_scan_nofilt_executes(self):
         '''Test that data are read.'''
@@ -145,7 +147,6 @@ class Test1_Scan(object):
                                        'srt_data_tp_multif.fits'])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(os.path.join(self.datadir, fname), norefilt=False)
-        print(scan.meta)
         obstimes = Time(scan['time'] * u.day, format='mjd', scale='utc')
         idx = 1 if '_multif' in fname else 0
         ref_coords = SkyCoord(ra=scan['ra'][:, idx],
@@ -225,7 +226,6 @@ class Test2_Scan(object):
         '''Test that data are read.'''
 
         scan = Scan(self.fname, debug=True)
-
         scan.write('scan.hdf5', overwrite=True)
         with pytest.raises(ValueError):
             scan.baseline_subtract('asdfgh', plot=True)

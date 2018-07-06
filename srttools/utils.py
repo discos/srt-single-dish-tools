@@ -756,3 +756,31 @@ def median_diff(array, sorting=False):
     if sorting:
         array = sorted(array)
     return np.median(np.diff(array))
+
+
+def get_mH2O(TMP, U):
+    """Get the meters of H2O, using the formula from old converter.
+
+    Unsure if this is correct in all cases"""
+
+    RS = 8.314472
+    mw = 0.018015
+    md = 0.0289644
+    eps0 = mw / md
+    k1 = 77.60
+    k2 = 70.4
+    k3 = 3.739E5
+
+    TMP = TMP - 273.15
+    H = (np.log10(U) - 2.0) / 0.4343 + (17.62 * TMP) / (243.12 + TMP)
+
+    DPT = 243.12 * H / (17.62 - H)
+
+    TMP = TMP + 273.15
+
+    Tm = 0.673 * TMP + 83.0
+    C = 1E6 * mw / (k2 - k1 * eps0 + k3 / Tm) / RS
+    e0 = np.exp(1.81 + 17.27 * DPT / (DPT + 237.5))
+    ZWDS = 0.002277 * (0.005 + 1255 / TMP) * e0
+
+    return ZWDS * C * 100.

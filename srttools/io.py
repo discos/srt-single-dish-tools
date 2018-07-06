@@ -12,6 +12,9 @@ import logging
 import warnings
 import copy
 import re
+import six
+import collections
+
 from .utils import force_move_file
 
 
@@ -324,16 +327,20 @@ def print_obs_info_fitszilla(fname):
     """Placeholder for function that prints out oberving information."""
     with fits.open(fname, memmap=False) as lchdulist:
         section_table_data = lchdulist['SECTION TABLE'].data
-        sample_rates = section_table_data['sampleRate']
+        sample_rates = get_value_with_units(section_table_data, 'sampleRate')
 
         print('Sample rates:', sample_rates)
 
         rf_input_data = lchdulist['RF INPUTS'].data
-        print('Feeds          :', rf_input_data['feed'])
-        print('IFs            :', rf_input_data['ifChain'])
-        print('Polarizations  :', rf_input_data['polarization'])
-        print('Frequencies    :', rf_input_data['frequency'])
-        print('Bandwidths     :', rf_input_data['bandWidth'])
+        print('Feeds          :', get_value_with_units(rf_input_data, 'feed'))
+        print('IFs            :',
+              get_value_with_units(rf_input_data, 'ifChain'))
+        print('Polarizations  :',
+              get_value_with_units(rf_input_data, 'polarization'))
+        print('Frequencies    :',
+              get_value_with_units(rf_input_data, 'frequency'))
+        print('Bandwidths     :',
+              get_value_with_units(rf_input_data, 'bandWidth'))
 
 
 def _chan_name(f, p, c=None):
@@ -349,6 +356,26 @@ def read_data_fitszilla(fname):
     return retval
 
 
+def get_value_with_units(fitsext, keyword, default=""):
+    if isinstance(fitsext, fits.BinTableHDU):
+        fitsext = fitsext.data
+    unitstr = fitsext.columns[keyword].unit
+    if unitstr is None:
+        if default not in ["", None]:
+            unit = u.Unit(default)
+        else:
+            unit = 1
+    else:
+        unit = u.Unit(unitstr)
+    value = fitsext[keyword]
+    is_string = isinstance(value, six.string_types)
+    is_iterable = isinstance(value, collections.Iterable)
+    if is_string or (is_iterable and isinstance(value[0], six.string_types)):
+        return value
+    else:
+        return value * unit
+
+
 def _read_data_fitszilla(lchdulist):
     """Open a fitszilla FITS file and read all relevant information."""
 
@@ -358,52 +385,67 @@ def _read_data_fitszilla(lchdulist):
     headerdict = dict(lchdulist[0].header.items())
     source = lchdulist[0].header['SOURCE']
     site = lchdulist[0].header['ANTENNA'].lower()
-    receiver = lchdulist[0].header['HIERARCH RECEIVER CODE']
+    receiver = lchdulist[0].header['RECEIVER CODE']
 
-    ra = lchdulist[0].header['HIERARCH RIGHTASCENSION'] * u.rad
-    dec = lchdulist[0].header['HIERARCH DECLINATION'] * u.rad
+    ra = lchdulist[0].header['RIGHTASCENSION'] * u.rad
+    dec = lchdulist[0].header['DECLINATION'] * u.rad
     ra_offset = dec_offset = az_offset = el_offset = 0 * u.rad
-    if 'HIERARCH RightAscension Offset' in lchdulist[0].header:
+    if 'RightAscension Offset' in lchdulist[0].header:
         ra_offset = \
-            lchdulist[0].header['HIERARCH RightAscension Offset'] * u.rad
-    if 'HIERARCH Declination Offset' in lchdulist[0].header:
-        dec_offset = lchdulist[0].header['HIERARCH Declination Offset'] * u.rad
-    if 'HIERARCH Azimuth Offset' in lchdulist[0].header:
-        az_offset = lchdulist[0].header['HIERARCH Azimuth Offset'] * u.rad
-    if 'HIERARCH Elevation Offset' in lchdulist[0].header:
-        el_offset = lchdulist[0].header['HIERARCH Elevation Offset'] * u.rad
-
-    # Check. If backend is not specified, use Total Power
-    try:
-        backend = lchdulist[0].header['HIERARCH BACKEND NAME']
-    except Exception:
-        backend = 'TP'
+            lchdulist[0].header['RightAscension Offset'] * u.rad
+    if 'Declination Offset' in lchdulist[0].header:
+        dec_offset = lchdulist[0].header['Declination Offset'] * u.rad
+    if 'Azimuth Offset' in lchdulist[0].header:
+        az_offset = lchdulist[0].header['Azimuth Offset'] * u.rad
+    if 'Elevation Offset' in lchdulist[0].header:
+        el_offset = lchdulist[0].header['Elevation Offset'] * u.rad
 
     # ----------- Read the list of channel ids ------------------
     section_table_data = lchdulist['SECTION TABLE'].data
-    chan_ids = section_table_data['id']
-    nbin_per_chan = section_table_data['bins']
-    sample_rate = section_table_data['sampleRate']
+    chan_ids = get_value_with_units(section_table_data, 'id')
+    nbin_per_chan = get_value_with_units(section_table_data, 'bins')
+    sample_rate = get_value_with_units(section_table_data, 'sampleRate')
+    integration_time = lchdulist['SECTION TABLE'].header['Integration'] * u.ms
     if len(list(set(nbin_per_chan))) > 1:
         raise ValueError('Only datasets with the same nbin per channel are '
                          'supported at the moment')
     nbin_per_chan = list(set(nbin_per_chan))[0]
-    types = section_table_data['type']
+    types = get_value_with_units(section_table_data, 'type')
     if 'stokes' in types:
         is_polarized = True
     else:
         is_polarized = False
 
+    # Check. If backend is not specified, use Total Power
+    try:
+        backend = lchdulist[0].header['BACKEND NAME']
+    except Exception:
+        if 'stokes' in types:
+            if nbin_per_chan > 2048:
+                backend = 'SARDARA'
+            else:
+                backend = 'XARCOS'
+        elif 'spectra' in types:
+            backend = 'SARDARA'
+        else:
+            backend = 'TP'
+
     # ----------- Read the list of RF inputs, feeds, polarization, etc. --
     rf_input_data = lchdulist['RF INPUTS'].data
-    feeds = rf_input_data['feed']
-    IFs = rf_input_data['ifChain']
-    polarizations = rf_input_data['polarization']
-    frequencies = rf_input_data['frequency']
-    bandwidths = rf_input_data['bandWidth']
-    sections = rf_input_data['section']
+    feeds = get_value_with_units(rf_input_data, 'feed')
+    IFs = get_value_with_units(rf_input_data, 'ifChain')
+    polarizations = get_value_with_units(rf_input_data, 'polarization')
+    frequencies = get_value_with_units(rf_input_data, 'frequency')
+    bandwidths = get_value_with_units(rf_input_data, 'bandWidth')
+    local_oscillator = get_value_with_units(rf_input_data, 'localOscillator')
+    sections = get_value_with_units(rf_input_data, 'section')
     combinations = list(zip(frequencies, bandwidths))
     combination_idx = np.arange(len(combinations))
+
+    # Solve stupid problem with old CCB data
+    if receiver.lower() == 'ccb':
+        feeds[:] = 0
+
     if len(set(combinations)) > 1:
         chan_names = [_chan_name(f, p, c)
                       for f, p, c in zip(feeds, polarizations,
@@ -414,11 +456,12 @@ def _read_data_fitszilla(lchdulist):
 
     # ----- Read the offsets of different feeds (nonzero only if multifeed)--
     feed_input_data = lchdulist['FEED TABLE'].data
-    # Add management of historical offsets
-    xoffsets = feed_input_data['xOffset'] * u.rad
-    yoffsets = feed_input_data['yOffset'] * u.rad
+    # Add management of historical offsets.
+    # Note that we need to add the units by hand in this case.
+    xoffsets = get_value_with_units(feed_input_data, 'xOffset', default='rad')
+    yoffsets = get_value_with_units(feed_input_data, 'yOffset', default='rad')
 
-    relpowers = feed_input_data['relativePower']
+    relpowers = get_value_with_units(feed_input_data, 'relativePower')
 
     # -------------- Read data!-----------------------------------------
     datahdu = lchdulist['DATA TABLE']
@@ -442,6 +485,10 @@ def _read_data_fitszilla(lchdulist):
 
         _, nbins = data_table_data['ch0'].shape
 
+        # Development version of SARDARA -- will it remain the same?
+        if nbin_per_chan == nbins:
+            IFs = np.zeros_like(IFs)
+
         if nbin_per_chan * nchan * 2 == nbins \
                 and not is_polarized:
             warnings.warn('Data appear to contain polarization information '
@@ -449,7 +496,7 @@ def _read_data_fitszilla(lchdulist):
                           'Section table.')
             is_polarized = True
 
-        if nbin_per_chan * nchan != nbins and \
+        if nbin_per_chan != nbins and nbin_per_chan * nchan != nbins and \
                 nbin_per_chan * nchan * 2 != nbins and not is_polarized:
             raise ValueError('Something wrong with channel subdivision: '
                              '{} bins/channel, {} channels, '
@@ -502,7 +549,8 @@ def _read_data_fitszilla(lchdulist):
                 np.zeros_like(data_table_data['time'])
 
     info_to_retrieve = \
-        ['time', 'derot_angle'] + [ch + '-Temp' for ch in chan_names]
+        ['time', 'derot_angle', 'weather'] + [ch + '-Temp'
+                                              for ch in chan_names]
 
     new_table = Table()
 
@@ -514,6 +562,7 @@ def _read_data_fitszilla(lchdulist):
     new_table.meta['RA'] = ra
     new_table.meta['Dec'] = dec
     new_table.meta['channels'] = nbin_per_chan
+    new_table.meta['VLSR'] = new_table.meta['VLSR'] * u.Unit("km/s")
 
     for i, off in zip("ra,dec,el,az".split(','),
                       [ra_offset, dec_offset, el_offset, az_offset]):
@@ -565,7 +614,16 @@ def _read_data_fitszilla(lchdulist):
             new_table['el'][:, i] = el
             new_table['az'][:, i] = az
 
-    for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
+    # for f, ic, p, s, fr, b in zip(feeds, IFs, polarizations, sections,
+    #                               frequencies, bandwidths):
+    for i, fr in enumerate(frequencies):
+        f = feeds[i]
+        s = sections[i]
+        ic = IFs[i]
+        p = polarizations[i]
+        b = bandwidths[i]
+        lo = local_oscillator[i]
+
         c = s
         if is_single_channel:
             c = None
@@ -583,15 +641,17 @@ def _read_data_fitszilla(lchdulist):
 
         newmeta = \
             {'polarization': polarizations[ic],
-             'feed': int(feeds[ic]),
-             'IF': int(IFs[ic]),
-             'frequency': float(frequencies[ic]),
-             'bandwidth': float(bandwidths[ic]),
-             'sample_rate': float(sample_rate[s]) * 1e6 * u.Hz,
-             'sample_time': (1 / (float(sample_rate[s]) * 1e6 * u.Hz)).to('s'),
-             'xoffset': float(xoffsets[feeds[ic]].to(u.rad).value) * u.rad,
-             'yoffset': float(yoffsets[feeds[ic]].to(u.rad).value) * u.rad,
-             'relpower': float(relpowers[feeds[ic]])
+             'feed': int(f),
+             'IF': int(ic),
+             'frequency': fr.to("MHz"),
+             'bandwidth': b.to("MHz"),
+             'sample_rate': sample_rate[s],
+             'sample_time': (1 / (sample_rate[s].to(u.Hz))).to('s'),
+             'local_oscillator': lo.to("MHz"),
+             'integration_time': integration_time.to('s'),
+             'xoffset': xoffsets[f].to(u.rad),
+             'yoffset': yoffsets[f].to(u.rad),
+             'relpower': float(relpowers[f])
              }
         new_table[chan_name].meta.update(headerdict)
         new_table[chan_name].meta.update(new_table.meta)
@@ -610,21 +670,21 @@ def _read_data_fitszilla(lchdulist):
                 chan_name = _chan_name(feed, stokes_par, c)
                 new_table[chan_name] = \
                     data_table_data[chan_name]
-                sample_time = (1 / (float(sample_rate[s]) * 1e6 * u.Hz))
+                sample_time = (1 / (sample_rate[s].to(u.Hz)))
 
                 newmeta = \
                     {'polarization': stokes_par,
                      'feed': int(feed),
                      'IF': -1,
                      # There are two IFs for each section
-                     'frequency': float(frequencies[2 * s]),
-                     'bandwidth': float(bandwidths[2 * s]),
-                     'sample_rate': float(sample_rate[s]) * 1e6 * u.Hz,
+                     'frequency': frequencies[2 * s].to("MHz"),
+                     'bandwidth': bandwidths[2 * s].to("MHz"),
+                     'sample_rate': sample_rate[s],
                      'sample_time': sample_time.to('s'),
-                     'xoffset': float(
-                         xoffsets[feed].to(u.rad).value) * u.rad,
-                     'yoffset': float(
-                         yoffsets[feed].to(u.rad).value) * u.rad,
+                     'local_oscillator': local_oscillator[2 * s].to("MHz"),
+                     'integration_time': integration_time.to('s'),
+                     'xoffset': xoffsets[feed].to(u.rad),
+                     'yoffset': yoffsets[feed].to(u.rad),
                      'relpower': 1.
                      }
                 new_table[chan_name].meta.update(headerdict)
