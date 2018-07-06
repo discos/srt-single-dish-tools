@@ -36,6 +36,14 @@ class Test1_Scan(object):
             os.path.abspath(
                 os.path.join(klass.datadir,
                              'example_polar'))
+        klass.onoff = \
+            os.path.abspath(
+                os.path.join(klass.datadir,
+                             'onoff_xarcos'))
+        klass.nodding = \
+            os.path.abspath(
+                os.path.join(klass.datadir,
+                             'nodding_xarcos'))
 
     def test_converter_basic(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
@@ -118,3 +126,15 @@ class Test1_Scan(object):
             header = hdul[1].header
             assert header['SCANTYPE'] == 'SKYDIP'
         shutil.rmtree(self.skydip + '_mbfits')
+
+    def test_main_classfits_onoff(self):
+        newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        shutil.rmtree(self.onoff + '_classfits')
+
+    def test_main_classfits_nodding(self):
+        newdir = main_convert([self.nodding, '-f', 'classfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        shutil.rmtree(self.nodding + '_classfits')

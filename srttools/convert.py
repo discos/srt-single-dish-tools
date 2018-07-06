@@ -13,6 +13,7 @@ import shutil
 from .io import get_coords_from_altaz_offset, correct_offsets
 from .io import get_rest_angle, observing_angle, locations
 from .converters.mbfits import MBFITS_creator
+from .converters.classfits import CLASSFITS_creator
 
 
 def convert_to_complete_fitszilla(fname, outname):
@@ -125,6 +126,15 @@ def launch_mbfits_creator(name, label, test=False, wrap=False, detrend=False):
     return outname, mbfits
 
 
+def launch_classfits_creator(name, label, test=False):
+    if not os.path.isdir(name):
+        raise ValueError('Input for CLASSFITS conversion must be a directory.')
+    name = name.rstrip('/')
+    outname = name + '_' + label
+    classfits = CLASSFITS_creator(outname, scandir=name, average=True)
+    return outname, classfits
+
+
 def match_srt_name(name):
     """
     Examples
@@ -162,7 +172,9 @@ def main_convert(args=None):
                              'single file for each FEBE; '
                              'fitsmod (default), indicating a fitszilla with '
                              'converted coordinates for feed number *n* in '
-                             'a separate COORDn extensions)')
+                             'a separate COORDn extensions); '
+                             'classfits, indicating a FITS file readable into '
+                             'CLASS, calibrated when possible')
 
     parser.add_argument("--test",
                         help="Only to be used in tests!",
@@ -200,6 +212,10 @@ def main_convert(args=None):
             outname, mbfits = \
                 launch_mbfits_creator(fname, args.format, test=args.test,
                                       wrap=True, detrend=args.detrend)
+            outnames.append(outname)
+        elif args.format == 'classfits':
+            outname, mbfits = \
+                launch_classfits_creator(fname, args.format, test=args.test)
             outnames.append(outname)
         else:
             warnings.warn('Unknown output format')

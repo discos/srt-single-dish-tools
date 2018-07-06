@@ -23,6 +23,7 @@ from .utils import jit, vectorize, HAS_NUMBA
 
 import warnings
 import logging
+import astropy.units as u
 
 
 __all__ = ["Scan", "interpret_frequency_range", "clean_scan_using_variability",
@@ -246,6 +247,12 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     srttools.fit.baseline_als
     srttools.fit.ref_mad
     """
+    try:
+        bandwidth_unit = bandwidth.unit
+        bandwidth = bandwidth.value
+    except AttributeError:
+        bandwidth_unit = u.MHz
+
     if len(dynamical_spectrum.shape) == 1:
         if not debug or not HAS_MPL:
             return None
@@ -377,8 +384,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     results = type('test', (), {})()  # create empty object
     results.lc = lc_corr
-    results.freqmin = freqmin
-    results.freqmax = freqmax
+    results.freqmin = freqmin * u.MHz
+    results.freqmax = freqmax * u.MHz
     results.mask = wholemask
 
     if not debug or not HAS_MPL:
@@ -418,7 +425,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_dynspec.set_ylabel('Sample')
     ax_cleanspec.set_ylabel('Sample')
     ax_var.set_ylabel('r.m.s.')
-    ax_var.set_xlabel('Frequency from LO (MHz)')
+    ax_var.set_xlabel('Frequency from LO ({})'.format(bandwidth_unit))
     ax_cleanlc.set_xlabel('Counts')
 
     # Plot mean spectrum
