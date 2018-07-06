@@ -90,7 +90,7 @@ class Test1_Scan(object):
 
         assert "Input for MBFITS conversion must be " in str(excinfo)
 
-    # @pytest.mark.skipif('HAS_MPL')
+    @pytest.mark.skipif('HAS_MPL')
     def test_main_mbfitsw(self):
         main_convert([self.skydip, '-f', 'mbfitsw', '--test'])
         newfiles = glob.glob(self.skydip + '*KKG*.fits')
@@ -102,7 +102,7 @@ class Test1_Scan(object):
         for fname in newfiles:
             os.unlink(fname)
 
-    # @pytest.mark.skipif('HAS_MPL')
+    @pytest.mark.skipif('HAS_MPL')
     def test_main_mbfitsw_polar(self):
         main_convert([self.example, '-f', 'mbfitsw', '--test'])
         newfiles = glob.glob(self.example + '*CCB*.fits')
@@ -114,7 +114,7 @@ class Test1_Scan(object):
         for fname in newfiles:
             os.unlink(fname)
 
-    # @pytest.mark.skipif('HAS_MPL')
+    @pytest.mark.skipif('HAS_MPL')
     def test_main_mbfits(self):
         newdir = main_convert([self.skydip, '-f', 'mbfits', '--test'])[0]
         assert os.path.exists(newdir)

@@ -607,12 +607,11 @@ def _read_data_fitszilla(lchdulist):
 
     # for f, ic, p, s, fr, b in zip(feeds, IFs, polarizations, sections,
     #                               frequencies, bandwidths):
-    for i in range(len(frequencies)):
+    for i, fr in enumerate(frequencies):
         f = feeds[i]
         s = sections[i]
         ic = IFs[i]
         p = polarizations[i]
-        fr = frequencies[i]
         b = bandwidths[i]
         lo = local_oscillator[i]
 

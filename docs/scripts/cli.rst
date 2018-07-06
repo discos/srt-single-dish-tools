@@ -1,6 +1,29 @@
 Command line interface
 ======================
 
+SDTbulkchange
+-------------
+
+.. code-block:: none
+
+    usage: SDTbulkchange [-h] -k KEY [-v VALUE] [--debug] [files [files ...]]
+
+    Change all values of a given column or header keyword in fits files
+
+    positional arguments:
+      files                 Single files to preprocess
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -k KEY, --key KEY     Path to key or data column. E.g. "EXT,header,KEY" to
+                            change key KEY in the headerin extension EXT;
+                            EXT,data,COL to change columnCOL in the data of
+                            extension EXT
+      -v VALUE, --value VALUE
+                            Value to be written
+      --debug               Plot stuff and be verbose
+
+
 SDTcal
 ------
 
@@ -30,6 +53,32 @@ SDTcal
                             Output file containing the calibration
       --show                Show calibration summary
       --check               Check consistency of calibration
+
+
+SDTconvert
+----------
+
+.. code-block:: none
+
+    usage: SDTconvert [-h] [-f FORMAT] [--test] [--detrend] [files [files ...]]
+
+    Load a series of scans and convert them to variousformats
+
+    positional arguments:
+      files                 Single files to process or directories
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -f FORMAT, --format FORMAT
+                            Format of output files (options: mbfits, indicating
+                            MBFITS v. 1.65; mbfitsw, indicating MBFITS v. 1.65
+                            wrapped in asingle file for each FEBE; fitsmod
+                            (default), indicating a fitszilla with converted
+                            coordinates for feed number *n* in a separate COORDn
+                            extensions); classfits, indicating a FITS file
+                            readable into CLASS, calibrated when possible
+      --test                Only to be used in tests!
+      --detrend             Detrend data before converting to MBFITS
 
 
 SDTfake
@@ -203,6 +252,25 @@ SDTlcurve
                             1000 MHz above'. ':' or 'all' for all the channels.
       -o OUTPUT, --output OUTPUT
                             Output file containing the calibration
+
+
+SDTmonitor
+----------
+
+.. code-block:: none
+
+    usage: SDTmonitor [-h] [-c CONFIG] [--test] directory
+
+    Run the SRT quicklook in a given directory.
+
+    positional arguments:
+      directory             Directory to monitor
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -c CONFIG, --config CONFIG
+                            Config file
+      --test                Only to be used in tests!
 
 
 SDTopacity

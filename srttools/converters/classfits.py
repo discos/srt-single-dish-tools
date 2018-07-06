@@ -7,14 +7,11 @@ import os
 import numpy as np
 from srttools.io import mkdir_p, locations, read_data_fitszilla, \
     get_chan_columns, classify_chan_columns, interpret_chan_name
-from srttools.utils import scantype, force_move_file, minmax, median_diff
-from srttools.fit import detrend_spectroscopic_data
-import warnings
 import glob
-import itertools
 from ..utils import get_mH2O
 from scipy.signal import medfilt
 import copy
+import warnings
 
 
 model_primary_header = """
@@ -102,6 +99,7 @@ LIST_TUNIT = \
 
 
 def get_model_HDUlist(additional_columns=None, **kwargs):
+    """Produce a model CLASS-compatible HDUlist."""
     cols = []
     list_ttype = LIST_TTYPE
     list_tform = LIST_TFORM
@@ -125,6 +123,14 @@ def get_model_HDUlist(additional_columns=None, **kwargs):
 
 def create_variable_length_column(values, max_length=2048, name="SPECTRUM",
                                   unit="K"):
+    """If we want to use variable length arrays, this is what we should do.
+
+    Examples
+    --------
+    >>> col = create_variable_length_column([[1, 2]])
+    >>> isinstance(col, fits.Column)
+    True
+    """
     format_str = "PJ({})".format(max_length)
     column = fits.Column(array=values, name=name, unit=unit,
                          format=format_str)
@@ -159,20 +165,23 @@ def label_from_chan_name(ch):
 
 
 def on_or_off(subscan, feed):
+    """Try to infer if a given subscan is ON or OFF."""
     is_on = False
-    if 'SIGNAL' in subscan.meta:
+    if 'SIGNAL' in subscan.meta and \
+            subscan.meta['SIGNAL'] in ['SIGNAL', 'REFERENCE']:
         signal = subscan.meta['SIGNAL']
+        # In nodding, feed 0 has
+        if signal == 'SIGNAL' and feed == 0:
+            is_on = True
+        elif signal == 'REFERENCE' and feed != 0:
+            is_on = True
     else:
-        signal = subscan.meta['az_offset'] > 1e-4
-    # In nodding, feed 0 has
-    if signal == 'SIGNAL' and feed == 0:
-        is_on = True
-    elif signal == 'REFERENCE' and feed != 0:
-        is_on = True
+        is_on = subscan.meta['az_offset'] > 1e-4 * u.rad
     return is_on
 
 
 def cal_is_on(subscan):
+    """Is the calibration mark on? Try to understand."""
     is_on = False
     if 'SUBSTYPE' in subscan.meta:
         is_on = subscan.meta['SUBSTYPE'] == 'CAL'
@@ -180,6 +189,36 @@ def cal_is_on(subscan):
 
 
 def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
+    """Do the actuall onoff/onoffcal calibration.
+
+    The first passage is to combine the ON-source signal with the closest
+    OFF-source signal (alternatively, SIGNAL/on-source vs REFERENCE/off-source)
+    as (ON - OFF)/OFF.
+
+    If a signal with calibration mark is present (CAL), and apply_cal is True,
+    an additional calibration factor is applied. If CAL is applied only to
+    the OFF/REFERENCE signal (let us call it OFFCAL), a single calibration
+    factor is calculated: OFF/(OFFCAL - OFF). If the CAL signal is also applied
+    to the ON signal, and `use_calon` is True, an additional factor
+    ON/(ONCAL - ON) is calculated and averaged with the previous.
+
+    Parameters
+    ----------
+    table : `astropy.table.Table` object
+        The data table
+
+    Other Parameters
+    ----------------
+    smooth : bool, default False
+        Run a median filter on the reference data (the ones that go to the
+        denominator) before calculating the ratio
+    apply_cal : bool, default True
+        If a CAL (calib. mark on) signal is present, use it!
+    use_calon : bool, default False
+        If False, only the OFF + CAL is used for the calibration. If True,
+        Also the ON + CAL is used and the calibration constant is averaged
+        with that obtained through OFF + CAL.
+"""
     calibration_factor = 1
     unit = ""
 
@@ -234,7 +273,33 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
 
 
 class CLASSFITS_creator():
-    def __init__(self, dirname, test=False, scandir=None, average=True):
+    """CLASS-compatible FITS creator obhject."""
+    def __init__(self, dirname, scandir=None, average=True, use_calon=False,
+                 test=False):
+        """Initialization.
+
+        Initialization is easy. If scandir is given, the conversion is
+        done right away.
+
+        Parameters
+        ----------
+        dirname : str
+            Output directory for products
+
+        Other Parameters
+        ----------------
+        scandir : str
+            Input data directory (to be clear, the directory containing a set
+            of subscans plus a summary.fits file)
+        average : bool, default True
+            Average all spectra of a given configuration?
+        use_calon : bool, default False
+            If False, only the OFF + CAL is used for the calibration. If True,
+            Also the ON + CAL is used and the calibration constant is averaged
+            with that obtained through OFF + CAL.
+        test : bool
+            Only use for unit tests
+        """
         self.dirname = dirname
         self.test = test
         mkdir_p(dirname)
@@ -243,14 +308,36 @@ class CLASSFITS_creator():
         self.average = average
         if scandir is not None:
             self.get_scan(scandir, average=average)
-            self.calibrate_all()
+            self.calibrate_all(use_calon)
             self.write_tables_to_disk()
 
     def fill_in_summary(self, summaryfile):
+        """Fill in the information contained in the summary.fits file."""
         with fits.open(summaryfile) as hdul:
             self.summary.update(hdul[0].header)
 
     def get_scan(self, scandir, average=False):
+        """Treat the data and produce the output, uncalibrated files.
+
+        Fills in the `self.tables` attribute with a dictionary of HDU lists
+        containing a primary header and a MATRIX extension in CLASS-compatible
+        FITS format
+
+        Parameters
+        ----------
+        scandir : str
+            Input data directory (to be clear, the directory containing a set
+            of subscans plus a summary.fits file)
+
+        Other Parameters
+        ----------------
+        average : bool, default True
+            Average all spectra of a given configuration?
+
+        Returns
+        -------
+        tables
+        """
         scandir = scandir.rstrip('/')
         fname = os.path.join(scandir, 'summary.fits')
         self.fill_in_summary(fname)
@@ -324,6 +411,11 @@ class CLASSFITS_creator():
 
                 for ch in columns:
                     feed, polar, baseband = interpret_chan_name(ch)
+                    if feed != f:
+                        warnings.warn("Problem interpreting chan name: {} "
+                                      "instead of {}".format(feed, f))
+                    if baseband is None:
+                        baseband = 1
                     array = subscan[ch]
                     if average:
                         length = len(array)
@@ -413,7 +505,26 @@ class CLASSFITS_creator():
 
         return self.tables
 
-    def calibrate_all(self):
+    def calibrate_all(self, use_calon=False):
+        """Calibrate the scan in all available ways.
+
+        The basic calibration is `(on - off)/off`, where `on` and `off` are
+        on-source and off-source spectra respectively.
+
+        New HDU lists are produced and added to the existing, uncalibrated
+        ones.
+
+        If the calibration mark has been used in some scan, an additional
+        calibration is applied and further HDU lists are produced.
+
+        Other Parameters
+        ----------------
+        use_calon : bool, default False
+            If False, only the OFF + CAL is used for the calibration. If True,
+            Also the ON + CAL is used and the calibration constant is averaged
+            with that obtained through OFF + CAL.
+
+        """
         new_tables = {}
         for caltype in ["cal", "onoff"]:
             for (filekey, hdul) in self.tables.items():
@@ -428,8 +539,10 @@ class CLASSFITS_creator():
                 apply_cal = caltype == "cal"
 
                 for key, group in zip(grouped.groups.keys, grouped.groups):
-                    results, unit = normalize_on_off_cal(group, smooth=False,
-                                                         apply_cal=apply_cal)
+                    print('Treating {}'.format('key'))
+                    results, _ = normalize_on_off_cal(group, smooth=False,
+                                                      apply_cal=apply_cal,
+                                                      use_calon=use_calon)
                     if results is None:
                         break
                     if astropy_table_from_results is None:
@@ -450,6 +563,7 @@ class CLASSFITS_creator():
         self.tables.update(new_tables)
 
     def write_tables_to_disk(self):
+        """Write all HDU lists produced until now in separate FITS files."""
         for (filekey, table) in self.tables.items():
             outfile = os.path.join(self.dirname, '{}.fits'.format(filekey))
             table.writeto(outfile, overwrite=True)
