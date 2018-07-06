@@ -421,7 +421,12 @@ def _read_data_fitszilla(lchdulist):
         backend = lchdulist[0].header['BACKEND NAME']
     except Exception:
         if 'stokes' in types:
-            backend = 'XARCOS'
+            if nbin_per_chan > 2048:
+                backend = 'SARDARA'
+            else:
+                backend = 'XARCOS'
+        elif 'spectra' in types:
+            backend = 'SARDARA'
         else:
             backend = 'TP'
 
@@ -480,6 +485,10 @@ def _read_data_fitszilla(lchdulist):
 
         _, nbins = data_table_data['ch0'].shape
 
+        # Development version of SARDARA -- will it remain the same?
+        if nbin_per_chan == nbins:
+            IFs = np.zeros_like(IFs)
+
         if nbin_per_chan * nchan * 2 == nbins \
                 and not is_polarized:
             warnings.warn('Data appear to contain polarization information '
@@ -487,7 +496,7 @@ def _read_data_fitszilla(lchdulist):
                           'Section table.')
             is_polarized = True
 
-        if nbin_per_chan * nchan != nbins and \
+        if nbin_per_chan != nbins and nbin_per_chan * nchan != nbins and \
                 nbin_per_chan * nchan * 2 != nbins and not is_polarized:
             raise ValueError('Something wrong with channel subdivision: '
                              '{} bins/channel, {} channels, '
