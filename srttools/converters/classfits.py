@@ -229,10 +229,9 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
     calon_data = table[cal_on & onsource]
     caloff_data = table[cal_on & ~onsource]
 
-    newtable = Table(on_data[:1])
-    n_spectra = len(on_data)
+    newtable = Table(on_data)
 
-    on = np.mean(on_data['SPECTRUM'], axis=0)
+    on = on_data['SPECTRUM']
     off = np.mean(off_data['SPECTRUM'], axis=0)
     calon = caloff = None
 
@@ -243,12 +242,14 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
         caloff = np.mean(caloff_data['SPECTRUM'], axis=0)
 
     off_ref = off
-    on_ref = on
+    on_ref = on[0]
     if smooth:
-        off_ref = medfilt(off, 11)
-        on_ref = medfilt(on, 11)
+        off_ref = medfilt(off_ref, 11)
+        on_ref = medfilt(on_ref, 11)
 
-    signal = (on - off_ref) / off_ref
+    signal = copy.deepcopy(on)
+    for i, o in enumerate(on):
+        signal[i] = (o - off_ref) / off_ref
 
     if apply_cal:
         oncal = offcal = np.zeros_like(caloff)
@@ -267,8 +268,7 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
             return None, ""
 
     newtable['SPECTRUM'][:] = signal * calibration_factor
-    newtable['OBSTIME'] *= n_spectra
-
+    # newtable['OBSTIME'] *= n_spectra
     return newtable, unit
 
 
@@ -539,7 +539,7 @@ class CLASSFITS_creator():
                 apply_cal = caltype == "cal"
 
                 for key, group in zip(grouped.groups.keys, grouped.groups):
-                    print('Treating {}'.format('key'))
+                    group = vstack([group, group])
                     results, _ = normalize_on_off_cal(group, smooth=False,
                                                       apply_cal=apply_cal,
                                                       use_calon=use_calon)
