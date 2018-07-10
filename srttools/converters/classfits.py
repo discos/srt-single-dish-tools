@@ -71,7 +71,8 @@ DATE-RED= '15/07/97'                   / Date of reduction.
 """
 
 LIST_TTYPE = \
-    ["MAXIS1", "SCAN", "TELESCOP", "TSYS",
+    ["MJD",
+     "MAXIS1", "SCAN", "TELESCOP", "TSYS",
      "IMAGFREQ", "DELTAV", "TAU-ATM", "MH2O",
      "TOUTSIDE", "PRESSURE", "CRVAL2", "CRVAL3",
      "ELEVATIO", "AZIMUTH", "DATE-OBS", "UT",
@@ -80,7 +81,8 @@ LIST_TTYPE = \
      "SIGNAL", "CAL_IS_ON"]
 
 LIST_TFORM = \
-    ["1J", "1J", "12A", "1E",
+    ["1D",
+     "1J", "1J", "12A", "1E",
      "1E", "1E", "1E", "1E",
      "1E", "1E", "1E", "1E",
      "1E", "1E", "23A ", "1D",
@@ -89,7 +91,8 @@ LIST_TFORM = \
      "1J", "1J"]
 
 LIST_TUNIT = \
-    [" ", "", "", "K",
+    ["d",
+     " ", "", "", "K",
      "Hz", "m.s-1", "neper", "mm",
      "K", "hPa", "deg", "deg",
      "deg", "deg", "", "s",
@@ -186,6 +189,54 @@ def cal_is_on(subscan):
     if 'SUBSTYPE' in subscan.meta:
         is_on = subscan.meta['SUBSTYPE'] == 'CAL'
     return is_on
+
+
+def find_cycles(table, list_of_keys):
+    """Find cyclic patterns in table.
+
+    Parameters
+    ----------
+    table : `astropy.table.Table` object, or compatible
+        Input table
+    list_of_keys : list
+        List of keywords of the table to cycle on
+
+    Examples
+    --------
+    >>> table = Table(data=[[0, 0, 1, 1, 0, 0, 1, 1],
+    ...                     [0, 0, 0, 0, 0, 0, 0, 0]], names=['A', 'B'])
+    >>> list_of_keys = ['A', 'B']
+    >>> new_table = find_cycles(table, list_of_keys)
+    >>> np.all(new_table['CYCLE'] == [0, 0, 0, 0, 1, 1, 1, 1])
+    True
+    >>> table = Table(data=[[0, 0, 1, 1, 0, 0, 1, 1],
+    ...                     [0, 1, 0, 1, 0, 1, 0, 1]], names=['A', 'B'])
+    >>> list_of_keys = ['A', 'B']
+    >>> new_table = find_cycles(table, list_of_keys)
+    >>> np.all(new_table['CYCLE'] == [0, 0, 0, 0, 1, 1, 1, 1])
+    True
+    >>> table = Table(data=[[0, 1, 0, 1], [1, 0, 1, 0]], names=['A', 'B'])
+    >>> list_of_keys = ['A', 'B']
+    >>> new_table = find_cycles(table, list_of_keys)
+    >>> np.all(new_table['CYCLE'] == [0, 0, 1, 1])
+    True
+    """
+    binary_values = 10 ** np.arange(len(list_of_keys), dtype=int)
+    table['BINARY_COL'] = np.zeros(len(table), dtype=int)
+    for i, k in enumerate(list_of_keys):
+        good = (table[k] == 1)
+        table['BINARY_COL'][good] += binary_values[i]
+
+    table['CYCLE'] = np.zeros(len(table), dtype=int)
+    cycle_counter = -1
+    start_value = table['BINARY_COL'][0]
+    last = -1
+    for i, b in enumerate(table['BINARY_COL']):
+        if b == start_value and b != last:
+            cycle_counter += 1
+        table['CYCLE'][i] = cycle_counter
+        last = b
+    return table
 
 
 def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
@@ -349,6 +400,7 @@ class CLASSFITS_creator():
             times = Time(subscan['time'] * u.day, format='mjd', scale='utc',
                          location=location)
             date_col = [t.strftime('%d/%m/%y') for t in times.to_datetime()]
+            mjd_col = subscan['time']
             ut_col = (times.mjd - np.floor(times.mjd)) * 86400
 
             lsts = times.sidereal_time('apparent',
@@ -364,6 +416,7 @@ class CLASSFITS_creator():
                 ut_col = ut_col[0]
                 mH2O = np.mean(mH2O)
                 lsts = np.mean(lsts)
+                mjd_col = mjd_col[0]
 
             allcolumns = get_chan_columns(subscan)
             channels = \
@@ -432,6 +485,7 @@ class CLASSFITS_creator():
                     if restfreq_label not in self.summary:
                         restfreq_label = 'RESTFREQ1'
                     restfreq = self.summary[restfreq_label] * u.MHz
+                    data['MJD'][id0:id1] = mjd_col
                     data['RESTFREQ'][id0:id1] = restfreq.to(u.Hz).value
                     data['OBSTIME'][id0:id1] = \
                         array.meta['integration_time'].value
@@ -530,29 +584,44 @@ class CLASSFITS_creator():
             for (filekey, hdul) in self.tables.items():
                 new_filekey = filekey.replace("_all", "_" + caltype)
                 new_hdul = copy.deepcopy(hdul)
-                table = Table(new_hdul[1].data)
-                grouped = table.group_by(['TELESCOP', 'LINE'])
-                new_rows = 0
 
+                table = Table(new_hdul[1].data)
+
+                table.sort(['MJD', 'TELESCOP', 'LINE'])
+
+                out_grouped = table.group_by(['TELESCOP', 'LINE'])
+                new_rows = 0
                 astropy_table_from_results = None
 
                 apply_cal = caltype == "cal"
 
-                for key, group in zip(grouped.groups.keys, grouped.groups):
-                    group = vstack([group, group])
-                    results, _ = normalize_on_off_cal(group, smooth=False,
-                                                      apply_cal=apply_cal,
-                                                      use_calon=use_calon)
-                    if results is None:
-                        break
-                    if astropy_table_from_results is None:
-                        astropy_table_from_results = results
-                    else:
-                        astropy_table_from_results = \
-                            vstack((astropy_table_from_results, results))
-                    new_rows += 1
+                for _, out_group in zip(out_grouped.groups.keys,
+                                        out_grouped.groups):
+                    out_group = find_cycles(out_group, ['SIGNAL', 'CAL_IS_ON'])
+
+                    grouped = out_group.group_by(['CYCLE'])
+
+                    for _, group in zip(grouped.groups.keys, grouped.groups):
+                        # group = vstack([group, group])
+                        results, _ = normalize_on_off_cal(group, smooth=False,
+                                                          apply_cal=apply_cal,
+                                                          use_calon=use_calon)
+                        if results is None:
+                            break
+                        if astropy_table_from_results is None:
+                            astropy_table_from_results = results
+                        else:
+                            astropy_table_from_results = \
+                                vstack((astropy_table_from_results, results))
+                        new_rows += 1
                 if astropy_table_from_results is None:
                     continue
+
+                astropy_table_from_results.remove_column('CYCLE')
+                astropy_table_from_results.remove_column('SIGNAL')
+                astropy_table_from_results.remove_column('CAL_IS_ON')
+                astropy_table_from_results.remove_column('BINARY_COL')
+                astropy_table_from_results.remove_column('MJD')
 
                 dummy_hdu = \
                     fits.BinTableHDU(data=astropy_table_from_results)
