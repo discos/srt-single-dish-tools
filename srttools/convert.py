@@ -131,7 +131,9 @@ def launch_classfits_creator(name, label, test=False):
         raise ValueError('Input for CLASSFITS conversion must be a directory.')
     name = name.rstrip('/')
     outname = name + '_' + label
-    classfits = CLASSFITS_creator(outname, scandir=name, average=True)
+    random_name = 'tmp_' + str(np.random.random())
+    classfits = CLASSFITS_creator(random_name, scandir=name, average=True)
+    shutil.move(random_name, outname)
     return outname, classfits
 
 
