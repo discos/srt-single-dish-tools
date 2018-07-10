@@ -620,6 +620,7 @@ class CLASSFITS_creator():
                 astropy_table_from_results.remove_column('CYCLE')
                 astropy_table_from_results.remove_column('SIGNAL')
                 astropy_table_from_results.remove_column('CAL_IS_ON')
+                astropy_table_from_results.remove_column('BINARY_COL')
                 astropy_table_from_results.remove_column('MJD')
 
                 dummy_hdu = \
