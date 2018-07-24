@@ -143,10 +143,10 @@ class Test1_Scan(object):
         newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
-        shutil.rmtree(self.onoff + '_classfits')
+        # shutil.rmtree(self.onoff + '_classfits')
 
     def test_main_classfits_nodding(self):
         newdir = main_convert([self.nodding, '-f', 'classfits', '--test'])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
-        shutil.rmtree(self.nodding + '_classfits')
+        # shutil.rmtree(self.nodding + '_classfits')

@@ -728,6 +728,33 @@ def _try_type(value, dtype):
         return value
 
 
+def label_from_chan_name(ch):
+    """
+    Examples
+    --------
+    >>> label_from_chan_name('Feed0_LCP_1')
+    'LL'
+    >>> label_from_chan_name('Feed0_Q_2')
+    'LR'
+    >>> label_from_chan_name('Feed3_RCP_1')
+    'RR'
+    >>> label_from_chan_name('Feed2_U_3')
+    'RL'
+    """
+    _, polar, _ = interpret_chan_name(ch)
+
+    if polar.startswith('L'):
+        return 'LL'
+    elif polar.startswith('R'):
+        return 'RR'
+    elif polar.startswith('Q'):
+        return 'LR'
+    elif polar.startswith('U'):
+        return 'RL'
+    else:
+        raise ValueError('Unrecognized polarization')
+
+
 def bulk_change(file, path, value):
     """Bulk change keyword or column values in FITS file.
 

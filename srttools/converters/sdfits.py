@@ -8,9 +8,7 @@ import numpy as np
 from srttools.io import mkdir_p, locations, read_data_fitszilla, \
     get_chan_columns, classify_chan_columns, interpret_chan_name
 import glob
-from ..utils import get_mH2O
-import copy
-import warnings
+from ..io import label_from_chan_name
 
 
 model_primary_header = """
@@ -194,20 +192,10 @@ class SDFITS_creator():
             times = Time(subscan['time'] * u.day, format='mjd', scale='utc',
                          location=location)
             date_col = [t.strftime('%d/%m/%y') for t in times.to_datetime()]
-            mjd_col = subscan['time']
+
             # Different from CLASS converter - here we take seconds from the
             # First day (when data span multiple dats)
             ut_col = (times.mjd - np.floor(times.mjd[0])) * 86400
-
-            # lsts = times.sidereal_time('apparent',
-            #                            locations[subscan.meta['site']].lon
-            #                            )
-            # lsts_col = lsts.value * u.hr
-            #
-            # mH2O = [get_mH2O(weather[1] + 273.15, weather[0])
-            #         for weather in subscan['weather']]
-            # lsts = lsts_col.to('s').value
-
 
             allcolumns = get_chan_columns(subscan)
             channels = \
@@ -265,15 +253,12 @@ class SDFITS_creator():
                     data['EXPOSURE'] = \
                         array.meta['integration_time'].value
                     data['TIME'] = ut_col
-                    # data['MH2O'] = mH2O
 
                     data['TSYS'] = 1
                     df = (bandwidth / nbin).to('Hz')
                     data['CDELT1'] = df
                     deltav = - df / restfreq * c.c
                     data['FREQRES'] = deltav.to('m/s').value
-                    # data['LINE'] = \
-                    #     "F{}-{:3.3f}-MHz".format(f, bandwidth.to('MHz').value)
 
                     data['OBJECT'] = subscan.meta['SOURCE']
                     data['AZIMUTH'] = azimuth
@@ -281,8 +266,7 @@ class SDFITS_creator():
                     data['CRPIX1'] = nbin // 2 + 1
                     data['CRVAL3'] = crval3
                     data['CRVAL4'] = crval4
-                    # data['LST'] = lsts
-                    # data['MAXIS1'] = array.meta['channels']
+
                     data['PARANGLE'] = subscan['par_angle']
                     data['FOCUSROT'] = subscan['derot_angle']
                     data['CRVAL4'] = crval4
@@ -290,6 +274,7 @@ class SDFITS_creator():
                     data["HUMIDITY"] = weather[:, 0]
                     data["TAMBIENT"] = weather[:, 1]
                     data["PRESSURE"] = weather[:, 2]
+                    data["BEAM"] = f
 
                     header = newhdu[1].header
                     header['TELESCOP'] = subscan.meta['site']
@@ -342,4 +327,3 @@ class SDFITS_creator():
         for (filekey, table) in self.tables.items():
             outfile = os.path.join(self.dirname, '{}.fits'.format(filekey))
             table.writeto(outfile, overwrite=True)
-            print(filekey, self.dirname, outfile)

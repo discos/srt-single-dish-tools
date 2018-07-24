@@ -9,6 +9,7 @@ from srttools.io import mkdir_p, locations, read_data_fitszilla, \
     get_chan_columns, classify_chan_columns, interpret_chan_name
 import glob
 from ..utils import get_mH2O
+from ..io import label_from_chan_name
 from scipy.signal import medfilt
 import copy
 import warnings
@@ -138,33 +139,6 @@ def create_variable_length_column(values, max_length=2048, name="SPECTRUM",
     column = fits.Column(array=values, name=name, unit=unit,
                          format=format_str)
     return column
-
-
-def label_from_chan_name(ch):
-    """
-    Examples
-    --------
-    >>> label_from_chan_name('Feed0_LCP_1')
-    'LL'
-    >>> label_from_chan_name('Feed0_Q_2')
-    'LR'
-    >>> label_from_chan_name('Feed3_RCP_1')
-    'RR'
-    >>> label_from_chan_name('Feed2_U_3')
-    'RL'
-    """
-    _, polar, _ = interpret_chan_name(ch)
-
-    if polar.startswith('L'):
-        return 'LL'
-    elif polar.startswith('R'):
-        return 'RR'
-    elif polar.startswith('Q'):
-        return 'LR'
-    elif polar.startswith('U'):
-        return 'RL'
-    else:
-        raise ValueError('Unrecognized polarization')
 
 
 def on_or_off(subscan, feed):
