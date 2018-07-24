@@ -541,7 +541,7 @@ class CLASSFITS_creator():
                 header['RESTFREQ'] = restfreq.to(u.Hz).value
                 header['MAXIS1'] = channels[0]
 
-                filekey = scandir + '_all_feed{}'.format(f)
+                filekey = os.path.basename(scandir) + '_all_feed{}'.format(f)
 
                 if filekey in list(self.tables.keys()):
                     hdul = self.tables[filekey]

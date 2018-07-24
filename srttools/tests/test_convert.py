@@ -52,6 +52,18 @@ class Test1_Scan(object):
     def test_installed(self):
         sp.check_call('SDTconvert -h'.split(' '))
 
+    def test_main_sdfits_skydip(self):
+        newdir = main_convert([self.skydip, '-f', 'sdfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        # shutil.rmtree(self.skydip + '_sdfits')
+
+    def test_main_sdfits_nodding(self):
+        newdir = main_convert([self.nodding, '-f', 'sdfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        # shutil.rmtree(self.nodding + '_sdfits')
+
     def test_conversion(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
         scan0 = Scan(self.fname, norefilt=False)

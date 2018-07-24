@@ -549,8 +549,8 @@ def _read_data_fitszilla(lchdulist):
                 np.zeros_like(data_table_data['time'])
 
     info_to_retrieve = \
-        ['time', 'derot_angle', 'weather'] + [ch + '-Temp'
-                                              for ch in chan_names]
+        ['time', 'derot_angle', 'weather', 'par_angle', 'flag_track'] + \
+            [ch + '-Temp' for ch in chan_names]
 
     new_table = Table()
 
