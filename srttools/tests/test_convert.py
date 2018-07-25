@@ -14,6 +14,9 @@ try:
 except ImportError:
     HAS_MPL = False
 
+CI = os.getenv('CI') is not None
+CI_MPL = CI and HAS_MPL
+
 
 class Test1_Scan(object):
     @classmethod
@@ -51,18 +54,6 @@ class Test1_Scan(object):
 
     def test_installed(self):
         sp.check_call('SDTconvert -h'.split(' '))
-
-    def test_main_sdfits_skydip(self):
-        newdir = main_convert([self.skydip, '-f', 'sdfits', '--test'])[0]
-        assert os.path.exists(newdir)
-        assert os.path.isdir(newdir)
-        # shutil.rmtree(self.skydip + '_sdfits')
-
-    def test_main_sdfits_nodding(self):
-        newdir = main_convert([self.nodding, '-f', 'sdfits', '--test'])[0]
-        assert os.path.exists(newdir)
-        assert os.path.isdir(newdir)
-        # shutil.rmtree(self.nodding + '_sdfits')
 
     def test_conversion(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
@@ -102,31 +93,34 @@ class Test1_Scan(object):
 
         assert "Input for MBFITS conversion must be " in str(excinfo)
 
-    @pytest.mark.skipif('HAS_MPL')
+    @pytest.mark.skipif('CI_MPL')
     def test_main_mbfitsw(self):
         main_convert([self.skydip, '-f', 'mbfitsw', '--test'])
         newfiles = glob.glob(self.skydip + '*KKG*.fits')
         assert len(newfiles) > 0
-        shutil.rmtree(self.skydip + '_mbfitsw')
+        # test that a new conversion does not make this fail
+        newdir = main_convert([self.skydip, '-f', 'mbfitsw', '--test'])[0]
+
+        shutil.rmtree(newdir)
         with fits.open(newfiles[0]) as hdul:
             header = hdul['SCAN-MBFITS'].header
             assert header['SCANTYPE'] == 'SKYDIP'
         for fname in newfiles:
             os.unlink(fname)
 
-    @pytest.mark.skipif('HAS_MPL')
+    @pytest.mark.skipif('CI_MPL')
     def test_main_mbfitsw_polar(self):
-        main_convert([self.example, '-f', 'mbfitsw', '--test'])
+        newdir = main_convert([self.example, '-f', 'mbfitsw', '--test'])[0]
         newfiles = glob.glob(self.example + '*CCB*.fits')
         assert len(newfiles) > 0
-        shutil.rmtree(self.example + '_mbfitsw')
+        shutil.rmtree(newdir)
         with fits.open(newfiles[0]) as hdul:
             header = hdul['SCAN-MBFITS'].header
             assert header['SCANTYPE'] == 'MAP'
         for fname in newfiles:
             os.unlink(fname)
 
-    @pytest.mark.skipif('HAS_MPL')
+    @pytest.mark.skipif('CI_MPL')
     def test_main_mbfits(self):
         newdir = main_convert([self.skydip, '-f', 'mbfits', '--test'])[0]
         assert os.path.exists(newdir)
@@ -137,16 +131,31 @@ class Test1_Scan(object):
         with fits.open(scanfile) as hdul:
             header = hdul[1].header
             assert header['SCANTYPE'] == 'SKYDIP'
-        shutil.rmtree(self.skydip + '_mbfits')
+        shutil.rmtree(newdir)
 
     def test_main_classfits_onoff(self):
         newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
         assert os.path.exists(newdir)
+        # test that a new conversion does not make this fail
+        newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
         assert os.path.isdir(newdir)
-        # shutil.rmtree(self.onoff + '_classfits')
 
     def test_main_classfits_nodding(self):
         newdir = main_convert([self.nodding, '-f', 'classfits', '--test'])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
-        # shutil.rmtree(self.nodding + '_classfits')
+        shutil.rmtree(self.nodding + '_classfits')
+
+    def test_main_sdfits_skydip(self):
+        newdir = main_convert([self.skydip, '-f', 'sdfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        shutil.rmtree(self.skydip + '_sdfits')
+
+    def test_main_sdfits_nodding(self):
+        newdir = main_convert([self.nodding, '-f', 'sdfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        # test that it doesn't fail when the directory is already present
+        newdir = main_convert([self.nodding, '-f', 'sdfits', '--test'])[0]
+        assert os.path.isdir(newdir)
+        shutil.rmtree(self.nodding + '_sdfits')

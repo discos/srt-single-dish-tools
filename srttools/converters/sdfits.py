@@ -1,5 +1,4 @@
 from astropy.io import fits
-from astropy.table import Table, vstack, hstack
 from astropy.time import Time
 import astropy.units as u
 import astropy.constants as c
@@ -8,7 +7,6 @@ import numpy as np
 from srttools.io import mkdir_p, locations, read_data_fitszilla, \
     get_chan_columns, classify_chan_columns, interpret_chan_name
 import glob
-from ..io import label_from_chan_name
 
 
 model_primary_header = """
