@@ -157,7 +157,7 @@ def match_srt_name(name):
     """
     Examples
     --------
-    >>> matchobj = match_srt_name('20180212-150835-S0000-3C84_RA')
+    >>> matchobj = match_srt_name('blabla/20180212-150835-S0000-3C84_RA/')
     >>> matchobj.group(1)
     '20180212'
     >>> matchobj.group(2)
@@ -167,6 +167,7 @@ def match_srt_name(name):
     >>> matchobj.group(4)
     '3C84_RA'
     """
+    name = os.path.basename(name.rstrip('/'))
     import re
     name_re = re.compile(r'([0-9]+).([0-9]+)-([^\-]+)-([^\-]+)')
     return name_re.match(name)
@@ -215,6 +216,8 @@ def main_convert(args=None):
                 launch_mbfits_creator(fname, args.format, test=args.test,
                                       wrap=False, detrend=args.detrend)
 
+            if args.test:
+                fname = '20180212-150835-S0000-3C84_RA'
             matchobj = match_srt_name(fname)
             if matchobj:
                 date = matchobj.group(1)
