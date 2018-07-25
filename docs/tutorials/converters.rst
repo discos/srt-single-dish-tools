@@ -27,7 +27,7 @@ SDT knows how to treat this problem. However, users wanting to analyze the data 
 
     (py3) $ SDTconvert -f fitsmod directory_of_observation
 
-This will create a separate extension called ``COORD``*n* for each feed, where *n* is the number of the feed. Feed 0 will not need a separate extension. Each extension will contain the updated right ascension and declination of the sky region observed by each feed.
+This will create a separate extension called ``COORD`` *n* for each feed, where *n* is the number of the feed. Feed 0 will not need a separate extension. Each extension will contain the updated right ascension and declination of the sky region observed by each feed.
 
 MBFITS
 ~~~~~~
@@ -45,4 +45,14 @@ To get a single MBFITS file for each Frontend-Backend combination, use instead
 .. code-block:: console
 
     (py3) $ SDTconvert -f mbfitsw directory_of_observation
+
+SDFITS
+~~~~~~
+CASA and other software accept data in the SDFITS format.
+
+To get the data in the SDFITS format, type
+
+.. code-block:: console
+
+    (py3) $ SDTconvert -f sdfits directory_of_observation
 
