@@ -25,6 +25,58 @@ except ImportError:
 __all__ = ["simulate_scan", "save_scan", "simulate_map"]
 
 
+summary_header = """
+SIMPLE  =                    T / file does conform to FITS standard             
+BITPIX  =                    8 / number of bits per data pixel                  
+NAXIS   =                    0 / number of data axes                            
+EXTEND  =                    T / FITS dataset may contain extensions            
+COMMENT   FITS (Flexible Image Transport System) format is defined in 'Astronomy
+COMMENT   and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H 
+HIERARCH BackendName = 'NULL    ' / Backend name                                
+CREATOR = 'NULL    '           / Software (incl. version)                       
+DATE-OBS= '2016-10-03T14:59:08.753' / Observation time                          
+HIERARCH Declination = 0.253290907695677 / Target declination (radians)         
+EQUINOX =                   0. / Equinox of RA, Dec                             
+EXPTIME =                   0. / Total integration time (seconds)               
+FITSVER = 'V.1.11  '           / FITS version                                   
+LST     =                    0 / Local sidereal time                            
+HIERARCH LogFileName = 'NULL    ' / Name of the log file                        
+HIERARCH NUSEBANDS =         0 / Number of sections                             
+OBJECT  = 'W51     '           / Target source name                             
+OBSID   = 'NULL    '           / Observer or operator initials                  
+PROJID  = 'NULL    '           / ProjectID                                      
+HIERARCH RESTFREQ1 =  22235.08 / Rest frequency (MHz)                           
+HIERARCH RESTFREQ2 =  22235.08 / Rest frequency (MHz)                           
+HIERARCH RESTFREQ3 =  22235.08 / Rest frequency (MHz)                           
+HIERARCH RESTFREQ4 =  22235.08 / Rest frequency (MHz)                           
+HIERARCH ReceiverCode = 'CCB     ' / Receiver name                              
+HIERARCH RightAscension = 5.07757730974885 / Target right ascension (radians)   
+SCANGEOM= 'NULL    '           / Scan geometry                                  
+SCANMODE= 'NULL    '           / Mapping mode                                   
+SCANTYPE= 'NULL    '           / Scan astronomical type                         
+SCANXVEL=                   0. / Tracking rate (optional,OTF)                   
+SWTCHMOD= 'NULL    '           / Switch mode                                    
+HIERARCH ScheduleName = 'NULL    ' / Name of the schedule                       
+TELESCOP= 'SRT     '           / Telescope name                                 
+VDEF    = 'OP      '           / Radial velocity definition                     
+VFRAME  = 'LSRK    '           / Radial velocity reference frame                
+VRAD    =                    0 / Radial velocity                                
+WOBUSED =                    0 / Wobbler used?                                  
+
+"""
+
+
+def create_summary(filename, key_dict={}):
+    header = fits.Header.fromstring(summary_header, sep='\n')
+    for key, value in key_dict.items():
+        header[key] = value
+
+    primary_hdu = fits.PrimaryHDU(header=header)
+    hdul = fits.HDUList([primary_hdu])
+    hdul.writeto(filename, overwrite=True)
+    return filename
+
+
 def _is_number(x):
     """"Test if a string or other is a number
 
@@ -121,6 +173,11 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname,
                   counts_to_K=(0.03, 0.03 / channel_ratio))
         timedelta += times[-1] + 1
+
+    create_summary(os.path.join(caldir, 'summary.fits'),
+                   {'RightAscension': np.radians(src_ra),
+                    'Declination': np.radians(src_dec),
+                    'Object': srcname})
 
 
 def _default_map_shape(x, y):
@@ -445,6 +502,19 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     if HAS_MPL:
         fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
         plt.close(fig)
+
+    print("Creating summary...")
+    create_summary(os.path.join(outdir_ra, 'summary.fits'),
+                   {'RightAscension': np.radians(mean_ra),
+                    'Declination': np.radians(mean_dec),
+                    'Object': srcname})
+    if outdir_ra == outdir_dec:
+        return
+    create_summary(os.path.join(outdir_dec, 'summary.fits'),
+                   {'RightAscension': np.radians(mean_ra),
+                    'Declination': np.radians(mean_dec),
+                    'Object': srcname})
+    return
 
 
 def main_simulate(args=None):
