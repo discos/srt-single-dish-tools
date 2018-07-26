@@ -7,6 +7,7 @@ import subprocess as sp
 import shutil
 import glob
 from astropy.io import fits
+from srttools.io import locations
 
 try:
     import matplotlib.pyplot as plt
@@ -150,6 +151,11 @@ class Test1_Scan(object):
         newdir = main_convert([self.skydip, '-f', 'sdfits', '--test'])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
+        newfiles = glob.glob(os.path.join(newdir, '*.fits'))
+
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SINGLE DISH'].header
+            assert np.isclose(header['OBSGEO-X'], locations['srt'].x.value)
         shutil.rmtree(self.skydip + '_sdfits')
 
     def test_main_sdfits_nodding(self):
@@ -158,4 +164,11 @@ class Test1_Scan(object):
         # test that it doesn't fail when the directory is already present
         newdir = main_convert([self.nodding, '-f', 'sdfits', '--test'])[0]
         assert os.path.isdir(newdir)
+
+        newfiles = glob.glob(os.path.join(newdir, '*.fits'))
+
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SINGLE DISH'].header
+            assert np.isclose(header['OBSGEO-X'], locations['srt'].x.value)
+
         shutil.rmtree(self.nodding + '_sdfits')

@@ -21,89 +21,217 @@ END
 """
 
 model_header = """
-XTENSION= 'BINTABLE'
-BITPIX  =                    8         / Always 8.
-NAXIS   =                    2         / Always 2: tables have 2 dimensions.
-NAXIS1  =                 7275         / Number of bytes per row.
-NAXIS2  =                    4         / Number of rows.
-PCOUNT  =                    0         / Usually 0.
-GCOUNT  =                    1         / Always 1.
-TFIELDS =                   18         / Number of columns.
-EXTNAME = 'SINGLE DISH'                   / Just a name, not important.
-EXTVER  =                    1         / Always 1.
-MAXIS   =                    4         / Number of dimensions in the data.
-MAXIS1  =                 1793         / Dummy number of channels (see TTYPE1).
-MAXIS2  =                    1         / 
-MAXIS3  =                    1         / 
-MAXIS4  =                    1         / 
-CTYPE1  = 'FREQ    '                   / Dim1: freq => MAXIS1 = Nb channels.
-CRVAL1  =  0.0000000000000E+00         / Frequency offset, always 0.
-CDELT1  =  0.0000000000000E+00         / Frequency resolution [Hz].
-CRPIX1  =  0.0000000000000E+00         / Dummy reference channel (see TTYPE18).
-CTYPE3  = 'RA      '
-CRVAL3  =  0.0000000000000E+00
-CDELT3  =  0.0000000000000E+00
-CRPIX3  =  0.0000000000000E+00
-CTYPE4  = 'DEC     '
-CRVAL4  =  0.0000000000000E+00
-CDELT4  =  0.0000000000000E+00
-CRPIX4  =  0.0000000000000E+00
-SUBSCAN =                    1         / Subscan number.  Often 1.
-LINE    = '            '               / Name of your line, up to 12 chars.
-OBJECT  = '            '               / Name of your source, up to 12 chars.
-TELESCOP= '            '               / Name of your telescope, up to 12 chars.
-BANDWID =  0.000000000000               / 
-DATE-OBS= '            '               / 
-EXPOSURE=  0.000000000000               / 
-TSYS    =  0.000000000000               / 
-RESTFREQ=  0.0000000000000E+00         / Rest (signal) frequency at ref chan.
-VELO-HEL=  0.0000000000000E+00         / Velocity at ref.  chan [m.s-1].
-VELDEF  = 'RADI-LSR'                   / Type of velocity.
-GAINIMAG=  0.0000000000000E+00         / Ratio Image/Signal.
-BEAMEFF =  0.0000000000000E+00         / Beam efficiency.
-FORWEFF =  0.0000000000000E+00         / Forward efficiency.
-EPOCH   =  2.0000000000000E+03         / Epoch of coordinates.
-DATE-RED= '15/07/97'                   / Date of reduction.
+XTENSION= 'BINTABLE'           / binary table extension                         
+BITPIX  =                    8 / 8-bit bytes                                    
+NAXIS   =                    2 / 2-dimensional binary table                     
+NAXIS1  =                  280 / width of table in bytes                        
+NAXIS2  =                   32 / number of rows in table                        
+PCOUNT  =              2621440 / size of special data area                      
+GCOUNT  =                    1 / one data group (required keyword)              
+TFIELDS =                   39 / number of fields in each row                   
+EXTNAME = 'SINGLE DISH'        / name of this binary table extension            
+NMATRIX =                    1 / Number of DATA arrays                          
+OBSERVER= ''                   / Observer name(s)                               
+PROJID  = ''                   / Project name                                   
+TELESCOP= 'SRT     '           / Telescope name                                 
+OBSGEO-X=      4865182.7660    / [m] Antenna ITRF X-coordinate                  
+OBSGEO-Y=      791922.6890     / [m] Antenna ITRF Y-coordinate                  
+OBSGEO-Z=      4035137.1740    / [m] Antenna ITRF Z-coordinate                  
+TTYPE1  = 'SCAN    '           / label for field                                
+TFORM1  = '1I      '           / format of field                                
+TTYPE2  = 'CYCLE   '           / label for field                                
+TFORM2  = '1J      '           / format of field                                
+TTYPE3  = 'DATE-OBS'           / label for field                                
+TFORM3  = '10A     '           / format of field                                
+TTYPE4  = 'TIME    '           / label for field                                
+TFORM4  = '1D      '           / format of field                                
+TUNIT4  = 's       '           / units of field                                 
+TTYPE5  = 'EXPOSURE'           / label for field                                
+TFORM5  = '1E      '           / format of field                                
+TUNIT5  = 's       '           / units of field                                 
+TTYPE6  = 'OBJECT  '           / label for field                                
+TFORM6  = '16A     '           / format of field                                
+TTYPE7  = 'OBJ-RA  '           / label for field                                
+TFORM7  = '1D      '           / format of field                                
+TUNIT7  = 'deg     '           / units of field                                 
+TTYPE8  = 'OBJ-DEC '           / label for field                                
+TFORM8  = '1D      '           / format of field                                
+TUNIT8  = 'deg     '           / units of field                                 
+TTYPE9  = 'RESTFRQ '           / label for field                                
+TFORM9  = '1D      '           / format of field                                
+TUNIT9  = 'Hz      '           / units of field                                 
+TTYPE10 = 'OBSMODE '           / label for field                                
+TFORM10 = '16A     '           / format of field                                
+TTYPE11 = 'BEAM    '           / label for field                                
+TFORM11 = '1I      '           / format of field                                
+TTYPE12 = 'IF      '           / label for field                                
+TFORM12 = '1I      '           / format of field                                
+TTYPE13 = 'FREQRES '           / label for field                                
+TFORM13 = '1D      '           / format of field                                
+TUNIT13 = 'Hz      '           / units of field                                 
+TTYPE14 = 'BANDWID '           / label for field                                
+TFORM14 = '1D      '           / format of field                                
+TUNIT14 = 'Hz      '           / units of field                                 
+CTYPE1  = 'FREQ    '           / DATA array axis 1: frequency in Hz.            
+TTYPE15 = 'CRPIX1  '           / label for field                                
+TFORM15 = '1E      '           / format of field                                
+TTYPE16 = 'CRVAL1  '           / label for field                                
+TFORM16 = '1D      '           / format of field                                
+TUNIT16 = 'Hz      '           / units of field                                 
+TTYPE17 = 'CDELT1  '           / label for field                                
+TFORM17 = '1D      '           / format of field                                
+TUNIT17 = 'Hz      '           / units of field                                 
+CTYPE2  = 'STOKES  '           / DATA array axis 2: polarization code           
+CRPIX2  =              1.0E+00 / Polarization code reference pixel              
+CRVAL2  =             -5.0E+00 / Polarization code at reference pixel (XX)      
+CDELT2  =             -1.0E+00 / Polarization code axis increment               
+CTYPE3  = 'RA      '           / DATA array axis 3 (degenerate): RA (mid-int)   
+CRPIX3  =              1.0E+00 / RA reference pixel                             
+TTYPE18 = 'CRVAL3  '           / label for field                                
+TFORM18 = '1D      '           / format of field                                
+TUNIT18 = 'deg     '           / units of field                                 
+CDELT3  =             -1.0E+00 / RA axis increment                              
+CTYPE4  = 'DEC     '           / DATA array axis 4 (degenerate): Dec (mid-int)  
+CRPIX4  =              1.0E+00 / Dec reference pixel                            
+TTYPE19 = 'CRVAL4  '           / label for field                                
+TFORM19 = '1D      '           / format of field                                
+TUNIT19 = 'deg     '           / units of field                                 
+CDELT4  =              1.0E+00 / Dec axis increment                             
+TTYPE20 = 'SCANRATE'           / label for field                                
+TFORM20 = '2E      '           / format of field                                
+TUNIT20 = 'deg/s   '           / units of field                                 
+SPECSYS = 'LSRK    '           / Doppler reference frame (transformed)          
+SSYSOBS = 'TOPOCENT'           / Doppler reference frame of observation         
+EQUINOX =              2.0E+03 / Equinox of equatorial coordinates              
+RADESYS = 'FK5     '           / Equatorial coordinate frame                    
+TTYPE21 = 'TSYS    '           / label for field                                
+TFORM21 = '2E      '           / format of field                                
+TUNIT21 = 'K       '           / units of field                                 
+TTYPE22 = 'CALFCTR '           / label for field                                
+TFORM22 = '2E      '           / format of field                                
+TTYPE23 = 'DATA    '           / label for field                                
+TFORM23 = '1PE(16384)'         / format of field                                
+TTYPE24 = 'TDIM23  '           / label for field                                
+TFORM24 = '16A     '           / format of field                                
+TUNIT24 = 'K       '           / units of field                                 
+TTYPE25 = 'FLAGGED '           / label for field                                
+TFORM25 = '1PB(16384)'         / format of field                                
+TTYPE26 = 'TDIM25  '           / label for field                                
+TFORM26 = '16A     '           / format of field                                
+TTYPE27 = 'TCAL    '           / label for field                                
+TFORM27 = '2E      '           / format of field                                
+TUNIT27 = 'Jy      '           / units of field                                 
+TTYPE28 = 'TCALTIME'           / label for field                                
+TFORM28 = '16A     '           / format of field                                
+TTYPE29 = 'AZIMUTH '           / label for field                                
+TFORM29 = '1E      '           / format of field                                
+TUNIT29 = 'deg     '           / units of field                                 
+TTYPE30 = 'ELEVATIO'           / label for field                                
+TFORM30 = '1E      '           / format of field                                
+TUNIT30 = 'deg     '           / units of field                                 
+TTYPE31 = 'PARANGLE'           / label for field                                
+TFORM31 = '1E      '           / format of field                                
+TUNIT31 = 'deg     '           / units of field                                 
+TTYPE32 = 'FOCUSAXI'           / label for field                                
+TFORM32 = '1E      '           / format of field                                
+TUNIT32 = 'm       '           / units of field                                 
+TTYPE33 = 'FOCUSTAN'           / label for field                                
+TFORM33 = '1E      '           / format of field                                
+TUNIT33 = 'm       '           / units of field                                 
+TTYPE34 = 'FOCUSROT'           / label for field                                
+TFORM34 = '1E      '           / format of field                                
+TUNIT34 = 'deg     '           / units of field                                 
+TTYPE35 = 'TAMBIENT'           / label for field                                
+TFORM35 = '1E      '           / format of field                                
+TUNIT35 = 'C       '           / units of field                                 
+TTYPE36 = 'PRESSURE'           / label for field                                
+TFORM36 = '1E      '           / format of field                                
+TUNIT36 = 'Pa      '           / units of field                                 
+TTYPE37 = 'HUMIDITY'           / label for field                                
+TFORM37 = '1E      '           / format of field                                
+TUNIT37 = '%       '           / units of field                                 
+TTYPE38 = 'WINDSPEE'           / label for field                                
+TFORM38 = '1E      '           / format of field                                
+TUNIT38 = 'm/s     '           / units of field                                 
+TTYPE39 = 'WINDDIRE'           / label for field                                
+TFORM39 = '1E      '           / format of field                                
+TUNIT39 = 'deg     '           / units of field                                 
+
 """
 
-LIST_TTYPE = ["SCAN", "CYCLE", "DATE-OBS", "TIME",
-              "EXPOSURE", "OBJECT", "OBJ_RA", "OBJ_DEC",
-              "RESTFREQ", "OBSMODE", "BEAM", "_IF",
-              "FREQRES", "BANDWID", "CRPIX1", "CRVAL1",
-              "CDELT1", "CRVAL3", "CRVAL4", "SCANRATE",
-              "TSYS", "CALFCTR", # "DATA", "FLAGGED",
-              "XCALFCTR", "TCAL", "TCALTIME", "AZIMUTH",
-              "ELEVATIO", "PARANGLE", "FOCUSAXI", "FOCUSTAN",
-              "FOCUSROT", "TAMBIENT", "PRESSURE", "HUMIDITY",
-              "WINDSPEE", "WINDDIRE"]
+# LIST_TTYPE = ["SCAN", "CYCLE", "DATE-OBS", "TIME",
+#               "EXPOSURE", "OBJECT", "OBJ_RA", "OBJ_DEC",
+#               "RESTFREQ", "OBSMODE", "BEAM", "_IF",
+#               "FREQRES", "BANDWID", "CRPIX1", "CRVAL1",
+#               "CDELT1", "CRVAL3", "CRVAL4", "SCANRATE",
+#               "TSYS", "CALFCTR", # "DATA", "FLAGGED",
+#               "XCALFCTR", "TCAL", "TCALTIME", "AZIMUTH",
+#               "ELEVATIO", "PARANGLE", "FOCUSAXI", "FOCUSTAN",
+#               "FOCUSROT", "TAMBIENT", "PRESSURE", "HUMIDITY",
+#               "WINDSPEE", "WINDDIRE"]
+#
+# LIST_TFORM = ["I", "I", "10A", "D",
+#               "E", "16A", "D", "D",
+#               "D", "16A", "I", "I",
+#               "D", "D", "E ", "D",
+#               "D", "D", "D", "2E",
+#               "2E", "2E", # tformat, tformat2,
+#               "2E", "2E", "16A", "E",
+#               "E", "E", "E", "E",
+#               "E ", "E", "E", "E",
+#               "E", "E"]
+#
+# LIST_TUNIT = [""] * len(LIST_TFORM)
 
-LIST_TFORM = ["I", "I", "10A", "D",
-              "E", "16A", "D", "D",
-              "D", "16A", "I", "I",
-              "D", "D", "E ", "D",
-              "D", "D", "D", "2E",
-              "2E", "2E", # tformat, tformat2,
-              "2E", "2E", "16A", "E",
-              "E", "E", "E", "E",
-              "E ", "E", "E", "E",
-              "E", "E"]
 
-LIST_TUNIT = [""] * len(LIST_TFORM)
+def get_data_description_from_model_header(data_format=None):
+    header = fits.Header.fromstring(model_header, sep='\n')
+    num = []
+    list_ttype = []
+    list_tform = []
+    list_tunit = []
+    headerdict = dict(header)
+    for k in header:
+        if not k.startswith('TTYPE'):
+            continue
+
+        n = k.replace('TTYPE', '')
+        unit = ""
+        if 'TUNIT' + n in headerdict:
+            unit = header['TUNIT' + n]
+        tform = header['TFORM' + n]
+        if header[k] in ['DATA', 'FLAGGED'] and data_format is not None:
+            tform = "{}D".format(np.product(data_format))
+        num.append(int(n))
+        list_ttype.append(header[k])
+        list_tform.append(tform)
+        list_tunit.append(unit)
+
+    num = np.asarray(num)
+    list_ttype = np.asarray(list_ttype)
+    list_tform = np.asarray(list_tform)
+    list_tunit = np.asarray(list_tunit)
+
+    order = np.argsort(num)
+    list_ttype = list_ttype[order]
+    list_tform = list_tform[order]
+    list_tunit = list_tunit[order]
+    return list_ttype, list_tform, list_tunit
 
 
-def get_model_HDUlist(additional_columns=None, **kwargs):
+def get_model_HDUlist(data_format, length=1, **kwargs):
     """Produce a model CLASS-compatible HDUlist."""
     cols = []
-    list_ttype = LIST_TTYPE
-    list_tform = LIST_TFORM
-    list_tunit = LIST_TUNIT
+
+    list_ttype, list_tform, list_tunit = \
+        get_data_description_from_model_header(data_format)
 
     for ttype, tform, tunit in zip(list_ttype, list_tform, list_tunit):
-        newcol = fits.Column(name=ttype, format=tform, unit=tunit)
+        newcol = fits.Column(name=ttype, format=tform, unit=tunit,
+                             array=np.zeros(length))
         cols.append(newcol)
+
     coldefs = fits.ColDefs(cols)
-    if additional_columns is not None:
-        coldefs += fits.ColDefs(additional_columns)
 
     hdu = fits.BinTableHDU.from_columns(
         coldefs, header=fits.Header.fromstring(model_header, sep='\n'),
@@ -228,14 +356,16 @@ class SDFITS_creator():
 
                     data_matrix = np.stack([subscan[ch] for ch in columns],
                                             axis=1)
+                    shape = data_matrix.shape
+                    if len(shape) == 3:
+                        data_matrix = \
+                            data_matrix.reshape((shape[0], shape[1]*shape[2]))
 
                     array = subscan[columns[0]]
 
-                    newcol = fits.Column(array=data_matrix, name="DATA",
-                                         unit="K",
-                                         format="{}D".format(channels[0] * ncol))
-
-                    newhdu = get_model_HDUlist(additional_columns=[newcol])
+                    newhdu = \
+                        get_model_HDUlist(data_format=(channels[0], ncol),
+                                          length=len(array))
 
                     data = newhdu[1].data
 
@@ -246,8 +376,8 @@ class SDFITS_creator():
                     if restfreq_label not in self.summary:
                         restfreq_label = 'RESTFREQ1'
                     restfreq = self.summary[restfreq_label] * u.MHz
-
-                    data['RESTFREQ'] = restfreq.to(u.Hz).value
+                    #
+                    # data['RESTFREQ'] = restfreq.to(u.Hz).value
                     data['EXPOSURE'] = \
                         array.meta['integration_time'].value
                     data['TIME'] = ut_col
@@ -257,6 +387,10 @@ class SDFITS_creator():
                     data['CDELT1'] = df
                     deltav = - df / restfreq * c.c
                     data['FREQRES'] = deltav.to('m/s').value
+
+                    data['TDIM23'] = str(data_matrix[0].shape)
+                    data['TDIM25'] = str(data_matrix[0].shape)
+                    data['DATA'] = data_matrix
 
                     data['OBJECT'] = subscan.meta['SOURCE']
                     data['AZIMUTH'] = azimuth
@@ -276,6 +410,14 @@ class SDFITS_creator():
 
                     header = newhdu[1].header
                     header['TELESCOP'] = subscan.meta['site']
+                    header['OBSERVER'] = subscan.meta['OBSERVER']
+                    header['OBSGEO-X'] = \
+                        locations[subscan.meta['site']].x.to('m').value
+                    header['OBSGEO-Y'] = \
+                        locations[subscan.meta['site']].y.to('m').value
+                    header['OBSGEO-Z'] = \
+                        locations[subscan.meta['site']].z.to('m').value
+
                     header['CTYPE1'] = "FREQ"
                     header['CRVAL'] = 0
                     header['CRVAL3'] = \
@@ -283,10 +425,8 @@ class SDFITS_creator():
                     header['CRVAL4'] = \
                         np.mean(subscan['dec'][:, f].to(u.deg).value)
                     header['LINE'] = subscan.meta['SOURCE']
-                    header['OBJECT'] = subscan.meta['SOURCE']
                     header['DATE-OBS'] = date_col[0]
 
-                    header['SOURCE'] = subscan.meta['SOURCE']
                     header['DATE-RED'] = \
                         Time.now().to_datetime().strftime('%d/%m/%y')
                     header['LINE'] = \
