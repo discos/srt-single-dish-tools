@@ -7,7 +7,8 @@ import subprocess as sp
 import shutil
 import glob
 from astropy.io import fits
-from srttools.io import locations
+from srttools.io import locations, mkdir_p
+from srttools.simulate import simulate_map
 
 try:
     import matplotlib.pyplot as plt
@@ -48,6 +49,11 @@ class Test1_Scan(object):
             os.path.abspath(
                 os.path.join(klass.datadir,
                              'nodding_xarcos'))
+        klass.outdir = os.path.join('sim')
+        klass.emptydir = os.path.join('sim', 'empty')
+        for d in [klass.emptydir]:
+            mkdir_p(d)
+            simulate_map(width_ra=2, width_dec=2., outdir=klass.emptydir)
 
     def test_converter_basic(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
@@ -172,3 +178,18 @@ class Test1_Scan(object):
             assert np.isclose(header['OBSGEO-X'], locations['srt'].x.value)
 
         shutil.rmtree(self.nodding + '_sdfits')
+
+    def test_main_sdfits_tpmap(self):
+        newdir = main_convert([self.emptydir, '-f', 'sdfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        # test that it doesn't fail when the directory is already present
+        newdir = main_convert([self.emptydir, '-f', 'sdfits', '--test'])[0]
+        assert os.path.isdir(newdir)
+
+        newfiles = glob.glob(os.path.join(newdir, '*.fits'))
+
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SINGLE DISH'].header
+            assert np.isclose(header['OBSGEO-X'], locations['srt'].x.value)
+
+        shutil.rmtree(self.emptydir + '_sdfits')
