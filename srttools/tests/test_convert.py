@@ -50,7 +50,7 @@ class Test1_Scan(object):
                 os.path.join(klass.datadir,
                              'nodding_xarcos'))
         klass.outdir = os.path.join('sim')
-        klass.emptydir = os.path.join('sim', 'empty')
+        klass.emptydir = os.path.join('sim', 'test_sdfits')
         for d in [klass.emptydir]:
             mkdir_p(d)
             simulate_map(width_ra=2, width_dec=2., outdir=klass.emptydir)
