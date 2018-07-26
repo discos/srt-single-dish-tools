@@ -13,7 +13,7 @@ import six
 import collections
 
 from .io import mkdir_p, locations
-from .utils import tqdm
+from .utils import tqdm, jit
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 try:
@@ -23,6 +23,9 @@ except ImportError:
     HAS_MPL = False
 
 __all__ = ["simulate_scan", "save_scan", "simulate_map"]
+
+
+DEFAULT_CAL_OFFSET = 211
 
 
 summary_header = """
@@ -64,6 +67,41 @@ VRAD    =                    0 / Radial velocity
 WOBUSED =                    0 / Wobbler used?                                  
 
 """
+
+
+def _apply_spectrum_to_data(spec_func, counts, nbin, bw=1000):
+    if nbin == 1:
+        return counts
+    single = False
+    if not isinstance(counts, collections.Iterable):
+        counts = []
+        single = True
+    counts = np.asarray(counts)
+    df = bw / nbin
+    freqs = np.arange(0, bw, df)
+    single_spec = spec_func(freqs)
+    spec = np.zeros((len(counts), len(freqs)))
+    for i, c in enumerate(counts):
+        spec[i, :] += c * single_spec
+
+    if single:
+        return spec[0]
+    return spec
+
+
+def _standard_source_spectrum(counts, nbin, bw=1000, sigma=1):
+    def spec_func(f):
+        f = f - bw / 2
+        return np.exp(-(f ** 2) / (2 * sigma ** 2))
+    return _apply_spectrum_to_data(spec_func, counts, nbin, bw)
+
+
+def _standard_bkg_spectrum(counts, nbin, bw=1000):
+    def spec_func(f):
+        sp = 1 + 0.1 * np.sin(2 * np.pi * 5 / bw * f) * (1 - f / bw)
+        sp -= 0.5 * f / bw
+        return sp
+    return _apply_spectrum_to_data(spec_func, counts, nbin, bw)
 
 
 def create_summary(filename, key_dict={}):
@@ -110,17 +148,20 @@ def _default_flat_shape(x):
     return 100 + np.zeros(np.asarray(x).shape)
 
 
+@jit(nopython=True)
 def _2d_gauss(x, y, sigma=2.5 / 60.):
     """A Gaussian beam"""
     return np.exp(-(x ** 2 + y ** 2) / (2 * sigma**2))
 
 
+@jit(nopython=True)
 def calibrator_scan_func(x):
     return 100 * _2d_gauss(x, 0, sigma=2.5 / 60)
 
 
 def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
-                   srcname='DummyCal', channel_ratio=0.8, baseline="flat"):
+                   srcname='DummyCal', channel_ratio=0.8, baseline="flat",
+                   nbin=1):
     src_ra = 185
     src_dec = 75
     speed = 2.  # arcmin/s
@@ -134,11 +175,11 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
         times, ras, scan0 = \
             simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
                           noise_amplitude=0.2, center=0,
-                          baseline=baseline)
+                          baseline=baseline, nbin=nbin)
         _, _, scan1 = \
             simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
                           noise_amplitude=0.2, center=0,
-                          baseline=baseline)
+                          baseline=baseline, nbin=nbin)
 
         ras = ras / np.cos(np.radians(src_dec)) + src_ra
         if i % 2 != 0:
@@ -156,11 +197,11 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
         times, decs, scan0 = \
             simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
                           noise_amplitude=0.2, center=src_dec,
-                          baseline=baseline)
+                          baseline=baseline, nbin=nbin)
         _, _, scan1 = \
             simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
                           noise_amplitude=0.2, center=src_dec,
-                          baseline=baseline)
+                          baseline=baseline, nbin=nbin)
 
         if i % 2 != 0:
             decs = decs[::-1]
@@ -199,8 +240,23 @@ def _default_map_shape(x, y):
     return 100 + np.zeros_like(y) * np.zeros_like(x)
 
 
+# def sim_position_switching(caldir, srcname='DummyCal', nbin=1):
+#     dt = 0.04
+#     src_ra = 185
+#     src_dec = 75
+#
+#     times, _, on = \
+#         simulate_scan(dt=dt, length=0, speed=1, shape=calibrator_scan_func,
+#                       noise_amplitude=0.2, center=src_dec, nbin=nbin)
+#
+#     _, _, off = \
+#         simulate_scan(dt=dt, length=0, speed=1, shape=calibrator_scan_func,
+#                       noise_amplitude=0.2, center=src_dec, nbin=nbin)
+
+
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
-                  noise_amplitude=1., center=0., baseline="flat"):
+                  noise_amplitude=1., center=0., baseline="flat",
+                  nbin=1, calon=False):
     """Simulate a scan.
 
     Parameters
@@ -235,8 +291,15 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
 
     scan_baseline = _create_baseline(position, baseline)
 
-    return times, position + center, shape(position) + \
-        ra.normal(0, noise_amplitude, position.shape) + scan_baseline
+    signal = _standard_source_spectrum(shape(position), nbin)
+    bkg = _standard_bkg_spectrum(scan_baseline, nbin)
+    scan_shape = signal + bkg
+    scan_shape += ra.normal(0, noise_amplitude, scan_shape.shape)
+
+    if calon:
+        scan_shape += DEFAULT_CAL_OFFSET
+
+    return times, position + center, scan_shape
 
 
 def save_scan(times, ra, dec, channels, filename='out.fits',
@@ -289,6 +352,8 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
         lchdulist[0].header['HIERARCH SubScanType'] = scan_type
 
     data_table_data = Table(datahdu.data)
+    data_table_data.remove_column('Ch0')
+    data_table_data.remove_column('Ch1')
 
     obstimes = Time((times / 86400 + 57000) * u.day, format='mjd', scale='utc')
 
@@ -311,17 +376,17 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
 
     data_table_data = vstack([data_table_data, newtable])
 
+    hdu = fits.BinTableHDU(data_table_data, header=datahdu.header)
     nrows = len(data_table_data)
-
-    hdu = fits.BinTableHDU.from_columns(datahdu.data.columns, nrows=nrows)
-    for colname in datahdu.data.columns.names:
-        hdu.data[colname][:] = data_table_data[colname]
 
     datahdu.data = hdu.data
 
     temptable = Table()
     for ch in channels.keys():
-        temptable[ch] = newtable[ch] * counts_to_K[ch]
+        dummy_data = newtable[ch]
+        if len(dummy_data.shape) == 2:
+            dummy_data = np.sum(dummy_data, axis=1)
+        temptable[ch] = dummy_data * counts_to_K[ch]
 
     thdu = fits.BinTableHDU.from_columns(temphdu.data.columns, nrows=nrows)
     for colname in temphdu.data.columns.names:
@@ -373,7 +438,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                  spacing=0.5, count_map=None, noise_amplitude=1.,
                  width_ra=None, width_dec=None, outdir='sim/',
                  baseline="flat", mean_ra=180, mean_dec=70,
-                 srcname='Dummy', channel_ratio=1):
+                 srcname='Dummy', channel_ratio=1, nbin=1):
 
     """Simulate a map.
 
@@ -442,28 +507,37 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
 
         start_dec = mean_dec + delta_dec
 
-        counts_clean = count_map(ra_array, delta_dec)
+        counts_clean = \
+            _standard_source_spectrum(count_map(ra_array, delta_dec),
+                                      nbin=nbin)
 
-        baseline0 = _create_baseline(ra_array, baseline)
-        baseline1 = _create_baseline(ra_array, baseline)
+        baseline0 = \
+            _standard_bkg_spectrum(_create_baseline(ra_array, baseline),
+                                   nbin=nbin)
+        baseline1 = \
+            _standard_bkg_spectrum(_create_baseline(ra_array, baseline),
+                                   nbin=nbin)
 
         counts0 = counts_clean + \
-            ra.normal(0, noise_amplitude, ra_array.shape) + baseline0
+            ra.normal(0, noise_amplitude, counts_clean.shape) + baseline0
         counts1 = counts_clean + \
-            ra.normal(0, noise_amplitude, ra_array.shape) + baseline1
+            ra.normal(0, noise_amplitude, counts_clean.shape) + baseline1
 
         actual_ra = mean_ra + ra_array / np.cos(np.radians(start_dec))
 
         if i_d % 2 != 0:
             actual_ra = actual_ra[::-1]
+        fname = os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d))
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
                   {'Ch0': counts0, 'Ch1': counts1 * channel_ratio},
-                  filename=os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d)),
+                  filename=fname,
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname,
                   counts_to_K=(0.03, 0.03 / channel_ratio))
         if HAS_MPL:
             plt.plot(ra_array, counts0)
             plt.plot(ra_array, counts1)
+
+        print(delta_dec, fname)
 
     if HAS_MPL:
         fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
@@ -477,15 +551,21 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     for i_r, delta_ra in enumerate(tqdm(delta_ras)):
         start_ra = delta_ra / np.cos(np.radians(mean_dec)) + mean_ra
 
-        counts_clean = count_map(delta_ra, dec_array)
+        counts_clean = \
+            _standard_source_spectrum(count_map(delta_ra, dec_array),
+                                      nbin=nbin)
 
-        baseline0 = _create_baseline(dec_array, baseline)
-        baseline1 = _create_baseline(dec_array, baseline)
+        baseline0 = \
+            _standard_bkg_spectrum(_create_baseline(dec_array, baseline),
+                                   nbin=nbin)
+        baseline1 = \
+            _standard_bkg_spectrum(_create_baseline(dec_array, baseline),
+                                   nbin=nbin)
 
         counts0 = counts_clean + \
-            ra.normal(0, noise_amplitude, ra_array.shape) + baseline0
+            ra.normal(0, noise_amplitude, counts_clean.shape) + baseline0
         counts1 = counts_clean + \
-            ra.normal(0, noise_amplitude, ra_array.shape) + baseline1
+            ra.normal(0, noise_amplitude, counts_clean.shape) + baseline1
 
         if i_r % 2 != 0:
             dec_array = dec_array[::-1]
@@ -566,6 +646,9 @@ def main_simulate(args=None):
     parser.add_argument("--integration-time", type=float, default=0.04,
                         help='Integration time in seconds')
 
+    parser.add_argument("--spectral-bins", type=int, default=1,
+                        help='Simulate a spectrum with this number of bins')
+
     parser.add_argument("--no-cal", action='store_true', default=False,
                         help="Don't simulate calibrators")
 
@@ -585,12 +668,14 @@ def main_simulate(args=None):
         cal1 = os.path.join(args.outdir_root, 'calibrator1')
         mkdir_p(cal1)
         sim_crossscans(5, cal1, scan_func=calibrator_scan_func,
-                       channel_ratio=0.9, baseline=args.baseline)
+                       channel_ratio=0.9, baseline=args.baseline,
+                       nbin=args.spectral_bins)
         cal2 = os.path.join(args.outdir_root, 'calibrator2')
         mkdir_p(cal2)
         sim_crossscans(5, cal2, scan_func=calibrator_scan_func,
                        srcname='DummyCal2', channel_ratio=0.9,
-                       baseline=args.baseline)
+                       baseline=args.baseline,
+                       nbin=args.spectral_bins)
 
     simulate_map(dt=args.integration_time, length_ra=args.geometry[0],
                  length_dec=args.geometry[1], speed=args.scan_speed,
@@ -600,4 +685,5 @@ def main_simulate(args=None):
                          os.path.join(args.outdir_root, 'gauss_dec')),
                  baseline=args.baseline, mean_ra=180, mean_dec=70,
                  srcname='Dummy', channel_ratio=0.9,
-                 count_map=local_gauss_src_func)
+                 count_map=local_gauss_src_func,
+                 nbin=args.spectral_bins)
