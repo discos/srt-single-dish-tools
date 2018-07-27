@@ -40,9 +40,9 @@ EXTNAME = 'MATRIX  '                   / Just a name, not important.
 EXTVER  =                    1         / Always 1.
 MAXIS   =                    4         / Number of dimensions in the data.
 MAXIS1  =                 1793         / Dummy number of channels (see TTYPE1).
-MAXIS2  =                    1         / 
-MAXIS3  =                    1         / 
-MAXIS4  =                    1         / 
+MAXIS2  =                    1         /
+MAXIS3  =                    1         /
+MAXIS4  =                    1         /
 CTYPE1  = 'FREQ    '                   / Dim1: freq => MAXIS1 = Nb channels.
 CRVAL1  =  0.0000000000000E+00         / Frequency offset, always 0.
 CDELT1  =  0.0000000000000E+00         / Frequency resolution [Hz].

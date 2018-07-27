@@ -59,97 +59,97 @@ class Test1_Scan(object):
         sim_position_switching(klass.pswdir, nbin=1024)
         simulate_map(width_ra=2, width_dec=2., outdir=klass.emptydir)
 
-    # def test_converter_basic(self):
-    #     convert_to_complete_fitszilla(self.fname, 'converted')
-    #     os.unlink('converted.fits')
-    #
-    # def test_installed(self):
-    #     sp.check_call('SDTconvert -h'.split(' '))
-    #
-    # def test_conversion(self):
-    #     convert_to_complete_fitszilla(self.fname, 'converted')
-    #     scan0 = Scan(self.fname, norefilt=False)
-    #     scan1 = Scan('converted.fits', norefilt=False)
-    #     for col in ['ra', 'el', 'az', 'dec']:
-    #         assert np.allclose(scan0[col], scan1[col])
-    #     os.unlink('converted.fits')
-    #
-    # def test_conversion_same_name_fails(self):
-    #     with pytest.raises(ValueError):
-    #         convert_to_complete_fitszilla(self.fname, self.fname)
-    #
-    # def test_main(self):
-    #     main_convert([self.fname, '-f', 'fitsmod'])
-    #     assert os.path.exists(self.fname.replace('.fits',
-    #                                              '_fitsmod.fits'))
-    #     os.unlink(self.fname.replace('.fits', '_fitsmod.fits'))
-    #
-    # def test_main_dir(self):
-    #     main_convert([self.skydip, '-f', 'fitsmod'])
-    #     newfile = os.path.join(self.skydip,
-    #                            'skydip_mod_fitsmod.fits')
-    #     assert os.path.exists(newfile)
-    #     os.unlink(newfile)
-    #
-    # def test_main_garbage_format(self):
-    #     with pytest.warns(UserWarning):
-    #         main_convert([self.fname, '-f', 'weruoiq'])
-    #
-    #     assert not os.path.exists(self.fname.replace('.fits',
-    #                                                  '_weruoiq.fits'))
-    #
-    # def test_main_nondir_mbfits(self):
-    #     with pytest.raises(ValueError) as excinfo:
-    #         main_convert([self.fname, '-f', 'mbfits'])
-    #
-    #     assert "Input for MBFITS conversion must be " in str(excinfo)
-    #
-    # @pytest.mark.skipif('CI_MPL')
-    # def test_main_mbfitsw(self):
-    #     main_convert([self.skydip, '-f', 'mbfitsw', '--test'])
-    #     newfiles = glob.glob(self.skydip + '*KKG*.fits')
-    #     assert len(newfiles) > 0
-    #     # test that a new conversion does not make this fail
-    #     newdir = main_convert([self.skydip, '-f', 'mbfitsw', '--test'])[0]
-    #
-    #     shutil.rmtree(newdir)
-    #     with fits.open(newfiles[0]) as hdul:
-    #         header = hdul['SCAN-MBFITS'].header
-    #         assert header['SCANTYPE'] == 'SKYDIP'
-    #     for fname in newfiles:
-    #         os.unlink(fname)
-    #
-    # @pytest.mark.skipif('CI_MPL')
-    # def test_main_mbfitsw_polar(self):
-    #     newdir = main_convert([self.example, '-f', 'mbfitsw', '--test'])[0]
-    #     newfiles = glob.glob(self.example + '*CCB*.fits')
-    #     assert len(newfiles) > 0
-    #     shutil.rmtree(newdir)
-    #     with fits.open(newfiles[0]) as hdul:
-    #         header = hdul['SCAN-MBFITS'].header
-    #         assert header['SCANTYPE'] == 'MAP'
-    #     for fname in newfiles:
-    #         os.unlink(fname)
-    #
-    # @pytest.mark.skipif('CI_MPL')
-    # def test_main_mbfits(self):
-    #     newdir = main_convert([self.skydip, '-f', 'mbfits', '--test'])[0]
-    #     assert os.path.exists(newdir)
-    #     assert os.path.isdir(newdir)
-    #     assert os.path.exists(os.path.join(newdir, 'GROUPING.fits'))
-    #     scanfile = os.path.join(newdir, 'SCAN.fits')
-    #     assert os.path.exists(scanfile)
-    #     with fits.open(scanfile) as hdul:
-    #         header = hdul[1].header
-    #         assert header['SCANTYPE'] == 'SKYDIP'
-    #     shutil.rmtree(newdir)
-    #
-    # def test_main_classfits_onoff(self):
-    #     newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
-    #     assert os.path.exists(newdir)
-    #     # test that a new conversion does not make this fail
-    #     newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
-    #     assert os.path.isdir(newdir)
+    def test_converter_basic(self):
+        convert_to_complete_fitszilla(self.fname, 'converted')
+        os.unlink('converted.fits')
+
+    def test_installed(self):
+        sp.check_call('SDTconvert -h'.split(' '))
+
+    def test_conversion(self):
+        convert_to_complete_fitszilla(self.fname, 'converted')
+        scan0 = Scan(self.fname, norefilt=False)
+        scan1 = Scan('converted.fits', norefilt=False)
+        for col in ['ra', 'el', 'az', 'dec']:
+            assert np.allclose(scan0[col], scan1[col])
+        os.unlink('converted.fits')
+
+    def test_conversion_same_name_fails(self):
+        with pytest.raises(ValueError):
+            convert_to_complete_fitszilla(self.fname, self.fname)
+
+    def test_main(self):
+        main_convert([self.fname, '-f', 'fitsmod'])
+        assert os.path.exists(self.fname.replace('.fits',
+                                                 '_fitsmod.fits'))
+        os.unlink(self.fname.replace('.fits', '_fitsmod.fits'))
+
+    def test_main_dir(self):
+        main_convert([self.skydip, '-f', 'fitsmod'])
+        newfile = os.path.join(self.skydip,
+                               'skydip_mod_fitsmod.fits')
+        assert os.path.exists(newfile)
+        os.unlink(newfile)
+
+    def test_main_garbage_format(self):
+        with pytest.warns(UserWarning):
+            main_convert([self.fname, '-f', 'weruoiq'])
+
+        assert not os.path.exists(self.fname.replace('.fits',
+                                                     '_weruoiq.fits'))
+
+    def test_main_nondir_mbfits(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_convert([self.fname, '-f', 'mbfits'])
+
+        assert "Input for MBFITS conversion must be " in str(excinfo)
+
+    @pytest.mark.skipif('CI_MPL')
+    def test_main_mbfitsw(self):
+        main_convert([self.skydip, '-f', 'mbfitsw', '--test'])
+        newfiles = glob.glob(self.skydip + '*KKG*.fits')
+        assert len(newfiles) > 0
+        # test that a new conversion does not make this fail
+        newdir = main_convert([self.skydip, '-f', 'mbfitsw', '--test'])[0]
+
+        shutil.rmtree(newdir)
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SCAN-MBFITS'].header
+            assert header['SCANTYPE'] == 'SKYDIP'
+        for fname in newfiles:
+            os.unlink(fname)
+
+    @pytest.mark.skipif('CI_MPL')
+    def test_main_mbfitsw_polar(self):
+        newdir = main_convert([self.example, '-f', 'mbfitsw', '--test'])[0]
+        newfiles = glob.glob(self.example + '*CCB*.fits')
+        assert len(newfiles) > 0
+        shutil.rmtree(newdir)
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SCAN-MBFITS'].header
+            assert header['SCANTYPE'] == 'MAP'
+        for fname in newfiles:
+            os.unlink(fname)
+
+    @pytest.mark.skipif('CI_MPL')
+    def test_main_mbfits(self):
+        newdir = main_convert([self.skydip, '-f', 'mbfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        assert os.path.exists(os.path.join(newdir, 'GROUPING.fits'))
+        scanfile = os.path.join(newdir, 'SCAN.fits')
+        assert os.path.exists(scanfile)
+        with fits.open(scanfile) as hdul:
+            header = hdul[1].header
+            assert header['SCANTYPE'] == 'SKYDIP'
+        shutil.rmtree(newdir)
+
+    def test_main_classfits_onoff(self):
+        newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        # test that a new conversion does not make this fail
+        newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
+        assert os.path.isdir(newdir)
 
     def test_main_classfits_sim(self):
         newdir = main_convert([self.pswdir, '-f', 'classfits', '--test'])[0]

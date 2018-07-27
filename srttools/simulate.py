@@ -29,42 +29,42 @@ DEFAULT_CAL_OFFSET = 211
 
 
 summary_header = """
-SIMPLE  =                    T / file does conform to FITS standard             
-BITPIX  =                    8 / number of bits per data pixel                  
-NAXIS   =                    0 / number of data axes                            
-EXTEND  =                    T / FITS dataset may contain extensions            
+SIMPLE  =                    T / file does conform to FITS standard
+BITPIX  =                    8 / number of bits per data pixel
+NAXIS   =                    0 / number of data axes
+EXTEND  =                    T / FITS dataset may contain extensions
 COMMENT   FITS (Flexible Image Transport System) format is defined in 'Astronomy
-COMMENT   and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H 
-HIERARCH BackendName = 'NULL    ' / Backend name                                
-CREATOR = 'NULL    '           / Software (incl. version)                       
-DATE-OBS= '2016-10-03T14:59:08.753' / Observation time                          
-HIERARCH Declination = 0.253290907695677 / Target declination (radians)         
-EQUINOX =                   0. / Equinox of RA, Dec                             
-EXPTIME =                   0. / Total integration time (seconds)               
-FITSVER = 'V.1.11  '           / FITS version                                   
-LST     =                    0 / Local sidereal time                            
-HIERARCH LogFileName = 'NULL    ' / Name of the log file                        
-HIERARCH NUSEBANDS =         0 / Number of sections                             
-OBJECT  = 'W51     '           / Target source name                             
-OBSID   = 'NULL    '           / Observer or operator initials                  
-PROJID  = 'NULL    '           / ProjectID                                      
-HIERARCH RESTFREQ1 =  22235.08 / Rest frequency (MHz)                           
-HIERARCH RESTFREQ2 =  22235.08 / Rest frequency (MHz)                           
-HIERARCH RESTFREQ3 =  22235.08 / Rest frequency (MHz)                           
-HIERARCH RESTFREQ4 =  22235.08 / Rest frequency (MHz)                           
-HIERARCH ReceiverCode = 'CCB     ' / Receiver name                              
-HIERARCH RightAscension = 5.07757730974885 / Target right ascension (radians)   
-SCANGEOM= 'NULL    '           / Scan geometry                                  
-SCANMODE= 'NULL    '           / Mapping mode                                   
-SCANTYPE= 'NULL    '           / Scan astronomical type                         
-SCANXVEL=                   0. / Tracking rate (optional,OTF)                   
-SWTCHMOD= 'NULL    '           / Switch mode                                    
-HIERARCH ScheduleName = 'NULL    ' / Name of the schedule                       
-TELESCOP= 'SRT     '           / Telescope name                                 
-VDEF    = 'OP      '           / Radial velocity definition                     
-VFRAME  = 'LSRK    '           / Radial velocity reference frame                
-VRAD    =                    0 / Radial velocity                                
-WOBUSED =                    0 / Wobbler used?                                  
+COMMENT   and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H
+HIERARCH BackendName = 'NULL    ' / Backend name
+CREATOR = 'NULL    '           / Software (incl. version)
+DATE-OBS= '2016-10-03T14:59:08.753' / Observation time
+HIERARCH Declination = 0.253290907695677 / Target declination (radians)
+EQUINOX =                   0. / Equinox of RA, Dec
+EXPTIME =                   0. / Total integration time (seconds)
+FITSVER = 'V.1.11  '           / FITS version
+LST     =                    0 / Local sidereal time
+HIERARCH LogFileName = 'NULL    ' / Name of the log file
+HIERARCH NUSEBANDS =         0 / Number of sections
+OBJECT  = 'W51     '           / Target source name
+OBSID   = 'NULL    '           / Observer or operator initials
+PROJID  = 'NULL    '           / ProjectID
+HIERARCH RESTFREQ1 =  22235.08 / Rest frequency (MHz)
+HIERARCH RESTFREQ2 =  22235.08 / Rest frequency (MHz)
+HIERARCH RESTFREQ3 =  22235.08 / Rest frequency (MHz)
+HIERARCH RESTFREQ4 =  22235.08 / Rest frequency (MHz)
+HIERARCH ReceiverCode = 'CCB     ' / Receiver name
+HIERARCH RightAscension = 5.07757730974885 / Target right ascension (radians)
+SCANGEOM= 'NULL    '           / Scan geometry
+SCANMODE= 'NULL    '           / Mapping mode
+SCANTYPE= 'NULL    '           / Scan astronomical type
+SCANXVEL=                   0. / Tracking rate (optional,OTF)
+SWTCHMOD= 'NULL    '           / Switch mode
+HIERARCH ScheduleName = 'NULL    ' / Name of the schedule
+TELESCOP= 'SRT     '           / Telescope name
+VDEF    = 'OP      '           / Radial velocity definition
+VFRAME  = 'LSRK    '           / Radial velocity reference frame
+VRAD    =                    0 / Radial velocity
+WOBUSED =                    0 / Wobbler used?
 
 """
 
