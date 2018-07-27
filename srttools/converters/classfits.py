@@ -13,6 +13,7 @@ from ..io import label_from_chan_name
 from scipy.signal import medfilt
 import copy
 import warnings
+import collections
 
 
 model_primary_header = """
@@ -162,6 +163,9 @@ def cal_is_on(subscan):
     is_on = False
     if 'SUBSTYPE' in subscan.meta:
         is_on = subscan.meta['SUBSTYPE'] == 'CAL'
+    elif 'flag_cal' in subscan.colnames and np.any(subscan['flag_cal'] == 1):
+        is_on = subscan['flag_cal']
+
     return is_on
 
 
@@ -470,7 +474,13 @@ class CLASSFITS_creator():
                     data['MH2O'][id0:id1] = mH2O
 
                     data['SIGNAL'][id0:id1] = on_or_off(subscan, f)
-                    data['CAL_IS_ON'][id0:id1] = cal_is_on(subscan)
+                    is_on = cal_is_on(subscan)
+                    if isinstance(is_on, collections.Iterable) and average:
+                        if len(list(set(is_on))) != 1:
+                            raise ValueError('flag_cal is inconsistent '
+                                             'in {}'.format(fname))
+                        is_on = is_on[0]
+                    data['CAL_IS_ON'][id0:id1] = is_on
                     label = 'SRT-{}-{}-{}'.format(subscan.meta['receiver'][0],
                                                   subscan.meta['backend'][:3],
                                                   label_from_chan_name(ch))

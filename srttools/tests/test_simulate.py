@@ -3,8 +3,10 @@ import shutil
 import os
 import pytest
 import subprocess as sp
+from astropy.io import fits
 from srttools.io import mkdir_p
-from srttools.simulate import simulate_map, simulate_scan
+from srttools.simulate import simulate_map, simulate_scan, \
+    sim_position_switching
 from srttools.simulate import _default_map_shape, save_scan, main_simulate
 
 
@@ -13,7 +15,8 @@ class TestSimulate(object):
     def setup_class(cls):
         cls.outdir = os.path.join('sim')
         cls.emptydir = os.path.join('sim', 'empty')
-        for d in [cls.emptydir]:
+        cls.pswdir = os.path.join('sim', 'psw')
+        for d in [cls.emptydir, cls.pswdir]:
             mkdir_p(d)
 
     def test_script_is_installed(self):
@@ -35,9 +38,18 @@ class TestSimulate(object):
                   scan_type="Any",
                   other_columns={'Pippo': np.zeros_like(shape)})
 
+    def test_position_switching(self):
+        """Test the simulation of an empty map."""
+        sim_position_switching(self.pswdir)
+
     def test_sim_map_empty(self):
         """Test the simulation of an empty map."""
-        simulate_map(width_ra=2, width_dec=2., outdir=self.emptydir)
+        out_ra, _ = \
+            simulate_map(width_ra=2, width_dec=2., outdir=self.emptydir)
+        probe = os.path.join(out_ra, 'Ra0.fits')
+        assert os.path.exists(probe)
+        with fits.open(probe) as hdul:
+            assert hdul[0].header['Declination Offset'] != 0.
 
     def test_sim_map_empty_messy(self):
         """Test the simulation of an empty map."""

@@ -74,7 +74,7 @@ def _apply_spectrum_to_data(spec_func, counts, nbin, bw=1000):
         return counts
     single = False
     if not isinstance(counts, collections.Iterable):
-        counts = []
+        counts = [counts]
         single = True
     counts = np.asarray(counts)
     df = bw / nbin
@@ -104,7 +104,9 @@ def _standard_bkg_spectrum(counts, nbin, bw=1000):
     return _apply_spectrum_to_data(spec_func, counts, nbin, bw)
 
 
-def create_summary(filename, key_dict={}):
+def create_summary(filename, key_dict=None):
+    if key_dict is None:
+        key_dict = {}
     header = fits.Header.fromstring(summary_header, sep='\n')
     for key, value in key_dict.items():
         header[key] = value
@@ -130,7 +132,7 @@ def _is_number(x):
     try:
         float(x)
         return True
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 
@@ -240,23 +242,73 @@ def _default_map_shape(x, y):
     return 100 + np.zeros_like(y) * np.zeros_like(x)
 
 
-# def sim_position_switching(caldir, srcname='DummyCal', nbin=1):
-#     dt = 0.04
-#     src_ra = 185
-#     src_dec = 75
-#
-#     times, _, on = \
-#         simulate_scan(dt=dt, length=0, speed=1, shape=calibrator_scan_func,
-#                       noise_amplitude=0.2, center=src_dec, nbin=nbin)
-#
-#     _, _, off = \
-#         simulate_scan(dt=dt, length=0, speed=1, shape=calibrator_scan_func,
-#                       noise_amplitude=0.2, center=src_dec, nbin=nbin)
+def sim_position_switching(caldir, srcname='Dummy', nbin=1,
+                           offset=np.radians(3), strategy=None):
+    dt = 0.04
+    src_ra = 185
+    src_dec = 75
+    if strategy is None:
+        strategy = [1, 1, 1]
+
+    last_time = 0
+    for n_on in range(strategy[0]):
+        times, ras, on = \
+            simulate_scan(dt=dt, length=0, speed=1, baseline=(0, 10, 0),
+                          noise_amplitude=0.2, center=src_dec, nbin=nbin)
+
+        times += last_time
+        last_time = times[0]
+        decs = np.zeros_like(ras) + src_dec
+        save_scan(times, ras, decs,
+                  {'Ch0': on, 'Ch1': on},
+                  filename=os.path.join(caldir, 'ON_{}.fits'.format(n_on)),
+                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
+                  counts_to_K=(0.03, 0.03),
+                  other_keywords={'SIGNAL': 'SIGNAL'})
+
+
+    for n_off in range(strategy[1]):
+        times, _, off = \
+            simulate_scan(dt=dt, length=0, speed=1, baseline=(0, 10, 0),
+                          shape=lambda x: 0,
+                          noise_amplitude=0.2, center=src_dec, nbin=nbin)
+
+        times += last_time
+        last_time = times[0]
+        save_scan(times, ras + offset, decs, {'Ch0': off, 'Ch1': off},
+                  filename=os.path.join(caldir, 'OFF_{}.fits'.format(n_off)),
+                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
+                  counts_to_K=(0.03, 0.03),
+                  other_keywords={'RightAscension Offset': offset,
+                                  'SIGNAL': 'REFERENCE'})
+
+    for n_cal in range(strategy[2]):
+        times, _, cal = \
+            simulate_scan(dt=dt, length=0, speed=1, baseline=(0, 10, 0),
+                          shape=lambda x: 0,
+                          noise_amplitude=0.2, center=src_dec, nbin=nbin,
+                          calon=True)
+
+        times += last_time
+        last_time = times[0]
+        save_scan(times, ras + offset, decs, {'Ch0': cal, 'Ch1': cal},
+                  filename=os.path.join(caldir, 'CAL_{}.fits'.format(n_cal)),
+                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
+                  counts_to_K=(0.03, 0.03),
+                  other_keywords={'RightAscension Offset': offset,
+                                  'SIGNAL': 'REFERENCE'},
+                  other_columns={'flag_cal': 1})
+
+    create_summary(os.path.join(caldir, 'summary.fits'),
+                   {'RightAscension': np.radians(src_ra),
+                    'Declination': np.radians(src_ra),
+                    'Object': srcname})
+    return caldir
 
 
 def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
                   noise_amplitude=1., center=0., baseline="flat",
-                  nbin=1, calon=False):
+                  nbin=1, calon=False, nsamples=None):
     """Simulate a scan.
 
     Parameters
@@ -275,19 +327,24 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
         Noise level in counts
     center : float
         Center coordinate in degrees
-    baseline : str
+    baseline : str, number or tuple
         "flat", "slope" (linearly increasing/decreasing), "messy"
-        (random walk) or a number (which gives an amplitude to the random-walk
-        baseline, that is 20 for "messy").
+        (random walk), a number (which gives an amplitude to the random-walk
+        baseline, that is 20 for "messy"), or a tuple (m, q, messy_amp) giving
+        the maximum and minimum absolute-value slope and intercept, and the
+        random-walk amplitude.
     """
     if shape is None:
         shape = _default_flat_shape
 
-    nbins = np.rint(length / speed / dt)
+    if nsamples is None and length == 0:
+        nsamples = 100
+    elif nsamples is None:
+        nsamples = np.rint(length / speed / dt)
 
-    times = np.arange(nbins) * dt
+    times = np.arange(nsamples) * dt
     # In degrees!
-    position = np.arange(-nbins / 2, nbins / 2) / nbins * length / 60
+    position = np.arange(-nsamples / 2, nsamples / 2) / nsamples * length / 60
 
     scan_baseline = _create_baseline(position, baseline)
 
@@ -303,8 +360,8 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
 
 
 def save_scan(times, ra, dec, channels, filename='out.fits',
-              other_columns=None, scan_type=None, src_ra=None, src_dec=None,
-              srcname='Dummy', counts_to_K=0.03):
+              other_columns=None, other_keywords=None, scan_type=None,
+              src_ra=None, src_dec=None, srcname='Dummy', counts_to_K=0.03):
     """Save a simulated scan in fitszilla format.
 
     Parameters
@@ -330,6 +387,10 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
         src_ra = np.mean(ra)
     if src_dec is None:
         src_dec = np.mean(dec)
+    if other_columns is None:
+        other_columns = {}
+    if other_keywords is None:
+        other_keywords = {}
     # If it's a single value, make it into a list
     if not isinstance(counts_to_K, collections.Iterable):
         counts_to_K = counts_to_K * np.ones(len(list(channels.keys())))
@@ -344,12 +405,17 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     lchdulist = fits.open(template)
     datahdu = lchdulist['DATA TABLE']
     temphdu = lchdulist['ANTENNA TEMP TABLE']
+    secthdu = lchdulist['SECTION TABLE']
+
     lchdulist[0].header['SOURCE'] = "Dummy"
     lchdulist[0].header['ANTENNA'] = "SRT"
     lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.radians(src_ra)
     lchdulist[0].header['HIERARCH DECLINATION'] = np.radians(src_dec)
     if scan_type is not None:
         lchdulist[0].header['HIERARCH SubScanType'] = scan_type
+
+    for key in other_keywords.keys():
+        lchdulist[0].header[key] = other_keywords[key]
 
     data_table_data = Table(datahdu.data)
     data_table_data.remove_column('Ch0')
@@ -369,8 +435,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
 
     for ch in channels.keys():
         newtable[ch] = channels[ch]
-    if other_columns is None:
-        other_columns = {}
+
     for col in other_columns.keys():
         newtable[col] = other_columns[col]
 
@@ -394,13 +459,45 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
 
     temphdu.data = thdu.data
 
+    shape = channels['Ch0'].shape
+    if len(shape) == 2:
+        secthdu.data['bins'] = shape[1]
+
     lchdulist[0].header['SOURCE'] = srcname
     lchdulist.writeto(filename, overwrite=True)
     lchdulist.close()
 
 
-def _create_baseline(x, baseline_kind="flat"):
+def _single_value_as_tuple(value, nvals=2):
+    """If a value is single, return as a tuple.
 
+    Examples
+    --------
+    >>> np.all(_single_value_as_tuple(1) == (1, 1))
+    True
+    >>> np.all(_single_value_as_tuple((1, 1, 1)) == (1, 1, 1))
+    True
+    >>> np.all(_single_value_as_tuple(1, nvals=3) == (1, 1, 1))
+    True
+    """
+    if isinstance(value, collections.Iterable):
+        return value
+    return tuple([value] * nvals)
+
+
+def _create_baseline(x, baseline_kind="flat"):
+    """
+    Parameters
+    ----------
+    x : float, array-like
+        The x values for the baseline
+    baseline : str, number of tuple
+        "flat", "slope" (linearly increasing/decreasing), "messy"
+        (random walk), a number (which gives an amplitude to the random-walk
+        baseline, that is 20 for "messy"), or a tuple (m, q, messy_amp) giving
+        the maximum and minimum absolute-value slope and intercept, and the
+        random-walk amplitude.
+    """
     if baseline_kind == "flat":
         mmin = mmax = 0
         qmin = qmax = 0
@@ -417,6 +514,13 @@ def _create_baseline(x, baseline_kind="flat"):
         mmin, mmax = 0, 0
         qmin, qmax = 0, 0
         stochastic_amp = float(baseline_kind)
+    elif isinstance(baseline_kind, collections.Iterable) and not \
+            isinstance(baseline_kind, six.string_types):
+        m = _single_value_as_tuple(baseline_kind[0], nvals=2)
+        q = _single_value_as_tuple(baseline_kind[1], nvals=2)
+        mmin, mmax = m[0], m[1]
+        qmin, qmax = q[0], q[1]
+        stochastic_amp = float(baseline_kind[2])
     else:
         raise ValueError("baseline has to be 'flat', 'slope', 'messy' or a "
                          "number")
@@ -528,16 +632,15 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         if i_d % 2 != 0:
             actual_ra = actual_ra[::-1]
         fname = os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d))
+        other_keywords = {'Declination Offset': delta_dec}
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
                   {'Ch0': counts0, 'Ch1': counts1 * channel_ratio},
-                  filename=fname,
+                  filename=fname, other_keywords=other_keywords,
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname,
                   counts_to_K=(0.03, 0.03 / channel_ratio))
         if HAS_MPL:
             plt.plot(ra_array, counts0)
             plt.plot(ra_array, counts1)
-
-        print(delta_dec, fname)
 
     if HAS_MPL:
         fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
@@ -569,9 +672,11 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
 
         if i_r % 2 != 0:
             dec_array = dec_array[::-1]
+        other_keywords = {'RightAscension Offset': delta_ra}
         save_scan(times_dec, np.zeros_like(dec_array) + start_ra,
                   dec_array + mean_dec,
                   {'Ch0': counts0, 'Ch1': counts1 * channel_ratio},
+                  other_keywords=other_keywords,
                   filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
 
@@ -589,12 +694,12 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                     'Declination': np.radians(mean_dec),
                     'Object': srcname})
     if outdir_ra == outdir_dec:
-        return
+        return outdir_ra, outdir_ra
     create_summary(os.path.join(outdir_dec, 'summary.fits'),
                    {'RightAscension': np.radians(mean_ra),
                     'Declination': np.radians(mean_dec),
                     'Object': srcname})
-    return
+    return outdir_ra, outdir_dec
 
 
 def main_simulate(args=None):
