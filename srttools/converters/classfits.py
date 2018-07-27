@@ -297,10 +297,7 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
             return None, ""
 
     newtable['SPECTRUM'][:] = signal * calibration_factor
-<<<<<<< HEAD
-    # newtable['OBSTIME'] *= n_spectra
-=======
->>>>>>> master
+
     return newtable, unit
 
 
