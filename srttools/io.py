@@ -549,8 +549,9 @@ def _read_data_fitszilla(lchdulist):
                 np.zeros_like(data_table_data['time'])
 
     info_to_retrieve = \
-        ['time', 'derot_angle', 'weather'] + [ch + '-Temp'
-                                              for ch in chan_names]
+        ['time', 'derot_angle', 'weather', 'par_angle', 'flag_track',
+         'flag_cal'] + \
+            [ch + '-Temp' for ch in chan_names]
 
     new_table = Table()
 
@@ -726,6 +727,33 @@ def _try_type(value, dtype):
         return dtype(value)
     except ValueError:
         return value
+
+
+def label_from_chan_name(ch):
+    """
+    Examples
+    --------
+    >>> label_from_chan_name('Feed0_LCP_1')
+    'LL'
+    >>> label_from_chan_name('Feed0_Q_2')
+    'LR'
+    >>> label_from_chan_name('Feed3_RCP_1')
+    'RR'
+    >>> label_from_chan_name('Feed2_U_3')
+    'RL'
+    """
+    _, polar, _ = interpret_chan_name(ch)
+
+    if polar.startswith('L'):
+        return 'LL'
+    elif polar.startswith('R'):
+        return 'RR'
+    elif polar.startswith('Q'):
+        return 'LR'
+    elif polar.startswith('U'):
+        return 'RL'
+    else:
+        raise ValueError('Unrecognized polarization')
 
 
 def bulk_change(file, path, value):

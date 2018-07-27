@@ -9,9 +9,11 @@ from srttools.io import mkdir_p, locations, read_data_fitszilla, \
     get_chan_columns, classify_chan_columns, interpret_chan_name
 import glob
 from ..utils import get_mH2O
+from ..io import label_from_chan_name
 from scipy.signal import medfilt
 import copy
 import warnings
+import collections
 
 
 model_primary_header = """
@@ -38,9 +40,9 @@ EXTNAME = 'MATRIX  '                   / Just a name, not important.
 EXTVER  =                    1         / Always 1.
 MAXIS   =                    4         / Number of dimensions in the data.
 MAXIS1  =                 1793         / Dummy number of channels (see TTYPE1).
-MAXIS2  =                    1         / 
-MAXIS3  =                    1         / 
-MAXIS4  =                    1         / 
+MAXIS2  =                    1         /
+MAXIS3  =                    1         /
+MAXIS4  =                    1         /
 CTYPE1  = 'FREQ    '                   / Dim1: freq => MAXIS1 = Nb channels.
 CRVAL1  =  0.0000000000000E+00         / Frequency offset, always 0.
 CDELT1  =  0.0000000000000E+00         / Frequency resolution [Hz].
@@ -77,8 +79,8 @@ LIST_TTYPE = \
      "TOUTSIDE", "PRESSURE", "CRVAL2", "CRVAL3",
      "ELEVATIO", "AZIMUTH", "DATE-OBS", "UT",
      "LST", "OBSTIME", "CRPIX1", "RESTFREQ",
-     "OBJECT", "VELOCITY", "CDELT1", "LINE",
-     "SIGNAL", "CAL_IS_ON"]
+     "OBJECT", "VELOCITY", "CDELT1", "CDELT2",
+     "CDELT3", "LINE", "SIGNAL", "CAL_IS_ON"]
 
 LIST_TFORM = \
     ["1D",
@@ -87,8 +89,8 @@ LIST_TFORM = \
      "1E", "1E", "1E", "1E",
      "1E", "1E", "23A ", "1D",
      "1D", "1E", "1E", "1D",
-     "12A", "1E", "1E", "12A",
-     "1J", "1J"]
+     "12A", "1E", "1E", "1D",
+     "1D", "12A", "1J", "1J"]
 
 LIST_TUNIT = \
     ["d",
@@ -97,8 +99,8 @@ LIST_TUNIT = \
      "K", "hPa", "deg", "deg",
      "deg", "deg", "", "s",
      "s", "s", "", "Hz",
-     "", "m.s-1", "Hz", "",
-     "", ""]
+     "", "m.s-1", "Hz", "deg",
+     "deg", "",  "", ""]
 
 
 def get_model_HDUlist(additional_columns=None, **kwargs):
@@ -140,33 +142,6 @@ def create_variable_length_column(values, max_length=2048, name="SPECTRUM",
     return column
 
 
-def label_from_chan_name(ch):
-    """
-    Examples
-    --------
-    >>> label_from_chan_name('Feed0_LCP_1')
-    'LL'
-    >>> label_from_chan_name('Feed0_Q_2')
-    'LR'
-    >>> label_from_chan_name('Feed3_RCP_1')
-    'RR'
-    >>> label_from_chan_name('Feed2_U_3')
-    'RL'
-    """
-    _, polar, _ = interpret_chan_name(ch)
-
-    if polar.startswith('L'):
-        return 'LL'
-    elif polar.startswith('R'):
-        return 'RR'
-    elif polar.startswith('Q'):
-        return 'LR'
-    elif polar.startswith('U'):
-        return 'RL'
-    else:
-        raise ValueError('Unrecognized polarization')
-
-
 def on_or_off(subscan, feed):
     """Try to infer if a given subscan is ON or OFF."""
     is_on = False
@@ -188,6 +163,9 @@ def cal_is_on(subscan):
     is_on = False
     if 'SUBSTYPE' in subscan.meta:
         is_on = subscan.meta['SUBSTYPE'] == 'CAL'
+    elif 'flag_cal' in subscan.colnames and np.any(subscan['flag_cal'] == 1):
+        is_on = subscan['flag_cal']
+
     return is_on
 
 
@@ -319,7 +297,10 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
             return None, ""
 
     newtable['SPECTRUM'][:] = signal * calibration_factor
+<<<<<<< HEAD
     # newtable['OBSTIME'] *= n_spectra
+=======
+>>>>>>> master
     return newtable, unit
 
 
@@ -496,7 +477,13 @@ class CLASSFITS_creator():
                     data['MH2O'][id0:id1] = mH2O
 
                     data['SIGNAL'][id0:id1] = on_or_off(subscan, f)
-                    data['CAL_IS_ON'][id0:id1] = cal_is_on(subscan)
+                    is_on = cal_is_on(subscan)
+                    if isinstance(is_on, collections.Iterable) and average:
+                        if len(list(set(is_on))) != 1:
+                            raise ValueError('flag_cal is inconsistent '
+                                             'in {}'.format(fname))
+                        is_on = is_on[0]
+                    data['CAL_IS_ON'][id0:id1] = is_on
                     label = 'SRT-{}-{}-{}'.format(subscan.meta['receiver'][0],
                                                   subscan.meta['backend'][:3],
                                                   label_from_chan_name(ch))
@@ -504,6 +491,10 @@ class CLASSFITS_creator():
                     data['TSYS'][id0:id1] = 1
                     df = (bandwidth / nbin).to('Hz')
                     data['CDELT1'][id0:id1] = df
+                    data['CDELT2'][id0:id1] = \
+                        subscan.meta["ra_offset"].to(u.deg).value
+                    data['CDELT3'][id0:id1] = \
+                        subscan.meta["dec_offset"].to(u.deg).value
                     deltav = - df / restfreq * c.c
                     data['DELTAV'][id0:id1] = deltav.to('m/s').value
                     data['LINE'][id0:id1] = \
@@ -534,14 +525,10 @@ class CLASSFITS_creator():
                     "FEED{}-{:3.3f}-MHz".format(f,
                                                 bandwidth.to('MHz').value)
                 header['CDELT1'] = df.to('Hz').value
-                header['CDELT2'] = \
-                    subscan.meta["ra_offset"].to(u.deg).value
-                header['CDELT3'] = \
-                    subscan.meta["dec_offset"].to(u.deg).value
                 header['RESTFREQ'] = restfreq.to(u.Hz).value
                 header['MAXIS1'] = channels[0]
 
-                filekey = scandir + '_all_feed{}'.format(f)
+                filekey = os.path.basename(scandir) + '_all_feed{}'.format(f)
 
                 if filekey in list(self.tables.keys()):
                     hdul = self.tables[filekey]

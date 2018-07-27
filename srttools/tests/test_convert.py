@@ -7,12 +7,18 @@ import subprocess as sp
 import shutil
 import glob
 from astropy.io import fits
+from srttools.io import locations, mkdir_p
+from srttools.simulate import simulate_map, sim_position_switching, \
+    DEFAULT_CAL_OFFSET
 
 try:
     import matplotlib.pyplot as plt
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
+
+CI = os.getenv('CI') is not None
+CI_MPL = CI and HAS_MPL
 
 
 class Test1_Scan(object):
@@ -44,6 +50,14 @@ class Test1_Scan(object):
             os.path.abspath(
                 os.path.join(klass.datadir,
                              'nodding_xarcos'))
+        klass.outdir = os.path.join('sim')
+        klass.emptydir = os.path.join('sim', 'test_sdfits')
+
+        klass.pswdir = os.path.join('sim', 'test_psw')
+        for d in [klass.emptydir, klass.pswdir]:
+            mkdir_p(d)
+        sim_position_switching(klass.pswdir, nbin=1024)
+        simulate_map(width_ra=2, width_dec=2., outdir=klass.emptydir)
 
     def test_converter_basic(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
@@ -90,31 +104,34 @@ class Test1_Scan(object):
 
         assert "Input for MBFITS conversion must be " in str(excinfo)
 
-    @pytest.mark.skipif('HAS_MPL')
+    @pytest.mark.skipif('CI_MPL')
     def test_main_mbfitsw(self):
         main_convert([self.skydip, '-f', 'mbfitsw', '--test'])
         newfiles = glob.glob(self.skydip + '*KKG*.fits')
         assert len(newfiles) > 0
-        shutil.rmtree(self.skydip + '_mbfitsw')
+        # test that a new conversion does not make this fail
+        newdir = main_convert([self.skydip, '-f', 'mbfitsw', '--test'])[0]
+
+        shutil.rmtree(newdir)
         with fits.open(newfiles[0]) as hdul:
             header = hdul['SCAN-MBFITS'].header
             assert header['SCANTYPE'] == 'SKYDIP'
         for fname in newfiles:
             os.unlink(fname)
 
-    @pytest.mark.skipif('HAS_MPL')
+    @pytest.mark.skipif('CI_MPL')
     def test_main_mbfitsw_polar(self):
-        main_convert([self.example, '-f', 'mbfitsw', '--test'])
+        newdir = main_convert([self.example, '-f', 'mbfitsw', '--test'])[0]
         newfiles = glob.glob(self.example + '*CCB*.fits')
         assert len(newfiles) > 0
-        shutil.rmtree(self.example + '_mbfitsw')
+        shutil.rmtree(newdir)
         with fits.open(newfiles[0]) as hdul:
             header = hdul['SCAN-MBFITS'].header
             assert header['SCANTYPE'] == 'MAP'
         for fname in newfiles:
             os.unlink(fname)
 
-    @pytest.mark.skipif('HAS_MPL')
+    @pytest.mark.skipif('CI_MPL')
     def test_main_mbfits(self):
         newdir = main_convert([self.skydip, '-f', 'mbfits', '--test'])[0]
         assert os.path.exists(newdir)
@@ -125,16 +142,83 @@ class Test1_Scan(object):
         with fits.open(scanfile) as hdul:
             header = hdul[1].header
             assert header['SCANTYPE'] == 'SKYDIP'
-        shutil.rmtree(self.skydip + '_mbfits')
+        shutil.rmtree(newdir)
 
     def test_main_classfits_onoff(self):
         newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
         assert os.path.exists(newdir)
+        # test that a new conversion does not make this fail
+        newdir = main_convert([self.onoff, '-f', 'classfits', '--test'])[0]
         assert os.path.isdir(newdir)
-        shutil.rmtree(self.onoff + '_classfits')
+
+    def test_main_classfits_sim(self):
+        newdir = main_convert([self.pswdir, '-f', 'classfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        probe_all = os.path.join(newdir, 'test_psw_all_feed0.fits')
+        probe_cal = os.path.join(newdir, 'test_psw_cal_feed0.fits')
+        probe_psw = os.path.join(newdir, 'test_psw_onoff_feed0.fits')
+        with fits.open(probe_all) as hdul:
+            good = (hdul[1].data['SIGNAL'] == 0) & (hdul[1].data['CAL_IS_ON'] == 0)
+            off_spec = hdul[1].data['SPECTRUM'][good][0]
+            good = (hdul[1].data['SIGNAL'] == 1)
+            on_spec = hdul[1].data['SPECTRUM'][good][0]
+        with fits.open(probe_cal) as hdul:
+            cal_spec = hdul[1].data['SPECTRUM'][0]
+        with fits.open(probe_psw) as hdul:
+            onoff_spec = hdul[1].data['SPECTRUM'][0]
+        assert np.isclose(np.max(on_spec - off_spec), 100, atol=0.1)
+        idx = np.argmax(on_spec)
+        max_onoff = onoff_spec[idx]
+        ref_off = off_spec[idx]
+        ref_cal = cal_spec[idx]
+
+        assert np.isclose(max_onoff * ref_off, 100, atol=0.1)
+        assert np.isclose(ref_cal, 100 / DEFAULT_CAL_OFFSET, atol=0.1)
 
     def test_main_classfits_nodding(self):
         newdir = main_convert([self.nodding, '-f', 'classfits', '--test'])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
         shutil.rmtree(self.nodding + '_classfits')
+
+    def test_main_sdfits_skydip(self):
+        newdir = main_convert([self.skydip, '-f', 'sdfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        newfiles = glob.glob(os.path.join(newdir, '*.fits'))
+
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SINGLE DISH'].header
+            assert np.isclose(header['OBSGEO-X'], locations['srt'].x.value)
+        shutil.rmtree(self.skydip + '_sdfits')
+
+    def test_main_sdfits_nodding(self):
+        newdir = main_convert([self.nodding, '-f', 'sdfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        # test that it doesn't fail when the directory is already present
+        newdir = main_convert([self.nodding, '-f', 'sdfits', '--test'])[0]
+        assert os.path.isdir(newdir)
+
+        newfiles = glob.glob(os.path.join(newdir, '*.fits'))
+
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SINGLE DISH'].header
+            assert np.isclose(header['OBSGEO-X'], locations['srt'].x.value)
+
+        shutil.rmtree(self.nodding + '_sdfits')
+
+    def test_main_sdfits_tpmap(self):
+        newdir = main_convert([self.emptydir, '-f', 'sdfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        # test that it doesn't fail when the directory is already present
+        newdir = main_convert([self.emptydir, '-f', 'sdfits', '--test'])[0]
+        assert os.path.isdir(newdir)
+
+        newfiles = glob.glob(os.path.join(newdir, '*.fits'))
+
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SINGLE DISH'].header
+            assert np.isclose(header['OBSGEO-X'], locations['srt'].x.value)
+
+        shutil.rmtree(self.emptydir + '_sdfits')

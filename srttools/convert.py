@@ -14,6 +14,7 @@ from .io import get_coords_from_altaz_offset, correct_offsets
 from .io import get_rest_angle, observing_angle, locations
 from .converters.mbfits import MBFITS_creator
 from .converters.classfits import CLASSFITS_creator
+from .converters.sdfits import SDFITS_creator
 
 
 def convert_to_complete_fitszilla(fname, outname):
@@ -136,6 +137,20 @@ def launch_classfits_creator(name, label, test=False):
     random_name = 'tmp_' + str(np.random.random())
     classfits = CLASSFITS_creator(random_name, scandir=name, average=True)
     shutil.move(random_name, outname)
+
+    return outname, classfits
+
+
+def launch_sdfits_creator(name, label, test=False):
+    if not os.path.isdir(name):
+        raise ValueError('Input for SDFITS conversion must be a directory.')
+    name = name.rstrip('/')
+    outname = name + '_' + label
+    if os.path.exists(outname):
+        shutil.rmtree(outname)
+    random_name = 'tmp_' + str(np.random.random())
+    classfits = SDFITS_creator(random_name, scandir=name)
+    shutil.move(random_name, outname)
     return outname, classfits
 
 
@@ -143,7 +158,7 @@ def match_srt_name(name):
     """
     Examples
     --------
-    >>> matchobj = match_srt_name('20180212-150835-S0000-3C84_RA')
+    >>> matchobj = match_srt_name('blabla/20180212-150835-S0000-3C84_RA/')
     >>> matchobj.group(1)
     '20180212'
     >>> matchobj.group(2)
@@ -153,6 +168,7 @@ def match_srt_name(name):
     >>> matchobj.group(4)
     '3C84_RA'
     """
+    name = os.path.basename(name.rstrip('/'))
     import re
     name_re = re.compile(r'([0-9]+).([0-9]+)-([^\-]+)-([^\-]+)')
     return name_re.match(name)
@@ -178,7 +194,8 @@ def main_convert(args=None):
                              'converted coordinates for feed number *n* in '
                              'a separate COORDn extensions); '
                              'classfits, indicating a FITS file readable into '
-                             'CLASS, calibrated when possible')
+                             'CLASS, calibrated when possible;'
+                             'sdfits, for the SDFITS convention')
 
     parser.add_argument("--test",
                         help="Only to be used in tests!",
@@ -200,6 +217,8 @@ def main_convert(args=None):
                 launch_mbfits_creator(fname, args.format, test=args.test,
                                       wrap=False, detrend=args.detrend)
 
+            if args.test:
+                fname = '20180212-150835-S0000-3C84_RA'
             matchobj = match_srt_name(fname)
             if matchobj:
                 date = matchobj.group(1)
@@ -220,6 +239,10 @@ def main_convert(args=None):
         elif args.format == 'classfits':
             outname, mbfits = \
                 launch_classfits_creator(fname, args.format, test=args.test)
+            outnames.append(outname)
+        elif args.format == 'sdfits':
+            outname, mbfits = \
+                launch_sdfits_creator(fname, args.format, test=args.test)
             outnames.append(outname)
         else:
             warnings.warn('Unknown output format')
