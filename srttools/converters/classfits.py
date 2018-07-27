@@ -79,8 +79,8 @@ LIST_TTYPE = \
      "TOUTSIDE", "PRESSURE", "CRVAL2", "CRVAL3",
      "ELEVATIO", "AZIMUTH", "DATE-OBS", "UT",
      "LST", "OBSTIME", "CRPIX1", "RESTFREQ",
-     "OBJECT", "VELOCITY", "CDELT1", "LINE",
-     "SIGNAL", "CAL_IS_ON"]
+     "OBJECT", "VELOCITY", "CDELT1", "CDELT2",
+     "CDELT3", "LINE", "SIGNAL", "CAL_IS_ON"]
 
 LIST_TFORM = \
     ["1D",
@@ -89,8 +89,8 @@ LIST_TFORM = \
      "1E", "1E", "1E", "1E",
      "1E", "1E", "23A ", "1D",
      "1D", "1E", "1E", "1D",
-     "12A", "1E", "1E", "12A",
-     "1J", "1J"]
+     "12A", "1E", "1E", "1D",
+     "1D", "12A", "1J", "1J"]
 
 LIST_TUNIT = \
     ["d",
@@ -99,8 +99,8 @@ LIST_TUNIT = \
      "K", "hPa", "deg", "deg",
      "deg", "deg", "", "s",
      "s", "s", "", "Hz",
-     "", "m.s-1", "Hz", "",
-     "", ""]
+     "", "m.s-1", "Hz", "deg",
+     "deg", "",  "", ""]
 
 
 def get_model_HDUlist(additional_columns=None, **kwargs):
@@ -488,6 +488,10 @@ class CLASSFITS_creator():
                     data['TSYS'][id0:id1] = 1
                     df = (bandwidth / nbin).to('Hz')
                     data['CDELT1'][id0:id1] = df
+                    data['CDELT2'][id0:id1] = \
+                        subscan.meta["ra_offset"].to(u.deg).value
+                    data['CDELT3'][id0:id1] = \
+                        subscan.meta["dec_offset"].to(u.deg).value
                     deltav = - df / restfreq * c.c
                     data['DELTAV'][id0:id1] = deltav.to('m/s').value
                     data['LINE'][id0:id1] = \
@@ -518,10 +522,6 @@ class CLASSFITS_creator():
                     "FEED{}-{:3.3f}-MHz".format(f,
                                                 bandwidth.to('MHz').value)
                 header['CDELT1'] = df.to('Hz').value
-                header['CDELT2'] = \
-                    subscan.meta["ra_offset"].to(u.deg).value
-                header['CDELT3'] = \
-                    subscan.meta["dec_offset"].to(u.deg).value
                 header['RESTFREQ'] = restfreq.to(u.Hz).value
                 header['MAXIS1'] = channels[0]
 
