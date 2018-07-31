@@ -14,6 +14,11 @@ import copy
 import re
 import six
 import collections
+try:
+    import glob2 as glob
+except ImportError:
+    import glob
+
 
 from .utils import force_move_file
 
@@ -794,21 +799,43 @@ def main_bulk_change(args=None):
     parser.add_argument("files", nargs='*',
                         help="Single files to preprocess",
                         default=None, type=str)
-
-    parser.add_argument("-k", "--key", type=str, required=True,
+    parser.add_argument("-k", "--key", type=str, default=None,
                         help='Path to key or data column. E.g. '
                              '"EXT,header,KEY" to change key KEY in the header'
                              'in extension EXT; EXT,data,COL to change column'
                              'COL in the data of extension EXT')
-
     parser.add_argument("-v", "--value", default=None, type=str,
                         help='Value to be written')
-
+    parser.add_argument("--apply-cal-mark", action='store_true', default=False,
+                        help='Short for -k "DATA TABLE,data,flag_cal" -v 1')
+    parser.add_argument("--recursive", action='store_true', default=False,
+                        help='Look for file in up to two subdirectories')
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Plot stuff and be verbose')
 
     args = parser.parse_args(args)
 
-    for f in args.files:
-        bulk_change(f, args.key, args.value)
-        print(f, 'updated')
+    if args.apply_cal_mark:
+        args.key = "DATA TABLE,data,flag_cal"
+        args.value = 1
+
+    if args.key is None:
+        raise ValueError('What should I do? Please specify either key and '
+                         'value, or apply-cal-mark')
+
+    fnames = []
+    for fname in args.files:
+        if args.recursive:
+            if not fname == os.path.basename(fname):
+                raise ValueError('Options recursive requires a file name, not '
+                                 'a full path: {}'.format(fname))
+
+            fs = glob.glob(os.path.join('**', fname), recursive=True)
+
+            fnames.extend(fs)
+        else:
+            fnames.append(fname)
+
+    for fname in fnames:
+        bulk_change(fname, args.key, args.value)
+        print(fname, 'updated')
