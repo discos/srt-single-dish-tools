@@ -837,5 +837,7 @@ def main_bulk_change(args=None):
             fnames.append(fname)
 
     for fname in fnames:
+        print('Updating', fname, '...', end='')
+
         bulk_change(fname, args.key, args.value)
-        print(fname, 'updated')
+        print(fname, ' Done.')
