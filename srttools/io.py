@@ -443,6 +443,11 @@ def _read_data_fitszilla(lchdulist):
     frequencies = get_value_with_units(rf_input_data, 'frequency')
     bandwidths = get_value_with_units(rf_input_data, 'bandWidth')
     local_oscillator = get_value_with_units(rf_input_data, 'localOscillator')
+    try:
+        cal_mark_temp = get_value_with_units(rf_input_data, 'calibrationMark')
+    except KeyError:
+        # Old, stupid typo
+        cal_mark_temp = get_value_with_units(rf_input_data, 'calibratonMark')
     sections = get_value_with_units(rf_input_data, 'section')
     combinations = list(zip(frequencies, bandwidths))
     combination_idx = np.arange(len(combinations))
@@ -629,6 +634,7 @@ def _read_data_fitszilla(lchdulist):
         p = polarizations[i]
         b = bandwidths[i]
         lo = local_oscillator[i]
+        cal = cal_mark_temp[i]
 
         c = s
         if is_single_channel:
@@ -654,6 +660,7 @@ def _read_data_fitszilla(lchdulist):
              'sample_rate': sample_rate[s],
              'sample_time': (1 / (sample_rate[s].to(u.Hz))).to('s'),
              'local_oscillator': lo.to("MHz"),
+             'cal_mark_temp': cal.to("K"),
              'integration_time': integration_time.to('s'),
              'xoffset': xoffsets[f].to(u.rad),
              'yoffset': yoffsets[f].to(u.rad),
@@ -688,6 +695,7 @@ def _read_data_fitszilla(lchdulist):
                      'sample_rate': sample_rate[s],
                      'sample_time': sample_time.to('s'),
                      'local_oscillator': local_oscillator[2 * s].to("MHz"),
+                     'cal_mark_temp': cal_mark_temp[2 * s].to("K"),
                      'integration_time': integration_time.to('s'),
                      'xoffset': xoffsets[feed].to(u.rad),
                      'yoffset': yoffsets[feed].to(u.rad),

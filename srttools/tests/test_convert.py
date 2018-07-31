@@ -9,7 +9,7 @@ import glob
 from astropy.io import fits
 from srttools.io import locations, mkdir_p
 from srttools.simulate import simulate_map, sim_position_switching, \
-    DEFAULT_CAL_OFFSET
+    DEFAULT_CAL_OFFSET, DEFAULT_PEAK_COUNTS, DEFAULT_CAL_TEMP
 
 try:
     import matplotlib.pyplot as plt
@@ -163,18 +163,24 @@ class Test1_Scan(object):
             off_spec = hdul[1].data['SPECTRUM'][good][0]
             good = (hdul[1].data['SIGNAL'] == 1)
             on_spec = hdul[1].data['SPECTRUM'][good][0]
+            good = (hdul[1].data['SIGNAL'] == 0) & (hdul[1].data['CAL_IS_ON'] == 1)
+            cal_spec_unnorm = hdul[1].data['SPECTRUM'][good][0]
         with fits.open(probe_cal) as hdul:
             cal_spec = hdul[1].data['SPECTRUM'][0]
         with fits.open(probe_psw) as hdul:
             onoff_spec = hdul[1].data['SPECTRUM'][0]
-        assert np.isclose(np.max(on_spec - off_spec), 100, atol=0.1)
+        assert np.isclose(np.max(on_spec - off_spec), DEFAULT_PEAK_COUNTS,
+                          atol=0.1)
+        assert np.isclose(np.max(cal_spec_unnorm - off_spec),
+                          DEFAULT_CAL_OFFSET, atol=0.1)
         idx = np.argmax(on_spec)
         max_onoff = onoff_spec[idx]
         ref_off = off_spec[idx]
         ref_cal = cal_spec[idx]
 
         assert np.isclose(max_onoff * ref_off, 100, atol=0.1)
-        assert np.isclose(ref_cal, 100 / DEFAULT_CAL_OFFSET, atol=0.1)
+        assert np.isclose(ref_cal / DEFAULT_CAL_TEMP, 100 / DEFAULT_CAL_OFFSET,
+                          atol=0.1)
 
     def test_main_classfits_nodding(self):
         newdir = main_convert([self.nodding, '-f', 'classfits', '--test'])[0]
