@@ -480,7 +480,8 @@ def baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
         return y - z - offset
 
 
-def detrend_spectroscopic_data(x, spectrum, kind='als', outlier_purging=True):
+def detrend_spectroscopic_data(x, spectrum, kind='als', mask=None,
+                               outlier_purging=True):
     """Take the baseline off the spectroscopic data.
 
     Examples
@@ -495,9 +496,11 @@ def detrend_spectroscopic_data(x, spectrum, kind='als', outlier_purging=True):
     y = np.sum(spectrum, axis=1)
     if kind == 'als':
         y_sub, baseline = baseline_als(x, y, return_baseline=True,
-                                       outlier_purging=outlier_purging)
+                                       outlier_purging=outlier_purging,
+                                       mask=mask)
     elif kind == 'rough':
-        y_sub, baseline = baseline_rough(x, y, return_baseline=True)
+        y_sub, baseline = baseline_rough(x, y, return_baseline=True,
+                                         mask=mask)
     else:
         warnings.warn('Baseline kind unknown')
         return spectrum, np.ones_like(spectrum)
