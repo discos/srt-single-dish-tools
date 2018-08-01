@@ -1,3 +1,5 @@
+from __future__ import (absolute_import, division,
+                        print_function)
 from srttools.convert import convert_to_complete_fitszilla, main_convert
 from srttools.scan import Scan
 import numpy as np
