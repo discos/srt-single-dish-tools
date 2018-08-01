@@ -12,13 +12,14 @@ import pytest
 
 from srttools.scan import Scan, HAS_MPL
 from srttools.io import print_obs_info_fitszilla, bulk_change, main_bulk_change
-from srttools.io import locations, read_data_fitszilla
+from srttools.io import locations, read_data_fitszilla, mkdir_p
 from srttools.utils import compare_anything
 import os
 import numpy as np
 import glob
 import logging
 import shutil
+
 try:
     import contextlib2 as contextlib
     FileNotFoundError = IOError
@@ -79,6 +80,43 @@ class Test1_Scan(object):
             time_new = np.array(hdul['DATA TABLE'].data['time'])
         assert np.all(time_new == 0)
         os.unlink(dummyname)
+
+    def test_bulk_change_data_recursive(self):
+        dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
+        shutil.copyfile(self.fname, dummyname)
+
+        mkdir_p('blabla')
+        second_dummyname = os.path.join('blabla', 'dummyfile.fits')
+        shutil.copyfile(self.fname, second_dummyname)
+        main_bulk_change(['dummyfile.fits', '--apply-cal-mark',
+                          '--recursive'])
+        with fits.open(dummyname) as hdul:
+            flag_new = np.array(hdul['DATA TABLE'].data['flag_cal'])
+        assert np.all(flag_new == 1)
+        with fits.open(second_dummyname) as hdul:
+            flag_new = np.array(hdul['DATA TABLE'].data['flag_cal'])
+        assert np.all(flag_new == 1)
+        os.unlink(dummyname)
+        shutil.rmtree('blabla')
+
+    def test_bulk_change_data_recursive_bad(self):
+        dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
+        shutil.copyfile(self.fname, dummyname)
+        with pytest.raises(Exception) as excinfo:
+            main_bulk_change(
+                [dummyname, '-k', 'DATA TABLE,data,time', '-v',
+                 '0', '--recursive'])
+
+        assert "Options recursive requires a file name" in str(excinfo)
+        os.unlink(dummyname)
+
+    def test_bulk_change_missing_key(self):
+        dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
+
+        with pytest.raises(ValueError) as excinfo:
+            main_bulk_change(
+                [dummyname])
+        assert "What should I" in str(excinfo)
 
     def test_bulk_change_main(self):
         dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')

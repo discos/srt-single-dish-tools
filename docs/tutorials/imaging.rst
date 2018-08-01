@@ -172,9 +172,10 @@ steps:
 
 .. code-block:: console
 
-    (py3) $ SDTimage -c CCB_TP_Src1_Obs0.ini --splat 80:1100
+    (py3) $ SDTpreprocess -c CCB_TP_Src1_Obs0.ini --splat 80:1100 <more options>
 
-2. The single channels that are produced at step 1, or alternatively the single
+2. About the ``<more options>>``: *If you select the option * ``--sub``, the
+   single channels that are produced at step 1, or alternatively the single
    channels of a non-spectroscopic backend, will now be processed by a baseline
    subtraction routine. This routine, by default, applies an Asymmetric Least
    Squares Smoothing (`Eilers and Boelens 2005`_) to find the rough alignment
@@ -190,8 +191,9 @@ steps:
 
 3. The results of the first points are saved as ``HDF5`` files in the same directory
    as the original ``fits`` files. This makes it
-   much faster to reload the scans for further use. If the user wants to reprocess
-   the files from scratch, he/she needs to delete these files first.
+   much faster to reload the scans for further use. **If the user wants to reprocess
+   the files from scratch**, they need to delete these files first, or select the
+   ``--refilt`` option.
 
 .. _Eilers and Boelens 2005: https://zanran_storage.s3.amazonaws.com/www.science.uva.nl/ContentPages/443199618.pdf
 
@@ -204,14 +206,14 @@ sufficient to run
 
 .. code-block:: console
 
-    (py3) $ SDTimage -c CCB_TP_Src1_Obs0.ini
+    (py3) $ SDTimage -c CCB_TP_Src1_Obs0.ini --sub
 
 where CCB_TP_Src1_Obs0.ini should be substituted with the wanted config file.
 *This is also valid for spectroscopic scans that have already been preprocessed*
 
 .. code-block:: console
 
-    (py3) $ SDTimage -c CCB_ROACH_Src1_Obs0.ini
+    (py3) $ SDTimage -c CCB_ROACH_Src1_Obs0.ini --sub
 
 Otherwise, if preprocessing were not executed before, specify the minimum and
 maximum frequency to select in the spectrum,
@@ -219,13 +221,14 @@ with the ``--splat`` option (same as before)
 
 .. code-block:: console
 
-    (py3) $ SDTimage -c CCB_ROACH_Src1_Obs0.ini --splat <freqmin>:<freqmax>
+    (py3) $ SDTimage -c CCB_ROACH_Src1_Obs0.ini --splat <freqmin>:<freqmax> --sub
 
 The above command will:
 
 + Run through all the scans in the directories specified in the config file
 
-+ Clean them up if not already done in a previous step, in the same way of ``SDTpreprocess``
++ Clean them up if not already done in a previous step, in the same way of ``SDTpreprocess``,
+  including the baseline subtraction algorithm.
 
 + Create a single frequency channel per polarization by summing the contributions between
   ``freqmin`` and ``freqmax``, and discarding the remaining frequency channels,
@@ -234,6 +237,11 @@ The above command will:
 + Create the map in FITS format readable by DS9. The FITS extensions IMGCH0, IMGCH1,
   etc. contain an image for each polarization channel. The extensions IMGCH<no>-STD
   will contain the *error images* corresponding to IMGH<no>.
+
+.. note::
+   When the user wants to reprocess the data from scratch, they have to remember the ``--refilt``
+   option. Otherwise, some steps like the spectral summation and the baseline subtraction
+   are not repeated.
 
 The automatic RFI removal procedure might have missed some problematic scan.
 The map might have, therefore, some residual "stripes" due to bad scans or wrong

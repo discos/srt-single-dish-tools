@@ -1,3 +1,5 @@
+from __future__ import (absolute_import, division,
+                        print_function)
 from astropy.io import fits
 from astropy.table import Table, vstack
 from astropy.time import Time
@@ -80,7 +82,8 @@ LIST_TTYPE = \
      "ELEVATIO", "AZIMUTH", "DATE-OBS", "UT",
      "LST", "OBSTIME", "CRPIX1", "RESTFREQ",
      "OBJECT", "VELOCITY", "CDELT1", "CDELT2",
-     "CDELT3", "LINE", "SIGNAL", "CAL_IS_ON"]
+     "CDELT3", "LINE", "SIGNAL", "CAL_IS_ON",
+     "CALTEMP"]
 
 LIST_TFORM = \
     ["1D",
@@ -90,7 +93,8 @@ LIST_TFORM = \
      "1E", "1E", "23A ", "1D",
      "1D", "1E", "1E", "1D",
      "12A", "1E", "1E", "1D",
-     "1D", "12A", "1J", "1J"]
+     "1D", "12A", "1J", "1J",
+     "1D"]
 
 LIST_TUNIT = \
     ["d",
@@ -100,7 +104,7 @@ LIST_TUNIT = \
      "deg", "deg", "", "s",
      "s", "s", "", "Hz",
      "", "m.s-1", "Hz", "deg",
-     "deg", "",  "", ""]
+     "deg", "",  "", "", "K"]
 
 
 def get_model_HDUlist(additional_columns=None, **kwargs):
@@ -247,10 +251,9 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
         If False, only the OFF + CAL is used for the calibration. If True,
         Also the ON + CAL is used and the calibration constant is averaged
         with that obtained through OFF + CAL.
-"""
+    """
     calibration_factor = 1
     unit = ""
-
     cal_on = table['CAL_IS_ON'] == 1
     onsource = table['SIGNAL'] == 1
     on_data = table[~cal_on & onsource]
@@ -280,18 +283,21 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
     for i, o in enumerate(on):
         signal[i] = (o - off_ref) / off_ref
 
+    cal_mark_temp = on_data['CALTEMP']
+
     if apply_cal:
         oncal = offcal = np.zeros_like(caloff)
         if caloff is not None:
             offcal = (caloff - off_ref) / off_ref
         if calon is not None:
             oncal = (calon - on_ref) / on_ref
+
         cal = np.array([oncal, offcal])
         good = cal != 0
         cal = cal[good]
 
         if len(cal) > 0:
-            calibration_factor = 1 / np.mean(cal)
+            calibration_factor = 1 / np.mean(cal) * cal_mark_temp
             unit = "K"
         else:
             return None, ""
@@ -480,6 +486,8 @@ class CLASSFITS_creator():
                                              'in {}'.format(fname))
                         is_on = is_on[0]
                     data['CAL_IS_ON'][id0:id1] = is_on
+                    data['CALTEMP'][id0:id1] = \
+                        array.meta['cal_mark_temp'].to('K').value
                     label = 'SRT-{}-{}-{}'.format(subscan.meta['receiver'][0],
                                                   subscan.meta['backend'][:3],
                                                   label_from_chan_name(ch))
@@ -586,9 +594,10 @@ class CLASSFITS_creator():
 
                     for _, group in zip(grouped.groups.keys, grouped.groups):
                         # group = vstack([group, group])
-                        results, _ = normalize_on_off_cal(group, smooth=False,
-                                                          apply_cal=apply_cal,
-                                                          use_calon=use_calon)
+                        results, _ = \
+                            normalize_on_off_cal(group, smooth=False,
+                                                 apply_cal=apply_cal,
+                                                 use_calon=use_calon)
                         if results is None:
                             break
                         if astropy_table_from_results is None:

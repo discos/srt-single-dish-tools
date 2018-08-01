@@ -6,7 +6,9 @@ SDTbulkchange
 
 .. code-block:: none
 
-    usage: SDTbulkchange [-h] -k KEY [-v VALUE] [--debug] [files [files ...]]
+    usage: SDTbulkchange [-h] [-k KEY] [-v VALUE] [--apply-cal-mark] [--recursive]
+                         [--debug]
+                         [files [files ...]]
 
     Change all values of a given column or header keyword in fits files
 
@@ -21,6 +23,8 @@ SDTbulkchange
                             extension EXT
       -v VALUE, --value VALUE
                             Value to be written
+      --apply-cal-mark      Short for -k "DATA TABLE,data,flag_cal" -v 1
+      --recursive           Look for file in up to two subdirectories
       --debug               Plot stuff and be verbose
 
 
@@ -76,7 +80,8 @@ SDTconvert
                             (default), indicating a fitszilla with converted
                             coordinates for feed number *n* in a separate COORDn
                             extensions); classfits, indicating a FITS file
-                            readable into CLASS, calibrated when possible
+                            readable into CLASS, calibrated when possible;sdfits,
+                            for the SDFITS convention
       --test                Only to be used in tests!
       --detrend             Detrend data before converting to MBFITS
 
@@ -90,7 +95,7 @@ SDTfake
                    [-g GEOMETRY GEOMETRY GEOMETRY GEOMETRY]
                    [--beam-width BEAM_WIDTH] [--spacing SPACING] [-o OUTDIR_ROOT]
                    [--scan-speed SCAN_SPEED] [--integration-time INTEGRATION_TIME]
-                   [--no-cal] [--debug]
+                   [--spectral-bins SPECTRAL_BINS] [--no-cal] [--debug]
 
     Simulate a single scan or a map with a point source.
 
@@ -123,6 +128,8 @@ SDTfake
                             Scan speed in arcminutes/second
       --integration-time INTEGRATION_TIME
                             Integration time in seconds
+      --spectral-bins SPECTRAL_BINS
+                            Simulate a spectrum with this number of bins
       --no-cal              Don't simulate calibrators
       --debug               Plot stuff and be verbose
 
@@ -290,6 +297,24 @@ SDTopacity
       --tatm TATM  Atmospheric temperature
       --tau0 TAU0  Initial value for tau (to be fit)
       --t0 T0      Initial value for Tsys (to be fitted)
+
+
+SDTparselog
+-----------
+
+.. code-block:: none
+
+    usage: SDTparselog [-h] [--to-csv] [--list-calon] [files [files ...]]
+
+    Read ACS logs and return useful information
+
+    positional arguments:
+      files         Single files to preprocess
+
+    optional arguments:
+      -h, --help    show this help message and exit
+      --to-csv      Save a CSV file with the results
+      --list-calon  List files with calibration mark on
 
 
 SDTpreprocess
