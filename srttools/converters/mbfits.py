@@ -1,3 +1,5 @@
+from __future__ import (absolute_import, division,
+                        print_function)
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time

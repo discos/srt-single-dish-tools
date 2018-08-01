@@ -25,7 +25,11 @@ except ImportError:
 __all__ = ["simulate_scan", "save_scan", "simulate_map"]
 
 
-DEFAULT_CAL_OFFSET = 211
+DEFAULT_PEAK_COUNTS = 100
+COUNTS_TO_K = 0.03
+DEFAULT_CAL_TEMP = 5
+DEFAULT_CAL_OFFSET = DEFAULT_CAL_TEMP / COUNTS_TO_K
+print(DEFAULT_CAL_OFFSET, DEFAULT_CAL_TEMP, DEFAULT_PEAK_COUNTS)
 
 
 summary_header = """
@@ -147,7 +151,7 @@ def _default_flat_shape(x):
     ...             np.array([100., 100., 100.]))
     True
     """
-    return 100 + np.zeros(np.asarray(x).shape)
+    return DEFAULT_PEAK_COUNTS + np.zeros(np.asarray(x).shape)
 
 
 @jit(nopython=True)
@@ -158,7 +162,7 @@ def _2d_gauss(x, y, sigma=2.5 / 60.):
 
 @jit(nopython=True)
 def calibrator_scan_func(x):
-    return 100 * _2d_gauss(x, 0, sigma=2.5 / 60)
+    return DEFAULT_PEAK_COUNTS * _2d_gauss(x, 0, sigma=2.5 / 60)
 
 
 def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
@@ -193,7 +197,7 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
                   {'Ch0': scan0, 'Ch1': scan1 * channel_ratio},
                   filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(0.03, 0.03 / channel_ratio))
+                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio))
         timedelta += times[-1] + 1
 
         times, decs, scan0 = \
@@ -214,7 +218,7 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
                   {'Ch0': scan0, 'Ch1': scan1 * channel_ratio},
                   filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(0.03, 0.03 / channel_ratio))
+                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio))
         timedelta += times[-1] + 1
 
     create_summary(os.path.join(caldir, 'summary.fits'),
@@ -239,7 +243,7 @@ def _default_map_shape(x, y):
     x = np.asarray(x)
     y = np.asarray(y)
     # It will raise a ValueError when x and y are not compatible
-    return 100 + np.zeros_like(y) * np.zeros_like(x)
+    return DEFAULT_PEAK_COUNTS + np.zeros_like(y) * np.zeros_like(x)
 
 
 def sim_position_switching(caldir, srcname='Dummy', nbin=1,
@@ -263,7 +267,7 @@ def sim_position_switching(caldir, srcname='Dummy', nbin=1,
                   {'Ch0': on, 'Ch1': on},
                   filename=os.path.join(caldir, 'ON_{}.fits'.format(n_on)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(0.03, 0.03),
+                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
                   other_keywords={'SIGNAL': 'SIGNAL'})
 
 
@@ -278,7 +282,7 @@ def sim_position_switching(caldir, srcname='Dummy', nbin=1,
         save_scan(times, ras + offset, decs, {'Ch0': off, 'Ch1': off},
                   filename=os.path.join(caldir, 'OFF_{}.fits'.format(n_off)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(0.03, 0.03),
+                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
                   other_keywords={'RightAscension Offset': offset,
                                   'SIGNAL': 'REFERENCE'})
 
@@ -294,7 +298,7 @@ def sim_position_switching(caldir, srcname='Dummy', nbin=1,
         save_scan(times, ras + offset, decs, {'Ch0': cal, 'Ch1': cal},
                   filename=os.path.join(caldir, 'CAL_{}.fits'.format(n_cal)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(0.03, 0.03),
+                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
                   other_keywords={'RightAscension Offset': offset,
                                   'SIGNAL': 'REFERENCE'},
                   other_columns={'flag_cal': 1})
@@ -361,7 +365,7 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
 
 def save_scan(times, ra, dec, channels, filename='out.fits',
               other_columns=None, other_keywords=None, scan_type=None,
-              src_ra=None, src_dec=None, srcname='Dummy', counts_to_K=0.03):
+              src_ra=None, src_dec=None, srcname='Dummy', counts_to_K=COUNTS_TO_K):
     """Save a simulated scan in fitszilla format.
 
     Parameters
@@ -406,6 +410,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     datahdu = lchdulist['DATA TABLE']
     temphdu = lchdulist['ANTENNA TEMP TABLE']
     secthdu = lchdulist['SECTION TABLE']
+    rfinput = lchdulist['RF INPUTS']
 
     lchdulist[0].header['SOURCE'] = "Dummy"
     lchdulist[0].header['ANTENNA'] = "SRT"
@@ -460,8 +465,12 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     temphdu.data = thdu.data
 
     shape = channels['Ch0'].shape
+
     if len(shape) == 2:
         secthdu.data['bins'] = shape[1]
+
+    # Sic
+    rfinput.data['calibratonMark'] = DEFAULT_CAL_TEMP
 
     lchdulist[0].header['SOURCE'] = srcname
     lchdulist.writeto(filename, overwrite=True)
@@ -637,7 +646,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                   {'Ch0': counts0, 'Ch1': counts1 * channel_ratio},
                   filename=fname, other_keywords=other_keywords,
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname,
-                  counts_to_K=(0.03, 0.03 / channel_ratio))
+                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio))
         if HAS_MPL:
             plt.plot(ra_array, counts0)
             plt.plot(ra_array, counts1)
@@ -763,11 +772,11 @@ def main_simulate(args=None):
     args = parser.parse_args(args)
 
     def local_gauss_src_func(x, y):
-        return args.source_flux * 100 * _2d_gauss(x, y,
-                                                  sigma=args.beam_width/60)
+        return args.source_flux * DEFAULT_PEAK_COUNTS * \
+               _2d_gauss(x, y, sigma=args.beam_width/60)
 
     def calibrator_scan_func(x):
-        return 100 * _2d_gauss(x, 0, sigma=args.beam_width/60)
+        return DEFAULT_PEAK_COUNTS * _2d_gauss(x, 0, sigma=args.beam_width/60)
 
     if not args.no_cal:
         cal1 = os.path.join(args.outdir_root, 'calibrator1')

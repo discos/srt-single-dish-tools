@@ -5,9 +5,34 @@ Users of other facilities might find it useful to have data converted in a known
 The SRT single dish tools have a convenient script for that, called ``SDTconvert``.
 
 
+Read logs and update information in fits files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Some information is not available in fits files produced with old versions of Nuraghe.
+Provided that an ``acs.xml`` file is available in the system, we can get a table of the full log in human-readable format with
+
+.. code-block:: console
+
+    (py3) $ SDTparselog acs.xml --to-csv
+
+There are a few shortcuts to the information we want to retrieve.
+E.g. we can get a list of FITS files with the calibration mark on:
+
+.. code-block:: console
+
+    (py3) $ SDTparselog acs.xml --list-calon
+
+The calibration mark ON is one of the missing pieces of information in some versions of Nuraghe.
+
+We can get the list of files where the calibration mark was on like above, and then apply it with ``SDTbulkchange``, with the following shortcut:
+
+.. code-block:: console
+
+    (py3) $ SDTparselog acs.xml --list-calon | grep fits | xargs SDTbulkchange --apply-cal-mark
+
+
 CLASS format
 ~~~~~~~~~~~~
-To get the data in a calibrated CLASS format readable into GILDAS, provided that the observations had a compatible ON-OFF or ON-OFF-CAL sequence, type
+To get the data in a calibrated CLASS format readable into GILDAS, provided that the observations had a compatible ON-OFF or ON-OFF-CAL sequence (for CAL, apply the information to fits files as described above), type
 
 .. code-block:: console
 

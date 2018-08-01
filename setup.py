@@ -111,6 +111,7 @@ for root, dirs, files in os.walk(PACKAGENAME):
                 filename.endswith('.ini') or \
                 filename.endswith('.fits') or \
                 filename.endswith('.reg') or \
+                filename == 'acs.xml' or \
                 filename == 'coveragerc':
             c_files.append(
                 os.path.join(
