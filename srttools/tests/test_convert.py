@@ -170,9 +170,9 @@ class Test1_Scan(object):
         with fits.open(probe_psw) as hdul:
             onoff_spec = hdul[1].data['SPECTRUM'][0]
         assert np.isclose(np.max(on_spec - off_spec), DEFAULT_PEAK_COUNTS,
-                          atol=0.1)
+                          atol=0.3)
         assert np.isclose(np.max(cal_spec_unnorm - off_spec),
-                          DEFAULT_CAL_OFFSET, atol=0.1)
+                          DEFAULT_CAL_OFFSET, atol=0.3)
         idx = np.argmax(on_spec)
         max_onoff = onoff_spec[idx]
         ref_off = off_spec[idx]
