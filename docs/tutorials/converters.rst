@@ -79,11 +79,5 @@ To get the data in the SDFITS format, with the scan divided in multiple files un
 
 .. code-block:: console
 
-    (py3) $ SDTconvert -f mbfits directory_of_observation
-
-To get a single MBFITS file for each Frontend-Backend combination, use instead
-
-.. code-block:: console
-
-    (py3) $ SDTconvert -f mbfitsw directory_of_observation
+    (py3) $ SDTconvert -f sdfits directory_of_observation
 
