@@ -283,9 +283,8 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
     for i, o in enumerate(on):
         signal[i] = (o - off_ref) / off_ref
 
-    cal_mark_temp = on_data['CALTEMP']
-
     if apply_cal:
+        cal_mark_temp = on_data['CALTEMP']
         oncal = offcal = np.zeros_like(caloff)
         if caloff is not None:
             offcal = (caloff - off_ref) / off_ref
@@ -302,7 +301,11 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
         else:
             return None, ""
 
-    newtable['SPECTRUM'][:] = signal * calibration_factor
+    if not isinstance(calibration_factor, collections.Iterable):
+        calibration_factor *= np.ones(newtable['SPECTRUM'].shape[0])
+
+    for i, calf in enumerate(calibration_factor):
+        newtable['SPECTRUM'][i, :] = signal[i, :] * calf
 
     return newtable, unit
 
