@@ -419,6 +419,7 @@ def _read_data_fitszilla(lchdulist):
     except KeyError:
         bw_section = None
         fr_section = None
+
     integration_time = lchdulist['SECTION TABLE'].header['Integration'] * u.ms
     if len(list(set(nbin_per_chan))) > 1:
         raise ValueError('Only datasets with the same nbin per channel are '
@@ -453,13 +454,13 @@ def _read_data_fitszilla(lchdulist):
     sections = get_value_with_units(rf_input_data, 'section')
     frequencies_rf = get_value_with_units(rf_input_data, 'frequency')
     bandwidths_rf = get_value_with_units(rf_input_data, 'bandWidth')
+
     local_oscillator = get_value_with_units(rf_input_data, 'localOscillator')
     try:
         cal_mark_temp = get_value_with_units(rf_input_data, 'calibrationMark')
     except KeyError:
         # Old, stupid typo
         cal_mark_temp = get_value_with_units(rf_input_data, 'calibratonMark')
-
 
     if bw_section is not None:
         bandwidths_section = [bw_section[i] for i in sections]
