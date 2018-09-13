@@ -27,8 +27,9 @@ def load_acs_log_file(fname, full=False):
             time = Time(line['TimeStamp'])
         else:
             continue
-
         text = line_el.text
+        if text is None:
+            continue
         if 'calOff' in text:
             is_cal_on = False
         elif 'calOn' in text:
