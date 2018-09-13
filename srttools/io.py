@@ -410,6 +410,10 @@ def _read_data_fitszilla(lchdulist):
     chan_ids = get_value_with_units(section_table_data, 'id')
     nbin_per_chan = get_value_with_units(section_table_data, 'bins')
     sample_rate = get_value_with_units(section_table_data, 'sampleRate')
+    try:
+        bandwidth_section = get_value_with_units(section_table_data, 'bandWidth')
+    except KeyError:
+        bandwidth_section = None
     integration_time = lchdulist['SECTION TABLE'].header['Integration'] * u.ms
     if len(list(set(nbin_per_chan))) > 1:
         raise ValueError('Only datasets with the same nbin per channel are '
@@ -441,14 +445,17 @@ def _read_data_fitszilla(lchdulist):
     IFs = get_value_with_units(rf_input_data, 'ifChain')
     polarizations = get_value_with_units(rf_input_data, 'polarization')
     frequencies = get_value_with_units(rf_input_data, 'frequency')
-    bandwidths = get_value_with_units(rf_input_data, 'bandWidth')
+    sections = get_value_with_units(rf_input_data, 'section')
+    if bandwidth_section is None:
+        bandwidths = get_value_with_units(rf_input_data, 'bandWidth')
+    else:
+        bandwidths = [bandwidth_section[i] for i in sections]
     local_oscillator = get_value_with_units(rf_input_data, 'localOscillator')
     try:
         cal_mark_temp = get_value_with_units(rf_input_data, 'calibrationMark')
     except KeyError:
         # Old, stupid typo
         cal_mark_temp = get_value_with_units(rf_input_data, 'calibratonMark')
-    sections = get_value_with_units(rf_input_data, 'section')
     combinations = list(zip(frequencies, bandwidths))
     combination_idx = np.arange(len(combinations))
 
