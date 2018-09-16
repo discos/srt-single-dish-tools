@@ -229,9 +229,9 @@ def _get_empty_array(length, dim):
     """
     Examples
     --------
-    >>> np.all(_get_empty_array(10, 1, "0").flatten() == np.zeros(10))
+    >>> np.all(_get_empty_array(10, "0")[1].flatten() == np.zeros(10))
     True
-    >>> np.all(_get_empty_array(10, 4, "(2,2)").flatten() == np.zeros(40))
+    >>> np.all(_get_empty_array(10, "(2,2)")[1].flatten() == np.zeros(40))
     True
 
     """
