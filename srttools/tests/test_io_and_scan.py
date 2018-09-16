@@ -254,7 +254,8 @@ class Test2_Scan(object):
 
     @pytest.mark.parametrize('fname', ['srt_data.fits',
                                        'srt_data_roach_polar.fits',
-                                       'srt_data_xarcos.fits'])
+                                       'srt_data_xarcos.fits',
+                                       'new_sardara.fits'])
     def test_scan_loading(self, fname):
         '''Test that data are read.'''
 
