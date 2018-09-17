@@ -2,6 +2,7 @@ from __future__ import (absolute_import, division,
                         print_function)
 from astropy.io import fits
 from astropy.time import Time
+from astropy.io.fits.column import _parse_tdim
 import astropy.units as u
 import astropy.constants as c
 import os
@@ -192,6 +193,7 @@ def get_data_description_from_model_header(data_format=None):
     list_ttype = []
     list_tform = []
     list_tunit = []
+    list_tdim = []
     headerdict = dict(header)
     for k in header:
         if not k.startswith('TTYPE'):
@@ -201,33 +203,63 @@ def get_data_description_from_model_header(data_format=None):
         if 'TUNIT' + n in headerdict:
             unit = header['TUNIT' + n]
         tform = header['TFORM' + n]
+        tdim = "0"
         if header[k] in ['DATA', 'FLAGGED'] and data_format is not None:
             tform = "{}D".format(np.product(data_format))
+            tdim = str(data_format)
         num.append(int(n))
         list_ttype.append(header[k])
         list_tform.append(tform)
         list_tunit.append(unit)
+        list_tdim.append(tdim)
     num = np.asarray(num)
     list_ttype = np.asarray(list_ttype)
     list_tform = np.asarray(list_tform)
     list_tunit = np.asarray(list_tunit)
+    list_tdim = np.asarray(list_tdim)
     order = np.argsort(num)
     list_ttype = list_ttype[order]
     list_tform = list_tform[order]
     list_tunit = list_tunit[order]
-    return list_ttype, list_tform, list_tunit
+    list_tdim = list_tdim[order]
+    return list_ttype, list_tform, list_tunit, list_tdim
+
+
+def _get_empty_array(length, dim):
+    """
+    Examples
+    --------
+    >>> np.all(_get_empty_array(10, "0")[1].flatten() == np.zeros(10))
+    True
+    >>> np.all(_get_empty_array(10, "(2,2)")[1].flatten() == np.zeros(40))
+    True
+
+    """
+
+    dim = _parse_tdim(dim)
+    if dim == ():
+        return dim, np.zeros(length)
+
+    return (dim[1], dim[0]), np.zeros((length, dim[1], dim[0]))
 
 
 def get_model_HDUlist(data_format, length=1, **kwargs):
     """Produce a model CLASS-compatible HDUlist."""
     cols = []
 
-    list_ttype, list_tform, list_tunit = \
+    list_ttype, list_tform, list_tunit, list_tdim = \
         get_data_description_from_model_header(data_format)
 
-    for ttype, tform, tunit in zip(list_ttype, list_tform, list_tunit):
-        newcol = fits.Column(name=ttype, format=tform, unit=tunit,
-                             array=np.zeros(length))
+    for ttype, tform, tunit, dim in \
+            zip(list_ttype, list_tform, list_tunit, list_tdim):
+        newdim, array = _get_empty_array(length, dim)
+
+        if newdim != ():
+            newcol = fits.Column(name=ttype, format=tform, unit=tunit,
+                                 dim=newdim, array=array)
+        else:
+            newcol = fits.Column(name=ttype, format=tform, unit=tunit,
+                                 array=array)
         cols.append(newcol)
 
     coldefs = fits.ColDefs(cols)
@@ -353,17 +385,13 @@ class SDFITS_creator():
                                    ch.endswith('{}'.format(baseband))]
                     ncol = len(columns)
 
-                    data_matrix = np.stack([subscan[ch] for ch in columns],
-                                            axis=1)
-                    shape = data_matrix.shape
-                    if len(shape) == 3:
-                        data_matrix = \
-                            data_matrix.reshape((shape[0], shape[1]*shape[2]))
+                    data_matrix = \
+                        np.stack(zip(*[subscan[ch] for ch in columns]))
+                    shape = data_matrix[0].shape
 
                     array = subscan[columns[0]]
-
                     newhdu = \
-                        get_model_HDUlist(data_format=(channels[0], ncol),
+                        get_model_HDUlist(data_format=shape,
                                           length=len(array))
 
                     data = newhdu[1].data
@@ -385,16 +413,20 @@ class SDFITS_creator():
                     df = (bandwidth / nbin).to('Hz')
                     data['CDELT1'] = df
                     deltav = - df / restfreq * c.c
-                    data['FREQRES'] = deltav.to('m/s').value
+
+                    data['FREQRES'] = df.to('Hz').value
 
                     data['TDIM23'] = str(data_matrix[0].shape)
                     data['TDIM25'] = str(data_matrix[0].shape)
+
                     data['DATA'] = data_matrix
 
                     data['OBJECT'] = subscan.meta['SOURCE']
                     data['AZIMUTH'] = azimuth
                     data['ELEVATIO'] = elevation
                     data['CRPIX1'] = nbin // 2 + 1
+                    data['CRVAL1'] = \
+                        array.meta['frequency'] + array.meta['bandwidth'] / 2
                     data['CRVAL3'] = crval3
                     data['CRVAL4'] = crval4
 
@@ -406,6 +438,12 @@ class SDFITS_creator():
                     data["TAMBIENT"] = weather[:, 1]
                     data["PRESSURE"] = weather[:, 2]
                     data["BEAM"] = f
+                    data['DATE-OBS'] = date_col[0]
+                    data['OBJ-RA'] = subscan['ra'][:, f].to(u.deg).value
+                    data['OBJ-DEC'] = subscan['dec'][:, f].to(u.deg).value
+                    data['RESTFRQ'] = restfreq.to(u.Hz).value
+                    data['BANDWID'] = array.meta['bandwidth'].to(u.Hz).value
+                    data['OBSMODE'] = subscan.meta['SubScanType']
 
                     header = newhdu[1].header
                     header['TELESCOP'] = subscan.meta['site']
