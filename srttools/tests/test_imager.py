@@ -84,6 +84,7 @@ def sim_config_file(filename, add_garbage=False, prefix=None):
 [local]
 workdir : .
 datadir : .
+productdir : test_image
 
 [analysis]
 projection : ARC
@@ -952,9 +953,10 @@ class TestScanSet(object):
                 os.unlink(o)
             out_fits_files = glob.glob(os.path.join(klass.config['datadir'],
                                                     'test_config*.fits'))
-            out_hdf5_files = glob.glob(os.path.join(klass.config['datadir'],
+            out_hdf5_files = glob.glob(os.path.join(klass.config['productdir'],
                                                     'sim',
                                                     '*/', '*.hdf5'))
 
             for o in out_fits_files + out_hdf5_files:
                 os.unlink(o)
+            shutil.rmtree(os.path.join(klass.config['productdir'], 'sim'))

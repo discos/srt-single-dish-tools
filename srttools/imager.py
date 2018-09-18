@@ -1359,6 +1359,11 @@ def main_imager(args=None):
                         help='Sum all the images from the single channels into'
                              ' one.')
 
+    parser.add_argument("--nosave", action='store_true',
+                        default=False,
+                        help='Sum all the images from the single channels into'
+                             ' one.')
+
     parser.add_argument("--bad-chans",
                         default="", type=str,
                         help='Channels to be discarded when scrunching, '
@@ -1399,7 +1404,8 @@ def main_imager(args=None):
         scanset = ScanSet(args.config, norefilt=not args.refilt,
                           freqsplat=args.splat, nosub=not args.sub,
                           nofilt=args.nofilt, debug=args.debug,
-                          avoid_regions=excluded_radec)
+                          avoid_regions=excluded_radec,
+                          nosave=args.nosave)
         infile = args.config
 
         if outfile is None:
@@ -1450,6 +1456,11 @@ def main_preprocess(args=None):
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Plot stuff and be verbose')
 
+    parser.add_argument("--nosave", action='store_true',
+                        default=False,
+                        help='Sum all the images from the single channels into'
+                             ' one.')
+
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -1480,7 +1491,8 @@ def main_preprocess(args=None):
                      norefilt=False, debug=args.debug,
                      interactive=args.interactive,
                      avoid_regions=excluded_radec,
-                     config_file=args.config)
+                     config_file=args.config,
+                     nosave=args.nosave)
             except OSError:
                 warnings.warn("File {} is not in a known format".format(f))
     else:
@@ -1488,4 +1500,5 @@ def main_preprocess(args=None):
             raise ValueError("Please specify the config file!")
         ScanSet(args.config, norefilt=False, freqsplat=args.splat,
                 nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
-                interactive=args.interactive, avoid_regions=excluded_radec)
+                interactive=args.interactive, avoid_regions=excluded_radec,
+                nosave=args.nosave)

@@ -3,6 +3,7 @@ from __future__ import (absolute_import, division,
                         print_function)
 
 from .io import read_data, root_name, get_chan_columns, get_channel_feed
+from .io import mkdir_p
 import glob
 from .read_config import read_config, get_config_file
 from .fit import ref_mad, contiguous_regions
@@ -54,6 +55,36 @@ else:
             angle[ltpi] += TWOPI
             ltpi = angle < -np.pi
         return angle
+
+
+def product_path_from_file_name(fname, workdir='.', productdir=None):
+    """
+    Examples
+    --------
+    >>> curpath = os.path.abspath('.')
+    >>> path, fname = product_path_from_file_name('ciao.ciao', workdir='.', productdir=None)
+    >>> os.path.abspath(path) == curpath
+    True
+    >>> dumdir = os.path.join('bu', 'bla')
+    >>> dumfile = os.path.join(dumdir, 'ciao.ciao')
+    >>> path, fname = product_path_from_file_name(dumfile, workdir=dumdir, productdir=None)
+    >>> os.path.abspath(path) == curpath
+    True
+    >>> path, fname = product_path_from_file_name(dumfile, workdir='bu', productdir='be')
+    >>> os.path.abspath(path) == os.path.abspath(os.path.join('be', 'bla'))
+    True
+    """
+    if productdir is None:
+        productdir = '.'
+    filedir, fn = os.path.split(fname)
+    if filedir == '':
+        filedir = '.'
+
+    base = os.path.commonprefix([filedir, workdir])
+    relpath = os.path.relpath(filedir, base)
+
+    rootdir = os.path.join(productdir, relpath)
+    return rootdir, fn
 
 
 def angular_distance(angle0, angle1):
@@ -247,6 +278,10 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     srttools.fit.baseline_als
     srttools.fit.ref_mad
     """
+    rootdir, fn = os.path.split(outfile)
+    if not os.path.exists(rootdir):
+        mkdir_p(rootdir)
+
     try:
         bandwidth_unit = bandwidth.unit
         bandwidth = bandwidth.value
@@ -593,7 +628,9 @@ class Scan(Table):
             self.meta['config_file'] = config_file
             self.meta.update(read_config(self.meta['config_file']))
         else:  # if data is a filename
-            h5name = root_name(data) + '.hdf5'
+            self.meta['config_file'] = config_file
+            self.meta.update(read_config(self.meta['config_file']))
+            h5name = self.root_name(data) + '.hdf5'
             if os.path.exists(h5name) and norefilt:
                 # but only if the modification time is later than the
                 # original file (e.g. the fits file was not modified later)
@@ -606,7 +643,6 @@ class Scan(Table):
             if not data.endswith('hdf5'):
                 self.meta['filename'] = os.path.abspath(data)
             self.meta['config_file'] = config_file
-
             self.meta.update(read_config(self.meta['config_file']))
 
             self.check_order()
@@ -705,7 +741,7 @@ class Scan(Table):
                     freqsplat=freqsplat,
                     noise_threshold=noise_threshold,
                     debug=debug, nofilt=nofilt,
-                    outfile=root_name(self.meta['filename']),
+                    outfile=self.root_name(self.meta['filename']),
                     label="{}".format(ic),
                     smoothing_window=self.meta['smooth_window'],
                     debug_file_format=self.meta['debug_file_format'],
@@ -874,8 +910,25 @@ class Scan(Table):
             self.save()
         self.meta['ifilt'] = True
 
+    def root_name(self, fname):
+        rootdir, fn = os.path.split(fname)
+        if rootdir == '':
+            rootdir = '.'
+
+        if self.meta['productdir'] is not None:
+            rootdir, fname = \
+                product_path_from_file_name(fname, workdir=self.meta['workdir'],
+                                            productdir=self.meta['productdir'])
+
+        return root_name(os.path.join(rootdir, fn))
+
     def save(self, fname=None):
         """Call self.write with a default filename, or specify it."""
         if fname is None:
-            fname = root_name(self.meta['filename']) + '.hdf5'
+            fname = self.root_name(self.meta['filename']) + '.hdf5'
+
+        rootdir, fn = os.path.split(fname)
+        if not os.path.exists(rootdir):
+            mkdir_p(rootdir)
+
         self.write(fname, overwrite=True)
