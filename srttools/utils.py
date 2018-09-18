@@ -21,7 +21,12 @@ try:
 except ImportError:
     HAS_MAHO = False
 
-DEFAULT_MPL_BACKEND = 'TKAgg'
+DEFAULT_MPL_BACKEND = None
+
+if os.environ.get('DISPLAY') and os.environ.get('DISPLAY') != '':
+    DEFAULT_MPL_BACKEND = 'TKAgg'
+else:
+    DEFAULT_MPL_BACKEND = 'Agg'
 
 try:
     import matplotlib
