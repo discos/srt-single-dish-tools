@@ -8,10 +8,15 @@ Welcome to the SRT Single Dish Tools documentation!
 
 Introduction
 ------------
+
+.. warning::
+   *Limited* support for python 2.7 will be maintained until December 2018.
+   After, the srttools will only be support Python 3.5 and later.
+
 The Sardinia Radio Telescope Single Dish Tools (SDT) are a set of Python
 tools designed for the quicklook and analysis of single-dish radio data,
 starting from the backends present at the Sardinia Radio Telescope.
-They are composed of a Python (2.7, 3.4+) library for developers
+They are composed of a Python 3.4+ library for developers
 and a set of command-line scripts to soften the learning curve for new users.
 
 The Python library is written following the modern coding standards
