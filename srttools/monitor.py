@@ -16,7 +16,6 @@ import glob
 
 from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
-warnings.filterwarnings('ignore')
 global CONFIG_FILE
 
 

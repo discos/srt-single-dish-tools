@@ -208,7 +208,7 @@ class TestDataSelector(object):
         fake_event.key, fake_event.xdata, fake_event.ydata = ('A', 1, 3)
         with pytest.warns(TestWarning) as record:
             self.selector.on_key(fake_event)
-        assert "I aligned all" in record[0].message.args[0]
+        assert np.any("I aligned all" in rec.message.args[0] for rec in record)
 
     def test_quit(self, capsys):
         fake_event = type('event', (), {})()

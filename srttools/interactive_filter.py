@@ -29,6 +29,10 @@ class PlotWarning(UserWarning):
     pass
 
 
+warnings.filterwarnings("always", category=TestWarning)
+warnings.filterwarnings("always", category=PlotWarning)
+
+
 def create_empty_info(keys):
     info = {}
     for key in keys:
@@ -290,9 +294,6 @@ Actions:
     def align_all(self):
         """Given the selected scan, aligns all the others to that."""
 
-        # During tests, let's suppress all unwanted warnings
-        if self.test:
-            warnings.filterwarnings("ignore")
         reference = self.current
 
         x = np.array(self.xs[reference])
@@ -335,7 +336,7 @@ Actions:
 
         self.plot_all(silent=True)
         if self.test:
-            warnings.filterwarnings("default")
+#            warnings.filterwarnings("default")
             warnings.warn("I aligned all", TestWarning)
 
     def on_pick(self, event):

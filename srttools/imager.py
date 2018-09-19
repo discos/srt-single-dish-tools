@@ -1361,8 +1361,8 @@ def main_imager(args=None):
 
     parser.add_argument("--nosave", action='store_true',
                         default=False,
-                        help='Sum all the images from the single channels into'
-                             ' one.')
+                        help='Do not save the hdf5 intermediate files when'
+                             'loading subscans.')
 
     parser.add_argument("--bad-chans",
                         default="", type=str,
@@ -1458,8 +1458,8 @@ def main_preprocess(args=None):
 
     parser.add_argument("--nosave", action='store_true',
                         default=False,
-                        help='Sum all the images from the single channels into'
-                             ' one.')
+                        help='Do not save the hdf5 intermediate files when'
+                             'loading subscans.')
 
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "

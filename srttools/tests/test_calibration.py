@@ -1,5 +1,5 @@
 from __future__ import division, print_function
-from srttools import CalibratorTable
+from srttools.calibration import CalibratorTable
 from srttools.calibration import main_lcurve, _get_flux_quantity, main_cal
 from srttools.read_config import read_config
 from srttools.scan import list_scans
