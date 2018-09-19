@@ -19,7 +19,7 @@ if sys.version_info[:2] < (2, 7) or (3, 0) <= sys.version_info[:2] < (3, 4):
     raise RuntimeError("Python version 2.7 or >= 3.4 required.")
 
 from astropy_helpers.setup_helpers import (
-    register_commands, adjust_compiler, get_debug_option, get_package_info)
+    register_commands, get_debug_option, get_package_info)
 from astropy_helpers.git_helpers import get_git_devstr
 from astropy_helpers.version_helpers import generate_version_py
 
@@ -66,10 +66,6 @@ if not RELEASE:
 # invoking any other functionality from distutils since it can potentially
 # modify distutils' behavior.
 cmdclassd = register_commands(PACKAGENAME, VERSION, RELEASE)
-
-# Adjust the compiler in case the default on this platform is to use a
-# broken one.
-adjust_compiler(PACKAGENAME)
 
 # Freeze build information in version.py
 generate_version_py(PACKAGENAME, VERSION, RELEASE,

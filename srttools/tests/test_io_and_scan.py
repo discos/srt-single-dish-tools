@@ -47,14 +47,16 @@ class Test1_Scan(object):
             os.path.abspath(
                 os.path.join(klass.datadir, 'gauss_dec',
                              'Dec0.fits'))
-        h5file = klass.fname.replace('.fits', '.hdf5')
-        if os.path.exists(h5file):
-            os.unlink(h5file)
 
         klass.config_file = \
             os.path.abspath(os.path.join(klass.datadir, 'test_config.ini'))
 
-        read_config(klass.config_file)
+        config = read_config(klass.config_file)
+
+        h5file = os.path.join(config['productdir'], 'gauss_dec',
+                             'Dec0.hdf5')
+        if os.path.exists(h5file):
+            os.unlink(h5file)
 
     def test_bulk_change_hdr(self):
         dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
@@ -235,14 +237,15 @@ class Test2_Scan(object):
                 os.path.join(klass.datadir, 'spectrum',
                              'roach_template.fits'))
 
-        h5file = klass.fname.replace('.fits', '.hdf5')
-        if os.path.exists(h5file):
-            os.unlink(h5file)
         klass.config_file = \
             os.path.abspath(os.path.join(klass.datadir, 'spectrum.ini'))
-        print(klass.config_file)
+        config = read_config(klass.config_file)
 
-        read_config(klass.config_file)
+        h5file = os.path.join(config['productdir'], 'spectrum',
+                             'roach_template.hdf5')
+        if os.path.exists(h5file):
+            os.unlink(h5file)
+        klass.config = config
 
     def test_scan(self):
         '''Test that data are read.'''
@@ -260,6 +263,8 @@ class Test2_Scan(object):
         '''Test that data are read.'''
 
         Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
+        assert os.path.exists(os.path.join(self.config['productdir'], 'spectrum',
+                                           fname.replace('.fits', '.hdf5')))
 
     def test_scan_baseline_unknown(self):
         '''Test that data are read.'''

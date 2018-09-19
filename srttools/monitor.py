@@ -2,6 +2,7 @@ from __future__ import (absolute_import, division,
                         print_function)
 import time
 import logging
+import os
 try:
     from watchdog.observers import Observer
     from watchdog.events import PatternMatchingEventHandler
@@ -14,6 +15,7 @@ import subprocess as sp
 import glob
 
 from srttools.read_config import read_config
+from srttools.scan import product_path_from_file_name
 warnings.filterwarnings('ignore')
 global CONFIG_FILE
 
@@ -46,13 +48,18 @@ class MyHandler(PatternMatchingEventHandler):
         global CONFIG_FILE
 
         infile = event.src_path
-        root = infile.replace('.fits', '')
         conf = read_config(CONFIG_FILE)
         ext = conf['debug_file_format']
+        productdir, fname = \
+            product_path_from_file_name(infile, productdir=conf['productdir'],
+                                        workdir=conf['workdir'])
+
+        root = os.path.join(productdir, fname.replace('.fits', ''))
+
         try:
             sp.check_call(
-                "SDTpreprocess --debug {} -c {}".format(infile,
-                                                        CONFIG_FILE).split())
+                "SDTpreprocess "
+                "--debug {} -c {}".format(infile, CONFIG_FILE).split())
         except sp.CalledProcessError:
             return
 

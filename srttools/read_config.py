@@ -29,6 +29,8 @@ def sample_config_file(fname='sample_config_file.ini'):
 workdir : .
 ; the root directory of the data repository.
 datadir : .
+; the root directory of the data repository.
+productdir : None
 
 [analysis]
 projection : ARC
@@ -114,6 +116,7 @@ def read_config(fname=None):
     config_output['interpolation'] = 'linear'
     config_output['workdir'] = './'
     config_output['datadir'] = './'
+    config_output['productdir'] = None
     config_output['list_of_directories'] = '*'
     config_output['calibrator_directories'] = []
     config_output['skydip_directories'] = []
@@ -140,6 +143,12 @@ def read_config(fname=None):
         config_output['datadir'] = \
             os.path.abspath(os.path.join(os.path.split(fname)[0],
                                          config_output['datadir']))
+
+    if config_output['productdir'] is not None and \
+            not config_output['productdir'].startswith('/'):
+        config_output['productdir'] = \
+            os.path.abspath(os.path.join(os.path.split(fname)[0],
+                                         config_output['productdir']))
 
     try:
         # Read analysis information

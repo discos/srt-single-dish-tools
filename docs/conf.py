@@ -108,7 +108,7 @@ release = package.__version__
 # variables set in the global configuration. The variables set in the
 # global configuration are listed below, commented out.
 
-latex_elements['paper_size'] = 'a4'
+# latex_elements['paper_size'] = 'a4'
 
 # Add any paths that contain custom themes here, relative to this directory.
 # To use a different custom theme, add the directory containing the theme.

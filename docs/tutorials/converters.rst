@@ -4,6 +4,14 @@ Italian antennas baded on the ACS control system save raw data in a FITS format 
 Users of other facilities might find it useful to have data converted in a known format.
 The SRT single dish tools have a convenient script for that, called ``SDTconvert``.
 
+.. note::
+
+    If you are using Anaconda: remember to initialize the environment. E.g. for an environment called ``py3``
+
+    .. code-block:: console
+
+        $ source activate py3
+
 
 Read logs and update information in fits files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

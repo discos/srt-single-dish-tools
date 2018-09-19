@@ -84,6 +84,7 @@ def sim_config_file(filename, add_garbage=False, prefix=None):
 [local]
 workdir : .
 datadir : .
+productdir : test_image
 
 [analysis]
 projection : ARC
@@ -155,6 +156,10 @@ class TestScanSet(object):
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, 'data')
         klass.sim_dir = os.path.join(klass.datadir, 'sim')
+        klass.prodir_ra = os.path.join(klass.datadir,
+                                       'sim', 'test_image', 'gauss_ra')
+        klass.prodir_dec = os.path.join(klass.datadir,
+                                        'sim', 'test_image', 'gauss_dec')
 
         klass.obsdir_ra = os.path.join(klass.datadir, 'sim', 'gauss_ra')
         klass.obsdir_dec = os.path.join(klass.datadir, 'sim', 'gauss_dec')
@@ -246,7 +251,9 @@ class TestScanSet(object):
         for file in files[:2]:
             # I used debug_file_format : eps in the config
             if HAS_MPL:
-                assert os.path.exists(file.replace('.fits', '_0.eps'))
+                f = os.path.basename(file).replace('.fits', '_0.eps')
+
+                assert os.path.exists(os.path.join(self.prodir_ra, f))
 
     def test_script_is_installed_prep(self):
         sp.check_call('SDTpreprocess -h'.split(' '))
@@ -790,7 +797,6 @@ class TestScanSet(object):
         s = Scan(sname)
         assert np.all(after == s['Feed0_RCP-filt'])
         assert s.meta['FLAG'] is True
-        os.unlink(sname.replace('fits', 'hdf5'))
 
     def test_update_scan_fit(self):
         scanset = ScanSet('test.hdf5')
@@ -815,7 +821,7 @@ class TestScanSet(object):
         assert np.all(before != after)
         s = Scan(sname)
         assert np.all(after == s['Feed0_RCP'])
-        os.unlink(sname.replace('fits', 'hdf5'))
+        # os.unlink(sname.replace('fits', 'hdf5'))
 
     def test_update_scan_zap(self):
         scanset = ScanSet('test.hdf5')
@@ -844,7 +850,7 @@ class TestScanSet(object):
 
         assert np.all(np.array(after, dtype=bool) ==
                       np.array(s['Feed0_RCP-filt'], dtype=bool))
-        os.unlink(sname.replace('fits', 'hdf5'))
+        # os.unlink(sname.replace('fits', 'hdf5'))
 
     def test_imager_global_fit_invalid(self):
         '''Test image production.'''
@@ -952,9 +958,10 @@ class TestScanSet(object):
                 os.unlink(o)
             out_fits_files = glob.glob(os.path.join(klass.config['datadir'],
                                                     'test_config*.fits'))
-            out_hdf5_files = glob.glob(os.path.join(klass.config['datadir'],
+            out_hdf5_files = glob.glob(os.path.join(klass.config['productdir'],
                                                     'sim',
                                                     '*/', '*.hdf5'))
 
             for o in out_fits_files + out_hdf5_files:
                 os.unlink(o)
+            shutil.rmtree(os.path.join(klass.config['productdir'], 'sim'))

@@ -14,6 +14,15 @@ Afterwards, we will load a set of calibrators to perform the
 conversion from signal level to Janskys/pixel. Finally, we will
 apply the calibration to the previously generated images.
 
+.. note::
+
+    If you are using Anaconda: remember to initialize the environment. E.g. for an environment called ``py3``
+
+    .. code-block:: console
+
+        $ source activate py3
+
+
 Inspect the observation
 ~~~~~~~~~~~~~~~~~~~~~~~
 During a night of observations, we will in general observe a number of calibrators
