@@ -23,9 +23,9 @@ try:
 except ImportError:
     HAS_PYREGION = False
 
-from srttools import ScanSet
-from srttools import Scan
-from srttools import CalibratorTable
+from srttools.imager import ScanSet
+from srttools.scan import Scan
+from srttools.calibration import CalibratorTable
 from srttools.calibration import HAS_STATSM
 from srttools.read_config import read_config
 from srttools.imager import main_imager, main_preprocess, \
