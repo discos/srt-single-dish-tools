@@ -1,3 +1,63 @@
+"""Convert fitszilla data to a CLASS-compatible fits format.
+
+The conversion makes use of three types of pointings:
+
++ SIGNAL or ON, meaning on-source data
+
++ REFERENCE or OFF, meaning data taken from an "empty" region in the sky
+
++ CAL, meaning data taken with the calibration mark on (can be CALOFF or
+    CALON depending on where the antenna is pointed.)
+
+The conversion is performed as follows:
+
+1. Load all subscans from a given scan (=a subdirectory with a summary.fits file)
+    and classify each of them as ON, OFF, CALON, CALOFF.
+
+2. Try to infer patterns in the observation of the kind nON, mOFF, rCAL, and
+    group the data for each repetition of the pattern
+
+3. Inside each group, average all the OFF spectra and the CAL spectra,
+    not the ON ones (unless specified).
+
+    3a. If specified, smooth the OFF and CAL spectra
+
+4. Normalize the flux of each ON measurement as
+
+    4a. Normalize the spectrum with respect to the sky spectrum
+
+        .. code-block:: console
+
+                      ___
+                 ON - OFF
+            S = ----------
+                   ___
+                   OFF
+
+    4b. Normalize the calibration signal by the sky spectrum
+
+        .. code-block:: console
+
+                          ___
+                 CALOFF - OFF
+            C = -------------
+                     ___
+                     OFF
+
+    4c. If specified, obtain a similar calibration factor with the CALON signal
+
+    4b. Scale the normalized sky spectrum to the normalized calibration spectrum Tc,
+        to obtain the antenna temperature Ta:
+
+        .. code-block:: console
+
+                  S
+            Ta = --- Tc
+                  C
+
+"""
+
+
 from __future__ import (absolute_import, division,
                         print_function)
 from astropy.io import fits

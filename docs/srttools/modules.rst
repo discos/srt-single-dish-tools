@@ -12,6 +12,22 @@ srttools.calibration module
     :undoc-members:
     :show-inheritance:
 
+srttools.convert module
+-----------------------
+
+.. automodule:: srttools.convert
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+srttools.converters.classfits module
+------------------------------------
+
+.. automodule:: srttools.converters.classfits
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 srttools.fit module
 -------------------
 
