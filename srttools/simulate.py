@@ -41,7 +41,6 @@ COMMENT   and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H
 HIERARCH BackendName = 'NULL    ' / Backend name
 CREATOR = 'NULL    '           / Software (incl. version)
 DATE-OBS= '2016-10-03T14:59:08.753' / Observation time
-HIERARCH Declination = 0.253290907695677 / Target declination (radians)
 EQUINOX =                   0. / Equinox of RA, Dec
 EXPTIME =                   0. / Total integration time (seconds)
 FITSVER = 'V.1.11  '           / FITS version
@@ -57,6 +56,7 @@ HIERARCH RESTFREQ3 =  22235.08 / Rest frequency (MHz)
 HIERARCH RESTFREQ4 =  22235.08 / Rest frequency (MHz)
 HIERARCH ReceiverCode = 'CCB     ' / Receiver name
 HIERARCH RightAscension = 5.07757730974885 / Target right ascension (radians)
+HIERARCH Declination = 0.253290907695677 / Target declination (radians)
 SCANGEOM= 'NULL    '           / Scan geometry
 SCANMODE= 'NULL    '           / Mapping mode
 SCANTYPE= 'NULL    '           / Scan astronomical type
@@ -304,7 +304,7 @@ def sim_position_switching(caldir, srcname='Dummy', nbin=1,
 
     create_summary(os.path.join(caldir, 'summary.fits'),
                    {'RightAscension': np.radians(src_ra),
-                    'Declination': np.radians(src_ra),
+                    'Declination': np.radians(src_dec),
                     'Object': srcname})
     return caldir
 
@@ -413,8 +413,9 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
 
     lchdulist[0].header['SOURCE'] = "Dummy"
     lchdulist[0].header['ANTENNA'] = "SRT"
-    lchdulist[0].header['HIERARCH RIGHTASCENSION'] = np.radians(src_ra)
-    lchdulist[0].header['HIERARCH DECLINATION'] = np.radians(src_dec)
+    lchdulist[0].header['HIERARCH RightAscension'] = np.radians(src_ra)
+    lchdulist[0].header['HIERARCH Declination'] = np.radians(src_dec)
+
     if scan_type is not None:
         lchdulist[0].header['HIERARCH SubScanType'] = scan_type
 
@@ -640,7 +641,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         if i_d % 2 != 0:
             actual_ra = actual_ra[::-1]
         fname = os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d))
-        other_keywords = {'Declination Offset': delta_dec}
+        other_keywords = {'HIERARCH Declination Offset': delta_dec}
         save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
                   {'Ch0': counts0, 'Ch1': counts1 * channel_ratio},
                   filename=fname, other_keywords=other_keywords,

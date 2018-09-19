@@ -581,9 +581,10 @@ class CLASSFITS_creator():
                 header = newhdu[1].header
                 header['CTYPE1'] = "FREQ"
                 header['CRVAL'] = 0
-                header['CRVAL2'] = np.mean(subscan['ra'][:, f].to(u.deg).value)
-                header['CRVAL3'] = \
-                    np.mean(subscan['dec'][:, f].to(u.deg).value)
+
+                header['CRVAL2'] = np.degrees(subscan.meta['RightAscension'])
+                header['CRVAL3'] = np.degrees(subscan.meta['Declination'])
+
                 header['LINE'] = subscan.meta['SOURCE']
                 header['OBJECT'] = subscan.meta['SOURCE']
                 header['SOURCE'] = subscan.meta['SOURCE']

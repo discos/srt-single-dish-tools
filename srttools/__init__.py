@@ -19,13 +19,17 @@ except ImportError:
 # For egg_info test builds to pass, put package imports here.
 if not _ASTROPY_SETUP_:
     import warnings
+    import sys
 
     warnings.simplefilter("ignore")
     warnings.filterwarnings("once", module="srttools")
     warnings.filterwarnings("once", module="srttools", category=DeprecationWarning)
-    warnings.warn("You are using the srttools under Python 2. Limited support for Python 2 will "
-                  "only be maintained until the end of 2018. Please update your Python setup from"
-                  "2 to 3.5 or later.", DeprecationWarning)
+    if sys.version_info[0] < 3:
+        warnings.warn("You are using the srttools under Python 2. "
+                      "Limited support for Python 2 will only be "
+                      "maintained until the end of 2018. Please update "
+                      "your Python setup from 2 to 3.5 or later.",
+                      DeprecationWarning)
     # from .calibration import *  # noqa: F401,F403
     # from .fit import *  # noqa: F401,F403
     # from .global_fit import *  # noqa: F401,F403
