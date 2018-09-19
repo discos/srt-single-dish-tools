@@ -143,8 +143,8 @@ SDTimage
                     [--sub] [--interactive] [--calibrate CALIBRATE] [--nofilt]
                     [-g] [-e EXCLUDE [EXCLUDE ...]] [--chans CHANS] [-o OUTFILE]
                     [-u UNIT] [--destripe] [--npix-tol NPIX_TOL] [--debug]
-                    [--quick] [--scrunch-channels] [--bad-chans BAD_CHANS]
-                    [--splat SPLAT]
+                    [--quick] [--scrunch-channels] [--nosave]
+                    [--bad-chans BAD_CHANS] [--splat SPLAT]
                     [file]
 
     Load a series of scans from a config file and produce a map.
@@ -188,6 +188,7 @@ SDTimage
       --quick               Calibrate after image creation, for speed (bad when
                             calibration depends on elevation)
       --scrunch-channels    Sum all the images from the single channels into one.
+      --nosave              Sum all the images from the single channels into one.
       --bad-chans BAD_CHANS
                             Channels to be discarded when scrunching, separated by
                             a comma (e.g. --bad-chans Feed2_RCP,Feed3_RCP )
@@ -323,7 +324,8 @@ SDTpreprocess
 .. code-block:: none
 
     usage: SDTpreprocess [-h] [-c CONFIG] [--sub] [--interactive] [--nofilt]
-                         [--debug] [--splat SPLAT] [-e EXCLUDE [EXCLUDE ...]]
+                         [--debug] [--nosave] [--splat SPLAT]
+                         [-e EXCLUDE [EXCLUDE ...]]
                          [files [files ...]]
 
     Load a series of scans from a config file and preprocess them, or preprocess a
@@ -340,6 +342,7 @@ SDTpreprocess
       --interactive         Open the interactive display for each scan
       --nofilt              Do not filter noisy channels
       --debug               Plot stuff and be verbose
+      --nosave              Sum all the images from the single channels into one.
       --splat SPLAT         Spectral scans will be scrunched into a single channel
                             containing data in the given frequency range, starting
                             from the frequency of the first bin. E.g. '0:1000'
