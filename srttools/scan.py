@@ -278,7 +278,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     srttools.fit.baseline_als
     srttools.fit.ref_mad
     """
-    rootdir, fn = os.path.split(outfile)
+    rootdir, _ = os.path.split(outfile)
     if not os.path.exists(rootdir):
         mkdir_p(rootdir)
 
@@ -927,7 +927,7 @@ class Scan(Table):
         if fname is None:
             fname = self.root_name(self.meta['filename']) + '.hdf5'
 
-        rootdir, fn = os.path.split(fname)
+        rootdir, _ = os.path.split(fname)
         if not os.path.exists(rootdir):
             mkdir_p(rootdir)
 
