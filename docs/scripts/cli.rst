@@ -188,7 +188,8 @@ SDTimage
       --quick               Calibrate after image creation, for speed (bad when
                             calibration depends on elevation)
       --scrunch-channels    Sum all the images from the single channels into one.
-      --nosave              Sum all the images from the single channels into one.
+      --nosave              Do not save the hdf5 intermediate files whenloading
+                            subscans.
       --bad-chans BAD_CHANS
                             Channels to be discarded when scrunching, separated by
                             a comma (e.g. --bad-chans Feed2_RCP,Feed3_RCP )
@@ -342,7 +343,8 @@ SDTpreprocess
       --interactive         Open the interactive display for each scan
       --nofilt              Do not filter noisy channels
       --debug               Plot stuff and be verbose
-      --nosave              Sum all the images from the single channels into one.
+      --nosave              Do not save the hdf5 intermediate files whenloading
+                            subscans.
       --splat SPLAT         Spectral scans will be scrunched into a single channel
                             containing data in the given frequency range, starting
                             from the frequency of the first bin. E.g. '0:1000'
