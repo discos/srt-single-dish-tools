@@ -211,7 +211,8 @@ class Test1_Scan(object):
 
     def test_simple_in_stokes(self):
         with pytest.warns(UserWarning) as record:
-            scan = Scan(os.path.join(self.datadir, 'srt_pol_bad.fits'))
+            scan = Scan(os.path.join(self.datadir, 'srt_pol_bad.fits'),
+                        norefilt=False)
 
         assert np.any(["contain polarization information" in r.message.args[0]
                        for r in record])

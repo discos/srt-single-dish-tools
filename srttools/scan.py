@@ -208,6 +208,89 @@ def _clean_dyn_spec(dynamical_spectrum, bad_intervals):
     return cleaned_dynamical_spectrum
 
 
+def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
+                        smoothing_window, noise_threshold):
+
+    results = type('stats', (), {})()  # create empty object
+    results.meanspec = results.spectral_var = None
+    results.baseline = results.mask = None
+    results.allbins = results.varimg = None
+    results.thresh_low = None
+    results.thresh_high = None
+
+    dynspec_len, nbin = dynamical_spectrum.shape
+    # Calculate spectral variability curve
+
+    meanspec = np.sum(dynamical_spectrum, axis=0) / dynspec_len
+    df = bandwidth / len(meanspec)
+    allbins = np.arange(len(meanspec)) * df
+    # Mask frequencies -- avoid those excluded from splat
+
+    freqmask = np.ones(len(meanspec), dtype=bool)
+    freqmin, freqmax, binmin, binmax = \
+        interpret_frequency_range(freqsplat, bandwidth, nbin)
+    freqmask[0:binmin] = False
+    freqmask[binmax:] = False
+    results.freqmask = freqmask
+    results.freqmin = freqmin
+    results.freqmax = freqmax
+    results.wholemask = freqmask
+    results.allbins = allbins
+    results.meanspec = meanspec
+
+    if dynspec_len < 10:
+        return results
+
+    spectral_var = \
+        np.sqrt(np.sum((dynamical_spectrum - meanspec) ** 2,
+                       axis=0) / dynspec_len) / meanspec
+
+    varimg = np.sqrt((dynamical_spectrum - meanspec) ** 2) / meanspec
+
+    # Set up corrected spectral var
+
+    mod_spectral_var = spectral_var.copy()
+    mod_spectral_var[0:binmin] = spectral_var[binmin]
+    mod_spectral_var[binmax:] = spectral_var[binmax]
+
+    # Some statistical information on spectral var
+
+    # median_spectral_var = np.median(mod_spectral_var[freqmask])
+    stdref = ref_mad(mod_spectral_var[freqmask], 20)
+
+    # Calculate baseline of spectral var ---------------
+    # Empyrical formula, with no physical meaning
+
+    smoothing_window_int = int(nbin * smoothing_window) // 2 * 2 + 1
+    smoothing_window_int = np.max([smoothing_window_int, 11])
+    baseline = medfilt(mod_spectral_var[binmin:binmax],
+                       smoothing_window_int)
+
+    baseline = \
+        np.concatenate((np.zeros(binmin) + baseline[0],
+                        baseline,
+                        np.zeros(nbin - binmax) + baseline[-1]
+                        ))
+
+    # Set threshold
+
+    threshold_high = baseline + noise_threshold * stdref
+    mask = spectral_var < threshold_high
+    threshold_low = baseline - noise_threshold * stdref
+    mask = mask & (spectral_var > threshold_low)
+
+    results.mask = mask
+    results.spectral_var = spectral_var
+    results.freqmask = freqmask
+    results.varimg = varimg
+    results.baseline = baseline
+    results.thresh_low = threshold_low
+    results.thresh_high = threshold_high
+    results.wholemask = freqmask & mask
+
+    return results
+
+
 def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  good_mask=None, freqsplat=None,
                                  noise_threshold=5., debug=True, nofilt=False,
@@ -319,65 +402,22 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     else:
         lc -= np.median(lc)
     lcbins = np.arange(len(lc))
+    df = bandwidth / nbin
 
-    # Calculate spectral variability curve
-
-    meanspec = np.sum(dynamical_spectrum, axis=0) / dynspec_len
-    spectral_var = \
-        np.sqrt(np.sum((dynamical_spectrum - meanspec) ** 2,
-                       axis=0) / dynspec_len) / meanspec
-
-    df = bandwidth / len(meanspec)
-    allbins = np.arange(len(meanspec)) * df
-
-    # Mask frequencies -- avoid those excluded from splat
-
-    freqmask = np.ones(len(meanspec), dtype=bool)
-    freqmin, freqmax, binmin, binmax = \
-        interpret_frequency_range(freqsplat, bandwidth, nbin)
-    freqmask[0:binmin] = False
-    freqmask[binmax:] = False
-
-    # Calculate the variability image
-
-    varimg = np.sqrt((dynamical_spectrum - meanspec) ** 2) / meanspec
-
-    # Set up corrected spectral var
-
-    mod_spectral_var = spectral_var.copy()
-    mod_spectral_var[0:binmin] = spectral_var[binmin]
-    mod_spectral_var[binmax:] = spectral_var[binmax]
-
-    # Some statistical information on spectral var
-
-    # median_spectral_var = np.median(mod_spectral_var[freqmask])
-    stdref = ref_mad(mod_spectral_var[freqmask], 20)
-
-    # Calculate baseline of spectral var ---------------
-    # Empyrical formula, with no physical meaning
-
-    smoothing_window_int = int(nbin * smoothing_window) // 2 * 2 + 1
-    smoothing_window_int = np.max([smoothing_window_int, 11])
-    baseline = medfilt(mod_spectral_var[binmin:binmax],
-                       smoothing_window_int)
-
-    baseline = \
-        np.concatenate((np.zeros(binmin) + baseline[0],
-                        baseline,
-                        np.zeros(nbin - binmax) + baseline[-1]
-                        ))
-
-    # Set threshold
-
-    if nofilt:
-        wholemask = freqmask
-    else:
-        threshold = baseline + noise_threshold * stdref
-        mask = spectral_var < threshold
-        threshold = baseline - noise_threshold * stdref
-        mask = mask & (spectral_var > threshold)
-
-        wholemask = freqmask & mask
+    spec_stats = _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
+                                  smoothing_window, noise_threshold)
+    freqmask = spec_stats.freqmask
+    mask = spec_stats.mask
+    freqmin = spec_stats.freqmin
+    freqmax = spec_stats.freqmax
+    meanspec = spec_stats.meanspec
+    allbins = spec_stats.allbins
+    varimg = spec_stats.varimg
+    baseline = spec_stats.baseline
+    thresh_low = spec_stats.thresh_low
+    thresh_high = spec_stats.thresh_high
+    spectral_var = spec_stats.spectral_var
+    wholemask = spec_stats.wholemask
 
     if good_mask is None:
         good_mask = np.zeros_like(freqmask, dtype=bool)
@@ -496,14 +536,15 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_var.plot(allbins[mask], spectral_var[mask])
     ax_var.plot(allbins, cleaned_spectral_var,
                 zorder=10, color="k")
-    ax_var.plot(allbins[1:], baseline[1:])
-    ax_var.plot(allbins[1:],
-                baseline[1:] + noise_threshold * stdref, color='r', lw=2)
-    ax_var.plot(allbins[1:],
-                baseline[1:] - noise_threshold * stdref, color='r', lw=2)
-    minb = np.min(baseline[1:]) - 2 * noise_threshold * stdref
-    maxb = np.max(baseline[1:]) + 2 * noise_threshold * stdref
-    ax_var.set_ylim([minb, maxb])
+    if baseline is not None:
+        ax_var.plot(allbins[1:], baseline[1:])
+        ax_var.plot(allbins[1:], thresh_high[1:], color='r', lw=2)
+        ax_var.plot(allbins[1:], thresh_low[1:], color='r', lw=2)
+        diff_low = np.abs(baseline - thresh_low)
+        diff_high = np.abs(thresh_high - baseline)
+        minb = np.min(baseline[1:] - 2 * diff_low[1:])
+        maxb = np.max(baseline[1:] + 2 * diff_high[1:])
+        ax_var.set_ylim([minb, maxb])
 
     # Plot light curves
 

@@ -22,8 +22,9 @@ if not _ASTROPY_SETUP_:
     import sys
 
     warnings.simplefilter("ignore")
-    warnings.filterwarnings("once", module="srttools")
-    warnings.filterwarnings("once", module="srttools", category=DeprecationWarning)
+    warnings.filterwarnings("once", module="srttools", category=UserWarning)
+    warnings.filterwarnings("once", module="srttools",
+                            category=DeprecationWarning)
     if sys.version_info[0] < 3:
         warnings.warn("You are using the srttools under Python 2. "
                       "Limited support for Python 2 will only be "

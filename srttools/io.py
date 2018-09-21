@@ -383,7 +383,6 @@ def get_value_with_units(fitsext, keyword, default=""):
 
 def _read_data_fitszilla(lchdulist):
     """Open a fitszilla FITS file and read all relevant information."""
-
     is_new_fitszilla = np.any(['coord' in i.name.lower() for i in lchdulist])
 
     # ----------- Extract generic observation information ------------------
