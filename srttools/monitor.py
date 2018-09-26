@@ -5,6 +5,7 @@ import logging
 import os
 try:
     from watchdog.observers import Observer
+    from watchdog.observers.polling import PollingObserver
     from watchdog.events import PatternMatchingEventHandler
     HAS_WATCHDOG = True
 except ImportError:
@@ -35,6 +36,10 @@ def create_dummy_config():
 class MyHandler(PatternMatchingEventHandler):
     patterns = ["*/*.fits"]
 
+    def __init__(self, nosave=False):
+        self.nosave = nosave
+        super().__init__()
+
     def process(self, event):
         """
         event.event_type
@@ -56,30 +61,42 @@ class MyHandler(PatternMatchingEventHandler):
         root = os.path.join(productdir, fname.replace('.fits', ''))
 
         try:
-            sp.check_call(
-                "SDTpreprocess "
-                "--debug {} -c {}".format(infile, CONFIG_FILE).split())
+            cmd_string = "SDTpreprocess --debug {} "
+            if self.nosave:
+                cmd_string += "--nosave "
+            cmd_string += "-c {}"
+            sp.check_call(cmd_string.format(infile, CONFIG_FILE).split())
         except sp.CalledProcessError:
             return
 
+        newfiles = []
         for debugfile in glob.glob(root + '*.{}'.format(ext)):
             newfile = debugfile.replace(root, 'latest')
-            sp.check_call('cp {} {}'.format(debugfile, newfile).split())
+            newfiles.append(newfile)
+            cmd_string = ''
+            if self.nosave:
+                cmd_string = 'mv {} {}'
+            else:
+                cmd_string = 'cp {} {}'
+            sp.check_call(cmd_string.format(debugfile, newfile).split())
 
+        oldfiles = glob.glob('latest*.{}'.format(ext))
         with open('index.html', "w") as fobj:
             print('<META HTTP-EQUIV="refresh" CONTENT="5">', file=fobj)
-            allfiles = glob.glob('latest*.{}'.format(ext))
-            N = len(allfiles)
+            N = len(newfiles)
             if N <= 2:
                 width = "50%"
             else:
                 width = "25%"
-            for fname in sorted(allfiles):
+            for fname in sorted(newfiles):
                 print("<div style=\"width:{}; float:left;\" />".format(width),
                       file=fobj)
                 print("<img src=\"{}\" width=\"100%\"/>".format(fname),
                       file=fobj)
                 print("</div>", file=fobj)
+        for oldfile in oldfiles:
+            if oldfile not in newfiles:
+                os.remove(oldfile)
 
     def on_created(self, event):
         self.process(event)
@@ -95,15 +112,36 @@ def main_monitor(args=None):
     description = ('Run the SRT quicklook in a given directory.')
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("directory",
-                        help="Directory to monitor",
-                        default=None, type=str)
-    parser.add_argument("-c", "--config",
-                        help="Config file",
-                        default=None, type=str)
-    parser.add_argument("--test",
-                        help="Only to be used in tests!",
-                        action='store_true', default=False)
+    parser.add_argument(
+        "directory",
+        help="Directory to monitor.",
+        default=None,
+        type=str
+    )
+    parser.add_argument(
+        "-c", "--config",
+        help="Config file",
+        default=None,
+        type=str
+    )
+    parser.add_argument(
+        "--test",
+        help="Only to be used in tests!",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "--nosave",
+        help="Do not save the hdf5 intermediate files.",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "-p", "--polling",
+        help="Use a platform-independent, polling watchdog.",
+        action='store_true',
+        default=False
+    )
     args = parser.parse_args(args)
 
     if not HAS_WATCHDOG:
@@ -124,8 +162,12 @@ def main_monitor(args=None):
     else:
         CONFIG_FILE = args.config
 
-    event_handler = MyHandler()
-    observer = Observer()
+    event_handler = MyHandler(nosave=args.nosave)
+    observer = None
+    if args.polling:
+        observer = PollingObserver()
+    else:
+        observer = Observer()
     observer.schedule(event_handler, path, recursive=True)
     observer.start()
     try:
