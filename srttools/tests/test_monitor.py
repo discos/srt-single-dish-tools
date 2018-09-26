@@ -52,12 +52,29 @@ class TestMonitor(object):
         klass.file_empty_pdf1_alt = \
             os.path.abspath(os.path.join(klass.proddir,
                                          "srt_data_dummy_1.jpg"))
+        klass.file_index = 'index.html'
+
         if os.path.exists(klass.file_empty):
             os.unlink(klass.file_empty)
         if os.path.exists(klass.file_empty_pdf0):
             os.unlink(klass.file_empty_pdf0)
         if os.path.exists(klass.file_empty_pdf1):
             os.unlink(klass.file_empty_pdf1)
+
+    def teardown_method(self):
+        files = [
+            self.file_empty,
+            self.file_empty_hdf5,
+            self.file_empty_pdf0,
+            self.file_empty_pdf1,
+            self.file_empty_hdf5_alt,
+            self.file_empty_pdf0_alt,
+            self.file_empty_pdf1_alt
+        ]
+
+        for fname in files:
+            if os.path.exists(fname):
+                os.unlink(fname)
 
     @pytest.mark.skipif('not HAS_WATCHDOG')
     def test_monitor_installed(self):
@@ -105,10 +122,77 @@ class TestMonitor(object):
             assert os.path.exists(fname)
             os.unlink(fname)
 
+    @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_polling(self):
+        def process():
+            main_monitor([self.datadir, '--test', '--polling'])
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(self.file_empty_init,
+                                        self.file_empty).split())
+
+        time.sleep(8)
+        w.join()
+
+        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
+                      'latest_0.jpg', 'latest_1.jpg']:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_nosave(self):
+        def process():
+            main_monitor([self.datadir, '--test', '--nosave'])
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(self.file_empty_init,
+                                        self.file_empty).split())
+
+        time.sleep(8)
+        w.join()
+
+        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
+                      self.file_empty_hdf5]:
+            assert not os.path.exists(fname)
+
+        for fname in ['latest_0.jpg', 'latest_1.jpg']:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_delete_old_images(self):
+        def process():
+            main_monitor([self.datadir, '--test'])
+
+        files = [self.file_empty_pdf0, self.file_empty_pdf1]
+        files += ['latest_{}.jpg'.format(i) for i in range(8)]
+
+        for fname in files[2:]:
+            sp.check_call('touch {}'.format(fname).split())
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(self.file_empty_init,
+                                        self.file_empty).split())
+
+        time.sleep(8)
+        w.join()
+
+        for fname in files[4:]:
+            assert not os.path.exists(fname)
+        for fname in files[:4]:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
     @classmethod
     def teardown_class(klass):
-        if os.path.exists(klass.file_empty):
-            os.unlink(klass.file_empty)
-        if os.path.exists(klass.file_empty_hdf5):
-            os.unlink(klass.file_empty_hdf5)
-
+        if os.path.exists(klass.file_index):
+            os.unlink(klass.file_index)
