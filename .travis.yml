@@ -27,7 +27,7 @@ env:
         # overidden underneath. They are defined here in order to save having
         # to repeat them for all configurations.
         - ASTROPY_VERSION=stable
-        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml numba pyregion'
+        - CONDA_DEPENDENCIES='numpy==1.15.2 scipy matplotlib pytest pip h5py statsmodels pyyaml numba pyregion'
         - PIP_DEPENDENCIES='patsy codecov'
         - MAIN_CMD='python setup.py'
         - SETUP_XVFB=True
@@ -41,16 +41,16 @@ matrix:
     include:
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
-        # Try all python versions with the latest numpy
+        # Try all python versions with a numpy version<1.15.3 (this one breaks the package)
 
         - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage' PIP_DEPENDENCIES='patsy codecov faulthandler'
         - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage' SETUP_XVFB=False
         # No matplotlib, with old scipy
         - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy=0.19 pytest pip h5py statsmodels pyyaml numba pyregion' SETUP_CMD='test --coverage'
         # No NUMBA, pyregion
-        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='numpy==1.15.2 scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
         # No statsmodels
-        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba pyregion' PIP_DEPENDENCIES='patsy codecov mahotas watchdog pillow' SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='numpy==1.15.2 scipy matplotlib pytest pip h5py pyyaml numba pyregion' PIP_DEPENDENCIES='patsy codecov mahotas watchdog pillow' SETUP_CMD='test --coverage'
         # Documentation
         - env: PYTHON_VERSION=3.6 SETUP_CMD='build_docs -w'
 
