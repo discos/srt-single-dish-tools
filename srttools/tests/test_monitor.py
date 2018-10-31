@@ -53,6 +53,7 @@ class TestMonitor(object):
             os.path.abspath(os.path.join(klass.proddir,
                                          "srt_data_dummy_1.jpg"))
         klass.file_index = 'index.html'
+        klass.dummy_config = 'monitor_config.ini'
 
         if os.path.exists(klass.file_empty):
             os.unlink(klass.file_empty)
@@ -165,6 +166,7 @@ class TestMonitor(object):
             assert os.path.exists(fname)
             os.unlink(fname)
 
+
     @pytest.mark.skipif('not HAS_WATCHDOG')
     def test_delete_old_images(self):
         def process():
@@ -196,3 +198,5 @@ class TestMonitor(object):
     def teardown_class(klass):
         if os.path.exists(klass.file_index):
             os.unlink(klass.file_index)
+        if os.path.exists(klass.dummy_config):
+            os.unlink(klass.dummy_config)
