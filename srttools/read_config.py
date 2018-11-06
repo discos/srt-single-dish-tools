@@ -114,8 +114,8 @@ def read_config(fname=None):
 
     config_output['projection'] = 'ARC'
     config_output['interpolation'] = 'linear'
-    config_output['workdir'] = './'
-    config_output['datadir'] = './'
+    config_output['workdir'] = os.path.abspath(os.curdir) + '/'
+    config_output['datadir'] = os.path.abspath(os.curdir) + '/'
     config_output['productdir'] = None
     config_output['list_of_directories'] = '*'
     config_output['calibrator_directories'] = []
