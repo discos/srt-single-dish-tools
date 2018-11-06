@@ -3,6 +3,7 @@ from __future__ import (absolute_import, division,
 import time
 import logging
 import os
+import shutil
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
@@ -79,6 +80,13 @@ class MyHandler(PatternMatchingEventHandler):
             else:
                 cmd_string = 'cp {} {}'
             sp.check_call(cmd_string.format(debugfile, newfile).split())
+        if self.nosave and conf['productdir'] \
+                and conf['workdir'] not in conf['productdir']:
+            prodpath = os.path.relpath(root, conf['productdir'])
+            prodpath = prodpath.split('/')[0]
+            prodpath = os.path.join(conf['productdir'], prodpath)
+            if os.path.exists(prodpath):
+                shutil.rmtree(prodpath)
 
         oldfiles = glob.glob('latest*.{}'.format(ext))
         with open('index.html', "w") as fobj:
@@ -113,9 +121,10 @@ def main_monitor(args=None):
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument(
-        "directory",
-        help="Directory to monitor.",
+        "directories",
+        help="Directories to monitor.",
         default=None,
+        nargs='+',
         type=str
     )
     parser.add_argument(
@@ -155,8 +164,6 @@ def main_monitor(args=None):
         print('<META HTTP-EQUIV="refresh" CONTENT="5">', file=fobj)
         print("Waiting for the first observation...", file=fobj)
 
-    path = args.directory
-
     if args.config is None:
         CONFIG_FILE = create_dummy_config()
     else:
@@ -168,7 +175,10 @@ def main_monitor(args=None):
         observer = PollingObserver()
     else:
         observer = Observer()
-    observer.schedule(event_handler, path, recursive=True)
+
+    for path in args.directories:
+        observer.schedule(event_handler, path, recursive=True)
+
     observer.start()
     try:
         count = 0

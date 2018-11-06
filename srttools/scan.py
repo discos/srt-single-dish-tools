@@ -74,17 +74,17 @@ def product_path_from_file_name(fname, workdir='.', productdir=None):
     >>> os.path.abspath(path) == os.path.abspath(os.path.join('be', 'bla'))
     True
     """
-    if productdir is None:
-        productdir = '.'
     filedir, fn = os.path.split(fname)
     if filedir == '':
-        filedir = '.'
+        filedir = os.path.abspath(os.curdir)
+    if productdir is None:
+        rootdir = filedir
+    else:
+        base = os.path.commonprefix([filedir, workdir])
+        relpath = os.path.relpath(filedir, base)
+        rootdir = os.path.join(productdir, relpath)
 
-    base = os.path.commonprefix([filedir, workdir])
-    relpath = os.path.relpath(filedir, base)
-
-    rootdir = os.path.join(productdir, relpath)
-    return rootdir, fn
+    return os.path.normpath(rootdir), fn
 
 
 def angular_distance(angle0, angle1):
