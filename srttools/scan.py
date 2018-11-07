@@ -68,7 +68,7 @@ def product_path_from_file_name(fname, workdir='.', productdir=None):
     >>> dumdir = os.path.join('bu', 'bla')
     >>> dumfile = os.path.join(dumdir, 'ciao.ciao')
     >>> path, fname = product_path_from_file_name(dumfile, workdir=dumdir, productdir=None)
-    >>> os.path.abspath(path) == curpath
+    >>> os.path.abspath(path) == os.path.abspath(dumdir)
     True
     >>> path, fname = product_path_from_file_name(dumfile, workdir='bu', productdir='be')
     >>> os.path.abspath(path) == os.path.abspath(os.path.join('be', 'bla'))
