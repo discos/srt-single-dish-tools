@@ -21,8 +21,11 @@ from queue import Queue
 from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
 from srttools.imager import main_preprocess
-import matplotlib.pyplot as plt
-plt.switch_backend('Agg')
+try:
+    import matplotlib.pyplot as plt
+    plt.switch_backend('Agg')
+except ImportError:
+    pass
 
 
 class MyHandler(PatternMatchingEventHandler):
