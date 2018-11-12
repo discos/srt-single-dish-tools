@@ -721,8 +721,8 @@ class Scan(Table):
             np.degrees(np.mean(self["el"])))
         infostr += "Receiver: {}\n".format(self.meta['receiver'])
         infostr += "Backend: {}\n".format(self.meta['backend'])
-        infostr += "Frequency: {} MHz\n".format(self[ch].meta['frequency'])
-        infostr += "Bandwidth: {} MHz\n".format(self[ch].meta['bandwidth'])
+        infostr += "Frequency: {}\n".format(self[ch].meta['frequency'])
+        infostr += "Bandwidth: {}\n".format(self[ch].meta['bandwidth'])
         return infostr
 
     def clean_and_splat(self, good_mask=None, freqsplat=None,
