@@ -145,6 +145,11 @@ def main_monitor(args=None):
         action='store_true',
         default=False
     )
+    parser.add_argument(
+        "--http-server-port",
+        help="Share the results via HTTP server on given port",
+        type=int
+    )
     args = parser.parse_args(args)
 
     if not HAS_WATCHDOG:
@@ -170,6 +175,13 @@ def main_monitor(args=None):
         observer.schedule(event_handler, path, recursive=True)
 
     observer.start()
+
+    if args.http_server_port:
+        http_server = sp.Popen(
+                ['python', '-m', 'http.server', '{}'.format(args.http_server_port)],
+            stderr=sp.DEVNULL
+        )
+
     try:
         count = 0
         while count < 10:
@@ -179,6 +191,10 @@ def main_monitor(args=None):
         raise KeyboardInterrupt
     except KeyboardInterrupt:
         pass
+
+    if args.http_server_port:
+        http_server.kill()
+
     observer.stop()
 
 

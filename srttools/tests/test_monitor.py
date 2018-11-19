@@ -166,7 +166,6 @@ class TestMonitor(object):
             assert os.path.exists(fname)
             os.unlink(fname)
 
-
     @pytest.mark.skipif('not HAS_WATCHDOG')
     def test_delete_old_images(self):
         def process():
@@ -191,6 +190,26 @@ class TestMonitor(object):
         for fname in files[4:]:
             assert not os.path.exists(fname)
         for fname in files[:4]:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_polling(self):
+        def process():
+            main_monitor([self.datadir, '--test', '--http-server-port', '10000'])
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(self.file_empty_init,
+                                        self.file_empty).split())
+
+        time.sleep(8)
+        w.join()
+
+        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
+                      'latest_0.jpg', 'latest_1.jpg']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
