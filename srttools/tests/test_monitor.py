@@ -194,7 +194,7 @@ class TestMonitor(object):
             os.unlink(fname)
 
     @pytest.mark.skipif('not HAS_WATCHDOG')
-    def test_polling(self):
+    def test_http_server(self):
         def process():
             main_monitor([self.datadir, '--test', '--http-server-port', '10000'])
 

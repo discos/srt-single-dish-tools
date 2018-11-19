@@ -178,7 +178,7 @@ def main_monitor(args=None):
 
     if args.http_server_port:
         http_server = sp.Popen(
-                ['python', '-m', 'http.server', '{}'.format(args.http_server_port)],
+            ['python', '-m', 'http.server', '{}'.format(args.http_server_port)],
             stderr=sp.DEVNULL
         )
 
