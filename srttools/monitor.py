@@ -4,6 +4,7 @@ import time
 import logging
 import os
 import shutil
+import re
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
@@ -17,6 +18,7 @@ import subprocess as sp
 import glob
 from threading import Timer, Thread
 from queue import Queue
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
@@ -28,7 +30,7 @@ except ImportError:
     pass
 
 
-class MyHandler(PatternMatchingEventHandler):
+class MyEventHandler(PatternMatchingEventHandler):
     patterns = ["*/*.fits"]
 
     def __init__(self, config_file, nosave=False):
@@ -108,6 +110,25 @@ class MyHandler(PatternMatchingEventHandler):
         self.timers[infile].start()
 
 
+class MyRequestHandler(SimpleHTTPRequestHandler):
+    allowed_paths = ['index.html', 'index.htm']
+    re_pattern = '^latest_([0-9]{,2}).([a-z]{3})$'
+
+    def translate_path(self, path):
+        path = self.path.lstrip('/')
+        if path == '':
+            path = 'index.html'
+        elif '?' in path:
+            path = path.split('?')[0]
+        if path not in self.allowed_paths \
+                and not re.match(self.re_pattern, path):
+            return SimpleHTTPRequestHandler.translate_path(self, '/dummy')
+        return SimpleHTTPRequestHandler.translate_path(self, '/' + path)
+
+    def log_message(self, format, *args):
+        return
+
+
 def main_monitor(args=None):
     import argparse
 
@@ -116,7 +137,7 @@ def main_monitor(args=None):
 
     parser.add_argument(
         "directories",
-        help="Directories to monitor.",
+        help="Directories to monitor",
         default=None,
         nargs='+',
         type=str
@@ -135,19 +156,19 @@ def main_monitor(args=None):
     )
     parser.add_argument(
         "--nosave",
-        help="Do not save the hdf5 intermediate files.",
+        help="Do not save the hdf5 intermediate files",
         action='store_true',
         default=False
     )
     parser.add_argument(
         "-p", "--polling",
-        help="Use a platform-independent, polling watchdog.",
+        help="Use a platform-independent, polling watchdog",
         action='store_true',
         default=False
     )
     parser.add_argument(
         "--http-server-port",
-        help="Share the results via HTTP server on given port",
+        help="Share the results via HTTP server on given HTTP_SERVER_PORT",
         type=int
     )
     args = parser.parse_args(args)
@@ -164,7 +185,7 @@ def main_monitor(args=None):
     else:
         config_file = args.config
 
-    event_handler = MyHandler(config_file, nosave=args.nosave)
+    event_handler = MyEventHandler(config_file, nosave=args.nosave)
     observer = None
     if args.polling:
         observer = PollingObserver()
@@ -177,10 +198,10 @@ def main_monitor(args=None):
     observer.start()
 
     if args.http_server_port:
-        http_server = sp.Popen(
-            ['python', '-m', 'http.server', '{}'.format(args.http_server_port)],
-            stderr=sp.DEVNULL
-        )
+        http_server = HTTPServer(('', args.http_server_port), MyRequestHandler)
+        t = Thread(target=http_server.serve_forever)
+        t.daemon = True
+        t.start()
 
     try:
         count = 0
@@ -193,7 +214,7 @@ def main_monitor(args=None):
         pass
 
     if args.http_server_port:
-        http_server.kill()
+        http_server.shutdown()
 
     observer.stop()
 
@@ -245,44 +266,55 @@ def create_index_file(extension, max_images=50, interval=500):
                 document.body.innerHTML += '<div id="div_' + i + '" style="width:50%; float:left;"/></div>';
             }
 
-            function updatePage()
+            function update(index)
             {
-                for(i = 0; i < maxImages; i++)
+                image_id = "img_" + index.toString();
+
+                var image = document.getElementById(image_id);
+
+                if(image == null)
                 {
-                    image_id = "img_" + i;
+                    image = new Image();
+                    image.id = image_id;
+                    image.style.width = "100%";
 
-                    var image = document.getElementById(image_id);
-
-                    if(image == null)
+                    image.addEventListener("load", function()
                     {
-                        image = new Image();
-                        image.id = image_id;
-                        image.style.width = "100%";
-
-                        image.addEventListener("load", function()
+                        if(this.parentElement == null)
                         {
-                            if(this.parentElement == null)
+                            index = parseInt(this.id.split("_")[1]);
+
+                            var div = document.getElementById("div_" + index.toString());
+
+                            while(div.firstChild)
                             {
-                                var div = document.getElementById("div_" + this.id.split("_")[1]);
-                                div.appendChild(this);
+                                div.removeChild(div.firstChild);
                             }
-                        });
+                            div.appendChild(this);
+                        }
 
-                        image.addEventListener("error", function()
+                        update(index + 1);
+                    });
+
+                    image.addEventListener("error", function()
+                    {
+                        index = parseInt(this.id.split("_")[1]);
+
+                        for(i = index; i < maxImages; i++)
                         {
-                            var div = document.getElementById("div_" + this.id.split("_")[1]);
+                            var div = document.getElementById("div_" + index.toString());
                             div.innerHTML = "";
-                        });
-                    }
-
-                    image.src = "latest_" + i + "." + extension + "?" + new Date().getTime();
+                        }
+                    });
                 }
+
+                image.src = "latest_" + index.toString() + "." + extension + "?" + new Date().getTime();
             }
 
-            updatePage();
-            setInterval(updatePage, interval);
+            update(0);
+            setInterval(update, interval, 0);
         }
-    </script>\n</html>"""
+    </script>/n</html>"""
 
     with open('index.html', 'w') as fobj:
         print(html_string, file=fobj)

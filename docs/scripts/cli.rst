@@ -268,18 +268,25 @@ SDTmonitor
 
 .. code-block:: none
 
-    usage: SDTmonitor [-h] [-c CONFIG] [--test] directory
+    usage: SDTmonitor [-h] [-c CONFIG] [--test] [--nosave] [-p]
+                      [--http-server-port HTTP_SERVER_PORT]
+                      directories [directories ...]
 
     Run the SRT quicklook in a given directory.
 
     positional arguments:
-      directory             Directory to monitor
+      directories           Directories to monitor
 
     optional arguments:
       -h, --help            show this help message and exit
       -c CONFIG, --config CONFIG
                             Config file
       --test                Only to be used in tests!
+      --nosave              Do not save the hdf5 intermediate files
+      -p, --polling         Use a platform-independent, polling watchdog
+      --http-server-port HTTP_SERVER_PORT
+                            Share the results via HTTP server on given
+                            HTTP_SERVER_PORT
 
 
 SDTopacity
