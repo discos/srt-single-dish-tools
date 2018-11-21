@@ -5,6 +5,7 @@ import subprocess as sp
 import threading
 import time
 import pytest
+import urllib
 from ..read_config import read_config
 from ..monitor import main_monitor, create_dummy_config, HAS_WATCHDOG
 from ..scan import product_path_from_file_name
@@ -166,7 +167,6 @@ class TestMonitor(object):
             assert os.path.exists(fname)
             os.unlink(fname)
 
-
     @pytest.mark.skipif('not HAS_WATCHDOG')
     def test_delete_old_images(self):
         def process():
@@ -191,6 +191,98 @@ class TestMonitor(object):
         for fname in files[4:]:
             assert not os.path.exists(fname)
         for fname in files[:4]:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_http_server_found(self):
+        def process():
+            main_monitor([self.datadir, '--test', '--http-server-port', '10000'])
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(self.file_empty_init,
+                                        self.file_empty).split())
+
+        time.sleep(7)
+
+        urls = [
+            '',
+            'index.html',
+            'latest_0.jpg',
+            'latest_1.jpg',
+            'latest_0.jpg?%d' % int(time.time())
+        ]
+        # Check that the files are provided by the HTTP server
+        for url in urls:
+            url = 'http://127.0.0.1:10000/' + url
+            r = urllib.request.urlopen(url)
+            assert r.code == 200
+
+        w.join()
+
+        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
+                      'latest_0.jpg', 'latest_1.jpg']:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_http_server_not_found(self):
+        def process():
+            main_monitor([self.datadir, '--test', '--http-server-port', '10000'])
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(self.file_empty_init,
+                                        self.file_empty).split())
+
+        time.sleep(7)
+
+        # Ask for non-existent files
+        for i in [20, 21]:
+            url = 'http://127.0.0.1:10000/latest_{}.jpg'.format(i)
+            with pytest.raises(urllib.error.HTTPError):
+                r = urllib.request.urlopen(url)
+
+        w.join()
+
+        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
+                      'latest_0.jpg', 'latest_1.jpg']:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_http_server_forbidden(self):
+        def process():
+            main_monitor([self.datadir, '--test', '--http-server-port', '10000'])
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(self.file_empty_init,
+                                        self.file_empty).split())
+
+        time.sleep(7)
+
+        # Create a dummy 'latest_0.txt' file.
+        # The file should not be accessible since its name does not match
+        # 'index.html' nor 'index.html' nor 'latest_X.EXT' pattern, with EXT
+        # equal to the configured file extension, in this case is 'jpg'
+        forbidden_file = 'latest_0.txt'
+        open(forbidden_file, 'w').close()
+        url = 'http://127.0.0.1:10000/' + forbidden_file
+        with pytest.raises(urllib.error.HTTPError):
+            r = urllib.request.urlopen(url)
+
+        w.join()
+
+        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
+                      'latest_0.jpg', 'latest_1.jpg', forbidden_file]:
             assert os.path.exists(fname)
             os.unlink(fname)
 
