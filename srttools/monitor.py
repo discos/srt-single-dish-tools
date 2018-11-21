@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import re
+import sys
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
@@ -18,7 +19,7 @@ import subprocess as sp
 import glob
 from threading import Timer, Thread
 from queue import Queue
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
 
 from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
@@ -33,11 +34,10 @@ except ImportError:
 class MyEventHandler(PatternMatchingEventHandler):
     patterns = ["*/*.fits"]
 
-    def __init__(self, config_file, nosave=False):
+    def __init__(self, nosave=False):
         super().__init__()
-        self.config_file = config_file
-        self.conf = read_config(self.config_file)
         self.nosave = nosave
+        self.conf = getattr(sys.modules[__name__], 'conf')
         self.ext = self.conf['debug_file_format']
         create_index_file(self.ext)
         self.filequeue = Queue()
@@ -64,7 +64,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         )
         root = os.path.join(productdir, fname.replace('.fits', ''))
 
-        pp_args = ['--debug', '-c', self.config_file]
+        pp_args = ['--debug', '-c', self.conf['configuration_file_name']]
         if self.nosave:
             pp_args.append('--nosave')
         pp_args.append(infile)
@@ -111,10 +111,14 @@ class MyEventHandler(PatternMatchingEventHandler):
 
 
 class MyRequestHandler(SimpleHTTPRequestHandler):
-    allowed_paths = ['index.html', 'index.htm']
-    re_pattern = '^latest_([0-9]{,2}).([a-z]{3})$'
 
-    def translate_path(self, path):
+    def __init__(self, request, client_address, server):
+        self.allowed_paths = ['index.html', 'index.htm']
+        conf = getattr(sys.modules[__name__], 'conf')
+        self.re_pattern = '^latest_([0-9]*).%s$' % conf['debug_file_format']
+        SimpleHTTPRequestHandler.__init__(self, request, client_address, server)
+
+    def do_GET(self):
         path = self.path.lstrip('/')
         if path == '':
             path = 'index.html'
@@ -122,8 +126,9 @@ class MyRequestHandler(SimpleHTTPRequestHandler):
             path = path.split('?')[0]
         if path not in self.allowed_paths \
                 and not re.match(self.re_pattern, path):
-            return SimpleHTTPRequestHandler.translate_path(self, '/dummy')
-        return SimpleHTTPRequestHandler.translate_path(self, '/' + path)
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        SimpleHTTPRequestHandler.do_GET(self)
 
     def log_message(self, format, *args):
         return
@@ -184,8 +189,11 @@ def main_monitor(args=None):
         config_file = create_dummy_config()
     else:
         config_file = args.config
+    conf = read_config(config_file)
+    conf['configuration_file_name'] = config_file
+    setattr(sys.modules[__name__], 'conf', conf)
 
-    event_handler = MyEventHandler(config_file, nosave=args.nosave)
+    event_handler = MyEventHandler(nosave=args.nosave)
     observer = None
     if args.polling:
         observer = PollingObserver()

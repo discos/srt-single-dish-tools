@@ -208,9 +208,16 @@ class TestMonitor(object):
 
         time.sleep(7)
 
+        urls = [
+            '',
+            'index.html',
+            'latest_0.jpg',
+            'latest_1.jpg',
+            'latest_0.jpg?%d' % int(time.time())
+        ]
         # Check that the files are provided by the HTTP server
-        for i in range(2):
-            url = 'http://127.0.0.1:10000/latest_{}.jpg'.format(i)
+        for url in urls:
+            url = 'http://127.0.0.1:10000/' + url
             r = urllib.request.urlopen(url)
             assert r.code == 200
 
@@ -262,19 +269,20 @@ class TestMonitor(object):
 
         time.sleep(7)
 
-        # Create a dummy 'forbidden' file.
-        # The file should not be accessible since its name is not 'index.html',
-        # nor 'index.html' and also its name does not match the 'latest_X.EXT'
-        # pattern
-        open('forbidden', 'w').close()
-        url = 'http://127.0.0.1:10000/forbidden'
+        # Create a dummy 'latest_0.txt' file.
+        # The file should not be accessible since its name does not match
+        # 'index.html' nor 'index.html' nor 'latest_X.EXT' pattern, with EXT
+        # equal to the configured file extension, in this case is 'jpg'
+        forbidden_file = 'latest_0.txt'
+        open(forbidden_file, 'w').close()
+        url = 'http://127.0.0.1:10000/' + forbidden_file
         with pytest.raises(urllib.error.HTTPError):
             r = urllib.request.urlopen(url)
 
         w.join()
 
         for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.jpg', 'latest_1.jpg', 'forbidden']:
+                      'latest_0.jpg', 'latest_1.jpg', forbidden_file]:
             assert os.path.exists(fname)
             os.unlink(fname)
 
