@@ -128,7 +128,10 @@ class MyRequestHandler(SimpleHTTPRequestHandler):
                 and not re.match(self.re_pattern, path):
             self.send_error(HTTPStatus.NOT_FOUND)
             return
-        SimpleHTTPRequestHandler.do_GET(self)
+        try:
+            SimpleHTTPRequestHandler.do_GET(self)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def log_message(self, format, *args):
         return
