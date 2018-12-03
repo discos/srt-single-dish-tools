@@ -55,12 +55,13 @@ class Test1_Scan(object):
         klass.outdir = os.path.join('sim')
         klass.emptydir = os.path.join('sim', 'test_sdfits')
 
-        klass.pswdir = os.path.join('sim', 'test_psw_legacy')
+        klass.pswdir_legacy = os.path.join('sim', 'test_psw_legacy')
         klass.pswdir = os.path.join('sim', 'test_psw')
-        for d in [klass.emptydir, klass.pswdir]:
+        for d in [klass.emptydir, klass.pswdir, klass.pswdir_legacy]:
             mkdir_p(d)
-        sim_position_switching(klass.pswdir_legacy, nbin=1024)
         sim_position_switching(klass.pswdir, nbin=1024)
+        sim_position_switching(klass.pswdir_legacy, nbin=1024,
+                               legacy_cal_format=True)
         simulate_map(width_ra=2, width_dec=2., outdir=klass.emptydir)
 
     def test_converter_basic(self):
