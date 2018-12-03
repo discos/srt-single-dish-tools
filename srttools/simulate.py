@@ -246,7 +246,8 @@ def _default_map_shape(x, y):
 
 
 def sim_position_switching(caldir, srcname='Dummy', nbin=1,
-                           offset=np.radians(3), strategy=None):
+                           offset=np.radians(3), strategy=None,
+                           legacy_cal_format=False):
     dt = 0.04
     src_ra = 185
     src_dec = 75
@@ -294,13 +295,19 @@ def sim_position_switching(caldir, srcname='Dummy', nbin=1,
 
         times += last_time
         last_time = times[0]
+        other_keywords_cal = {'RightAscension Offset': offset,
+                              'SIGNAL': 'REFCAL'}
+        other_columns = {}
+        if legacy_cal_format:
+            other_columns = {'flag_cal': 1}
+            other_keywords_cal['SIGNAL'] = 'REFERENCE'
+
         save_scan(times, ras + offset, decs, {'Ch0': cal, 'Ch1': cal},
                   filename=os.path.join(caldir, 'CAL_{}.fits'.format(n_cal)),
                   src_ra=src_ra, src_dec=src_dec, srcname=srcname,
                   counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
-                  other_keywords={'RightAscension Offset': offset,
-                                  'SIGNAL': 'REFERENCE'},
-                  other_columns={'flag_cal': 1})
+                  other_keywords=other_keywords_cal,
+                  other_columns=other_columns)
 
     create_summary(os.path.join(caldir, 'summary.fits'),
                    {'RightAscension': np.radians(src_ra),

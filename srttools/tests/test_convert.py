@@ -55,9 +55,11 @@ class Test1_Scan(object):
         klass.outdir = os.path.join('sim')
         klass.emptydir = os.path.join('sim', 'test_sdfits')
 
+        klass.pswdir = os.path.join('sim', 'test_psw_legacy')
         klass.pswdir = os.path.join('sim', 'test_psw')
         for d in [klass.emptydir, klass.pswdir]:
             mkdir_p(d)
+        sim_position_switching(klass.pswdir_legacy, nbin=1024)
         sim_position_switching(klass.pswdir, nbin=1024)
         simulate_map(width_ra=2, width_dec=2., outdir=klass.emptydir)
 
@@ -180,6 +182,36 @@ class Test1_Scan(object):
         ref_off = off_spec[idx]
         ref_cal = cal_spec[idx]
 
+        assert np.isclose(max_onoff * ref_off, 100, atol=0.1)
+        assert np.isclose(ref_cal / DEFAULT_CAL_TEMP, 100 / DEFAULT_CAL_OFFSET,
+                          atol=0.1)
+
+    def test_main_classfits_legacy_sim(self):
+        newdir = main_convert([self.pswdir_legacy, '-f', 'classfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        probe_all = os.path.join(newdir, 'test_psw_legacy_all_feed0.fits')
+        probe_cal = os.path.join(newdir, 'test_psw_legacy_cal_feed0.fits')
+        probe_psw = os.path.join(newdir, 'test_psw_legacy_onoff_feed0.fits')
+        with fits.open(probe_all) as hdul:
+            good = (hdul[1].data['SIGNAL'] == 0) & (hdul[1].data['CAL_IS_ON'] == 0)
+            off_spec = hdul[1].data['SPECTRUM'][good][0]
+            good = (hdul[1].data['SIGNAL'] == 1)
+            on_spec = hdul[1].data['SPECTRUM'][good][0]
+            good = (hdul[1].data['SIGNAL'] == 0) & (hdul[1].data['CAL_IS_ON'] == 1)
+            cal_spec_unnorm = hdul[1].data['SPECTRUM'][good][0]
+        with fits.open(probe_cal) as hdul:
+            cal_spec = hdul[1].data['SPECTRUM'][0]
+        with fits.open(probe_psw) as hdul:
+            onoff_spec = hdul[1].data['SPECTRUM'][0]
+        assert np.isclose(np.max(on_spec - off_spec), DEFAULT_PEAK_COUNTS,
+                          atol=0.3)
+        assert np.isclose(np.max(cal_spec_unnorm - off_spec),
+                          DEFAULT_CAL_OFFSET, atol=0.3)
+        idx = np.argmax(on_spec)
+        max_onoff = onoff_spec[idx]
+        ref_off = off_spec[idx]
+        ref_cal = cal_spec[idx]
         assert np.isclose(max_onoff * ref_off, 100, atol=0.1)
         assert np.isclose(ref_cal / DEFAULT_CAL_TEMP, 100 / DEFAULT_CAL_OFFSET,
                           atol=0.1)

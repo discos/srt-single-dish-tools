@@ -210,12 +210,13 @@ def on_or_off(subscan, feed):
     """Try to infer if a given subscan is ON or OFF."""
     is_on = False
     if 'SIGNAL' in subscan.meta and \
-            subscan.meta['SIGNAL'] in ['SIGNAL', 'REFERENCE']:
+            subscan.meta['SIGNAL'] in ['SIGNAL', 'REFERENCE',
+                                       'SIGCAL', 'REFCAL']:
         signal = subscan.meta['SIGNAL']
         # In nodding, feed 0 has
-        if signal == 'SIGNAL' and feed == 0:
+        if signal in ['SIGNAL', 'SIGCAL'] and feed == 0:
             is_on = True
-        elif signal == 'REFERENCE' and feed != 0:
+        elif signal in ['REFERENCE', 'REFCAL'] and feed != 0:
             is_on = True
     else:
         is_on = subscan.meta['az_offset'] > 1e-4 * u.rad
@@ -225,8 +226,11 @@ def on_or_off(subscan, feed):
 def cal_is_on(subscan):
     """Is the calibration mark on? Try to understand."""
     is_on = False
-    if 'SUBSTYPE' in subscan.meta:
-        is_on = subscan.meta['SUBSTYPE'] == 'CAL'
+    if 'SIGNAL' in subscan.meta and \
+            subscan.meta['SIGNAL'] in ['REFSIG', 'REFCAL']:
+        is_on = True
+    elif 'SUBSTYPE' in subscan.meta and subscan.meta['SUBSTYPE'] == 'CAL':
+        is_on = True
     elif 'flag_cal' in subscan.colnames and np.any(subscan['flag_cal'] == 1):
         is_on = subscan['flag_cal']
 
