@@ -76,7 +76,7 @@ class MyEventHandler(PatternMatchingEventHandler):
             try:
                 main_preprocess(pp_args)
             except:
-                return
+                continue
 
             newfiles = []
             for debugfile in glob.glob(root + '*.{}'.format(ext)):
