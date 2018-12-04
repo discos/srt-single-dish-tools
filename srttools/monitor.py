@@ -19,6 +19,7 @@ import subprocess as sp
 import glob
 from threading import Timer, Thread
 from multiprocessing import Process, Queue
+from queue import Empty
 from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
 
 from srttools.read_config import read_config
@@ -45,7 +46,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         create_index_file(self.conf['debug_file_format'])
         self.filequeue = Queue()
         self.timers = {}
-        proc_args = (self.filequeue, self.conf, nosave)
+        proc_args = (os.getpid(), self.filequeue, self.conf, nosave)
         for _ in range(MAX_PROC):
             p = Process(target=self._dequeue, args=proc_args)
             p.daemon = True
@@ -57,49 +58,58 @@ class MyEventHandler(PatternMatchingEventHandler):
         self.filequeue.put(infile)
 
     @staticmethod
-    def _dequeue(filequeue, conf, nosave):
+    def _dequeue(f_pid, filequeue, conf, nosave):
         ext = conf['debug_file_format']
         while True:
-            infile = filequeue.get()
-
-            productdir, fname = product_path_from_file_name(
-                infile,
-                productdir=conf['productdir'],
-                workdir=conf['workdir']
-            )
-            root = os.path.join(productdir, fname.replace('.fits', ''))
-
-            pp_args = ['--debug', '-c', conf['configuration_file_name']]
-            if nosave:
-                pp_args.append('--nosave')
-            pp_args.append(infile)
             try:
-                main_preprocess(pp_args)
-            except:
-                continue
+                os.kill(f_pid, 0)
+            except ProcessLookupError:
+                return
+            try:
+                infile = filequeue.get(timeout=0.05)
+                self._process(infile, conf, ext, nosave)
+            except Empty:
+                pass
 
-            newfiles = []
-            for debugfile in glob.glob(root + '*.{}'.format(ext)):
-                newfile = debugfile.replace(root, 'latest')
-                newfiles.append(newfile)
-                cmd_string = ''
-                if nosave:
-                    cmd_string = 'mv {} {}'
-                else:
-                    cmd_string = 'cp {} {}'
-                sp.check_call(cmd_string.format(debugfile, newfile).split())
-            if nosave and conf['productdir'] \
-                    and conf['workdir'] not in conf['productdir']:
-                prodpath = os.path.relpath(root, conf['productdir'])
-                prodpath = prodpath.split('/')[0]
-                prodpath = os.path.join(conf['productdir'], prodpath)
-                if os.path.exists(prodpath):
-                    shutil.rmtree(prodpath)
+    def _process(infile, conf, ext, nosave):
+        productdir, fname = product_path_from_file_name(
+            infile,
+            productdir=conf['productdir'],
+            workdir=conf['workdir']
+        )
+        root = os.path.join(productdir, fname.replace('.fits', ''))
 
-            oldfiles = glob.glob('latest*.{}'.format(ext))
-            for oldfile in oldfiles:
-                if oldfile not in newfiles:
-                    os.remove(oldfile)
+        pp_args = ['--debug', '-c', conf['configuration_file_name']]
+        if nosave:
+            pp_args.append('--nosave')
+        pp_args.append(infile)
+        try:
+            main_preprocess(pp_args)
+        except:
+            return
+
+        newfiles = []
+        for debugfile in glob.glob(root + '*.{}'.format(ext)):
+            newfile = debugfile.replace(root, 'latest')
+            newfiles.append(newfile)
+            cmd_string = ''
+            if nosave:
+                cmd_string = 'mv {} {}'
+            else:
+                cmd_string = 'cp {} {}'
+            sp.check_call(cmd_string.format(debugfile, newfile).split())
+        if nosave and conf['productdir'] \
+                and conf['workdir'] not in conf['productdir']:
+            prodpath = os.path.relpath(root, conf['productdir'])
+            prodpath = prodpath.split('/')[0]
+            prodpath = os.path.join(conf['productdir'], prodpath)
+            if os.path.exists(prodpath):
+                shutil.rmtree(prodpath)
+
+        oldfiles = glob.glob('latest*.{}'.format(ext))
+        for oldfile in oldfiles:
+            if oldfile not in newfiles:
+                os.remove(oldfile)
 
     def on_modified(self, event):
         self._start_timer(event.src_path)
