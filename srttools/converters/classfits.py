@@ -238,7 +238,7 @@ def cal_is_on(subscan):
         is_on = True
     elif 'flag_cal' in subscan.colnames and np.any(subscan['flag_cal'] == 1):
         is_on = subscan['flag_cal']
-    logging.info("Subscan {}, feed {}: ONOFF {}".format(
+    logging.info("Subscan {}: CAL {}".format(
         subscan.meta['SubScanID'],
         is_on))
     return is_on
