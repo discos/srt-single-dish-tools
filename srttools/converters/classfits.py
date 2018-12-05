@@ -76,6 +76,7 @@ from scipy.signal import medfilt
 import copy
 import warnings
 import collections
+import logging
 
 
 model_primary_header = """
@@ -209,17 +210,21 @@ def create_variable_length_column(values, max_length=2048, name="SPECTRUM",
 def on_or_off(subscan, feed):
     """Try to infer if a given subscan is ON or OFF."""
     is_on = False
+    logging.info(subscan.meta['SIGNAL'])
     if 'SIGNAL' in subscan.meta and \
             subscan.meta['SIGNAL'] in ['SIGNAL', 'REFERENCE',
-                                       'SIGCAL', 'REFCAL']:
+                                       'SIGCAL', 'REFSIG', 'REFCAL']:
         signal = subscan.meta['SIGNAL']
         # In nodding, feed 0 has
-        if signal in ['SIGNAL', 'SIGCAL'] and feed == 0:
+        if signal in ['SIGNAL', 'SIGCAL', 'REFSIG'] and feed == 0:
             is_on = True
         elif signal in ['REFERENCE', 'REFCAL'] and feed != 0:
             is_on = True
     else:
         is_on = subscan.meta['az_offset'] > 1e-4 * u.rad
+    logging.info("Subscan {}, feed {}: ONOFF {}".format(
+        subscan.meta['SubScanID'],
+        feed, is_on))
     return is_on
 
 
@@ -227,13 +232,15 @@ def cal_is_on(subscan):
     """Is the calibration mark on? Try to understand."""
     is_on = False
     if 'SIGNAL' in subscan.meta and \
-            subscan.meta['SIGNAL'] in ['REFSIG', 'REFCAL']:
+            subscan.meta['SIGNAL'] in ['REFSIG', 'SIGCAL', 'REFCAL']:
         is_on = True
     elif 'SUBSTYPE' in subscan.meta and subscan.meta['SUBSTYPE'] == 'CAL':
         is_on = True
     elif 'flag_cal' in subscan.colnames and np.any(subscan['flag_cal'] == 1):
         is_on = subscan['flag_cal']
-
+    logging.info("Subscan {}: CAL {}".format(
+        subscan.meta['SubScanID'],
+        is_on))
     return is_on
 
 
@@ -282,6 +289,7 @@ def find_cycles(table, list_of_keys):
             cycle_counter += 1
         table['CYCLE'][i] = cycle_counter
         last = b
+    logging.info(table)
     return table
 
 
@@ -446,6 +454,7 @@ class CLASSFITS_creator():
         for fname in sorted(glob.glob(os.path.join(scandir, '*.fits'))):
             if 'summary' in fname:
                 continue
+            logging.info(fname)
             subscan = read_data_fitszilla(fname)
             location = locations[subscan.meta['site']]
             times = Time(subscan['time'] * u.day, format='mjd', scale='utc',
@@ -617,6 +626,8 @@ class CLASSFITS_creator():
                 else:
                     self.tables[filekey] = newhdu
 
+        for t in self.tables:
+            logging.debug(t)
         return self.tables
 
     def calibrate_all(self, use_calon=False):
