@@ -364,11 +364,13 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
             oncal = (calon - on_ref) / on_ref
 
         cal = np.array([oncal, offcal])
-        good = cal != 0
+        good = (cal != 0) & ~np.isnan(cal) & ~np.isinf(cal)
         cal = cal[good]
 
         if len(cal) > 0:
-            calibration_factor = 1 / np.mean(cal) * cal_mark_temp
+            meancal = np.median(cal) if len(cal) > 30 else np.mean(cal)
+
+            calibration_factor = 1 / meancal * cal_mark_temp
             unit = "K"
         else:
             return None, ""
