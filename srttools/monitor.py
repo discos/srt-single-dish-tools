@@ -14,12 +14,28 @@ try:
 except ImportError:
     PatternMatchingEventHandler = object
     HAS_WATCHDOG = False
+
 import warnings
 import glob
 from threading import Timer, Thread
-from multiprocessing import Process, Queue
-from queue import Empty
-from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
+from multiprocessing import Process, Queue, cpu_count
+import warnings
+
+try:
+    from queue import Empty
+except ImportError:
+    from Queue import Empty
+    warnings.warn("Monitoring interface does not work with Python < 3.5",
+                  DeprecationWarning)
+
+try:
+    from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
+except ImportError:
+    from BaseHTTPServer import HTTPServer
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
+    class HTTPStatus:
+        pass
+    HTTPStatus.NOT_FOUND = 404
 
 from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
@@ -32,8 +48,8 @@ except ImportError:
 
 
 MAX_PROC = 1
-if os.cpu_count():
-    MAX_PROC = int(min(os.cpu_count() / 2, 5))
+if cpu_count():
+    MAX_PROC = int(min(cpu_count() / 2, 5))
 
 
 class MyEventHandler(PatternMatchingEventHandler):
