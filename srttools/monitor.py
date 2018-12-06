@@ -15,7 +15,6 @@ except ImportError:
     PatternMatchingEventHandler = object
     HAS_WATCHDOG = False
 import warnings
-import subprocess as sp
 import glob
 from threading import Timer, Thread
 from multiprocessing import Process, Queue
@@ -89,11 +88,11 @@ class MyEventHandler(PatternMatchingEventHandler):
                     newfile = debugfile.replace(root, 'latest')
                     newfiles.append(newfile)
                     cmd_string = ''
-                    if nosave:
-                        cmd_string = 'mv {} {}'
-                    else:
-                        cmd_string = 'cp {} {}'
-                    sp.check_call(cmd_string.format(debugfile, newfile).split())
+                    if os.path.exists(debugfile):
+                        if nosave:
+                            shutil.move(debugfile, newfile)
+                        else:
+                            shutil.copyfile(debugfile, newfile)
                 if nosave and conf['productdir'] \
                         and conf['workdir'] not in conf['productdir']:
                     prodpath = os.path.relpath(root, conf['productdir'])
@@ -104,7 +103,7 @@ class MyEventHandler(PatternMatchingEventHandler):
 
                 oldfiles = glob.glob('latest*.{}'.format(ext))
                 for oldfile in oldfiles:
-                    if oldfile not in newfiles:
+                    if oldfile not in newfiles and os.path.exists(oldfile):
                         os.remove(oldfile)
             except Empty:
                 pass
