@@ -14,13 +14,22 @@ try:
 except ImportError:
     PatternMatchingEventHandler = object
     HAS_WATCHDOG = False
-import warnings
 import subprocess as sp
 import glob
 from threading import Timer, Thread
-from multiprocessing import Process, Queue
-from queue import Empty
-from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
+from multiprocessing import Process, Queue, cpu_count
+
+try:
+    from queue import Empty
+    HAS_QUEUE = True
+except ImportError:
+    HAS_QUEUE = False
+
+try:
+    from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
+    HAS_HTTP = True
+except ImportError:
+    HAS_HTTP = False
 
 from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
@@ -33,8 +42,8 @@ except ImportError:
 
 
 MAX_PROC = 1
-if os.cpu_count():
-    MAX_PROC = int(min(os.cpu_count() / 2, 5))
+if cpu_count():
+    MAX_PROC = int(min(cpu_count() / 2, 5))
 
 
 class MyEventHandler(PatternMatchingEventHandler):
