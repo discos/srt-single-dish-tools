@@ -18,18 +18,23 @@ import subprocess as sp
 import glob
 from threading import Timer, Thread
 from multiprocessing import Process, Queue, cpu_count
+import warnings
 
 try:
     from queue import Empty
-    HAS_QUEUE = True
 except ImportError:
-    HAS_QUEUE = False
+    from Queue import Empty
+    warnings.warn("Monitoring interface does not work with Python < 3.5",
+                  DeprecationWarning)
 
 try:
     from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
-    HAS_HTTP = True
 except ImportError:
-    HAS_HTTP = False
+    from BaseHTTPServer import HTTPServer
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
+    class HTTPStatus:
+        pass
+    HTTPStatus.NOT_FOUND = 404
 
 from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
