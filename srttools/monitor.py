@@ -47,15 +47,10 @@ except ImportError:
     pass
 
 
-MAX_PROC = 1
-if cpu_count():
-    MAX_PROC = int(min(cpu_count() / 2, 5))
-
-
 class MyEventHandler(PatternMatchingEventHandler):
     patterns = ["*/*.fits"]
 
-    def __init__(self, nosave=False):
+    def __init__(self, n_proc, nosave=False):
         super().__init__()
         self.conf = getattr(sys.modules[__name__], 'conf')
         create_index_file(self.conf['debug_file_format'])
@@ -71,8 +66,12 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.lock,
             self.processing_queue
         )
-        for _ in range(MAX_PROC):
-            p = Process(target=self._dequeue, args=proc_args)
+        if n_proc == 1:
+            p_type = Thread
+        else:
+            p_type = Process
+        for _ in range(n_proc):
+            p = p_type(target=self._dequeue, args=proc_args)
             p.daemon = True
             p.start()
 
@@ -93,6 +92,8 @@ class MyEventHandler(PatternMatchingEventHandler):
                 infile = filequeue.get(timeout=0.05)
             except Empty:
                 continue
+            except EOFError:
+                return
 
             productdir, fname = product_path_from_file_name(
                 infile,
@@ -233,7 +234,11 @@ def main_monitor(args=None):
     conf['configuration_file_name'] = config_file
     setattr(sys.modules[__name__], 'conf', conf)
 
-    event_handler = MyEventHandler(nosave=args.nosave)
+    n_proc = 1
+    if cpu_count() and not args.test:
+        n_proc = int(min(cpu_count() / 2, 5))
+
+    event_handler = MyEventHandler(n_proc=n_proc, nosave=args.nosave)
     observer = None
     if args.polling:
         observer = PollingObserver()
