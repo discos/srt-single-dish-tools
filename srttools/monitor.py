@@ -17,8 +17,8 @@ except ImportError:
 
 import warnings
 import glob
-from threading import Timer, Thread
-from multiprocessing import Process, Queue, cpu_count
+from threading import Thread
+from multiprocessing import Process, Queue, Manager, Lock, cpu_count
 import warnings
 
 try:
@@ -60,20 +60,29 @@ class MyEventHandler(PatternMatchingEventHandler):
         self.conf = getattr(sys.modules[__name__], 'conf')
         create_index_file(self.conf['debug_file_format'])
         self.filequeue = Queue()
-        self.timers = {}
-        proc_args = (os.getpid(), self.filequeue, self.conf, nosave)
+        self.manager = Manager()
+        self.lock = Lock()
+        self.processing_queue = self.manager.list()
+        proc_args = (
+            os.getpid(),
+            self.filequeue,
+            self.conf,
+            nosave,
+            self.lock,
+            self.processing_queue
+        )
         for _ in range(MAX_PROC):
             p = Process(target=self._dequeue, args=proc_args)
             p.daemon = True
             p.start()
 
     def _enqueue(self, infile):
-        if self.timers.get(infile):
-            del self.timers[infile]
-        self.filequeue.put(infile)
+        if infile not in self.processing_queue:
+            self.filequeue.put(infile)
+            self.processing_queue.append(infile)
 
     @staticmethod
-    def _dequeue(f_pid, filequeue, conf, nosave):
+    def _dequeue(f_pid, filequeue, conf, nosave, lock, processing_queue):
         ext = conf['debug_file_format']
         while True:
             try:
@@ -82,60 +91,60 @@ class MyEventHandler(PatternMatchingEventHandler):
                 return
             try:
                 infile = filequeue.get(timeout=0.05)
-
-                productdir, fname = product_path_from_file_name(
-                    infile,
-                    productdir=conf['productdir'],
-                    workdir=conf['workdir']
-                )
-                root = os.path.join(productdir, fname.replace('.fits', ''))
-
-                pp_args = ['--debug', '-c', conf['configuration_file_name']]
-                if nosave:
-                    pp_args.append('--nosave')
-                pp_args.append(infile)
-                try:
-                    main_preprocess(pp_args)
-                except:
-                    continue
-
-                newfiles = []
-                for debugfile in glob.glob(root + '*.{}'.format(ext)):
-                    newfile = debugfile.replace(root, 'latest')
-                    newfiles.append(newfile)
-                    cmd_string = ''
-                    if os.path.exists(debugfile):
-                        if nosave:
-                            shutil.move(debugfile, newfile)
-                        else:
-                            shutil.copyfile(debugfile, newfile)
-                if nosave and conf['productdir'] \
-                        and conf['workdir'] not in conf['productdir']:
-                    prodpath = os.path.relpath(root, conf['productdir'])
-                    prodpath = prodpath.split('/')[0]
-                    prodpath = os.path.join(conf['productdir'], prodpath)
-                    if os.path.exists(prodpath):
-                        shutil.rmtree(prodpath)
-
-                oldfiles = glob.glob('latest*.{}'.format(ext))
-                for oldfile in oldfiles:
-                    if oldfile not in newfiles and os.path.exists(oldfile):
-                        os.remove(oldfile)
             except Empty:
-                pass
+                continue
+
+            productdir, fname = product_path_from_file_name(
+                infile,
+                productdir=conf['productdir'],
+                workdir=conf['workdir']
+            )
+            root = os.path.join(productdir, fname.replace('.fits', ''))
+
+            pp_args = ['--debug', '-c', conf['configuration_file_name']]
+            if nosave:
+                pp_args.append('--nosave')
+            pp_args.append(infile)
+            try:
+                main_preprocess(pp_args)
+            except:
+                continue
+
+            lock.acquire()
+
+            newfiles = []
+            for debugfile in glob.glob(root + '*.{}'.format(ext)):
+                newfile = debugfile.replace(root, 'latest')
+                newfiles.append(newfile)
+                if os.path.exists(debugfile):
+                    if nosave:
+                        shutil.move(debugfile, newfile)
+                    else:
+                        shutil.copyfile(debugfile, newfile)
+            if nosave and conf['productdir'] \
+                    and conf['workdir'] not in conf['productdir']:
+                prodpath = os.path.relpath(root, conf['productdir'])
+                prodpath = prodpath.split('/')[0]
+                prodpath = os.path.join(conf['productdir'], prodpath)
+                if os.path.exists(prodpath):
+                    shutil.rmtree(prodpath)
+
+            oldfiles = glob.glob('latest*.{}'.format(ext))
+            for oldfile in oldfiles:
+                if oldfile not in newfiles and os.path.exists(oldfile):
+                    os.remove(oldfile)
+
+            lock.release()
+            processing_queue.remove(infile)
 
     def on_modified(self, event):
-        self._start_timer(event.src_path)
+        self._enqueue(event.src_path)
 
     def on_created(self, event):
-        self._start_timer(event.src_path)
+        self._enqueue(event.src_path)
 
-    def _start_timer(self, infile):
-        if self.timers.get(infile):
-            self.timers[infile].cancel()
-
-        self.timers[infile] = Timer(0.05, self._enqueue, args=[infile])
-        self.timers[infile].start()
+    def on_moved(self, event):
+        self._enqueue(event.dest_path)
 
 
 class MyRequestHandler(SimpleHTTPRequestHandler):
