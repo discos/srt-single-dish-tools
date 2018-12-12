@@ -59,7 +59,6 @@ class MyEventHandler(PatternMatchingEventHandler):
         self.lock = Lock()
         self.processing_queue = self.manager.list()
         proc_args = (
-            os.getpid(),
             self.filequeue,
             self.conf,
             nosave,
@@ -70,10 +69,19 @@ class MyEventHandler(PatternMatchingEventHandler):
             p_type = Thread
         else:
             p_type = Process
+        self.processes = []
         for _ in range(n_proc):
             p = p_type(target=self._dequeue, args=proc_args)
             p.daemon = True
             p.start()
+            self.processes.append(p)
+
+    def __del__(self):
+        for p in self.processes:
+            try:
+                p.terminate()
+            except AttributeError:
+                pass
 
     def _enqueue(self, infile):
         if infile not in self.processing_queue:
@@ -81,18 +89,12 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.processing_queue.append(infile)
 
     @staticmethod
-    def _dequeue(f_pid, filequeue, conf, nosave, lock, processing_queue):
+    def _dequeue(filequeue, conf, nosave, lock, processing_queue):
         ext = conf['debug_file_format']
         while True:
             try:
-                os.kill(f_pid, 0)
-            except ProcessLookupError:
-                return
-            try:
-                infile = filequeue.get(timeout=0.05)
-            except Empty:
-                continue
-            except EOFError:
+                infile = filequeue.get()
+            except KeyboardInterrupt:
                 return
 
             productdir, fname = product_path_from_file_name(
@@ -127,8 +129,9 @@ class MyEventHandler(PatternMatchingEventHandler):
                 prodpath = os.path.relpath(root, conf['productdir'])
                 prodpath = prodpath.split('/')[0]
                 prodpath = os.path.join(conf['productdir'], prodpath)
-                if os.path.exists(prodpath):
-                    shutil.rmtree(prodpath)
+                for dirname, _, _ in os.walk(prodpath, topdown=False):
+                    if not os.listdir(dirname):
+                        os.rmdir(dirname)
 
             oldfiles = glob.glob('latest*.{}'.format(ext))
             for oldfile in oldfiles:
