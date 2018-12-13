@@ -6,6 +6,7 @@ import os
 import shutil
 import re
 import sys
+import signal
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
@@ -94,7 +95,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         while True:
             try:
                 infile = filequeue.get()
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, EOFError):
                 return
 
             productdir, fname = product_path_from_file_name(
@@ -221,6 +222,12 @@ def main_monitor(args=None):
         type=int
     )
     args = parser.parse_args(args)
+
+    def sigterm_received(signum, frame):
+        os.kill(os.getpid(), signal.SIGINT)
+
+    if not args.test:
+        signal.signal(signal.SIGTERM, sigterm_received)
 
     if not HAS_WATCHDOG:
         raise ImportError('To use SDTmonitor, you need to install watchdog: \n'
