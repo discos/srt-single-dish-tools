@@ -433,10 +433,10 @@ def _read_data_fitszilla(lchdulist):
         backend = lchdulist[0].header['BACKEND NAME']
     except Exception:
         if 'stokes' in types:
-            if nbin_per_chan > 2048:
-                backend = 'SARDARA'
-            else:
+            if nbin_per_chan == 2048:
                 backend = 'XARCOS'
+            else:
+                backend = 'SARDARA'
         elif 'spectra' in types:
             backend = 'SARDARA'
         else:
