@@ -6,6 +6,7 @@ import os
 import shutil
 import re
 import sys
+import signal
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
@@ -17,7 +18,7 @@ except ImportError:
 
 import warnings
 import glob
-from threading import Thread
+import threading
 from multiprocessing import Process, Queue, Manager, Lock, cpu_count
 import warnings
 
@@ -59,7 +60,6 @@ class MyEventHandler(PatternMatchingEventHandler):
         self.lock = Lock()
         self.processing_queue = self.manager.list()
         proc_args = (
-            os.getpid(),
             self.filequeue,
             self.conf,
             nosave,
@@ -67,13 +67,22 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.processing_queue
         )
         if n_proc == 1:
-            p_type = Thread
+            p_type = threading.Thread
         else:
             p_type = Process
+        self.processes = []
         for _ in range(n_proc):
             p = p_type(target=self._dequeue, args=proc_args)
             p.daemon = True
             p.start()
+            self.processes.append(p)
+
+    def __del__(self):
+        for p in self.processes:
+            try:
+                p.terminate()
+            except AttributeError:
+                pass
 
     def _enqueue(self, infile):
         if infile not in self.processing_queue:
@@ -81,18 +90,12 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.processing_queue.append(infile)
 
     @staticmethod
-    def _dequeue(f_pid, filequeue, conf, nosave, lock, processing_queue):
+    def _dequeue(filequeue, conf, nosave, lock, processing_queue):
         ext = conf['debug_file_format']
         while True:
             try:
-                os.kill(f_pid, 0)
-            except ProcessLookupError:
-                return
-            try:
-                infile = filequeue.get(timeout=0.05)
-            except Empty:
-                continue
-            except EOFError:
+                infile = filequeue.get()
+            except (KeyboardInterrupt, EOFError):
                 return
 
             productdir, fname = product_path_from_file_name(
@@ -127,8 +130,9 @@ class MyEventHandler(PatternMatchingEventHandler):
                 prodpath = os.path.relpath(root, conf['productdir'])
                 prodpath = prodpath.split('/')[0]
                 prodpath = os.path.join(conf['productdir'], prodpath)
-                if os.path.exists(prodpath):
-                    shutil.rmtree(prodpath)
+                for dirname, _, _ in os.walk(prodpath, topdown=False):
+                    if not os.listdir(dirname):
+                        os.rmdir(dirname)
 
             oldfiles = glob.glob('latest*.{}'.format(ext))
             for oldfile in oldfiles:
@@ -219,6 +223,12 @@ def main_monitor(args=None):
     )
     args = parser.parse_args(args)
 
+    def sigterm_received(signum, frame):
+        os.kill(os.getpid(), signal.SIGINT)
+
+    if threading.current_thread() is threading.main_thread():
+        signal.signal(signal.SIGTERM, sigterm_received)
+
     if not HAS_WATCHDOG:
         raise ImportError('To use SDTmonitor, you need to install watchdog: \n'
                           '\n   > pip install watchdog')
@@ -252,7 +262,7 @@ def main_monitor(args=None):
 
     if args.http_server_port:
         http_server = HTTPServer(('', args.http_server_port), MyRequestHandler)
-        t = Thread(target=http_server.serve_forever)
+        t = threading.Thread(target=http_server.serve_forever)
         t.daemon = True
         t.start()
 
