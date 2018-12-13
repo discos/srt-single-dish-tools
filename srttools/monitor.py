@@ -6,6 +6,7 @@ import os
 import shutil
 import re
 import sys
+import signal
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
@@ -17,7 +18,7 @@ except ImportError:
 
 import warnings
 import glob
-from threading import Thread
+import threading
 from multiprocessing import Process, Queue, Manager, Lock, cpu_count
 import warnings
 
@@ -66,7 +67,7 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.processing_queue
         )
         if n_proc == 1:
-            p_type = Thread
+            p_type = threading.Thread
         else:
             p_type = Process
         self.processes = []
@@ -94,7 +95,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         while True:
             try:
                 infile = filequeue.get()
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, EOFError):
                 return
 
             productdir, fname = product_path_from_file_name(
@@ -222,6 +223,12 @@ def main_monitor(args=None):
     )
     args = parser.parse_args(args)
 
+    def sigterm_received(signum, frame):
+        os.kill(os.getpid(), signal.SIGINT)
+
+    if threading.current_thread() is threading.main_thread():
+        signal.signal(signal.SIGTERM, sigterm_received)
+
     if not HAS_WATCHDOG:
         raise ImportError('To use SDTmonitor, you need to install watchdog: \n'
                           '\n   > pip install watchdog')
@@ -255,7 +262,7 @@ def main_monitor(args=None):
 
     if args.http_server_port:
         http_server = HTTPServer(('', args.http_server_port), MyRequestHandler)
-        t = Thread(target=http_server.serve_forever)
+        t = threading.Thread(target=http_server.serve_forever)
         t.daemon = True
         t.start()
 
