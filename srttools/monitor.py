@@ -59,7 +59,6 @@ class MyEventHandler(PatternMatchingEventHandler):
         self.manager = Manager()
         self.lock = Lock()
         self.processing_queue = self.manager.list()
-        self.processing_queue = []
         proc_args = (
             self.filequeue,
             self.conf,
