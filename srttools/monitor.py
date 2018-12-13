@@ -18,7 +18,7 @@ except ImportError:
 
 import warnings
 import glob
-from threading import Thread
+from threading import Thread, current_thread, main_thread
 from multiprocessing import Process, Queue, Manager, Lock, cpu_count
 import warnings
 
@@ -59,6 +59,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         self.manager = Manager()
         self.lock = Lock()
         self.processing_queue = self.manager.list()
+        self.processing_queue = []
         proc_args = (
             self.filequeue,
             self.conf,
@@ -226,7 +227,7 @@ def main_monitor(args=None):
     def sigterm_received(signum, frame):
         os.kill(os.getpid(), signal.SIGINT)
 
-    if not args.test:
+    if current_thread() is main_thread():
         signal.signal(signal.SIGTERM, sigterm_received)
 
     if not HAS_WATCHDOG:
