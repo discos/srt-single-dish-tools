@@ -18,7 +18,7 @@ except ImportError:
 
 import warnings
 import glob
-from threading import Thread, current_thread, main_thread
+import threading
 from multiprocessing import Process, Queue, Manager, Lock, cpu_count
 import warnings
 
@@ -68,7 +68,7 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.processing_queue
         )
         if n_proc == 1:
-            p_type = Thread
+            p_type = threading.Thread
         else:
             p_type = Process
         self.processes = []
@@ -227,7 +227,7 @@ def main_monitor(args=None):
     def sigterm_received(signum, frame):
         os.kill(os.getpid(), signal.SIGINT)
 
-    if current_thread() is main_thread():
+    if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGTERM, sigterm_received)
 
     if not HAS_WATCHDOG:
@@ -263,7 +263,7 @@ def main_monitor(args=None):
 
     if args.http_server_port:
         http_server = HTTPServer(('', args.http_server_port), MyRequestHandler)
-        t = Thread(target=http_server.serve_forever)
+        t = threading.Thread(target=http_server.serve_forever)
         t.daemon = True
         t.start()
 
