@@ -44,9 +44,16 @@ To get the data in a calibrated CLASS format readable into GILDAS, provided that
 
 .. code-block:: console
 
-    (py3) $ SDTconvert -f classfits directory_of_observation
+    (py3) $ SDTconvert -f classfits path/to/directory_of_observation
 
-This will save the calibrated data into a directory.
+This will save the calibrated data into a directory called ``path/to/directory_of_observation_classfits/``.
+To save in the current directory regardless of the path to the original data, use the option ``--save-locally``.
+.. code-block:: console
+
+    (py3) $ SDTconvert -f classfits path/to/directory_of_observation --save-locally
+
+This will save the calibrated data into ``./directory_of_observation_classfits/``
+
 We use the FITS format readable into CLASS, and for convenience we also save a small script that, launched from the user's version of CLASS, is able to convert the data into the native CLASS format.
 We do not make the direct conversion to the binary CLASS format for portability issues, but we found that in practice the FITS format is understood correctly across the last four years of GILDAS versions.
 

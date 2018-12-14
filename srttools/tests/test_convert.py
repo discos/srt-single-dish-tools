@@ -89,6 +89,13 @@ class Test1_Scan(object):
                                                  '_fitsmod.fits'))
         os.unlink(self.fname.replace('.fits', '_fitsmod.fits'))
 
+    def test_main_locally(self):
+        main_convert([self.fname, '-f', 'fitsmod', '--save-locally'])
+        fname = os.path.basename(self.fname)
+        assert os.path.exists(fname.replace('.fits',
+                                            '_fitsmod.fits'))
+        os.unlink(fname.replace('.fits', '_fitsmod.fits'))
+
     def test_main_dir(self):
         main_convert([self.skydip, '-f', 'fitsmod'])
         newfile = os.path.join(self.skydip,
@@ -109,7 +116,6 @@ class Test1_Scan(object):
 
         assert "Input for MBFITS conversion must be " in str(excinfo)
 
-    @pytest.mark.skipif('CI_MPL')
     def test_main_mbfitsw(self):
         main_convert([self.skydip, '-f', 'mbfitsw', '--test'])
         newfiles = glob.glob(self.skydip + '*KKG*.fits')
@@ -124,7 +130,22 @@ class Test1_Scan(object):
         for fname in newfiles:
             os.unlink(fname)
 
-    @pytest.mark.skipif('CI_MPL')
+    def test_main_mbfitsw_local(self):
+        files = main_convert([self.skydip, '-f', 'mbfitsw', '--test',
+                      '--save-locally'])
+        newfiles = glob.glob(os.path.basename(self.skydip) + '*KKG*.fits')
+        assert len(newfiles) > 0
+        # test that a new conversion does not make this fail
+        newdir = main_convert([self.skydip, '-f', 'mbfitsw', '--test',
+                               '--save-locally'])[0]
+
+        shutil.rmtree(newdir)
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SCAN-MBFITS'].header
+            assert header['SCANTYPE'] == 'SKYDIP'
+        for fname in newfiles:
+            os.unlink(fname)
+
     def test_main_mbfitsw_polar(self):
         newdir = main_convert([self.example, '-f', 'mbfitsw', '--test'])[0]
         newfiles = glob.glob(self.example + '*CCB*.fits')
@@ -136,9 +157,21 @@ class Test1_Scan(object):
         for fname in newfiles:
             os.unlink(fname)
 
-    @pytest.mark.skipif('CI_MPL')
     def test_main_mbfits(self):
         newdir = main_convert([self.skydip, '-f', 'mbfits', '--test'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        assert os.path.exists(os.path.join(newdir, 'GROUPING.fits'))
+        scanfile = os.path.join(newdir, 'SCAN.fits')
+        assert os.path.exists(scanfile)
+        with fits.open(scanfile) as hdul:
+            header = hdul[1].header
+            assert header['SCANTYPE'] == 'SKYDIP'
+        shutil.rmtree(newdir)
+
+    def test_main_mbfits_local(self):
+        newdir = main_convert([self.skydip, '-f', 'mbfits', '--test',
+                               '--save-locally'])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
         assert os.path.exists(os.path.join(newdir, 'GROUPING.fits'))
@@ -223,6 +256,13 @@ class Test1_Scan(object):
         assert os.path.isdir(newdir)
         shutil.rmtree(self.nodding + '_classfits')
 
+    def test_main_classfits_nodding_local(self):
+        newdir = main_convert([self.nodding, '-f', 'classfits', '--test',
+                               '--save-locally'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        shutil.rmtree(os.path.basename(self.nodding) + '_classfits')
+
     def test_main_sdfits_skydip(self):
         newdir = main_convert([self.skydip, '-f', 'sdfits', '--test'])[0]
         assert os.path.exists(newdir)
@@ -233,6 +273,18 @@ class Test1_Scan(object):
             header = hdul['SINGLE DISH'].header
             assert np.isclose(header['OBSGEO-X'], locations['srt'].x.value)
         shutil.rmtree(self.skydip + '_sdfits')
+
+    def test_main_sdfits_skydip_local(self):
+        newdir = main_convert([self.skydip, '-f', 'sdfits', '--test',
+                               '--save-locally'])[0]
+        assert os.path.exists(newdir)
+        assert os.path.isdir(newdir)
+        newfiles = glob.glob(os.path.join(newdir, '*.fits'))
+
+        with fits.open(newfiles[0]) as hdul:
+            header = hdul['SINGLE DISH'].header
+            assert np.isclose(header['OBSGEO-X'], locations['srt'].x.value)
+        shutil.rmtree(os.path.basename(self.skydip) + '_sdfits')
 
     def test_main_sdfits_nodding(self):
         newdir = main_convert([self.nodding, '-f', 'sdfits', '--test'])[0]
