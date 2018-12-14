@@ -81,7 +81,7 @@ def _convert_to_complete_fitszilla(lchdulist, outname):
         lchdulist.append(new_data_extension)
 
 
-def launch_convert_coords(name, label):
+def launch_convert_coords(name, label, save_locally=False):
     allfiles = []
     if os.path.isdir(name):
         allfiles += glob.glob(os.path.join(name, '*.fits'))
@@ -92,6 +92,9 @@ def launch_convert_coords(name, label):
         if 'summary.fits' in fname:
             continue
         outroot = fname.replace('.fits', '_' + label)
+        if save_locally:
+            outroot = os.path.basename(outroot)
+
         convert_to_complete_fitszilla(fname, outroot)
     return outroot
 
@@ -101,7 +104,8 @@ def launch_convert_coords(name, label):
 # precision = 10
 #
 # @profile(precision=precision, stream=fp)
-def launch_mbfits_creator(name, label, test=False, wrap=False, detrend=False):
+def launch_mbfits_creator(name, label, test=False, wrap=False, detrend=False,
+                          save_locally=False):
     if not os.path.isdir(name):
         raise ValueError('Input for MBFITS conversion must be a directory.')
     name = name.rstrip('/')
@@ -117,23 +121,29 @@ def launch_mbfits_creator(name, label, test=False, wrap=False, detrend=False):
         mbfits.add_subscan(fname, detrend=detrend)
 
     mbfits.update_scan_info()
-    if os.path.exists(name + '_' + label):
-        shutil.rmtree(name + '_' + label)
+    if save_locally:
+        name = os.path.basename(name)
+
+    outname = name + '_' + label
+    if os.path.exists(outname):
+        shutil.rmtree(outname)
 
     if wrap:
         fnames = mbfits.wrap_up_file()
         for febe, fname in fnames.items():
             shutil.move(fname, name + '.' + febe + '.fits')
-    outname = name + '_' + label
     shutil.move(random_name, outname)
     return outname, mbfits
 
 
-def launch_classfits_creator(name, label, test=False):
+def launch_classfits_creator(name, label, test=False,
+                             save_locally=False):
     if not os.path.isdir(name):
         raise ValueError('Input for CLASSFITS conversion must be a directory.')
     name = name.rstrip('/')
     outname = name + '_' + label
+    if save_locally:
+        outname = os.path.basename(outname)
     if os.path.exists(outname):
         shutil.rmtree(outname)
     random_name = 'tmp_' + str(np.random.random())
@@ -142,11 +152,15 @@ def launch_classfits_creator(name, label, test=False):
     return outname, classfits
 
 
-def launch_sdfits_creator(name, label, test=False):
+def launch_sdfits_creator(name, label, test=False,
+                          save_locally=False):
     if not os.path.isdir(name):
         raise ValueError('Input for SDFITS conversion must be a directory.')
     name = name.rstrip('/')
     outname = name + '_' + label
+    if save_locally:
+        outname = os.path.basename(outname)
+
     if os.path.exists(outname):
         shutil.rmtree(outname)
     random_name = 'tmp_' + str(np.random.random())
@@ -206,17 +220,24 @@ def main_convert(args=None):
                         help="Detrend data before converting to MBFITS",
                         action='store_true', default=False)
 
+    parser.add_argument("--save-locally",
+                        help="Save all data in the current directory, not"
+                             "alongside the original data.",
+                        action='store_true', default=False)
+
     args = parser.parse_args(args)
 
     outnames = []
     for fname in args.files:
         if args.format == 'fitsmod':
-            outname = launch_convert_coords(fname, args.format)
+            outname = launch_convert_coords(fname, args.format,
+                                            save_locally=args.save_locally)
             outnames.append(outname)
         elif args.format == 'mbfits':
             outname, mbfits = \
                 launch_mbfits_creator(fname, args.format, test=args.test,
-                                      wrap=False, detrend=args.detrend)
+                                      wrap=False, detrend=args.detrend,
+                                      save_locally=args.save_locally)
 
             if args.test:
                 fname = '20180212-150835-S0000-3C84_RA'
@@ -235,15 +256,18 @@ def main_convert(args=None):
         elif args.format == 'mbfitsw':
             outname, mbfits = \
                 launch_mbfits_creator(fname, args.format, test=args.test,
-                                      wrap=True, detrend=args.detrend)
+                                      wrap=True, detrend=args.detrend,
+                                      save_locally=args.save_locally)
             outnames.append(outname)
         elif args.format == 'classfits':
             outname, mbfits = \
-                launch_classfits_creator(fname, args.format, test=args.test)
+                launch_classfits_creator(fname, args.format, test=args.test,
+                                         save_locally=args.save_locally)
             outnames.append(outname)
         elif args.format == 'sdfits':
             outname, mbfits = \
-                launch_sdfits_creator(fname, args.format, test=args.test)
+                launch_sdfits_creator(fname, args.format, test=args.test,
+                                      save_locally=args.save_locally)
             outnames.append(outname)
         else:
             warnings.warn('Unknown output format')
