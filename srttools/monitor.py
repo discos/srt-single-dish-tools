@@ -7,6 +7,7 @@ import shutil
 import re
 import sys
 import signal
+import warnings
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
@@ -110,7 +111,9 @@ class MyEventHandler(PatternMatchingEventHandler):
                 pp_args.append('--nosave')
             pp_args.append(infile)
             try:
-                main_preprocess(pp_args)
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    main_preprocess(pp_args)
             except:
                 continue
 
