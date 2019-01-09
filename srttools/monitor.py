@@ -49,7 +49,9 @@ except ImportError:
 
 
 class MyEventHandler(PatternMatchingEventHandler):
-    patterns = ["*/*.fits"]
+    MAX_FEEDS = 7
+    patterns = \
+        ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 
     def __init__(self, n_proc, nosave=False):
         super().__init__()
@@ -103,7 +105,7 @@ class MyEventHandler(PatternMatchingEventHandler):
                 productdir=conf['productdir'],
                 workdir=conf['workdir']
             )
-            root = os.path.join(productdir, fname.replace('.fits', ''))
+            root = os.path.join(productdir, fname.rsplit('.fits')[0])
 
             pp_args = ['--debug', '-c', conf['configuration_file_name']]
             if nosave:
@@ -119,6 +121,15 @@ class MyEventHandler(PatternMatchingEventHandler):
             newfiles = []
             for debugfile in glob.glob(root + '*.{}'.format(ext)):
                 newfile = debugfile.replace(root, 'latest')
+                newfile = newfile.rstrip('.{}'.format(ext))
+                if not infile.endswith('.fits'):
+                    new_index = 2 * int(infile.rsplit('.fits')[-1])
+                    newfile = (
+                        newfile.split('_')[0]
+                        + '_'
+                        + str(new_index + int(newfile.rsplit('_')[-1]))
+                    )
+                newfile = newfile + '.{}'.format(ext)
                 newfiles.append(newfile)
                 if os.path.exists(debugfile):
                     if nosave:
@@ -134,10 +145,11 @@ class MyEventHandler(PatternMatchingEventHandler):
                     if not os.listdir(dirname):
                         os.rmdir(dirname)
 
-            oldfiles = glob.glob('latest*.{}'.format(ext))
-            for oldfile in oldfiles:
-                if oldfile not in newfiles and os.path.exists(oldfile):
-                    os.remove(oldfile)
+            if infile.endswith('.fits'):
+                oldfiles = glob.glob('latest*.{}'.format(ext))
+                for oldfile in oldfiles:
+                    if oldfile not in newfiles and os.path.exists(oldfile):
+                        os.remove(oldfile)
 
             lock.release()
             processing_queue.remove(infile)
@@ -149,7 +161,10 @@ class MyEventHandler(PatternMatchingEventHandler):
         self._enqueue(event.src_path)
 
     def on_moved(self, event):
-        self._enqueue(event.dest_path)
+        for pattern in self.patterns:
+            pattern = pattern.rsplit('.')[-1]
+            if event.dest_path.endswith(pattern):
+                self._enqueue(event.dest_path)
 
 
 class MyRequestHandler(SimpleHTTPRequestHandler):
