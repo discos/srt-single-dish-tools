@@ -12,6 +12,8 @@ import os
 import glob
 import shutil
 
+from astropy.utils.exceptions import AstropyWarning
+
 from .io import get_coords_from_altaz_offset, correct_offsets
 from .io import get_rest_angle, observing_angle, locations
 from .converters.mbfits import MBFITS_creator
@@ -270,5 +272,5 @@ def main_convert(args=None):
                                       save_locally=args.save_locally)
             outnames.append(outname)
         else:
-            warnings.warn('Unknown output format')
+            warnings.warn('Unknown output format', AstropyWarning)
     return outnames

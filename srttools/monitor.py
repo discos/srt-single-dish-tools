@@ -1,7 +1,7 @@
 from __future__ import (absolute_import, division,
                         print_function)
 import time
-import logging
+from astropy import log
 import os
 import shutil
 import re
@@ -20,7 +20,7 @@ import warnings
 import glob
 import threading
 from multiprocessing import Process, Queue, Manager, Lock, cpu_count
-import warnings
+from astropy import log
 
 try:
     from queue import Empty
@@ -247,6 +247,7 @@ def main_monitor(args=None):
     if not HAS_WATCHDOG:
         raise ImportError('To use SDTmonitor, you need to install watchdog: \n'
                           '\n   > pip install watchdog')
+    from astropy.logger import logging
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S')

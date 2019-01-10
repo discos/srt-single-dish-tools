@@ -17,7 +17,7 @@ from srttools.utils import compare_anything
 import os
 import numpy as np
 import glob
-import logging
+from astropy import log
 import shutil
 
 try:
@@ -29,8 +29,8 @@ except ImportError:
 
 @pytest.fixture()
 def logger():
-    logger = logging.getLogger('Some.Logger')
-    logger.setLevel(logging.INFO)
+    logger = log.getLogger('Some.Logger')
+    logger.setLevel(log.INFO)
 
     return logger
 

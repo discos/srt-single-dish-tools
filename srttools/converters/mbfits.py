@@ -11,6 +11,7 @@ from srttools.io import mkdir_p, locations, read_data_fitszilla, \
 from srttools.utils import scantype, force_move_file, minmax, median_diff
 from srttools.fit import detrend_spectroscopic_data
 import warnings
+from astropy import log
 
 
 def default_scan_info_table():
@@ -331,7 +332,7 @@ class MBFITS_creator():
         self.lst = 1e32
 
     def fill_in_summary(self, summaryfile):
-        print('Loading {}'.format(summaryfile))
+        log.info('Loading {}'.format(summaryfile))
         with fits.open(summaryfile, memmap=False) as hdul:
             header = hdul[0].header
             hdudict = dict(header.items())
@@ -385,7 +386,7 @@ class MBFITS_creator():
         force_move_file('tmp.fits', os.path.join(self.dirname, self.SCAN))
 
     def add_subscan(self, scanfile, detrend=False):
-        print('Loading {}'.format(scanfile))
+        log.info('Loading {}'.format(scanfile))
 
         subscan = read_data_fitszilla(scanfile)
         subscan_info = get_subscan_info(subscan)

@@ -40,7 +40,7 @@ import glob
 import astropy.units as u
 import shutil
 import pytest
-import logging
+from astropy import log
 import subprocess as sp
 import astropy
 
@@ -53,8 +53,8 @@ except ImportError:
 
 @pytest.fixture()
 def logger():
-    logger = logging.getLogger('Some.Logger')
-    logger.setLevel(logging.INFO)
+    logger = log.getLogger('Some.Logger')
+    logger.setLevel(log.INFO)
 
     return logger
 
@@ -176,7 +176,7 @@ class TestScanSet(object):
                 (not os.path.exists(klass.obsdir_dec)):
             mkdir_p(klass.obsdir_ra)
             mkdir_p(klass.obsdir_dec)
-            print('Fake map: Point-like (but Gaussian beam shape), '
+            log.info('Fake map: Point-like (but Gaussian beam shape), '
                   '{} Jy.'.format(klass.simulated_flux))
             sim_map(klass.obsdir_ra, klass.obsdir_dec)
 
@@ -510,7 +510,6 @@ class TestScanSet(object):
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
         rtol = 0.2
 
-        print(np.sum(images['Feed0_RCP'][good]), self.simulated_flux)
         assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=rtol)
 
@@ -527,7 +526,6 @@ class TestScanSet(object):
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
-        print(np.sum(images['Feed0_RCP'][good]), self.simulated_flux)
         assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=0.1)
 
@@ -547,7 +545,6 @@ class TestScanSet(object):
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
 
-        print(np.sum(images['TOTAL'][good]), self.simulated_flux)
         assert np.isclose(np.sum(images['TOTAL'][good]),
                           self.simulated_flux, rtol=0.1)
 
@@ -564,7 +561,6 @@ class TestScanSet(object):
         good = (X-center[1])**2 + (Y-center[0])**2 <= (shortest_side//4)**2
         rtol = 0.1 if HAS_STATSM else 0.15
 
-        print(np.sum(images['Feed0_RCP'][good]), self.simulated_flux)
         assert np.isclose(np.sum(images['Feed0_RCP'][good]),
                           self.simulated_flux, rtol=rtol)
 
@@ -575,7 +571,6 @@ class TestScanSet(object):
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/beam")
 
-        print(np.max(images['Feed0_RCP']), self.simulated_flux)
         assert np.allclose(np.max(images['Feed0_RCP']), self.simulated_flux,
                            atol=0.1)
 
@@ -599,8 +594,6 @@ class TestScanSet(object):
                                               map_unit="Jy/pixel")
 
         pixel_area = scanset.meta['pixel_size'] ** 2
-        print(images['Feed0_RCP'],
-              images_pix['Feed0_RCP'] / pixel_area.to(u.sr).value)
         assert np.allclose(images['Feed0_RCP'],
                            images_pix['Feed0_RCP'] / pixel_area.to(u.sr).value,
                            rtol=0.05)
@@ -612,7 +605,6 @@ class TestScanSet(object):
         images = scanset.calculate_images(calibration=self.calfile,
                                           map_unit="Jy/pixel",
                                           calibrate_scans=True)
-        print(images['Feed0_RCP'], images_standard['Feed0_RCP'])
         assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'],
                            rtol=0.05)
 
@@ -624,7 +616,6 @@ class TestScanSet(object):
                                           map_unit="Jy/beam",
                                           calibrate_scans=True)
 
-        print(images['Feed0_RCP'], images_standard['Feed0_RCP'])
         assert np.allclose(images['Feed0_RCP'], images_standard['Feed0_RCP'],
                            atol=1e-3)
 
@@ -638,7 +629,6 @@ class TestScanSet(object):
 
         good = images['Feed0_RCP'] > 1
 
-        print(images['Feed0_RCP'][good], images_standard['Feed0_RCP'][good])
         assert np.allclose(images['Feed0_RCP'][good],
                            images_standard['Feed0_RCP'][good], rtol=0.05)
 

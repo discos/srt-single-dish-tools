@@ -8,8 +8,8 @@ import astropy.units as u
 from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS
 import os
 from astropy.time import Time
-import logging
 import warnings
+from astropy import log
 import copy
 import re
 import six
@@ -520,7 +520,8 @@ def _read_data_fitszilla(lchdulist):
         section_name = 'ch{}'.format(s)
         if section_name not in existing_columns:
             good[i] = False
-    feeds = feeds[good]
+    allfeeds = feeds
+    feeds = allfeeds[good]
     IFs = IFs[good]
     polarizations = polarizations[good]
     sections = sections[good]
@@ -590,7 +591,7 @@ def _read_data_fitszilla(lchdulist):
             td = tempdata['ch{}'.format(chan_ids[ic])]
             data_table_data[ch + '-Temp'] = td
     except Exception as e:
-        logging.warning("Could not read temperature information from file."
+        warnings.warn("Could not read temperature information from file."
                         "Exception: {}".format(str(e)))
         for ic, ch in enumerate(chan_names):
             data_table_data[ch + '-Temp'] = \
@@ -621,22 +622,23 @@ def _read_data_fitszilla(lchdulist):
         new_table[info] = data_table_data[info]
 
     if not _check_derotator(new_table['derot_angle']):
-        logging.warning('Derotator angle looks weird. Setting to 0')
+        warnings.warn('Derotator angle looks weird. Setting to 0')
         new_table['derot_angle'][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)
+    Nfeeds = np.max(allfeeds) + 1
     new_table['ra'] = \
         np.tile(data_table_data['raj2000'],
-                (len(feeds), 1)).transpose()
+                (Nfeeds, 1)).transpose()
     new_table['dec'] = \
         np.tile(data_table_data['decj2000'],
-                (len(feeds), 1)).transpose()
+                (Nfeeds, 1)).transpose()
     new_table['el'] = \
         np.tile(data_table_data['el'],
-                (len(feeds), 1)).transpose()
+                (Nfeeds, 1)).transpose()
     new_table['az'] = \
         np.tile(data_table_data['az'],
-                (len(feeds), 1)).transpose()
+                (Nfeeds, 1)).transpose()
 
     new_table.meta['is_skydip'] = \
         infer_skydip_from_elevation(data_table_data['el'],
@@ -684,8 +686,8 @@ def _read_data_fitszilla(lchdulist):
             bandwidths[ic] *= -1
             for i in range(
                     data_table_data[chan_name].shape[0]):
-                data_table_data[chan_name][i, :] = \
-                    data_table_data[chan_name][i, ::-1]
+                data_table_data[chan_name][f, :] = \
+                    data_table_data[chan_name][f, ::-1]
 
         new_table[chan_name] = \
             data_table_data[chan_name] * relpowers[feeds[ic]]

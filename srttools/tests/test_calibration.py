@@ -7,7 +7,7 @@ from srttools.simulate import sim_crossscans, _2d_gauss
 from srttools.io import mkdir_p
 from srttools.utils import compare_strings, HAS_MPL
 import pytest
-import logging
+from astropy import log
 import glob
 
 import os
@@ -23,8 +23,8 @@ except ImportError:
 
 @pytest.fixture()
 def logger():
-    logger = logging.getLogger('Some.Logger')
-    logger.setLevel(logging.DEBUG)
+    logger = log.getLogger('Some.Logger')
+    logger.setLevel(log.DEBUG)
 
     return logger
 
@@ -57,20 +57,20 @@ class TestCalibration(object):
         klass.caldir3 = os.path.join(klass.datadir, 'sim', 'calibration_bad')
         klass.crossdir = os.path.join(klass.datadir, 'sim', 'crossscans')
         if not os.path.exists(klass.caldir):
-            print('Fake calibrators: DummyCal, 1 Jy.')
+            log.info('Fake calibrators: DummyCal, 1 Jy.')
             mkdir_p(klass.caldir)
             sim_crossscans(5, klass.caldir)
         if not os.path.exists(klass.caldir2):
-            print('Fake calibrators: DummyCal2, 1 Jy.')
+            log.info('Fake calibrators: DummyCal2, 1 Jy.')
             mkdir_p(klass.caldir2)
             sim_crossscans(5, klass.caldir2, srcname='DummyCal2')
         if not os.path.exists(klass.caldir3):
-            print('Fake calibrators: DummyCal2, wrong flux 0.52 Jy.')
+            log.info('Fake calibrators: DummyCal2, wrong flux 0.52 Jy.')
             mkdir_p(klass.caldir3)
             sim_crossscans(1, klass.caldir3, srcname='DummyCal2',
                            scan_func=source_scan_func)
         if not os.path.exists(klass.crossdir):
-            print('Fake cross scans: DummySrc, 0.52 Jy.')
+            log.info('Fake cross scans: DummySrc, 0.52 Jy.')
             mkdir_p(klass.crossdir)
             sim_crossscans(5, klass.crossdir, srcname='DummySrc',
                            scan_func=source_scan_func)

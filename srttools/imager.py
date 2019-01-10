@@ -16,7 +16,7 @@ import astropy.io.fits as fits
 import astropy.units as u
 import sys
 import warnings
-import logging
+from astropy import log
 import traceback
 import six
 import copy
@@ -198,7 +198,7 @@ class ScanSet(Table):
                                           nosub=nosub, **kwargs):
 
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
-                    print(s.meta['filename'], 'FLAG')
+                    log.info("{} is flagged".format(s.meta['filename']))
                     continue
                 s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
 
@@ -303,7 +303,7 @@ class ScanSet(Table):
                 self.opacities[results['time']] = np.mean([results['Ch0'],
                                                            results['Ch1']])
             except KeyError as e:
-                logging.warning(
+                warnings.warn(
                     "Error while processing {}: Missing key: {}".format(s,
                                                                         str(e))
                 )
@@ -318,13 +318,13 @@ class ScanSet(Table):
                          nofilt=nofilt, **kwargs)
                 yield i, s
             except KeyError as e:
-                logging.warning(
+                warnings.warn(
                     "Error while processing {}: Missing key: {}".format(f,
                                                                         str(e))
                 )
             except Exception as e:
-                logging.warning(traceback.format_exc())
-                logging.warning("Error while processing {}: {}".format(f,
+                warnings.warn(traceback.format_exc())
+                warnings.warn("Error while processing {}: {}".format(f,
                                                                        str(e)))
 
     def get_coordinates(self, altaz=False):
@@ -499,12 +499,11 @@ class ScanSet(Table):
 
         for ch in self.chan_columns:
             if direction is None:
-                print("Calculating image in channel {}".format(ch), end='\r')
+                log.info("Calculating image in channel {}".format(ch))
             else:
                 dir_string = 'horizontal' if direction == 1 else 'vertical'
-                print("Calculating image in channel {}, {}".format(ch,
-                                                                   dir_string),
-                      end='\r')
+                log.info("Calculating image in channel {}, {}".format(ch,
+                                                                   dir_string))
             if onlychans is not None and ch not in onlychans and \
                     self.images is not None and ch in self.images.keys():
                 images[ch] = \
@@ -651,7 +650,7 @@ class ScanSet(Table):
         lower_bad_chans = all_lower(bad_chans)
         for ch in self.chan_columns:
             if ch.lower() in lower_bad_chans:
-                print("Discarding ", ch)
+                log.info("Discarding {}".format(ch))
                 continue
             total_expo += self.images['{}-EXPO'.format(ch)]
             total_sdev += self.images['{}-Sdev'.format(ch)]**2
@@ -686,7 +685,7 @@ class ScanSet(Table):
             chans = self.chan_columns
 
         for ch in chans:
-            print("Fitting channel {}".format(ch))
+            log.info("Fitting channel {}".format(ch))
             feed = get_channel_feed(ch)
             self[ch + "_save"] = self[ch].copy()
             self[ch] = Column(fit_full_image(self, chan=ch,
@@ -850,7 +849,7 @@ class ScanSet(Table):
 
     def rerun_scan_analysis(self, x, y, key, test=False):
         """Rerun the analysis of single scans."""
-        logging.debug("{} {} {}".format(x, y, key))
+        log.debug("{} {} {}".format(x, y, key))
         if key == 'a':
             self.reprocess_scans_through_pixel(x, y, test=test)
         elif key == 'h':
@@ -931,7 +930,7 @@ class ScanSet(Table):
             try:
                 s = Scan(sname)
             except Exception:
-                logging.warning("Errors while opening scan {}".format(sname))
+                warnings.warn("Errors while opening scan {}".format(sname))
                 continue
             try:
                 chan_mask = s['{}-filt'.format(ch)]
@@ -969,11 +968,11 @@ class ScanSet(Table):
         feed = get_channel_feed(ch)
         mask = self['Scan_id'] == sid
         try:
-            print("Updating scan {}".format(sname))
+            log.info("Updating scan {}".format(sname))
             s = Scan(sname)
         except Exception as e:
             warnings.warn("Impossible to write to scan {}".format(sname))
-            print(e)
+            warnings.warn(e)
             return
 
         resave = False
@@ -1051,7 +1050,7 @@ class ScanSet(Table):
 
     def read_images_from_meta(self):
         for key in self.meta.keys():
-            print(key)
+            log.info("Caught key press: {}".format(key))
             if IMG_STR in key:
                 self.images = {}
                 self.images[key.replace(IMG_STR, '')] = self.meta[key]
@@ -1159,7 +1158,7 @@ class ScanSet(Table):
             fname = self.meta['config_file'].replace('.ini', tail)
 
         if destripe:
-            print('Destriping....')
+            log.info('Destriping....')
             images = self.destripe_images(no_offsets=no_offsets,
                                           altaz=altaz, calibration=calibration,
                                           map_unit=map_unit, npix_tol=npix_tol,
@@ -1225,7 +1224,7 @@ class ScanSet(Table):
                 for k in moments_dict.keys():
                     if k == 'Description':
                         continue
-                    print('FOM_{}'.format(k), moments_dict[k])
+                    log.info('FOM_{}'.format(k), moments_dict[k])
                     # header_mod['FOM_{}'.format(k)] = moments_dict[k]
 
             hdu = fits.ImageHDU(images[ch], header=header_mod, name='IMG' + ch)
@@ -1258,14 +1257,14 @@ def _excluded_regions_from_args(args_exclude):
         for i in range(nregs):
             region = regions[i]
             if region.name != 'circle':
-                logging.warning('Only circular regions are allowed!')
+                warnings.warn('Only circular regions are allowed!')
                 continue
             if region.coord_format == 'fk5':
                 excluded_radec.append(np.radians(region.coord_list))
             elif region.coord_format == 'image':
                 excluded_xy.append(region.coord_list)
             else:
-                logging.warning('Only regions in fk5 or image coordinates '
+                warnings.warn('Only regions in fk5 or image coordinates '
                                 'are allowed!')
                 continue
     return excluded_xy, excluded_radec

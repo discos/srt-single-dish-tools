@@ -6,7 +6,7 @@ import numpy as np
 import os
 import glob
 import pytest
-import logging
+from astropy import log
 import subprocess as sp
 
 try:
@@ -17,8 +17,8 @@ except ImportError:
 
 @pytest.fixture()
 def logger():
-    logger = logging.getLogger('Some.Logger')
-    logger.setLevel(logging.WARNING)
+    logger = log.getLogger('Some.Logger')
+    logger.setLevel(warnings.warn)
 
     return logger
 

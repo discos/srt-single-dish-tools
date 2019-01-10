@@ -207,7 +207,6 @@ class TestMonitor(object):
                                         self.file_empty).split())
 
         time.sleep(7)
-
         urls = [
             '',
             'index.html',
@@ -218,7 +217,7 @@ class TestMonitor(object):
         # Check that the files are provided by the HTTP server
         for url in urls:
             url = 'http://127.0.0.1:10000/' + url
-            r = urllib.request.urlopen(url)
+            r = urllib.request.urlopen(url, timeout=5)
             assert r.code == 200
 
         w.join()

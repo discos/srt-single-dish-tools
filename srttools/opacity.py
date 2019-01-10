@@ -86,7 +86,7 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
                            bounds=([tatm - epsilon, -np.inf, -np.inf],
                                    [tatm + epsilon, np.inf, np.inf]))
 
-        print('The opacity for channel {} is {}'.format(ch, par[1]))
+        log.info('The opacity for channel {} is {}'.format(ch, par[1]))
         if plot and HAS_MPL:
             plt.plot(airmass, exptau(airmass, *par), color='r', zorder=10)
             plt.xlabel('Airmass')

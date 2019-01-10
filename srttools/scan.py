@@ -23,7 +23,8 @@ from .interactive_filter import select_data
 from .utils import jit, vectorize, HAS_NUMBA
 
 import warnings
-import logging
+from astropy import log
+
 import astropy.units as u
 
 
@@ -681,7 +682,7 @@ class Scan(Table):
                 if os.path.getmtime(h5name) > os.path.getmtime(data):
                     data = h5name
             if debug:
-                logging.info('Loading file {}'.format(data))
+                log.info('Loading file {}'.format(data))
             table = read_data(data)
             Table.__init__(self, table, masked=True, **kwargs)
             if not data.endswith('hdf5'):
@@ -700,7 +701,7 @@ class Scan(Table):
 
             if (('backsub' not in self.meta.keys() or
                     not self.meta['backsub'])) and not nosub:
-                logging.info('Subtracting the baseline')
+                log.info('Subtracting the baseline')
                 self.baseline_subtract(avoid_regions=avoid_regions,
                                        plot=debug)
 
@@ -763,7 +764,7 @@ class Scan(Table):
             Do not filter noisy channels (see
             :func:`clean_scan_using_variability`)
         """
-        logging.debug("Noise threshold: {}".format(noise_threshold))
+        log.debug("Noise threshold: {}".format(noise_threshold))
 
         if self.meta['filtering_factor'] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
@@ -889,7 +890,7 @@ class Scan(Table):
 
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
-        logging.info('Saving to {}'.format(fname))
+        log.info('Saving to {}'.format(fname))
         if fname.endswith('.hdf5'):
             Table.write(self, fname, *args, path='scan', serialize_meta=True,
                         **kwargs)
