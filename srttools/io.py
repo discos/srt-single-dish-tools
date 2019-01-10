@@ -505,19 +505,32 @@ def _read_data_fitszilla(lchdulist):
         data_table_data.rename_column('spectrum', 'ch0')
         sections = np.array([0, 0])
 
+    existing_columns = [chn for chn in data_table_data.colnames
+                        if chn.startswith('ch')]
+    if existing_columns == []:
+        raise ValueError('Invalid data')
+
     is_spectrum = nbin_per_chan > 1
 
     is_single_channel = len(set(combinations)) == 1
 
+    good = np.ones(len(feeds), dtype=bool)
+
+    for i, s in enumerate(sections):
+        section_name = 'ch{}'.format(s)
+        if section_name not in existing_columns:
+            good[i] = False
+    feeds = feeds[good]
+    IFs = IFs[good]
+    polarizations = polarizations[good]
+    sections = sections[good]
+
     if is_spectrum:
         nchan = len(chan_ids)
 
-        for i in range(7):
-            index = 'ch' + str(i)
-            try:
-                _, nbins = data_table_data[index].shape
-            except KeyError:
-                continue
+        sample_channel = existing_columns[0]
+
+        _, nbins = data_table_data[sample_channel].shape
 
         # Development version of SARDARA -- will it remain the same?
         if nbin_per_chan == nbins:
@@ -544,11 +557,8 @@ def _read_data_fitszilla(lchdulist):
             section_name = 'ch{}'.format(s)
             ch = _chan_name(f, p, c)
             start, end = ic * nbin_per_chan, (ic + 1) * nbin_per_chan
-            try:
-                data_table_data[ch] = \
-                    data_table_data[section_name][:, start:end]
-            except KeyError:
-                pass
+            data_table_data[ch] = \
+                data_table_data[section_name][:, start:end]
 
         if is_polarized:
             # for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
@@ -562,13 +572,11 @@ def _read_data_fitszilla(lchdulist):
                 qname, uname = _chan_name(f, 'Q', c), _chan_name(f, 'U', c)
                 qstart, qend = 2 * nbin_per_chan, 3 * nbin_per_chan
                 ustart, uend = 3 * nbin_per_chan, 4 * nbin_per_chan
-                try:
-                    data_table_data[qname] = \
-                        data_table_data[section_name][:, qstart:qend]
-                    data_table_data[uname] = \
-                        data_table_data[section_name][:, ustart:uend]
-                except KeyError:
-                    continue
+                data_table_data[qname] = \
+                    data_table_data[section_name][:, qstart:qend]
+                data_table_data[uname] = \
+                    data_table_data[section_name][:, ustart:uend]
+
                 chan_names += [qname, uname]
     else:
         for ic, ch in enumerate(chan_names):
@@ -619,16 +627,16 @@ def _read_data_fitszilla(lchdulist):
     # Duplicate raj and decj columns (in order to be corrected later)
     new_table['ra'] = \
         np.tile(data_table_data['raj2000'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (len(feeds), 1)).transpose()
     new_table['dec'] = \
         np.tile(data_table_data['decj2000'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (len(feeds), 1)).transpose()
     new_table['el'] = \
         np.tile(data_table_data['el'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (len(feeds), 1)).transpose()
     new_table['az'] = \
         np.tile(data_table_data['az'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (len(feeds), 1)).transpose()
 
     new_table.meta['is_skydip'] = \
         infer_skydip_from_elevation(data_table_data['el'],
@@ -655,9 +663,10 @@ def _read_data_fitszilla(lchdulist):
             new_table['el'][:, i] = el
             new_table['az'][:, i] = az
 
-    # for f, ic, p, s, fr, b in zip(feeds, IFs, polarizations, sections,
-    #                               frequencies, bandwidths):
-    for i, fr in enumerate(frequencies):
+    # So ugly. But it works
+    filtered_frequencies = [f for (f, g) in zip(frequencies, good) if g]
+
+    for i, fr in enumerate(filtered_frequencies):
         f = feeds[i]
         s = sections[i]
         ic = IFs[i]
@@ -678,11 +687,8 @@ def _read_data_fitszilla(lchdulist):
                 data_table_data[chan_name][i, :] = \
                     data_table_data[chan_name][i, ::-1]
 
-        try:
-            new_table[chan_name] = \
-                data_table_data[chan_name] * relpowers[feeds[ic]]
-        except KeyError:
-            continue
+        new_table[chan_name] = \
+            data_table_data[chan_name] * relpowers[feeds[ic]]
 
         newmeta = \
             {'polarization': polarizations[ic],

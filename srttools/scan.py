@@ -273,11 +273,14 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
                         ))
 
     # Set threshold
-
     threshold_high = baseline + noise_threshold * stdref
     mask = spectral_var < threshold_high
     threshold_low = baseline - noise_threshold * stdref
     mask = mask & (spectral_var > threshold_low)
+    if not np.any(mask):
+        warnings.warn("No good channels found. A problem with the data or "
+                      "incorrect noise threshold?")
+        mask[:] = True
 
     results.mask = mask
     results.spectral_var = spectral_var
