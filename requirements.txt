@@ -4,3 +4,4 @@ pip
 h5py
 pyyaml
 astropy>=3
+sphinx-astropy
