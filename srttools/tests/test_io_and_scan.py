@@ -260,11 +260,23 @@ class Test2_Scan(object):
                                        'srt_data_roach_polar.fits',
                                        'srt_data_xarcos.fits',
                                        'new_sardara.fits',
-                                       'new_sardara.fits5'])
+                                       'new_sardara.fits3'])
     def test_scan_loading(self, fname):
         '''Test that data are read.'''
 
         Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
+        assert os.path.exists(os.path.join(self.config['productdir'],
+                                           'spectrum',
+                                           fname.replace('.fits', '') + '.hdf5'))
+
+    def test_scan_loading_badchans(self):
+        '''Test that data are read.'''
+        fname = 'srt_data_roach_polar.fits0'
+        with pytest.warns(UserWarning) as record:
+            Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
+        assert np.any(
+            ["No good channels found. A problem with the " in r.message.args[0]
+             for r in record])
         assert os.path.exists(os.path.join(self.config['productdir'],
                                            'spectrum',
                                            fname.replace('.fits', '') + '.hdf5'))
@@ -350,3 +362,4 @@ class Test2_Scan(object):
             for f in glob.glob(os.path.join(klass.datadir, 'spectrum',
                                             '*.hdf5')):
                 os.unlink(f)
+            shutil.rmtree(os.path.join(klass.datadir, 'out_spectrum_test'))

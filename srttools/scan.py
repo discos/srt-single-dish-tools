@@ -278,6 +278,7 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     mask = spectral_var < threshold_high
     threshold_low = baseline - noise_threshold * stdref
     mask = mask & (spectral_var > threshold_low)
+
     if not np.any(mask):
         warnings.warn("No good channels found. A problem with the data or "
                       "incorrect noise threshold?")
@@ -875,8 +876,7 @@ class Scan(Table):
 
             if plot and HAS_MPL:
                 plt.plot(self['time'], self[ch])
-                out = self.meta['filename'].replace('.fits',
-                                                    '_{}.png'.format(ch))
+                out = root_name(self.meta['filename']) + '_{}.png'.format(ch)
                 plt.savefig(out)
                 plt.close(fig)
         self.meta['backsub'] = True
