@@ -591,8 +591,9 @@ def _read_data_fitszilla(lchdulist):
             td = tempdata['ch{}'.format(chan_ids[ic])]
             data_table_data[ch + '-Temp'] = td
     except Exception as e:
-        warnings.warn("Could not read temperature information from file."
-                        "Exception: {}".format(str(e)))
+        warnings.warn("Could not read temperature information from file. "
+                      "This is usually a minor problem.\n"
+                 "Exception: {}".format(str(e)))
         for ic, ch in enumerate(chan_names):
             data_table_data[ch + '-Temp'] = \
                 np.zeros_like(data_table_data['time'])
@@ -622,7 +623,7 @@ def _read_data_fitszilla(lchdulist):
         new_table[info] = data_table_data[info]
 
     if not _check_derotator(new_table['derot_angle']):
-        warnings.warn('Derotator angle looks weird. Setting to 0')
+        log.warn('Derotator angle looks weird. Setting to 0')
         new_table['derot_angle'][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)

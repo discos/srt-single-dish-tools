@@ -51,6 +51,7 @@ except ImportError:
     def tqdm(x):
         return x
 
+log.setLevel('WARNING')
 
 @pytest.fixture()
 def logger():

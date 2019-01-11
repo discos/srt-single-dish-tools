@@ -318,7 +318,7 @@ class ScanSet(Table):
                          nofilt=nofilt, **kwargs)
                 yield i, s
             except KeyError as e:
-                warnings.warn(
+                log.warn(
                     "Error while processing {}: Missing key: {}".format(f,
                                                                         str(e))
                 )
