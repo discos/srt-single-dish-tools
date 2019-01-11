@@ -255,21 +255,27 @@ def find_cycles(table, list_of_keys):
 
     Examples
     --------
+    >>> import doctest
+    >>> doctest.ELLIPSIS_MARKER = '-etc-'
+
     >>> table = Table(data=[[0, 0, 1, 1, 0, 0, 1, 1],
     ...                     [0, 0, 0, 0, 0, 0, 0, 0]], names=['A', 'B'])
     >>> list_of_keys = ['A', 'B']
-    >>> new_table = find_cycles(table, list_of_keys)
+    >>> new_table = find_cycles(table, list_of_keys) # doctest:+ELLIPSIS
+    -etc-
     >>> np.all(new_table['CYCLE'] == [0, 0, 0, 0, 1, 1, 1, 1])
     True
     >>> table = Table(data=[[0, 0, 1, 1, 0, 0, 1, 1],
     ...                     [0, 1, 0, 1, 0, 1, 0, 1]], names=['A', 'B'])
     >>> list_of_keys = ['A', 'B']
-    >>> new_table = find_cycles(table, list_of_keys)
+    >>> new_table = find_cycles(table, list_of_keys) # doctest:+ELLIPSIS
+    -etc-
     >>> np.all(new_table['CYCLE'] == [0, 0, 0, 0, 1, 1, 1, 1])
     True
     >>> table = Table(data=[[0, 1, 0, 1], [1, 0, 1, 0]], names=['A', 'B'])
     >>> list_of_keys = ['A', 'B']
-    >>> new_table = find_cycles(table, list_of_keys)
+    >>> new_table = find_cycles(table, list_of_keys) # doctest:+ELLIPSIS
+    -etc-
     >>> np.all(new_table['CYCLE'] == [0, 0, 1, 1])
     True
     """

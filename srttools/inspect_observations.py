@@ -40,14 +40,14 @@ def inspect_directories(directories, only_after=None, only_before=None):
         only_after = \
             Time(datetime.datetime.strptime(only_after, '%Y%m%d-%H%M%S'),
                  scale='utc').mjd
-        warnings.warn('Filter out observations before '
-                        'MJD {}'.format(only_after))
+        log.info('Filtering out observations before '
+                 'MJD {}'.format(only_after))
     if only_before is not None:
         only_before = \
             Time(datetime.datetime.strptime(only_before, '%Y%m%d-%H%M%S'),
                  scale='utc').mjd
-        warnings.warn('Filter out observations after '
-                        'MJD {}'.format(only_before))
+        log.info('Filtering out observations after '
+                 'MJD {}'.format(only_before))
 
     for d in directories:
         fits_files = glob.glob(os.path.join(d, '*.fits'))
