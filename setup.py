@@ -105,7 +105,7 @@ for root, dirs, files in os.walk(PACKAGENAME):
     for filename in files:
         if filename.endswith('.c') or \
                 filename.endswith('.ini') or \
-                filename.endswith('.fits') or \
+                '.fits' in filename or \
                 filename.endswith('.reg') or \
                 filename == 'acs.xml' or \
                 filename == 'coveragerc':
