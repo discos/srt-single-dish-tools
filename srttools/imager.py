@@ -303,7 +303,7 @@ class ScanSet(Table):
                 self.opacities[results['time']] = np.mean([results['Ch0'],
                                                            results['Ch1']])
             except KeyError as e:
-                warnings.warn(
+                log.warn(
                     "Error while processing {}: Missing key: {}".format(s,
                                                                         str(e))
                 )
@@ -323,8 +323,8 @@ class ScanSet(Table):
                                                                         str(e))
                 )
             except Exception as e:
-                warnings.warn(traceback.format_exc())
-                warnings.warn("Error while processing {}: {}".format(f,
+                log.warn(traceback.format_exc())
+                log.warn("Error while processing {}: {}".format(f,
                                                                        str(e)))
 
     def get_coordinates(self, altaz=False):
@@ -930,7 +930,7 @@ class ScanSet(Table):
             try:
                 s = Scan(sname)
             except Exception:
-                warnings.warn("Errors while opening scan {}".format(sname))
+                log.warn("Errors while opening scan {}".format(sname))
                 continue
             try:
                 chan_mask = s['{}-filt'.format(ch)]
@@ -972,7 +972,7 @@ class ScanSet(Table):
             s = Scan(sname)
         except Exception as e:
             warnings.warn("Impossible to write to scan {}".format(sname))
-            warnings.warn(e)
+            warnings.warn(str(e))
             return
 
         resave = False
@@ -1257,15 +1257,15 @@ def _excluded_regions_from_args(args_exclude):
         for i in range(nregs):
             region = regions[i]
             if region.name != 'circle':
-                warnings.warn('Only circular regions are allowed!')
+                log.warn('Only circular regions are allowed!')
                 continue
             if region.coord_format == 'fk5':
                 excluded_radec.append(np.radians(region.coord_list))
             elif region.coord_format == 'image':
                 excluded_xy.append(region.coord_list)
             else:
-                warnings.warn('Only regions in fk5 or image coordinates '
-                                'are allowed!')
+                log.warn('Only regions in fk5 or image coordinates '
+                         'are allowed!')
                 continue
     return excluded_xy, excluded_radec
 

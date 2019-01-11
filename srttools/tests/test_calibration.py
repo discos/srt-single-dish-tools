@@ -8,7 +8,9 @@ from srttools.io import mkdir_p
 from srttools.utils import compare_strings, HAS_MPL
 import pytest
 from astropy import log
+from astropy.logger import logging
 import glob
+import shutil
 
 import os
 import numpy as np
@@ -23,8 +25,8 @@ except ImportError:
 
 @pytest.fixture()
 def logger():
-    logger = log.getLogger('Some.Logger')
-    logger.setLevel(log.DEBUG)
+    logger = logging.getLogger('Some.Logger')
+    logger.setLevel(logging.DEBUG)
 
     return logger
 

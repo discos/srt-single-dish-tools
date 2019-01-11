@@ -4,6 +4,8 @@ from astropy.io import fits
 import numpy as np
 from scipy.optimize import curve_fit
 from .utils import HAS_MPL
+from astropy import log
+
 if HAS_MPL:
     import matplotlib.pyplot as plt
 

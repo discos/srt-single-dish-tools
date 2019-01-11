@@ -21,6 +21,7 @@ import os
 import sys
 import glob
 import re
+from astropy import log
 import warnings
 import traceback
 from scipy.optimize import curve_fit
@@ -172,13 +173,13 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         # this
         scan = Scan(scan_path, norefilt=True, nosave=True, **kwargs)
     except KeyError as e:
-        warnings.warn("Missing key. Bad file? {}: {}".format(sname,
+        log.warn("Missing key. Bad file? {}: {}".format(sname,
                                                                str(e)))
         return False, None
     except Exception as e:
-        warnings.warn("Error while processing {}: {}".format(sname,
+        log.warn("Error while processing {}: {}".format(sname,
                                                                str(e)))
-        warnings.warn(traceback.format_exc())
+        log.warn(traceback.format_exc())
         return False, None
 
     feeds = np.arange(scan['ra'].shape[1])
@@ -758,7 +759,7 @@ class CalibratorTable(Table):
             xbad = x_to_fit[bad]
             ybad = y_to_fit[bad]
             for xb, yb in zip(xbad, ybad):
-                warnings.warn("Outliers: {}, {}".format(xb, yb))
+                log.warn("Outliers: {}, {}".format(xb, yb))
 
             good = np.logical_not(bad)
             x_to_fit = x_to_fit[good]

@@ -43,6 +43,7 @@ import pytest
 from astropy import log
 import subprocess as sp
 import astropy
+from astropy.logger import logging
 
 try:
     from tqdm import tqdm
@@ -53,8 +54,8 @@ except ImportError:
 
 @pytest.fixture()
 def logger():
-    logger = log.getLogger('Some.Logger')
-    logger.setLevel(log.INFO)
+    logger = logging.getLogger('Some.Logger')
+    logger.setLevel(logging.INFO)
 
     return logger
 
@@ -758,10 +759,11 @@ class TestScanSet(object):
 
         info = {sname: copy.copy(self.stdinfo)}
         info[sname]['FLAG'] = True
-        scanset.update_scan(sname, scan_ids[sname], coord[sname],
-                            info[sname]['zap'],
-                            info[sname]['fitpars'], info[sname]['FLAG'],
-                            test=True)
+        with pytest.warns(UserWarning):
+            scanset.update_scan(sname, scan_ids[sname], coord[sname],
+                                info[sname]['zap'],
+                                info[sname]['fitpars'], info[sname]['FLAG'],
+                                test=True)
 
     def test_update_scan_flag(self):
         scanset = ScanSet('test.hdf5')

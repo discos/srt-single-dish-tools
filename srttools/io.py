@@ -766,7 +766,10 @@ def read_data(fname):
 
 def root_name(fname):
     """Return the file name without extension."""
-    return os.path.splitext(fname)[0]
+    fn, ext = os.path.splitext(fname)
+    if 'fits' in ext and not ext.endswith('fits'):
+        fn += ext.replace("fits", "").replace(".", "")
+    return fn
 
 
 def _try_type(value, dtype):

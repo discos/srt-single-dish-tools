@@ -17,7 +17,7 @@ from srttools.utils import compare_anything
 import os
 import numpy as np
 import glob
-from astropy import log
+from astropy.logger import logging
 import shutil
 
 try:
@@ -29,8 +29,8 @@ except ImportError:
 
 @pytest.fixture()
 def logger():
-    logger = log.getLogger('Some.Logger')
-    logger.setLevel(log.INFO)
+    logger = logging.getLogger('Some.Logger')
+    logger.setLevel(logging.INFO)
 
     return logger
 
@@ -259,13 +259,15 @@ class Test2_Scan(object):
     @pytest.mark.parametrize('fname', ['srt_data.fits',
                                        'srt_data_roach_polar.fits',
                                        'srt_data_xarcos.fits',
-                                       'new_sardara.fits'])
+                                       'new_sardara.fits',
+                                       'new_sardara.fits5'])
     def test_scan_loading(self, fname):
         '''Test that data are read.'''
 
         Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
-        assert os.path.exists(os.path.join(self.config['productdir'], 'spectrum',
-                                           fname.replace('.fits', '.hdf5')))
+        assert os.path.exists(os.path.join(self.config['productdir'],
+                                           'spectrum',
+                                           fname.replace('.fits', '') + '.hdf5'))
 
     def test_scan_baseline_unknown(self):
         '''Test that data are read.'''
