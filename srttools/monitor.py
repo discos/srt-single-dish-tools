@@ -1,12 +1,12 @@
 from __future__ import (absolute_import, division,
                         print_function)
 import time
-from astropy import log
 import os
 import shutil
 import re
 import sys
 import signal
+import argparse
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
@@ -20,7 +20,9 @@ import warnings
 import glob
 import threading
 from multiprocessing import Process, Queue, Manager, Lock, cpu_count
+
 from astropy import log
+log.handlers.clear()  # Needed to prevent duplicate logging entries
 
 try:
     from queue import Empty
@@ -53,7 +55,7 @@ class MyEventHandler(PatternMatchingEventHandler):
     patterns = \
         ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 
-    def __init__(self, n_proc, nosave=False):
+    def __init__(self, n_proc, nosave=False, verbosity=0):
         super().__init__()
         self.conf = getattr(sys.modules[__name__], 'conf')
         create_index_file(self.conf['debug_file_format'])
@@ -65,6 +67,7 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.filequeue,
             self.conf,
             nosave,
+            verbosity,
             self.lock,
             self.processing_queue
         )
@@ -92,12 +95,16 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.processing_queue.append(infile)
 
     @staticmethod
-    def _dequeue(filequeue, conf, nosave, lock, processing_queue):
+    def _dequeue(filequeue, conf, nosave, verbosity, lock, processing_queue):
         ext = conf['debug_file_format']
+        log.info('Starting worker process, pid {}'.format(os.getpid()))
         while True:
             try:
                 infile = filequeue.get()
             except (KeyboardInterrupt, EOFError):
+                log.info(
+                    'Stopping worker process, pid {}'.format(os.getpid())
+                )
                 return
 
             productdir, fname = product_path_from_file_name(
@@ -111,18 +118,36 @@ class MyEventHandler(PatternMatchingEventHandler):
             if nosave:
                 pp_args.append('--nosave')
             pp_args.append(infile)
+
+            skip = False
             try:
-                main_preprocess(pp_args)
+                with warnings.catch_warnings():
+                    if not verbosity:
+                        warnings.simplefilter('ignore')
+                    if main_preprocess(pp_args):
+                        skip = True
             except:
+                log.exception(sys.exc_info()[1])
+                skip = True
+
+            if skip:
+                log.info('Aborted file {}'.format(infile))
                 continue
+
+            feed_idx = ''
+            if not infile.endswith('.fits'):
+                feed_idx = infile.rsplit('.fits')[-1]
 
             lock.acquire()
 
             newfiles = []
-            for debugfile in glob.glob(root + '*.{}'.format(ext)):
-                newfile = debugfile.replace(root, 'latest')
+            for debugfile in glob.glob(root + '{}_*.{}'.format(feed_idx, ext)):
+                if feed_idx:
+                    newfile = debugfile.replace(root + infile[-1], 'latest')
+                else:
+                    newfile = debugfile.replace(root, 'latest')
                 newfile = newfile.rstrip('.{}'.format(ext))
-                if not infile.endswith('.fits'):
+                if feed_idx:
                     new_index = 2 * int(infile.rsplit('.fits')[-1])
                     newfile = (
                         newfile.split('_')[0]
@@ -145,7 +170,7 @@ class MyEventHandler(PatternMatchingEventHandler):
                     if not os.listdir(dirname):
                         os.rmdir(dirname)
 
-            if infile.endswith('.fits'):
+            if not feed_idx:
                 oldfiles = glob.glob('latest*.{}'.format(ext))
                 for oldfile in oldfiles:
                     if oldfile not in newfiles and os.path.exists(oldfile):
@@ -153,6 +178,7 @@ class MyEventHandler(PatternMatchingEventHandler):
 
             lock.release()
             processing_queue.remove(infile)
+            log.info('Completed file {}'.format(infile))
 
     def on_modified(self, event):
         self._enqueue(event.src_path)
@@ -195,8 +221,6 @@ class MyRequestHandler(SimpleHTTPRequestHandler):
 
 
 def main_monitor(args=None):
-    import argparse
-
     description = ('Run the SRT quicklook in a given directory.')
     parser = argparse.ArgumentParser(description=description)
 
@@ -236,7 +260,22 @@ def main_monitor(args=None):
         help="Share the results via HTTP server on given HTTP_SERVER_PORT",
         type=int
     )
+    parser.add_argument(
+        '-v', '--verbosity',
+        action='count',
+        default=0,
+        help='Set the verbosity level'
+    )
     args = parser.parse_args(args)
+
+    from astropy.logger import logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    log.info('Starting monitor process, pid {}'.format(os.getpid()))
 
     def sigterm_received(signum, frame):
         os.kill(os.getpid(), signal.SIGINT)
@@ -247,16 +286,17 @@ def main_monitor(args=None):
     if not HAS_WATCHDOG:
         raise ImportError('To use SDTmonitor, you need to install watchdog: \n'
                           '\n   > pip install watchdog')
-    from astropy.logger import logging
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
 
     if args.config is None:
         config_file = create_dummy_config()
     else:
         config_file = args.config
-    conf = read_config(config_file)
+
+    with warnings.catch_warnings():
+        if not args.verbosity:
+            warnings.simplefilter('ignore')
+        conf = read_config(config_file)
+
     conf['configuration_file_name'] = config_file
     setattr(sys.modules[__name__], 'conf', conf)
 
@@ -296,6 +336,7 @@ def main_monitor(args=None):
         http_server.shutdown()
 
     observer.stop()
+    log.info('Stopping monitor process, pid {}'.format(os.getpid()))
 
 
 def create_dummy_config():

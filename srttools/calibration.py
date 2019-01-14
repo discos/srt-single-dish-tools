@@ -173,13 +173,15 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         # this
         scan = Scan(scan_path, norefilt=True, nosave=True, **kwargs)
     except KeyError as e:
-        log.warn("Missing key. Bad file? {}: {}".format(sname,
-                                                               str(e)))
+        log.warning(
+            "Missing key. Bad file? {}: {}".format(sname, str(e))
+        )
         return False, None
     except Exception as e:
-        log.warn("Error while processing {}: {}".format(sname,
-                                                               str(e)))
-        log.warn(traceback.format_exc())
+        log.warning(
+            "Error while processing {}: {}".format(sname, str(e))
+        )
+        log.warning(traceback.format_exc())
         return False, None
 
     feeds = np.arange(scan['ra'].shape[1])
@@ -759,7 +761,7 @@ class CalibratorTable(Table):
             xbad = x_to_fit[bad]
             ybad = y_to_fit[bad]
             for xb, yb in zip(xbad, ybad):
-                log.warn("Outliers: {}, {}".format(xb, yb))
+                log.warning("Outliers: {}, {}".format(xb, yb))
 
             good = np.logical_not(bad)
             x_to_fit = x_to_fit[good]

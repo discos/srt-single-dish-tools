@@ -514,7 +514,7 @@ class ImageSelector():
         if key == 'q':
             plt.close(self.ax.figure)
         elif x is None or y is None or x != x or y != y:
-            log.warn("Invalid choice. Is the window under focus?")
+            log.warning("Invalid choice. Is the window under focus?")
             return
         elif self.fun is not None:
             plt.close(self.ax.figure)

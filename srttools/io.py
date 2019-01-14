@@ -623,7 +623,7 @@ def _read_data_fitszilla(lchdulist):
         new_table[info] = data_table_data[info]
 
     if not _check_derotator(new_table['derot_angle']):
-        log.warn('Derotator angle looks weird. Setting to 0')
+        log.warning('Derotator angle looks weird. Setting to 0')
         new_table['derot_angle'][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)

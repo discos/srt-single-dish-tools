@@ -303,9 +303,10 @@ class ScanSet(Table):
                 self.opacities[results['time']] = np.mean([results['Ch0'],
                                                            results['Ch1']])
             except KeyError as e:
-                log.warn(
-                    "Error while processing {}: Missing key: {}".format(s,
-                                                                        str(e))
+                log.warning(
+                    "Error while processing {}: Missing key: {}".format(
+                        s, str(e)
+                    )
                 )
 
     def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
@@ -318,14 +319,17 @@ class ScanSet(Table):
                          nofilt=nofilt, **kwargs)
                 yield i, s
             except KeyError as e:
-                log.warn(
-                    "Error while processing {}: Missing key: {}".format(f,
-                                                                        str(e))
+                log.warning(
+                    "Error while processing {}: Missing key: {}".format(
+                        f,
+                        str(e)
+                    )
                 )
             except Exception as e:
-                log.warn(traceback.format_exc())
-                log.warn("Error while processing {}: {}".format(f,
-                                                                       str(e)))
+                log.warning(traceback.format_exc())
+                log.warning(
+                    "Error while processing {}: {}".format(f, str(e))
+                )
 
     def get_coordinates(self, altaz=False):
         """Give the coordinates as pairs of RA, DEC."""
@@ -930,7 +934,7 @@ class ScanSet(Table):
             try:
                 s = Scan(sname)
             except Exception:
-                log.warn("Errors while opening scan {}".format(sname))
+                log.warning("Errors while opening scan {}".format(sname))
                 continue
             try:
                 chan_mask = s['{}-filt'.format(ch)]
@@ -1257,15 +1261,16 @@ def _excluded_regions_from_args(args_exclude):
         for i in range(nregs):
             region = regions[i]
             if region.name != 'circle':
-                log.warn('Only circular regions are allowed!')
+                log.warning('Only circular regions are allowed!')
                 continue
             if region.coord_format == 'fk5':
                 excluded_radec.append(np.radians(region.coord_list))
             elif region.coord_format == 'image':
                 excluded_xy.append(region.coord_list)
             else:
-                log.warn('Only regions in fk5 or image coordinates '
-                         'are allowed!')
+                log.warning(
+                    'Only regions in fk5 or image coordinates are allowed!'
+                )
                 continue
     return excluded_xy, excluded_radec
 
@@ -1494,6 +1499,7 @@ def main_preprocess(args=None):
                      nosave=args.nosave)
             except OSError:
                 warnings.warn("File {} is not in a known format".format(f))
+                return 1
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
@@ -1501,3 +1507,4 @@ def main_preprocess(args=None):
                 nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
                 interactive=args.interactive, avoid_regions=excluded_radec,
                 nosave=args.nosave)
+    return 0

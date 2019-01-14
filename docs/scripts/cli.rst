@@ -64,7 +64,8 @@ SDTconvert
 
 .. code-block:: none
 
-    usage: SDTconvert [-h] [-f FORMAT] [--test] [--detrend] [files [files ...]]
+    usage: SDTconvert [-h] [-f FORMAT] [--test] [--detrend] [--save-locally]
+                      [files [files ...]]
 
     Load a series of scans and convert them to variousformats
 
@@ -84,6 +85,8 @@ SDTconvert
                             for the SDFITS convention
       --test                Only to be used in tests!
       --detrend             Detrend data before converting to MBFITS
+      --save-locally        Save all data in the current directory, notalongside
+                            the original data.
 
 
 SDTfake
@@ -269,7 +272,7 @@ SDTmonitor
 .. code-block:: none
 
     usage: SDTmonitor [-h] [-c CONFIG] [--test] [--nosave] [-p]
-                      [--http-server-port HTTP_SERVER_PORT]
+                      [--http-server-port HTTP_SERVER_PORT] [-v]
                       directories [directories ...]
 
     Run the SRT quicklook in a given directory.
@@ -287,6 +290,7 @@ SDTmonitor
       --http-server-port HTTP_SERVER_PORT
                             Share the results via HTTP server on given
                             HTTP_SERVER_PORT
+      -v, --verbosity       Set the verbosity level
 
 
 SDTopacity
