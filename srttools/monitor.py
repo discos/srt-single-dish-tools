@@ -22,7 +22,6 @@ import threading
 from multiprocessing import Process, Queue, Manager, Lock, cpu_count
 
 from astropy import log
-del log.handlers[:]  # Needed to prevent duplicate logging entries
 
 try:
     from queue import Empty
@@ -268,8 +267,12 @@ def main_monitor(args=None):
     )
     args = parser.parse_args(args)
 
+    if not args.test:
+        del log.handlers[:]  # Needed to prevent duplicate logging entries
+
     from astropy.logger import logging
     logging.basicConfig(
+
         level=logging.INFO,
         format='%(asctime)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
