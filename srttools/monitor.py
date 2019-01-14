@@ -22,7 +22,7 @@ import threading
 from multiprocessing import Process, Queue, Manager, Lock, cpu_count
 
 from astropy import log
-log.handlers.clear()  # Needed to prevent duplicate logging entries
+del log.handlers[:]  # Needed to prevent duplicate logging entries
 
 try:
     from queue import Empty
@@ -49,9 +49,9 @@ try:
 except ImportError:
     pass
 
+MAX_FEEDS = 7
 
 class MyEventHandler(PatternMatchingEventHandler):
-    MAX_FEEDS = 7
     patterns = \
         ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 
@@ -302,7 +302,7 @@ def main_monitor(args=None):
 
     n_proc = 1
     if cpu_count() and not args.test:
-        n_proc = int(min(cpu_count() / 2, 5))
+        n_proc = int(min(cpu_count() / 2, MAX_FEEDS))
 
     event_handler = MyEventHandler(n_proc=n_proc, nosave=args.nosave)
     observer = None
