@@ -10,7 +10,7 @@ import argparse
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
-    from watchdog.events import PatternMatchingEventHandler
+    from watchdog.events import PatternMatchingEventHandler, FileMovedEvent
     HAS_WATCHDOG = True
 except ImportError:
     PatternMatchingEventHandler = object
@@ -70,6 +70,11 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.lock,
             self.processing_queue
         )
+
+        self.on_modified = self._enqueue
+        self.on_created = self._enqueue
+        self.on_moved = self._enqueue
+
         if n_proc == 1:
             p_type = threading.Thread
         else:
@@ -88,7 +93,18 @@ class MyEventHandler(PatternMatchingEventHandler):
             except AttributeError:
                 pass
 
-    def _enqueue(self, infile):
+    def _enqueue(self, event):
+        infile = ''
+        if isinstance(event, FileMovedEvent):
+            for pattern in self.patterns:
+                pattern = pattern.rsplit('.')[-1]
+                if event.dest_path.endswith(pattern):
+                    infile = event.dest_path
+            if not infile:
+                return
+        else:
+            infile = event.src_path
+
         if infile not in self.processing_queue:
             self.filequeue.put(infile)
             self.processing_queue.append(infile)
@@ -131,6 +147,7 @@ class MyEventHandler(PatternMatchingEventHandler):
 
             if skip:
                 log.info('Aborted file {}'.format(infile))
+                processing_queue.remove(infile)
                 continue
 
             feed_idx = ''
@@ -176,20 +193,8 @@ class MyEventHandler(PatternMatchingEventHandler):
                         os.remove(oldfile)
 
             lock.release()
-            processing_queue.remove(infile)
             log.info('Completed file {}'.format(infile))
-
-    def on_modified(self, event):
-        self._enqueue(event.src_path)
-
-    def on_created(self, event):
-        self._enqueue(event.src_path)
-
-    def on_moved(self, event):
-        for pattern in self.patterns:
-            pattern = pattern.rsplit('.')[-1]
-            if event.dest_path.endswith(pattern):
-                self._enqueue(event.dest_path)
+            processing_queue.remove(infile)
 
 
 class MyRequestHandler(SimpleHTTPRequestHandler):
@@ -355,7 +360,7 @@ def create_dummy_config():
     return 'monitor_config.ini'
 
 
-def create_index_file(extension, max_images=50, interval=500):
+def create_index_file(extension, max_images=MAX_FEEDS*2, interval=500):
     """
     :param extension: the file extension of the image files to look for.
     :param max_images: the maximum number of images to monitor. It should be
