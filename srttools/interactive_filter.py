@@ -3,6 +3,8 @@ from __future__ import (absolute_import, division,
                         print_function)
 
 import copy
+import warnings
+from astropy import log
 
 try:
     import matplotlib.pyplot as plt
@@ -13,7 +15,7 @@ except ImportError:
 
 import numpy as np
 from .fit import linear_fit, linear_fun, align
-import warnings
+
 from .utils import compare_anything
 
 
@@ -249,7 +251,7 @@ Actions:
 
     def flag(self, value=True):
         self.info[self.current]['FLAG'] = value
-        print('Scan was {}flagged'.format("un" if not value else ""))
+        log.info('Scan was {}flagged'.format("un" if not value else ""))
 
     def reset(self):
         for l in self.lines:
@@ -263,7 +265,7 @@ Actions:
         self.plot_all(silent=True)
 
     def quit(self):
-        print("Closing all figures and quitting.")
+        log.info("Closing all figures and quitting.")
         for key in self.info.keys():
             if compare_anything(self.info[key], self.starting_info[key]):
                 self.info.pop(key)
@@ -405,7 +407,7 @@ Actions:
                           rasterized=True)
 
         if self.current is not None:
-            print("Current scan is {}".format(self.current))
+            log.info("Current scan is {}".format(self.current))
             key = self.current
             self.ax2.plot(self.xs[key][good[key]],
                           self.ys[key][good[key]] - model[key][good[key]],
@@ -507,12 +509,12 @@ class ImageSelector():
         """Do this when the keyboard is pressed."""
         x, y = event.xdata, event.ydata
         key = event.key
-        print(x, y, key)
+        log.info("Pressed key {} at coords {},{}".format(key, x, y))
 
         if key == 'q':
             plt.close(self.ax.figure)
         elif x is None or y is None or x != x or y != y:
-            print("Invalid choice. Is the window under focus?")
+            log.warning("Invalid choice. Is the window under focus?")
             return
         elif self.fun is not None:
             plt.close(self.ax.figure)

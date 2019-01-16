@@ -8,8 +8,8 @@ import astropy.units as u
 from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS
 import os
 from astropy.time import Time
-import logging
 import warnings
+from astropy import log
 import copy
 import re
 import six
@@ -505,14 +505,33 @@ def _read_data_fitszilla(lchdulist):
         data_table_data.rename_column('spectrum', 'ch0')
         sections = np.array([0, 0])
 
+    existing_columns = [chn for chn in data_table_data.colnames
+                        if chn.startswith('ch')]
+    if existing_columns == []:
+        raise ValueError('Invalid data')
+
     is_spectrum = nbin_per_chan > 1
 
     is_single_channel = len(set(combinations)) == 1
 
+    good = np.ones(len(feeds), dtype=bool)
+
+    for i, s in enumerate(sections):
+        section_name = 'ch{}'.format(s)
+        if section_name not in existing_columns:
+            good[i] = False
+    allfeeds = feeds
+    feeds = allfeeds[good]
+    IFs = IFs[good]
+    polarizations = polarizations[good]
+    sections = sections[good]
+
     if is_spectrum:
         nchan = len(chan_ids)
 
-        _, nbins = data_table_data['ch0'].shape
+        sample_channel = existing_columns[0]
+
+        _, nbins = data_table_data[sample_channel].shape
 
         # Development version of SARDARA -- will it remain the same?
         if nbin_per_chan == nbins:
@@ -558,6 +577,7 @@ def _read_data_fitszilla(lchdulist):
                     data_table_data[section_name][:, qstart:qend]
                 data_table_data[uname] = \
                     data_table_data[section_name][:, ustart:uend]
+
                 chan_names += [qname, uname]
     else:
         for ic, ch in enumerate(chan_names):
@@ -571,8 +591,9 @@ def _read_data_fitszilla(lchdulist):
             td = tempdata['ch{}'.format(chan_ids[ic])]
             data_table_data[ch + '-Temp'] = td
     except Exception as e:
-        logging.warning("Could not read temperature information from file."
-                        "Exception: {}".format(str(e)))
+        warnings.warn("Could not read temperature information from file. "
+                      "This is usually a minor problem.\n"
+                 "Exception: {}".format(str(e)))
         for ic, ch in enumerate(chan_names):
             data_table_data[ch + '-Temp'] = \
                 np.zeros_like(data_table_data['time'])
@@ -602,22 +623,23 @@ def _read_data_fitszilla(lchdulist):
         new_table[info] = data_table_data[info]
 
     if not _check_derotator(new_table['derot_angle']):
-        logging.warning('Derotator angle looks weird. Setting to 0')
+        log.warning('Derotator angle looks weird. Setting to 0')
         new_table['derot_angle'][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)
+    Nfeeds = np.max(allfeeds) + 1
     new_table['ra'] = \
         np.tile(data_table_data['raj2000'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (Nfeeds, 1)).transpose()
     new_table['dec'] = \
         np.tile(data_table_data['decj2000'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (Nfeeds, 1)).transpose()
     new_table['el'] = \
         np.tile(data_table_data['el'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (Nfeeds, 1)).transpose()
     new_table['az'] = \
         np.tile(data_table_data['az'],
-                (np.max(feeds) + 1, 1)).transpose()
+                (Nfeeds, 1)).transpose()
 
     new_table.meta['is_skydip'] = \
         infer_skydip_from_elevation(data_table_data['el'],
@@ -644,9 +666,10 @@ def _read_data_fitszilla(lchdulist):
             new_table['el'][:, i] = el
             new_table['az'][:, i] = az
 
-    # for f, ic, p, s, fr, b in zip(feeds, IFs, polarizations, sections,
-    #                               frequencies, bandwidths):
-    for i, fr in enumerate(frequencies):
+    # So ugly. But it works
+    filtered_frequencies = [f for (f, g) in zip(frequencies, good) if g]
+
+    for i, fr in enumerate(filtered_frequencies):
         f = feeds[i]
         s = sections[i]
         ic = IFs[i]
@@ -664,8 +687,8 @@ def _read_data_fitszilla(lchdulist):
             bandwidths[ic] *= -1
             for i in range(
                     data_table_data[chan_name].shape[0]):
-                data_table_data[chan_name][i, :] = \
-                    data_table_data[chan_name][i, ::-1]
+                data_table_data[chan_name][f, :] = \
+                    data_table_data[chan_name][f, ::-1]
 
         new_table[chan_name] = \
             data_table_data[chan_name] * relpowers[feeds[ic]]
@@ -700,8 +723,11 @@ def _read_data_fitszilla(lchdulist):
                 c = None
             for stokes_par in 'QU':
                 chan_name = _chan_name(feed, stokes_par, c)
-                new_table[chan_name] = \
-                    data_table_data[chan_name]
+                try:
+                    new_table[chan_name] = \
+                        data_table_data[chan_name]
+                except KeyError:
+                    continue
                 sample_time = (1 / (sample_rate[s].to(u.Hz)))
 
                 newmeta = \
@@ -741,7 +767,10 @@ def read_data(fname):
 
 def root_name(fname):
     """Return the file name without extension."""
-    return os.path.splitext(fname)[0]
+    fn, ext = os.path.splitext(fname)
+    if 'fits' in ext and not ext.endswith('fits'):
+        fn += ext.replace("fits", "").replace(".", "")
+    return fn
 
 
 def _try_type(value, dtype):

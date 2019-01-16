@@ -34,7 +34,13 @@ class TestMonitor(object):
         klass.file_empty_init = \
             os.path.abspath(os.path.join(klass.datadir, 'spectrum',
                                          "srt_data.fits"))
+        klass.file_empty_init_single_feed = \
+            os.path.abspath(os.path.join(klass.datadir, 'spectrum',
+                                         "new_sardara.fits5"))
+
         klass.file_empty = os.path.abspath(dummy)
+        klass.file_empty_single_feed = os.path.abspath(dummy) + '5'
+
         klass.file_empty_hdf5 = \
             os.path.abspath(os.path.join(klass.datadir,
                                          "srt_data_dummy.hdf5"))
@@ -53,11 +59,19 @@ class TestMonitor(object):
         klass.file_empty_pdf1_alt = \
             os.path.abspath(os.path.join(klass.proddir,
                                          "srt_data_dummy_1.jpg"))
+        klass.file_empty_pdf10 = \
+            os.path.abspath(os.path.join(klass.proddir,
+                                         "srt_data_dummy5_0.jpg"))
+        klass.file_empty_hdf5_SF = \
+            os.path.abspath(os.path.join(klass.proddir,
+                                         "srt_data_dummy5.hdf5"))
         klass.file_index = 'index.html'
         klass.dummy_config = 'monitor_config.ini'
 
         if os.path.exists(klass.file_empty):
             os.unlink(klass.file_empty)
+        if os.path.exists(klass.file_empty_single_feed):
+            os.unlink(klass.file_empty_single_feed)
         if os.path.exists(klass.file_empty_pdf0):
             os.unlink(klass.file_empty_pdf0)
         if os.path.exists(klass.file_empty_pdf1):
@@ -66,6 +80,7 @@ class TestMonitor(object):
     def teardown_method(self):
         files = [
             self.file_empty,
+            self.file_empty_single_feed,
             self.file_empty_hdf5,
             self.file_empty_pdf0,
             self.file_empty_pdf1,
@@ -121,6 +136,50 @@ class TestMonitor(object):
 
         for fname in [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
                       'latest_0.jpg', 'latest_1.jpg']:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_verbose(self):
+        fname = self.config_file
+
+        def process():
+            main_monitor([self.datadir, '--test', '-v', '-c', fname])
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(self.file_empty_init,
+                                        self.file_empty).split())
+
+        time.sleep(8)
+        w.join()
+
+        for fname in [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
+                      'latest_0.jpg', 'latest_1.jpg']:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_a_single_feed(self):
+        fname = self.config_file
+
+        def process():
+            main_monitor([self.datadir, '--test', '-c', fname])
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(self.file_empty_init_single_feed,
+                                        self.file_empty_single_feed).split())
+
+        time.sleep(8)
+        w.join()
+
+        for fname in [self.file_empty_pdf10, self.file_empty_hdf5_SF,
+                      'latest_10.jpg']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
@@ -207,7 +266,6 @@ class TestMonitor(object):
                                         self.file_empty).split())
 
         time.sleep(7)
-
         urls = [
             '',
             'index.html',
@@ -218,7 +276,7 @@ class TestMonitor(object):
         # Check that the files are provided by the HTTP server
         for url in urls:
             url = 'http://127.0.0.1:10000/' + url
-            r = urllib.request.urlopen(url)
+            r = urllib.request.urlopen(url, timeout=5)
             assert r.code == 200
 
         w.join()

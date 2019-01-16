@@ -12,6 +12,8 @@ from astropy.io import fits
 from srttools.io import locations, mkdir_p
 from srttools.simulate import simulate_map, sim_position_switching, \
     DEFAULT_CAL_OFFSET, DEFAULT_PEAK_COUNTS, DEFAULT_CAL_TEMP
+from astropy.utils.exceptions import AstropyWarning
+
 
 try:
     import matplotlib.pyplot as plt
@@ -104,7 +106,7 @@ class Test1_Scan(object):
         os.unlink(newfile)
 
     def test_main_garbage_format(self):
-        with pytest.warns(UserWarning):
+        with pytest.warns(AstropyWarning):
             main_convert([self.fname, '-f', 'weruoiq'])
 
         assert not os.path.exists(self.fname.replace('.fits',

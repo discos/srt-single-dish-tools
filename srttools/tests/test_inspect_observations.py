@@ -6,7 +6,8 @@ import numpy as np
 import os
 import glob
 import pytest
-import logging
+
+from astropy.logger import logging
 import subprocess as sp
 
 try:
@@ -18,7 +19,7 @@ except ImportError:
 @pytest.fixture()
 def logger():
     logger = logging.getLogger('Some.Logger')
-    logger.setLevel(logging.WARNING)
+    logger.setLevel(logging.WARN)
 
     return logger
 
@@ -151,12 +152,12 @@ class TestRun(object):
     def test_run_date_filter_after(self, logger, caplog):
         main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) +
                        '--only-after 20000101-000000'.split(' '))
-        assert 'Filter out observations before MJD 51544' in caplog.text
+        assert 'Filtering out observations before MJD 51544' in caplog.text
 
     def test_run_date_filter_before(self, logger, caplog):
         main_inspector(glob.glob(os.path.join(self.datadir, 'gauss_*/')) +
                        '--only-before 21000101-000000'.split(' '))
-        assert 'Filter out observations after MJD 88069' in caplog.text
+        assert 'Filtering out observations after MJD 88069' in caplog.text
 
     @classmethod
     def teardown_class(cls):

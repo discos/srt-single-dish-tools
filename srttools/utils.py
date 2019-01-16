@@ -6,7 +6,8 @@ from __future__ import (absolute_import, division,
 import sys
 import numpy as np
 import warnings
-import logging
+from astropy import log
+
 import scipy
 import scipy.stats
 import six
@@ -482,7 +483,7 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
             plt.show()
         plt.close(fig)
 
-    logging.debug(description_string)
+    log.debug(description_string)
 
     moments_dict['Description'] = description_string
 
@@ -610,7 +611,7 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
             plt.show()
         plt.close(fig)
 
-    logging.debug(description_string)
+    log.debug(description_string)
 
     moments_dict['Description'] = description_string
 

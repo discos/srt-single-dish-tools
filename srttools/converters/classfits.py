@@ -76,7 +76,7 @@ from scipy.signal import medfilt
 import copy
 import warnings
 import collections
-import logging
+from astropy import log
 
 
 model_primary_header = """
@@ -210,7 +210,6 @@ def create_variable_length_column(values, max_length=2048, name="SPECTRUM",
 def on_or_off(subscan, feed):
     """Try to infer if a given subscan is ON or OFF."""
     is_on = False
-    logging.info(subscan.meta['SIGNAL'])
     if 'SIGNAL' in subscan.meta and \
             subscan.meta['SIGNAL'] in ['SIGNAL', 'REFERENCE',
                                        'SIGCAL', 'REFSIG', 'REFCAL']:
@@ -222,7 +221,7 @@ def on_or_off(subscan, feed):
             is_on = True
     else:
         is_on = subscan.meta['az_offset'] > 1e-4 * u.rad
-    logging.info("Subscan {}, feed {}: ONOFF {}".format(
+    log.info("Subscan {}, feed {}: ONOFF {}".format(
         subscan.meta['SubScanID'],
         feed, is_on))
     return is_on
@@ -238,7 +237,7 @@ def cal_is_on(subscan):
         is_on = True
     elif 'flag_cal' in subscan.colnames and np.any(subscan['flag_cal'] == 1):
         is_on = subscan['flag_cal']
-    logging.info("Subscan {}: CAL {}".format(
+    log.info("Subscan {}: CAL {}".format(
         subscan.meta['SubScanID'],
         is_on))
     return is_on
@@ -256,21 +255,27 @@ def find_cycles(table, list_of_keys):
 
     Examples
     --------
+    >>> import doctest
+    >>> doctest.ELLIPSIS_MARKER = '-etc-'
+
     >>> table = Table(data=[[0, 0, 1, 1, 0, 0, 1, 1],
     ...                     [0, 0, 0, 0, 0, 0, 0, 0]], names=['A', 'B'])
     >>> list_of_keys = ['A', 'B']
-    >>> new_table = find_cycles(table, list_of_keys)
+    >>> new_table = find_cycles(table, list_of_keys) # doctest:+ELLIPSIS
+    -etc-
     >>> np.all(new_table['CYCLE'] == [0, 0, 0, 0, 1, 1, 1, 1])
     True
     >>> table = Table(data=[[0, 0, 1, 1, 0, 0, 1, 1],
     ...                     [0, 1, 0, 1, 0, 1, 0, 1]], names=['A', 'B'])
     >>> list_of_keys = ['A', 'B']
-    >>> new_table = find_cycles(table, list_of_keys)
+    >>> new_table = find_cycles(table, list_of_keys) # doctest:+ELLIPSIS
+    -etc-
     >>> np.all(new_table['CYCLE'] == [0, 0, 0, 0, 1, 1, 1, 1])
     True
     >>> table = Table(data=[[0, 1, 0, 1], [1, 0, 1, 0]], names=['A', 'B'])
     >>> list_of_keys = ['A', 'B']
-    >>> new_table = find_cycles(table, list_of_keys)
+    >>> new_table = find_cycles(table, list_of_keys) # doctest:+ELLIPSIS
+    -etc-
     >>> np.all(new_table['CYCLE'] == [0, 0, 1, 1])
     True
     """
@@ -289,7 +294,7 @@ def find_cycles(table, list_of_keys):
             cycle_counter += 1
         table['CYCLE'][i] = cycle_counter
         last = b
-    logging.info(table)
+    log.info(table)
     return table
 
 
@@ -456,7 +461,7 @@ class CLASSFITS_creator():
         for fname in sorted(glob.glob(os.path.join(scandir, '*.fits'))):
             if 'summary' in fname:
                 continue
-            logging.info(fname)
+            log.info(fname)
             subscan = read_data_fitszilla(fname)
             location = locations[subscan.meta['site']]
             times = Time(subscan['time'] * u.day, format='mjd', scale='utc',
@@ -490,7 +495,7 @@ class CLASSFITS_creator():
             classif = classify_chan_columns(allcolumns)
             feeds = list(classif.keys())
 
-            for f in feeds:
+            for i, f in enumerate(feeds):
                 azimuth = subscan['az'][:, f].to(u.deg).value
                 elevation = subscan['el'][:, f].to(u.deg).value
                 crval2 = subscan['ra'][:, f].to(u.deg).value
@@ -629,7 +634,7 @@ class CLASSFITS_creator():
                     self.tables[filekey] = newhdu
 
         for t in self.tables:
-            logging.debug(t)
+            log.debug(t)
         return self.tables
 
     def calibrate_all(self, use_calon=False):

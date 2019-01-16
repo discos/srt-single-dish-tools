@@ -18,8 +18,9 @@ except ImportError:
 
 # For egg_info test builds to pass, put package imports here.
 if not _ASTROPY_SETUP_:
-    import warnings
     import sys
+    import warnings
+    from astropy import log
 
     warnings.simplefilter("ignore")
     warnings.filterwarnings("once", module="srttools", category=UserWarning)

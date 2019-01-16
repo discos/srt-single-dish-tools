@@ -1,16 +1,16 @@
 from __future__ import (absolute_import, division,
                         print_function)
 import time
-import logging
 import os
 import shutil
 import re
 import sys
 import signal
+import argparse
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
-    from watchdog.events import PatternMatchingEventHandler
+    from watchdog.events import PatternMatchingEventHandler, FileMovedEvent
     HAS_WATCHDOG = True
 except ImportError:
     PatternMatchingEventHandler = object
@@ -20,7 +20,8 @@ import warnings
 import glob
 import threading
 from multiprocessing import Process, Queue, Manager, Lock, cpu_count
-import warnings
+
+from astropy import log
 
 try:
     from queue import Empty
@@ -47,11 +48,13 @@ try:
 except ImportError:
     pass
 
+MAX_FEEDS = 7
 
 class MyEventHandler(PatternMatchingEventHandler):
-    patterns = ["*/*.fits"]
+    patterns = \
+        ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 
-    def __init__(self, n_proc, nosave=False):
+    def __init__(self, n_proc, nosave=False, verbosity=0):
         super().__init__()
         self.conf = getattr(sys.modules[__name__], 'conf')
         create_index_file(self.conf['debug_file_format'])
@@ -63,9 +66,15 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.filequeue,
             self.conf,
             nosave,
+            verbosity,
             self.lock,
             self.processing_queue
         )
+
+        self.on_modified = self._enqueue
+        self.on_created = self._enqueue
+        self.on_moved = self._enqueue
+
         if n_proc == 1:
             p_type = threading.Thread
         else:
@@ -84,18 +93,33 @@ class MyEventHandler(PatternMatchingEventHandler):
             except AttributeError:
                 pass
 
-    def _enqueue(self, infile):
+    def _enqueue(self, event):
+        infile = ''
+        if isinstance(event, FileMovedEvent):
+            for pattern in self.patterns:
+                pattern = pattern.rsplit('.')[-1]
+                if event.dest_path.endswith(pattern):
+                    infile = event.dest_path
+            if not infile:
+                return
+        else:
+            infile = event.src_path
+
         if infile not in self.processing_queue:
             self.filequeue.put(infile)
             self.processing_queue.append(infile)
 
     @staticmethod
-    def _dequeue(filequeue, conf, nosave, lock, processing_queue):
+    def _dequeue(filequeue, conf, nosave, verbosity, lock, processing_queue):
         ext = conf['debug_file_format']
+        log.info('Starting worker process, pid {}'.format(os.getpid()))
         while True:
             try:
                 infile = filequeue.get()
             except (KeyboardInterrupt, EOFError):
+                log.info(
+                    'Stopping worker process, pid {}'.format(os.getpid())
+                )
                 return
 
             productdir, fname = product_path_from_file_name(
@@ -103,22 +127,50 @@ class MyEventHandler(PatternMatchingEventHandler):
                 productdir=conf['productdir'],
                 workdir=conf['workdir']
             )
-            root = os.path.join(productdir, fname.replace('.fits', ''))
+            root = os.path.join(productdir, fname.rsplit('.fits')[0])
 
             pp_args = ['--debug', '-c', conf['configuration_file_name']]
             if nosave:
                 pp_args.append('--nosave')
             pp_args.append(infile)
+
+            skip = False
             try:
-                main_preprocess(pp_args)
+                with warnings.catch_warnings():
+                    if not verbosity:
+                        warnings.simplefilter('ignore')
+                    if main_preprocess(pp_args):
+                        skip = True
             except:
+                log.exception(sys.exc_info()[1])
+                skip = True
+
+            if skip:
+                log.info('Aborted file {}'.format(infile))
+                processing_queue.remove(infile)
                 continue
+
+            feed_idx = ''
+            if not infile.endswith('.fits'):
+                feed_idx = infile.rsplit('.fits')[-1]
 
             lock.acquire()
 
             newfiles = []
-            for debugfile in glob.glob(root + '*.{}'.format(ext)):
-                newfile = debugfile.replace(root, 'latest')
+            for debugfile in glob.glob(root + '{}_*.{}'.format(feed_idx, ext)):
+                if feed_idx:
+                    newfile = debugfile.replace(root + infile[-1], 'latest')
+                else:
+                    newfile = debugfile.replace(root, 'latest')
+                newfile = newfile.rstrip('.{}'.format(ext))
+                if feed_idx:
+                    new_index = 2 * int(infile.rsplit('.fits')[-1])
+                    newfile = (
+                        newfile.split('_')[0]
+                        + '_'
+                        + str(new_index + int(newfile.rsplit('_')[-1]))
+                    )
+                newfile = newfile + '.{}'.format(ext)
                 newfiles.append(newfile)
                 if os.path.exists(debugfile):
                     if nosave:
@@ -134,22 +186,15 @@ class MyEventHandler(PatternMatchingEventHandler):
                     if not os.listdir(dirname):
                         os.rmdir(dirname)
 
-            oldfiles = glob.glob('latest*.{}'.format(ext))
-            for oldfile in oldfiles:
-                if oldfile not in newfiles and os.path.exists(oldfile):
-                    os.remove(oldfile)
+            if not feed_idx:
+                oldfiles = glob.glob('latest*.{}'.format(ext))
+                for oldfile in oldfiles:
+                    if oldfile not in newfiles and os.path.exists(oldfile):
+                        os.remove(oldfile)
 
             lock.release()
+            log.info('Completed file {}'.format(infile))
             processing_queue.remove(infile)
-
-    def on_modified(self, event):
-        self._enqueue(event.src_path)
-
-    def on_created(self, event):
-        self._enqueue(event.src_path)
-
-    def on_moved(self, event):
-        self._enqueue(event.dest_path)
 
 
 class MyRequestHandler(SimpleHTTPRequestHandler):
@@ -180,8 +225,6 @@ class MyRequestHandler(SimpleHTTPRequestHandler):
 
 
 def main_monitor(args=None):
-    import argparse
-
     description = ('Run the SRT quicklook in a given directory.')
     parser = argparse.ArgumentParser(description=description)
 
@@ -221,7 +264,26 @@ def main_monitor(args=None):
         help="Share the results via HTTP server on given HTTP_SERVER_PORT",
         type=int
     )
+    parser.add_argument(
+        '-v', '--verbosity',
+        action='count',
+        default=0,
+        help='Set the verbosity level'
+    )
     args = parser.parse_args(args)
+
+    if not args.test:
+        del log.handlers[:]  # Needed to prevent duplicate logging entries
+
+    from astropy.logger import logging
+    logging.basicConfig(
+
+        level=logging.INFO,
+        format='%(asctime)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    log.info('Starting monitor process, pid {}'.format(os.getpid()))
 
     def sigterm_received(signum, frame):
         os.kill(os.getpid(), signal.SIGINT)
@@ -232,21 +294,23 @@ def main_monitor(args=None):
     if not HAS_WATCHDOG:
         raise ImportError('To use SDTmonitor, you need to install watchdog: \n'
                           '\n   > pip install watchdog')
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
 
     if args.config is None:
         config_file = create_dummy_config()
     else:
         config_file = args.config
-    conf = read_config(config_file)
+
+    with warnings.catch_warnings():
+        if not args.verbosity:
+            warnings.simplefilter('ignore')
+        conf = read_config(config_file)
+
     conf['configuration_file_name'] = config_file
     setattr(sys.modules[__name__], 'conf', conf)
 
     n_proc = 1
     if cpu_count() and not args.test:
-        n_proc = int(min(cpu_count() / 2, 5))
+        n_proc = int(min(cpu_count() / 2, MAX_FEEDS))
 
     event_handler = MyEventHandler(n_proc=n_proc, nosave=args.nosave)
     observer = None
@@ -280,6 +344,7 @@ def main_monitor(args=None):
         http_server.shutdown()
 
     observer.stop()
+    log.info('Stopping monitor process, pid {}'.format(os.getpid()))
 
 
 def create_dummy_config():
@@ -295,7 +360,7 @@ def create_dummy_config():
     return 'monitor_config.ini'
 
 
-def create_index_file(extension, max_images=50, interval=500):
+def create_index_file(extension, max_images=MAX_FEEDS*2, interval=500):
     """
     :param extension: the file extension of the image files to look for.
     :param max_images: the maximum number of images to monitor. It should be

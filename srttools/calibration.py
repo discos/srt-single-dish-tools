@@ -21,10 +21,11 @@ import os
 import sys
 import glob
 import re
+from astropy import log
 import warnings
 import traceback
 from scipy.optimize import curve_fit
-import logging
+
 import astropy.units as u
 
 import numpy as np
@@ -172,13 +173,15 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         # this
         scan = Scan(scan_path, norefilt=True, nosave=True, **kwargs)
     except KeyError as e:
-        logging.warning("Missing key. Bad file? {}: {}".format(sname,
-                                                               str(e)))
+        log.warning(
+            "Missing key. Bad file? {}: {}".format(sname, str(e))
+        )
         return False, None
     except Exception as e:
-        logging.warning("Error while processing {}: {}".format(sname,
-                                                               str(e)))
-        warnings.warn(traceback.format_exc())
+        log.warning(
+            "Error while processing {}: {}".format(sname, str(e))
+        )
+        log.warning(traceback.format_exc())
         return False, None
 
     feeds = np.arange(scan['ra'].shape[1])
@@ -429,7 +432,7 @@ class CalibratorTable(Table):
 
         out_retval = False
         for i_s, s in enumerate(scan_list):
-            logging.info('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
+            log.info('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
 
             retval, rows = _treat_scan(s, plot=plot, debug=debug,
                                        freqsplat=freqsplat, nofilt=nofilt)
@@ -758,7 +761,7 @@ class CalibratorTable(Table):
             xbad = x_to_fit[bad]
             ybad = y_to_fit[bad]
             for xb, yb in zip(xbad, ybad):
-                logging.warning("Outliers: {}, {}".format(xb, yb))
+                log.warning("Outliers: {}, {}".format(xb, yb))
 
             good = np.logical_not(bad)
             x_to_fit = x_to_fit[good]
