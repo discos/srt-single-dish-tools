@@ -58,6 +58,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         super().__init__()
         self.conf = getattr(sys.modules[__name__], 'conf')
         create_index_file(self.conf['debug_file_format'])
+        self.timers = {}
         self.filequeue = Queue()
         self.manager = Manager()
         self.lock = Lock()
@@ -71,9 +72,9 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.processing_queue
         )
 
-        self.on_modified = self._enqueue
-        self.on_created = self._enqueue
-        self.on_moved = self._enqueue
+        self.on_modified = self._start_timer
+        self.on_created = self._start_timer
+        self.on_moved = self._start_timer
 
         if n_proc == 1:
             p_type = threading.Thread
@@ -93,7 +94,7 @@ class MyEventHandler(PatternMatchingEventHandler):
             except AttributeError:
                 pass
 
-    def _enqueue(self, event):
+    def _start_timer(self, event):
         infile = ''
         if isinstance(event, FileMovedEvent):
             for pattern in self.patterns:
@@ -105,6 +106,19 @@ class MyEventHandler(PatternMatchingEventHandler):
         else:
             infile = event.src_path
 
+        if self.timers.get(infile):
+            self.timers[infile].cancel()
+
+        self.timers[infile] = threading.Timer(
+            0.05,
+            self._enqueue,
+            args=[infile]
+        )
+        self.timers[infile].start()
+
+    def _enqueue(self, infile):
+        if self.timers.get(infile):
+            del self.timers[infile]
         if infile not in self.processing_queue:
             self.filequeue.put(infile)
             self.processing_queue.append(infile)
