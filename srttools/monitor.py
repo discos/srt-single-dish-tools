@@ -85,12 +85,15 @@ class MyEventHandler(PatternMatchingEventHandler):
             p = p_type(target=self._dequeue, args=proc_args)
             p.daemon = True
             p.start()
+            if isinstance(p, Process):
+                log.info('Starting worker process, pid {}'.format(p.pid))
             self.processes.append(p)
 
     def __del__(self):
         for p in self.processes:
             try:
                 p.terminate()
+                log.info('Stopping worker process, pid {}'.format(p.pid))
             except AttributeError:
                 pass
 
@@ -126,14 +129,10 @@ class MyEventHandler(PatternMatchingEventHandler):
     @staticmethod
     def _dequeue(filequeue, conf, nosave, verbosity, lock, processing_queue):
         ext = conf['debug_file_format']
-        log.info('Starting worker process, pid {}'.format(os.getpid()))
         while True:
             try:
                 infile = filequeue.get()
             except (KeyboardInterrupt, EOFError):
-                log.info(
-                    'Stopping worker process, pid {}'.format(os.getpid())
-                )
                 return
 
             productdir, fname = product_path_from_file_name(
@@ -242,6 +241,23 @@ def main_monitor(args=None):
     description = ('Run the SRT quicklook in a given directory.')
     parser = argparse.ArgumentParser(description=description)
 
+    min_proc = 1
+    max_proc = int(cpu_count() / 2)
+
+    def workers_count(w):
+        try:
+            w = int(w)
+            if not (w < min_proc or w > max_proc):
+                return w
+            else:
+                raise ValueError
+        except (ValueError, TypeError):
+            raise argparse.ArgumentTypeError(
+                "Choose an integer between {} and {}.".format(
+                    min_proc, max_proc
+                )
+            )
+
     parser.add_argument(
         "directories",
         help="Directories to monitor",
@@ -284,6 +300,12 @@ def main_monitor(args=None):
         default=0,
         help='Set the verbosity level'
     )
+    parser.add_argument(
+        '-w', '--workers',
+        type=workers_count,
+        default=1,
+        help='The number of worker processes to spawn'
+    )
     args = parser.parse_args(args)
 
     if not args.test:
@@ -322,11 +344,7 @@ def main_monitor(args=None):
     conf['configuration_file_name'] = config_file
     setattr(sys.modules[__name__], 'conf', conf)
 
-    n_proc = 1
-    if cpu_count() and not args.test:
-        n_proc = int(min(cpu_count() / 2, MAX_FEEDS))
-
-    event_handler = MyEventHandler(n_proc=n_proc, nosave=args.nosave)
+    event_handler = MyEventHandler(n_proc=args.workers, nosave=args.nosave)
     observer = None
     if args.polling:
         observer = PollingObserver()
@@ -374,18 +392,9 @@ def create_dummy_config():
     return 'monitor_config.ini'
 
 
-def create_index_file(extension, max_images=MAX_FEEDS*2, interval=500):
+def create_index_file(extension, interval=500):
     """
     :param extension: the file extension of the image files to look for.
-    :param max_images: the maximum number of images to monitor. It should be
-        enough to set it to twice the number of feeds of the receiver having
-        the highest number of feeds (twice because of L and R channels).
-        Its default value is set to 50, a number high enough to account for all
-        the file images but not too high to represent a computational
-        overhead. Since javascript cannot perform any client filesystem
-        operation other than loading a local file from its path, the script
-        below tries to access every image and just hides the not found ones,
-        displaying only the images coming out of the monitor processing phase.
     :param interval: expressed in milliseconds, it represents the time between
         two subsequent calls to the `updatePage` function. Since the images
         get reloaded without any flickering (as opposed to when the whole page
@@ -397,15 +406,16 @@ def create_index_file(extension, max_images=MAX_FEEDS*2, interval=500):
     <script type="text/javascript">
         window.onload = function()
         {
-            var extension = '""" + extension + """';
-            var maxImages = """ + str(max_images) + """;
-			var interval = """ + str(interval) + """;
-
             document.body.innerHTML = "";
 
-            for(i = 0; i < maxImages; i++)
+            function remove_div(index)
             {
-                document.body.innerHTML += '<div id="div_' + i + '" style="width:50%; float:left;"/></div>';
+                var div = document.getElementById("div_" + index.toString());
+                if(div != null)
+                {
+                    div.parentElement.removeChild(div);
+                    remove_div(index + 1);
+                }
             }
 
             function update(index)
@@ -428,6 +438,14 @@ def create_index_file(extension, max_images=MAX_FEEDS*2, interval=500):
 
                             var div = document.getElementById("div_" + index.toString());
 
+                            if(div == null)
+                            {
+                                div = document.createElement("DIV");
+                                div.setAttribute("id", "div_" + index.toString());
+                                div.setAttribute("style", "width:50%; float:left;");
+                                document.body.appendChild(div);
+                            }
+
                             while(div.firstChild)
                             {
                                 div.removeChild(div.firstChild);
@@ -441,22 +459,17 @@ def create_index_file(extension, max_images=MAX_FEEDS*2, interval=500):
                     image.addEventListener("error", function()
                     {
                         index = parseInt(this.id.split("_")[1]);
-
-                        for(i = index; i < maxImages; i++)
-                        {
-                            var div = document.getElementById("div_" + i.toString());
-                            div.innerHTML = "";
-                        }
+                        remove_div(index);
                     });
                 }
 
-                image.src = "latest_" + index.toString() + "." + extension + "?" + new Date().getTime();
+                image.src = "latest_" + index.toString() + ".""" + extension + """?" + new Date().getTime();
             }
 
             update(0);
-            setInterval(update, interval, 0);
+            setInterval(update, """ + str(interval) + """, 0);
         }
-    </script>/n</html>"""
+    </script>\n</html>"""
 
     with open('index.html', 'w') as fobj:
         print(html_string, file=fobj)
