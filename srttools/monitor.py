@@ -242,7 +242,7 @@ def main_monitor(args=None):
     parser = argparse.ArgumentParser(description=description)
 
     min_proc = 1
-    max_proc = int(cpu_count() / 2)
+    max_proc = MAX_FEEDS
 
     def workers_count(w):
         try:
@@ -253,7 +253,7 @@ def main_monitor(args=None):
                 raise ValueError
         except (ValueError, TypeError):
             raise argparse.ArgumentTypeError(
-                "Choose an integer between {} and {}.".format(
+                "Choose an number of processes between {} and {}.".format(
                     min_proc, max_proc
                 )
             )
