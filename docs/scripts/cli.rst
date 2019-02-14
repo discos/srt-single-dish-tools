@@ -272,7 +272,7 @@ SDTmonitor
 .. code-block:: none
 
     usage: SDTmonitor [-h] [-c CONFIG] [--test] [--nosave] [-p]
-                      [--http-server-port HTTP_SERVER_PORT] [-v]
+                      [--http-server-port HTTP_SERVER_PORT] [-v] [-w WORKERS]
                       directories [directories ...]
 
     Run the SRT quicklook in a given directory.
@@ -291,6 +291,8 @@ SDTmonitor
                             Share the results via HTTP server on given
                             HTTP_SERVER_PORT
       -v, --verbosity       Set the verbosity level
+      -w WORKERS, --workers WORKERS
+                            The number of worker processes to spawn
 
 
 SDTopacity

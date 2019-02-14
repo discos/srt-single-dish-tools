@@ -227,6 +227,46 @@ class TestMonitor(object):
             os.unlink(fname)
 
     @pytest.mark.skipif('not HAS_WATCHDOG')
+    def test_workers(self):
+        fname = self.config_file
+
+        def process():
+            main_monitor([self.datadir, '--test', '-c', fname, '--workers', '2'])
+
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        sp.check_call('cp {} {}'.format(
+            self.file_empty_init_single_feed,
+            self.file_empty_single_feed
+        ).split())
+        sp.check_call('cp {} {}'.format(
+            self.file_empty_init_single_feed,
+            self.file_empty_single_feed.replace('fits5', 'fits4')
+        ).split())
+
+        time.sleep(8)
+        w.join()
+
+        files = [
+            self.file_empty_pdf10,
+            self.file_empty_pdf10.replace('dummy5', 'dummy4'),
+            self.file_empty_hdf5_SF,
+            self.file_empty_hdf5_SF.replace('dummy5', 'dummy4'),
+            'latest_8.jpg',
+            'latest_10.jpg'
+        ]
+
+        print(files)
+
+        for fname in files:
+            assert os.path.exists(fname)
+            os.unlink(fname)
+
+        os.unlink(self.file_empty_single_feed.replace('fits5', 'fits4'))
+
+    @pytest.mark.skipif('not HAS_WATCHDOG')
     def test_delete_old_images(self):
         def process():
             main_monitor([self.datadir, '--test'])
