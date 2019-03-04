@@ -298,8 +298,8 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
 
 def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  good_mask=None, freqsplat=None,
-                                 noise_threshold=5., debug=True, nofilt=False,
-                                 outfile="out", label="",
+                                 noise_threshold=5., debug=True, plot=True,
+                                 nofilt=False, outfile="out", label="",
                                  smoothing_window=0.05,
                                  debug_file_format='pdf',
                                  info_string="Empty info string"):
@@ -340,6 +340,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         considered noisy
     debug : bool
         Print out debugging information
+    plot : bool
+        Plot stuff
     nofilt : bool
         Do not filter noisy channels (set noise_threshold to 1e32)
     outfile : str
@@ -377,7 +379,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         bandwidth_unit = u.MHz
 
     if len(dynamical_spectrum.shape) == 1:
-        if not debug or not HAS_MPL:
+        if not plot or not HAS_MPL:
             return None
 
         lc = dynamical_spectrum
@@ -468,7 +470,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     results.freqmax = freqmax * u.MHz
     results.mask = wholemask
 
-    if not debug or not HAS_MPL:
+    if not plot or not HAS_MPL:
         return results
 
     # Now, PLOT IT ALL --------------------------------
@@ -634,7 +636,7 @@ class Scan(Table):
     """Class containing a single scan."""
 
     def __init__(self, data=None, config_file=None, norefilt=True,
-                 interactive=False, nosave=False, debug=False,
+                 interactive=False, nosave=False, debug=False, plot=False,
                  freqsplat=None, nofilt=False, nosub=False, avoid_regions=None,
                  save_spectrum=False, **kwargs):
         """Load a Scan object
@@ -704,7 +706,7 @@ class Scan(Table):
                     not self.meta['backsub'])) and not nosub:
                 log.info('Subtracting the baseline')
                 self.baseline_subtract(avoid_regions=avoid_regions,
-                                       plot=debug)
+                                       plot=plot)
 
             if not nosave:
                 self.save()
@@ -731,7 +733,7 @@ class Scan(Table):
         return infostr
 
     def clean_and_splat(self, good_mask=None, freqsplat=None,
-                        noise_threshold=5, debug=True,
+                        noise_threshold=5, debug=True, plot=True,
                         save_spectrum=False, nofilt=False):
         """Clean from RFI.
 
@@ -760,12 +762,15 @@ class Scan(Table):
         save_spectrum : bool, default False
             Save the spectrum into a 'ChX_spec' column
         debug : bool, default True
+            Be verbose
+        plot : bool, default True
             Save images with quicklook information on single scans
         nofilt : bool
             Do not filter noisy channels (see
             :func:`clean_scan_using_variability`)
         """
-        log.debug("Noise threshold: {}".format(noise_threshold))
+        if debug:
+            log.debug("Noise threshold: {}".format(noise_threshold))
 
         if self.meta['filtering_factor'] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
@@ -786,7 +791,7 @@ class Scan(Table):
                     good_mask=good_mask,
                     freqsplat=freqsplat,
                     noise_threshold=noise_threshold,
-                    debug=debug, nofilt=nofilt,
+                    debug=debug, plot=plot, nofilt=nofilt,
                     outfile=self.root_name(self.meta['filename']),
                     label="{}".format(ic),
                     smoothing_window=self.meta['smooth_window'],
