@@ -376,7 +376,7 @@ def create_dummy_config():
     [local]
     [analysis]
     [debugging]
-    debug_file_format : jpg
+    debug_file_format : png
     """
     with open('monitor_config.ini', 'w') as fobj:
         print(config_str, file=fobj)
