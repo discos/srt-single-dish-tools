@@ -44,7 +44,6 @@ except ImportError:
 MAX_FEEDS = 7
 
 class MyEventHandler(PatternMatchingEventHandler):
-    #ignore_patterns = ['*/tempfits/*']
     patterns = \
         ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 

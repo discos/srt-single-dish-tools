@@ -12,6 +12,7 @@ omit =
    {packagename}/*/tests/*
    {packagename}/*/*/tests/*
    {packagename}/version*
+concurrency = multiprocessing
 
 [report]
 exclude_lines =
