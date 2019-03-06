@@ -44,14 +44,14 @@ matrix:
         # may run for a long time
         # Try all python versions with the latest numpy
 
-        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage && coverage combine' PIP_DEPENDENCIES='patsy codecov faulthandler future'
-        - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage && coverage combine' SETUP_XVFB=False
+        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage; coverage combine' PIP_DEPENDENCIES='patsy codecov faulthandler future'
+        - env: PYTHON_VERSION=3.6 SETUP_CMD='test --coverage; coverage combine' SETUP_XVFB=False
         # No matplotlib, with old scipy
-        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy=0.19 pytest pip h5py statsmodels pyyaml numba pyregion' SETUP_CMD='test --coverage && coverage combine'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy=0.19 pytest pip h5py statsmodels pyyaml numba pyregion' SETUP_CMD='test --coverage; coverage combine'
         # No NUMBA, pyregion
-        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage && coverage combine'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage; coverage combine'
         # No statsmodels
-        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba pyregion' PIP_DEPENDENCIES='patsy codecov mahotas watchdog pillow' SETUP_CMD='test --coverage && coverage combine'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba pyregion' PIP_DEPENDENCIES='patsy codecov mahotas watchdog pillow' SETUP_CMD='test --coverage; coverage combine'
         # Documentation
         - env: PYTHON_VERSION=3.6 SETUP_CMD='build_docs -w'
 
@@ -61,7 +61,7 @@ matrix:
         - env: PYTHON_VERSION=3.4 SETUP_CMD='test' NUMPY_VERSION=1.11
     allow_failures:
         # Try Astropy development version
-        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage && coverage combine' PIP_DEPENDENCIES='patsy codecov faulthandler future'
+        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage; coverage combine' PIP_DEPENDENCIES='patsy codecov faulthandler future'
         - env: PYTHON_VERSION=3.6 ASTROPY_VERSION=development SETUP_CMD='test'
         - env: PYTHON_VERSION=3.4 SETUP_CMD='test' NUMPY_VERSION=1.11
 
@@ -91,4 +91,4 @@ after_success:
 #    # If coveralls.io is set up for this package, uncomment the line
 #    # below and replace "packagename" with the name of your package.
 #    # The coveragerc file may be customized as needed for your package.
-   - if [[ $SETUP_CMD == 'test --coverage && coverage combine' ]]; then coveralls --rcfile='srttools/tests/coveragerc'; codecov; fi
+   - if [[ $SETUP_CMD == 'test --coverage; coverage combine' ]]; then coveralls --rcfile='srttools/tests/coveragerc'; codecov; fi
