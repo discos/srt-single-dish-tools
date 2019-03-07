@@ -46,22 +46,22 @@ class TestMonitor(object):
                                          "srt_data_dummy.hdf5"))
         klass.file_empty_pdf0 = \
             os.path.abspath(os.path.join(klass.datadir,
-                                         "srt_data_dummy_0.jpg"))
+                                         "srt_data_dummy_0.png"))
         klass.file_empty_pdf1 = \
             os.path.abspath(os.path.join(klass.datadir,
-                                         "srt_data_dummy_1.jpg"))
+                                         "srt_data_dummy_1.png"))
         klass.file_empty_hdf5_alt = \
             os.path.abspath(os.path.join(klass.proddir,
                                          "srt_data_dummy.hdf5"))
         klass.file_empty_pdf0_alt = \
             os.path.abspath(os.path.join(klass.proddir,
-                                         "srt_data_dummy_0.jpg"))
+                                         "srt_data_dummy_0.png"))
         klass.file_empty_pdf1_alt = \
             os.path.abspath(os.path.join(klass.proddir,
-                                         "srt_data_dummy_1.jpg"))
+                                         "srt_data_dummy_1.png"))
         klass.file_empty_pdf10 = \
             os.path.abspath(os.path.join(klass.proddir,
-                                         "srt_data_dummy5_0.jpg"))
+                                         "srt_data_dummy5_0.png"))
         klass.file_empty_hdf5_SF = \
             os.path.abspath(os.path.join(klass.proddir,
                                          "srt_data_dummy5.hdf5"))
@@ -113,7 +113,7 @@ class TestMonitor(object):
         w.join()
 
         for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.jpg', 'latest_1.jpg']:
+                      'latest_0.png', 'latest_1.png']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
@@ -135,7 +135,7 @@ class TestMonitor(object):
         w.join()
 
         for fname in [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
-                      'latest_0.jpg', 'latest_1.jpg']:
+                      'latest_0.png', 'latest_1.png']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
@@ -157,7 +157,7 @@ class TestMonitor(object):
         w.join()
 
         for fname in [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
-                      'latest_0.jpg', 'latest_1.jpg']:
+                      'latest_0.png', 'latest_1.png']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
@@ -179,7 +179,7 @@ class TestMonitor(object):
         w.join()
 
         for fname in [self.file_empty_pdf10, self.file_empty_hdf5_SF,
-                      'latest_10.jpg']:
+                      'latest_10.png']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
@@ -199,7 +199,7 @@ class TestMonitor(object):
         w.join()
 
         for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.jpg', 'latest_1.jpg']:
+                      'latest_0.png', 'latest_1.png']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
@@ -222,7 +222,7 @@ class TestMonitor(object):
                       self.file_empty_hdf5]:
             assert not os.path.exists(fname)
 
-        for fname in ['latest_0.jpg', 'latest_1.jpg']:
+        for fname in ['latest_0.png', 'latest_1.png']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
@@ -254,8 +254,8 @@ class TestMonitor(object):
             self.file_empty_pdf10.replace('dummy5', 'dummy4'),
             self.file_empty_hdf5_SF,
             self.file_empty_hdf5_SF.replace('dummy5', 'dummy4'),
-            'latest_8.jpg',
-            'latest_10.jpg'
+            'latest_8.png',
+            'latest_10.png'
         ]
 
         print(files)
@@ -272,7 +272,7 @@ class TestMonitor(object):
             main_monitor([self.datadir, '--test'])
 
         files = [self.file_empty_pdf0, self.file_empty_pdf1]
-        files += ['latest_{}.jpg'.format(i) for i in range(8)]
+        files += ['latest_{}.png'.format(i) for i in range(8)]
 
         for fname in files[2:]:
             sp.check_call('touch {}'.format(fname).split())
@@ -309,9 +309,9 @@ class TestMonitor(object):
         urls = [
             '',
             'index.html',
-            'latest_0.jpg',
-            'latest_1.jpg',
-            'latest_0.jpg?%d' % int(time.time())
+            'latest_0.png',
+            'latest_1.png',
+            'latest_0.png?%d' % int(time.time())
         ]
         # Check that the files are provided by the HTTP server
         for url in urls:
@@ -322,7 +322,7 @@ class TestMonitor(object):
         w.join()
 
         for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.jpg', 'latest_1.jpg']:
+                      'latest_0.png', 'latest_1.png']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
@@ -342,14 +342,14 @@ class TestMonitor(object):
 
         # Ask for non-existent files
         for i in [20, 21]:
-            url = 'http://127.0.0.1:10000/latest_{}.jpg'.format(i)
+            url = 'http://127.0.0.1:10000/latest_{}.png'.format(i)
             with pytest.raises(urllib.error.HTTPError):
                 r = urllib.request.urlopen(url)
 
         w.join()
 
         for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.jpg', 'latest_1.jpg']:
+                      'latest_0.png', 'latest_1.png']:
             assert os.path.exists(fname)
             os.unlink(fname)
 
@@ -370,7 +370,7 @@ class TestMonitor(object):
         # Create a dummy 'latest_0.txt' file.
         # The file should not be accessible since its name does not match
         # 'index.html' nor 'index.html' nor 'latest_X.EXT' pattern, with EXT
-        # equal to the configured file extension, in this case is 'jpg'
+        # equal to the configured file extension, in this case is 'png'
         forbidden_file = 'latest_0.txt'
         open(forbidden_file, 'w').close()
         url = 'http://127.0.0.1:10000/' + forbidden_file
@@ -380,7 +380,7 @@ class TestMonitor(object):
         w.join()
 
         for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.jpg', 'latest_1.jpg', forbidden_file]:
+                      'latest_0.png', 'latest_1.png', forbidden_file]:
             assert os.path.exists(fname)
             os.unlink(fname)
 

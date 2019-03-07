@@ -19,16 +19,9 @@ except ImportError:
 import warnings
 import glob
 import threading
-from multiprocessing import Process, Queue, Manager, Lock, cpu_count
+from multiprocessing import Process, Lock
 
 from astropy import log
-
-try:
-    from queue import Empty
-except ImportError:
-    from Queue import Empty
-    warnings.warn("Monitoring interface does not work with Python < 3.5",
-                  DeprecationWarning)
 
 try:
     from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
@@ -54,48 +47,26 @@ class MyEventHandler(PatternMatchingEventHandler):
     patterns = \
         ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 
-    def __init__(self, n_proc, nosave=False, verbosity=0):
+    def __init__(self, n_proc, nosave=False, verbosity=0, test=False):
         super().__init__()
         self.conf = getattr(sys.modules[__name__], 'conf')
         create_index_file(self.conf['debug_file_format'])
+        
+        self.max_proc = n_proc
+
         self.timers = {}
-        self.filequeue = Queue()
-        self.manager = Manager()
         self.lock = Lock()
-        self.processing_queue = self.manager.list()
-        proc_args = (
-            self.filequeue,
-            self.conf,
-            nosave,
-            verbosity,
-            self.lock,
-            self.processing_queue
-        )
+        self.processing_queue = []
+        self.waiting_queue = []
+
+        self.nosave = nosave
+        self.verbosity = verbosity
 
         self.on_modified = self._start_timer
         self.on_created = self._start_timer
         self.on_moved = self._start_timer
 
-        if n_proc == 1:
-            p_type = threading.Thread
-        else:
-            p_type = Process
-        self.processes = []
-        for _ in range(n_proc):
-            p = p_type(target=self._dequeue, args=proc_args)
-            p.daemon = True
-            p.start()
-            if isinstance(p, Process):
-                log.info('Starting worker process, pid {}'.format(p.pid))
-            self.processes.append(p)
-
-    def __del__(self):
-        for p in self.processes:
-            try:
-                p.terminate()
-                log.info('Stopping worker process, pid {}'.format(p.pid))
-            except AttributeError:
-                pass
+        self.test = test
 
     def _start_timer(self, event):
         infile = ''
@@ -113,27 +84,51 @@ class MyEventHandler(PatternMatchingEventHandler):
             self.timers[infile].cancel()
 
         self.timers[infile] = threading.Timer(
-            0.05,
+            1,
             self._enqueue,
             args=[infile]
         )
+        self.timers[infile].daemon = True
         self.timers[infile].start()
 
     def _enqueue(self, infile):
         if self.timers.get(infile):
             del self.timers[infile]
-        if infile not in self.processing_queue:
-            self.filequeue.put(infile)
+        if infile not in self.waiting_queue:
+            self.waiting_queue.append(infile)
+            while len(self.processing_queue) == self.max_proc:
+                time.sleep(0.05)
+            self.waiting_queue.remove(infile)
             self.processing_queue.append(infile)
+            proc_args = (
+                infile,
+                self.conf,
+                self.nosave,
+                self.verbosity,
+                self.lock
+            )
+            if self.test:
+                p = threading.Thread(target=self.process, args=proc_args)
+            else:
+                p = Process(target=self.process, args=proc_args)
+            p.daemon = True
+            p.start()
+            p.join()
+            try:
+                if p.exitcode not in [0, 1]:
+                    log.info('Process {} exited with unexpected code {}'.format(
+                        p.pid, p.exitcode
+                    ))
+            except AttributeError:
+                pass
+            self.processing_queue.remove(infile)
 
     @staticmethod
-    def _dequeue(filequeue, conf, nosave, verbosity, lock, processing_queue):
-        ext = conf['debug_file_format']
-        while True:
-            try:
-                infile = filequeue.get()
-            except (KeyboardInterrupt, EOFError):
-                return
+    def process(infile, conf, nosave, verbosity, lock):
+        try:
+            pid = os.getpid()
+            log.info('Loading file {}, pid {}'.format(infile, pid))
+            ext = conf['debug_file_format']
 
             productdir, fname = product_path_from_file_name(
                 infile,
@@ -142,7 +137,7 @@ class MyEventHandler(PatternMatchingEventHandler):
             )
             root = os.path.join(productdir, fname.rsplit('.fits')[0])
 
-            pp_args = ['--debug', '-c', conf['configuration_file_name']]
+            pp_args = ['--plot', '-c', conf['configuration_file_name']]
             if nosave:
                 pp_args.append('--nosave')
             pp_args.append(infile)
@@ -154,14 +149,15 @@ class MyEventHandler(PatternMatchingEventHandler):
                         warnings.simplefilter('ignore')
                     if main_preprocess(pp_args):
                         skip = True
+            except KeyboardInterrupt:
+                raise KeyboardInterrupt
             except:
                 log.exception(sys.exc_info()[1])
                 skip = True
 
             if skip:
-                log.info('Aborted file {}'.format(infile))
-                processing_queue.remove(infile)
-                continue
+                log.info('Aborted file {}, pid {}'.format(infile, pid))
+                sys.exit(1)
 
             feed_idx = ''
             if not infile.endswith('.fits'):
@@ -206,8 +202,11 @@ class MyEventHandler(PatternMatchingEventHandler):
                         os.remove(oldfile)
 
             lock.release()
-            log.info('Completed file {}'.format(infile))
-            processing_queue.remove(infile)
+
+            log.info('Completed file {}, pid {}'.format(infile, pid))
+        except KeyboardInterrupt:
+            pass
+        sys.exit(0)
 
 
 class MyRequestHandler(SimpleHTTPRequestHandler):
@@ -304,7 +303,7 @@ def main_monitor(args=None):
         '-w', '--workers',
         type=workers_count,
         default=1,
-        help='The number of worker processes to spawn'
+        help='The maximum number of worker processes to spawn'
     )
     args = parser.parse_args(args)
 
@@ -344,7 +343,11 @@ def main_monitor(args=None):
     conf['configuration_file_name'] = config_file
     setattr(sys.modules[__name__], 'conf', conf)
 
-    event_handler = MyEventHandler(n_proc=args.workers, nosave=args.nosave)
+    event_handler = MyEventHandler(
+        n_proc=args.workers,
+        nosave=args.nosave,
+        test=args.test
+    )
     observer = None
     if args.polling:
         observer = PollingObserver()
@@ -384,7 +387,7 @@ def create_dummy_config():
     [local]
     [analysis]
     [debugging]
-    debug_file_format : jpg
+    debug_file_format : png
     """
     with open('monitor_config.ini', 'w') as fobj:
         print(config_str, file=fobj)

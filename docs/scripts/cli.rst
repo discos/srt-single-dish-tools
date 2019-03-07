@@ -292,7 +292,7 @@ SDTmonitor
                             HTTP_SERVER_PORT
       -v, --verbosity       Set the verbosity level
       -w WORKERS, --workers WORKERS
-                            The number of worker processes to spawn
+                            The maximum number of worker processes to spawn
 
 
 SDTopacity
@@ -338,7 +338,7 @@ SDTpreprocess
 .. code-block:: none
 
     usage: SDTpreprocess [-h] [-c CONFIG] [--sub] [--interactive] [--nofilt]
-                         [--debug] [--nosave] [--splat SPLAT]
+                         [--debug] [--plot] [--nosave] [--splat SPLAT]
                          [-e EXCLUDE [EXCLUDE ...]]
                          [files [files ...]]
 
@@ -355,7 +355,8 @@ SDTpreprocess
       --sub                 Subtract the baseline from single scans
       --interactive         Open the interactive display for each scan
       --nofilt              Do not filter noisy channels
-      --debug               Plot stuff and be verbose
+      --debug               Be verbose
+      --plot                Plot stuff
       --nosave              Do not save the hdf5 intermediate files whenloading
                             subscans.
       --splat SPLAT         Spectral scans will be scrunched into a single channel

@@ -1458,7 +1458,10 @@ def main_preprocess(args=None):
                         help='Do not filter noisy channels')
 
     parser.add_argument("--debug", action='store_true', default=False,
-                        help='Plot stuff and be verbose')
+                        help='Be verbose')
+
+    parser.add_argument("--plot", action='store_true', default=False,
+                        help='Plot stuff')
 
     parser.add_argument("--nosave", action='store_true',
                         default=False,
@@ -1493,7 +1496,7 @@ def main_preprocess(args=None):
             try:
                 Scan(f, freqsplat=args.splat, nosub=not args.sub,
                      norefilt=False, debug=args.debug,
-                     interactive=args.interactive,
+                     plot=args.plot, interactive=args.interactive,
                      avoid_regions=excluded_radec,
                      config_file=args.config,
                      nosave=args.nosave)
@@ -1505,6 +1508,6 @@ def main_preprocess(args=None):
             raise ValueError("Please specify the config file!")
         ScanSet(args.config, norefilt=False, freqsplat=args.splat,
                 nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
-                interactive=args.interactive, avoid_regions=excluded_radec,
-                nosave=args.nosave)
+                plot=args.plot, interactive=args.interactive,
+                avoid_regions=excluded_radec, nosave=args.nosave)
     return 0
