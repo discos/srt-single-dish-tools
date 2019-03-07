@@ -47,7 +47,7 @@ class MyEventHandler(PatternMatchingEventHandler):
     patterns = \
         ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 
-    def __init__(self, n_proc, nosave=False, verbosity=0):
+    def __init__(self, n_proc, nosave=False, verbosity=0, test=False):
         super().__init__()
         self.conf = getattr(sys.modules[__name__], 'conf')
         create_index_file(self.conf['debug_file_format'])
@@ -65,6 +65,8 @@ class MyEventHandler(PatternMatchingEventHandler):
         self.on_modified = self._start_timer
         self.on_created = self._start_timer
         self.on_moved = self._start_timer
+
+        self.test = test
 
     def _start_timer(self, event):
         infile = ''
@@ -105,7 +107,10 @@ class MyEventHandler(PatternMatchingEventHandler):
                 self.verbosity,
                 self.lock
             )
-            p = Process(target=self.process, args=proc_args)
+            if self.test:
+                p = threading.Thread(target=self.process, args=proc_args)
+            else:
+                p = Process(target=self.process, args=proc_args)
             p.daemon = True
             p.start()
             p.join()
@@ -304,8 +309,6 @@ def main_monitor(args=None):
 
     if not args.test:
         del log.handlers[:]  # Needed to prevent duplicate logging entries
-    else:
-        Process = threading.Thread
 
     from astropy.logger import logging
     logging.basicConfig(
@@ -340,7 +343,11 @@ def main_monitor(args=None):
     conf['configuration_file_name'] = config_file
     setattr(sys.modules[__name__], 'conf', conf)
 
-    event_handler = MyEventHandler(n_proc=args.workers, nosave=args.nosave)
+    event_handler = MyEventHandler(
+        n_proc=args.workers,
+        nosave=args.nosave,
+        test=args.test
+    )
     observer = None
     if args.polling:
         observer = PollingObserver()
