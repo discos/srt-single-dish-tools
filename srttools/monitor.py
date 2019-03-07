@@ -109,10 +109,13 @@ class MyEventHandler(PatternMatchingEventHandler):
             p.daemon = True
             p.start()
             p.join()
-            if p.exitcode not in [0, 1]:
-                log.info('Process {} exited with unexpected code {}'.format(
-                    p.pid, p.exitcode
-                ))
+            try:
+                if p.exitcode not in [0, 1]:
+                    log.info('Process {} exited with unexpected code {}'.format(
+                        p.pid, p.exitcode
+                    ))
+            except AttributeError:
+                pass
             self.processing_queue.remove(infile)
 
     @staticmethod
@@ -301,6 +304,8 @@ def main_monitor(args=None):
 
     if not args.test:
         del log.handlers[:]  # Needed to prevent duplicate logging entries
+    else:
+        Process = threading.Thread
 
     from astropy.logger import logging
     logging.basicConfig(

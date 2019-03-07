@@ -85,7 +85,6 @@ before_script:
 
 script:
     - $MAIN_CMD $SETUP_CMD
-    - if [ "$SETUP_CMD" = "test --coverage" ]; then coverage combine; fi
 after_script:
 
 after_success:
