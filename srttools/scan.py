@@ -393,7 +393,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         plt.ylabel('Counts')
         plt.gca().text(0.05, 0.95, info_string, horizontalalignment='left',
                        verticalalignment='top',
-                       transform=plt.gca().transAxes, fontsize=20)
+                       transform=plt.gca().transAxes, fontsize=19)
         plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format))
         plt.close(fig)
         return None
@@ -487,7 +487,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         ax = plt.gca()
         ax.text(0.05, 0.95, info_string, horizontalalignment='left',
                 verticalalignment='top',
-                transform=ax.transAxes, fontsize=20)
+                transform=ax.transAxes, fontsize=19)
         plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format))
         plt.close(fig)
         return results
@@ -586,7 +586,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     ax_text.text(0.05, 0.95, info_string, horizontalalignment='left',
                  verticalalignment='top',
-                 transform=ax_text.transAxes, fontsize=20)
+                 transform=ax_text.transAxes, fontsize=19)
     ax_text.axis("off")
 
     fig.tight_layout()
@@ -717,6 +717,7 @@ class Scan(Table):
 
     def get_info_string(self, ch):
         infostr = "Target: {}\n".format(self.meta['SOURCE'])
+        infostr += "SubScan ID: {}\n".format(self.meta['SubScanID'])
         infostr += "Channel: {}\n".format(ch)
         infostr += "Mean RA: {:.2f} d\n".format(
             np.degrees(np.mean(self["ra"])))
