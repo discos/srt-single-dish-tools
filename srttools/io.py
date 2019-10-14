@@ -762,7 +762,7 @@ def read_data(fname):
     if kind == 'fitszilla':
         return read_data_fitszilla(fname)
     elif kind == 'hdf5':
-        return Table.read(fname, path='scan')
+        return Table.read(fname)
 
 
 def root_name(fname):

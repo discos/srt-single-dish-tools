@@ -448,9 +448,10 @@ class CalibratorTable(Table):
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
         if fname.endswith('.hdf5'):
-            Table.write(self, fname, *args, path='table', **kwargs)
+            super(CalibratorTable, self).write(fname, *args,
+                    **kwargs)
         else:
-            Table.write(self, fname, *args, **kwargs)
+            super(CalibratorTable, self).write(fname, *args, **kwargs)
 
     def check_not_empty(self):
         """Check that table is not empty.

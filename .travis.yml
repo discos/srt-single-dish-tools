@@ -34,7 +34,6 @@ env:
         - SETUP_CMD='test'
         - MPLBACKEND='Agg'
     matrix:
-        - PYTHON_VERSION=2.7 SETUP_CMD='egg_info'
         - PYTHON_VERSION=3.6 SETUP_CMD='egg_info'
 
 matrix:
@@ -44,7 +43,6 @@ matrix:
         # may run for a long time
         # Try all python versions with the latest numpy
 
-        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage' PIP_DEPENDENCIES='patsy codecov faulthandler future'
         - env: PYTHON_VERSION=3.7 SETUP_CMD='test --coverage' SETUP_XVFB=False
         # No matplotlib, with old scipy
         - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy=0.19 pytest pip h5py statsmodels pyyaml numba pyregion' SETUP_CMD='test --coverage'
@@ -60,7 +58,6 @@ matrix:
         - env: PYTHON_VERSION=3.7 ASTROPY_VERSION=development SETUP_CMD='test'
     allow_failures:
         # Try Astropy development version
-        - env: PYTHON_VERSION=2.7 SETUP_CMD='test --coverage' PIP_DEPENDENCIES='patsy codecov faulthandler future'
         - env: PYTHON_VERSION=3.7 ASTROPY_VERSION=development SETUP_CMD='test'
 
 before_install:
@@ -74,7 +71,6 @@ install:
     # conda for packages available through conda, or pip for any other
     # packages. You should leave the `numpy=$NUMPY_VERSION` in the `conda`
     # install since this ensures Numpy does not get automatically upgraded.
-    - if [[ $SETUP_CMD != egg_info ]] && [[ $PYTHON_VERSION == 2.7 ]]; then pip install contextlib2; fi
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_NUMBA == yes ]]; then $CONDA_INSTALL numba; fi
     - if [[ $SETUP_CMD != egg_info ]]; then pip install .; fi
 

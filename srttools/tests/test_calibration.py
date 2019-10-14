@@ -124,17 +124,17 @@ class TestCalibration(object):
             caltable.check_up_to_date()
 
     def test_check_class_from_file(self):
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         assert caltable.check_up_to_date()
 
     def test_Jy_over_counts_and_back(self):
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         Jc, Jce = caltable.Jy_over_counts(channel='Feed0_LCP')
         Cj, Cje = caltable.counts_over_Jy(channel='Feed0_LCP')
         np.testing.assert_allclose(Jc, 1 / Cj)
 
     def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
 
         flux_quantity = _get_flux_quantity('Jy/beam')
         caltable[flux_quantity + "/Counts"][0] += \
@@ -161,7 +161,7 @@ class TestCalibration(object):
     def test_calibration_counts(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         caltable = caltable[compare_strings(caltable['Source'], 'DummyCal')]
         caltable_0 = caltable[compare_strings(caltable['Chan'], 'Feed0_LCP')]
         assert np.all(
@@ -173,7 +173,7 @@ class TestCalibration(object):
     def test_calibration_width(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         caltable0 = caltable[compare_strings(caltable['Chan'], 'Feed0_LCP')]
         assert np.all(
             np.abs(caltable0['Width'] - 2.5/60.) < 5 * caltable0['Width Err'])
@@ -188,7 +188,7 @@ class TestCalibration(object):
     def test_calibration_plot_two_cols(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         caltable.plot_two_columns('RA', "Flux/Counts", xerrcol="RA err",
                                   yerrcol="Flux/Counts Err", test=True)
 
@@ -196,12 +196,12 @@ class TestCalibration(object):
     def test_calibration_show(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
 
         caltable.show()
 
     def test_calibrated_crossscans(self):
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         dummy_flux, dummy_flux_err = \
             caltable.calculate_src_flux(source='DummySrc', channel='Feed0_LCP')
         assert (dummy_flux[0] - 0.52) < dummy_flux_err[0] * 3
@@ -221,7 +221,7 @@ class TestCalibration(object):
         assert not np.all(res)
 
     def test_check_consistency(self):
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         res = caltable.check_consistency(channel='Feed0_LCP')
         assert np.all(res)
         res = caltable.check_consistency(channel='Feed0_RCP')
@@ -255,13 +255,13 @@ class TestCalibration(object):
         # ValueError("Please specify the config file!")
         with pytest.raises(ValueError) as excinfo:
             main_cal([])
-            assert "Please specify the config file!" in str(excinfo)
+            assert "Please specify the config file!" in str(excinfo.value)
 
     def test_sdtcal_no_config_dir(self):
         ValueError("No calibrators specified in config file")
         with pytest.raises(ValueError) as excinfo:
             main_cal(["-c", self.config_file_empty])
-            assert "No calibrators specified in config file" in str(excinfo)
+            assert "No calibrators specified in config file" in str(excinfo.value)
 
     def test_lcurve_with_single_source(self):
         main_lcurve([self.calfile, '-s', 'DummySrc'])

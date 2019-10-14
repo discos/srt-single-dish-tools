@@ -261,7 +261,7 @@ class TestScanSet(object):
     def test_preprocess_no_config(self):
         with pytest.raises(ValueError) as excinfo:
             main_preprocess([])
-        assert "Please specify the config file!" in str(excinfo)
+        assert "Please specify the config file!" in str(excinfo.value)
 
     def test_preprocess_invalid(self):
         with pytest.warns(UserWarning) as record:
@@ -274,11 +274,11 @@ class TestScanSet(object):
     def test_imager_no_config(self):
         with pytest.raises(ValueError) as excinfo:
             main_imager([])
-        assert "Please specify the config file!" in str(excinfo)
+        assert "Please specify the config file!" in str(excinfo.value)
 
     def test_load_table_and_config(self):
         from astropy.table import Table
-        table = Table.read('test.hdf5', path='scanset')
+        table = Table.read('test.hdf5')
         scanset = ScanSet(table, config_file=self.config_file)
         for k in self.config.keys():
             assert scanset.meta[k] == self.config[k]
@@ -317,7 +317,7 @@ class TestScanSet(object):
         scanset = ScanSet('test.hdf5')
         with pytest.raises(ImportError) as excinfo:
             imgsel = scanset.interactive_display('Feed0_RCP', test=True)
-            assert "matplotlib is not installed" in str(excinfo)
+            assert "matplotlib is not installed" in str(excinfo.value)
 
     @pytest.mark.skipif('not HAS_MPL')
     def test_interactive_scans_all_calibrated_channels(self, capsys):
@@ -581,7 +581,7 @@ class TestScanSet(object):
         with pytest.raises(ValueError) as excinfo:
             images = scanset.calculate_images(calibration=self.calfile,
                                               map_unit="junk")
-            assert "Unit for calibration not recognized" in str(excinfo)
+            assert "Unit for calibration not recognized" in str(excinfo.value)
 
     def test_calibrate_image_sr(self):
         scanset = ScanSet('test.hdf5')
@@ -674,7 +674,7 @@ class TestScanSet(object):
                                      excluded=excluded,
                                      parfile="out_iter_Feed0_RCP_002.txt")
 
-            assert "display_intermediate: matplotlib" in str(excinfo)
+            assert "display_intermediate: matplotlib" in str(excinfo.value)
         else:
             display_intermediate(scanset, chan="Feed0_RCP",
                                  excluded=excluded,
@@ -847,7 +847,7 @@ class TestScanSet(object):
         '''Test image production.'''
         with pytest.raises(ValueError) as excinfo:
             main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
-            assert "Exclusion region has to be specified as " in str(excinfo)
+            assert "Exclusion region has to be specified as " in str(excinfo.value)
 
     def test_imager_global_fit_valid(self):
         '''Test image production.'''

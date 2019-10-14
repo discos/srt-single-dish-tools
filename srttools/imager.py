@@ -59,7 +59,7 @@ def all_lower(list_of_strings):
 
 
 def _load_calibration(calibration, map_unit):
-    caltable = CalibratorTable().read(calibration, path='table')
+    caltable = CalibratorTable().read(calibration)
     caltable.update()
     caltable.compute_conversion_function(map_unit)
 
@@ -159,7 +159,7 @@ class ScanSet(Table):
             data = vstack(alldata)
             data.scan_list = scan_list
         elif isinstance(data, six.string_types) and data.endswith('hdf5'):
-            data = Table.read(data, path='scanset')
+            data = super().read(data)
 
             txtfile = data.meta['scan_list_file']
 
@@ -1019,7 +1019,7 @@ class ScanSet(Table):
         self['barytime'] = obstimes_tdb
         return obstimes_tdb
 
-    def write(self, fname, **kwargs):
+    def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5.
 
         Moreover, saves the scan list to a txt file, that will be read when
@@ -1036,8 +1036,10 @@ class ScanSet(Table):
         self.update_meta_with_images()
 
         try:
-            Table.write(self, fname, path='scanset', serialize_meta=True,
-                        **kwargs)
+            kwargs['serialize_meta'] = kwargs.pop('serialize_meta', True)
+            super(ScanSet, self).write(fname, *args, **kwargs)
+            # Table.write(self, fname, serialize_meta=True,
+            #             **kwargs)
         except astropy.io.registry.IORegistryError as e:
             raise astropy.io.registry.IORegistryError(fname + ': ' + str(e))
 

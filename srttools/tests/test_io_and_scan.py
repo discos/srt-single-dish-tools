@@ -109,7 +109,7 @@ class Test1_Scan(object):
                 [dummyname, '-k', 'DATA TABLE,data,time', '-v',
                  '0', '--recursive'])
 
-        assert "Options recursive requires a file name" in str(excinfo)
+        assert "Options recursive requires a file name" in str(excinfo.value)
         os.unlink(dummyname)
 
     def test_bulk_change_missing_key(self):
@@ -118,7 +118,7 @@ class Test1_Scan(object):
         with pytest.raises(ValueError) as excinfo:
             main_bulk_change(
                 [dummyname])
-        assert "What should I" in str(excinfo)
+        assert "What should I" in str(excinfo.value)
 
     def test_bulk_change_main(self):
         dummyname = os.path.join(os.getcwd(), 'dummyfile.fits')
@@ -171,7 +171,7 @@ class Test1_Scan(object):
         from astropy.table import Table
         scan = Scan(self.fname)
         scan.write('scan.hdf5', overwrite=True)
-        table = Table.read('scan.hdf5', path='scan')
+        table = Table.read('scan.hdf5')
         scan_from_table = Scan(table)
         for c in scan.columns:
             assert np.all(scan_from_table[c] == scan[c])
@@ -207,7 +207,7 @@ class Test1_Scan(object):
         with pytest.raises(Exception) as excinfo:
             scan = Scan(os.path.join(self.datadir, 'srt_chans_bad.fits'))
 
-        assert "with channel subdivision:" in str(excinfo)
+        assert "with channel subdivision:" in str(excinfo.value)
 
     def test_simple_in_stokes(self):
         with pytest.warns(UserWarning) as record:

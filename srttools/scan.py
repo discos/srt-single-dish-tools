@@ -282,7 +282,7 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     if not np.any(mask):
         warnings.warn("No good channels found. A problem with the data or "
                       "incorrect noise threshold?")
-        mask[:] = True
+        # mask[:] = True
 
     results.mask = mask
     results.spectral_var = spectral_var
@@ -412,7 +412,9 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     df = bandwidth / nbin
 
     spec_stats = _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
-                                  smoothing_window, noise_threshold)
+                                     smoothing_window, noise_threshold)
+    if not np.any(spec_stats.mask):
+        return None
     freqmask = spec_stats.freqmask
     mask = spec_stats.mask
     freqmin = spec_stats.freqmin
@@ -543,6 +545,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_var.plot(allbins[mask], spectral_var[mask])
     ax_var.plot(allbins, cleaned_spectral_var,
                 zorder=10, color="k")
+
     if baseline is not None:
         ax_var.plot(allbins[1:], baseline[1:])
         ax_var.plot(allbins[1:], thresh_high[1:], color='r', lw=2)
@@ -687,7 +690,7 @@ class Scan(Table):
             if debug:
                 log.info('Loading file {}'.format(data))
             table = read_data(data)
-            Table.__init__(self, table, masked=True, **kwargs)
+            super().__init__(table, **kwargs)
             if not data.endswith('hdf5'):
                 self.meta['filename'] = os.path.abspath(data)
             self.meta['config_file'] = config_file
@@ -705,8 +708,11 @@ class Scan(Table):
             if (('backsub' not in self.meta.keys() or
                     not self.meta['backsub'])) and not nosub:
                 log.info('Subtracting the baseline')
-                self.baseline_subtract(avoid_regions=avoid_regions,
-                                       plot=plot)
+                try:
+                    self.baseline_subtract(avoid_regions=avoid_regions,
+                                           plot=plot)
+                except Exception as e:
+                    log.error("Baseline subtraction failed: {str(e)}")
 
             if not nosave:
                 self.save()
@@ -801,6 +807,7 @@ class Scan(Table):
 
             if results is None:
                 continue
+
             mask = mask & results.mask
             lc_corr = results.lc
             freqmin, freqmax = results.freqmin, results.freqmax
@@ -896,10 +903,12 @@ class Scan(Table):
 
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
-        log.info('Saving to {}'.format(fname))
+        # log.info('Saving to {}'.format(fname))
+
         if fname.endswith('.hdf5'):
-            Table.write(self, fname, *args, path='scan', serialize_meta=True,
-                        **kwargs)
+            kwargs['serialize_meta'] = kwargs.pop('serialize_meta', True)
+            super(Scan, self).write(fname, *args, **kwargs)
+
         else:
             raise TypeError("Saving to anything else than HDF5 is not "
                             "supported at the moment")
