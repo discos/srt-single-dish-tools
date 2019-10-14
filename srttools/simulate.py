@@ -10,7 +10,7 @@ from astropy.io import fits
 from astropy.table import Table, vstack
 import astropy.units as u
 import six
-import collections
+from collections.abc import Iterable
 
 from .io import mkdir_p, locations
 from .utils import tqdm, jit
@@ -77,7 +77,7 @@ def _apply_spectrum_to_data(spec_func, counts, nbin, bw=1000):
     if nbin == 1:
         return counts
     single = False
-    if not isinstance(counts, collections.Iterable):
+    if not isinstance(counts, Iterable):
         counts = [counts]
         single = True
     counts = np.asarray(counts)
@@ -403,7 +403,7 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     if other_keywords is None:
         other_keywords = {}
     # If it's a single value, make it into a list
-    if not isinstance(counts_to_K, collections.Iterable):
+    if not isinstance(counts_to_K, Iterable):
         counts_to_K = counts_to_K * np.ones(len(list(channels.keys())))
     # If it's a list, make it into a dict
     if not hasattr(counts_to_K, 'keys'):
@@ -497,7 +497,7 @@ def _single_value_as_tuple(value, nvals=2):
     >>> np.all(_single_value_as_tuple(1, nvals=3) == (1, 1, 1))
     True
     """
-    if isinstance(value, collections.Iterable):
+    if isinstance(value, Iterable):
         return value
     return tuple([value] * nvals)
 
@@ -531,7 +531,7 @@ def _create_baseline(x, baseline_kind="flat"):
         mmin, mmax = 0, 0
         qmin, qmax = 0, 0
         stochastic_amp = float(baseline_kind)
-    elif isinstance(baseline_kind, collections.Iterable) and not \
+    elif isinstance(baseline_kind, Iterable) and not \
             isinstance(baseline_kind, six.string_types):
         m = _single_value_as_tuple(baseline_kind[0], nvals=2)
         q = _single_value_as_tuple(baseline_kind[1], nvals=2)

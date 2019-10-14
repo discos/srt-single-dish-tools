@@ -14,7 +14,8 @@ import six
 import shutil
 import os
 
-from collections import OrderedDict, Iterable
+from collections import OrderedDict
+from collections.abc import Iterable
 
 try:
     from mahotas.features import zernike_moments

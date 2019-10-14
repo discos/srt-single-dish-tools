@@ -75,7 +75,7 @@ from ..io import label_from_chan_name
 from scipy.signal import medfilt
 import copy
 import warnings
-import collections
+from collections.abc import Iterable
 from astropy import log
 
 
@@ -380,7 +380,7 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
         else:
             return None, ""
 
-    if not isinstance(calibration_factor, collections.Iterable):
+    if not isinstance(calibration_factor, Iterable):
         calibration_factor *= np.ones(newtable['SPECTRUM'].shape[0])
 
     for i, calf in enumerate(calibration_factor):
@@ -564,7 +564,7 @@ class CLASSFITS_creator():
 
                     data['SIGNAL'][id0:id1] = on_or_off(subscan, f)
                     is_on = cal_is_on(subscan)
-                    if isinstance(is_on, collections.Iterable) and average:
+                    if isinstance(is_on, Iterable) and average:
                         if len(list(set(is_on))) != 1:
                             raise ValueError('flag_cal is inconsistent '
                                              'in {}'.format(fname))

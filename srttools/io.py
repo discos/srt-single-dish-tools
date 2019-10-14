@@ -13,7 +13,7 @@ from astropy import log
 import copy
 import re
 import six
-import collections
+from collections.abc import Iterable
 try:
     import glob2 as glob
 except ImportError:
@@ -374,7 +374,7 @@ def get_value_with_units(fitsext, keyword, default=""):
         unit = u.Unit(unitstr)
     value = fitsext[keyword]
     is_string = isinstance(value, six.string_types)
-    is_iterable = isinstance(value, collections.Iterable)
+    is_iterable = isinstance(value, Iterable)
     if is_string or (is_iterable and isinstance(value[0], six.string_types)):
         return value
     else:

@@ -21,7 +21,7 @@ import traceback
 import six
 import copy
 import functools
-import collections
+from collections.abc import Iterable
 from scipy.stats import binned_statistic_2d
 from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
@@ -143,7 +143,7 @@ class ScanSet(Table):
         self.images_hor = None
         self.images_ver = None
 
-        if isinstance(data, collections.Iterable) and \
+        if isinstance(data, Iterable) and \
                 not isinstance(data, six.string_types):
             alldata = [ScanSet(d, norefilt=norefilt, config_file=config_file,
                                freqsplat=freqsplat, nofilt=nofilt,

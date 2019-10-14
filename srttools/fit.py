@@ -6,7 +6,7 @@ from scipy.signal import medfilt
 import numpy as np
 import traceback
 import warnings
-import collections
+from collections.abc import Iterable
 import copy
 from .utils import mad, HAS_MPL
 
@@ -434,7 +434,7 @@ def baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
         Fitted baseline. Only returned if return_baseline is True
     """
 
-    if not isinstance(outlier_purging, collections.Iterable):
+    if not isinstance(outlier_purging, Iterable):
         outlier_purging = (outlier_purging, outlier_purging)
     if lam is None:
         lam = 1e11
