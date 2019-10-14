@@ -5,3 +5,5 @@ h5py
 pyyaml
 astropy>=3
 sphinx-astropy
+statsmodels>=0.8.0
+
