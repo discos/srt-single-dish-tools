@@ -673,9 +673,9 @@ class Scan(Table):
             config_file = get_config_file()
 
         if isinstance(data, Table):
-            Table.__init__(self, data, **kwargs)
+            super().__init__(data, **kwargs)
         elif data is None:
-            Table.__init__(self, **kwargs)
+            super().__init__(**kwargs)
             self.meta['config_file'] = config_file
             self.meta.update(read_config(self.meta['config_file']))
         else:  # if data is a filename
