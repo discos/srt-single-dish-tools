@@ -748,6 +748,7 @@ class CalibratorTable(Table):
         ye_to_fit = np.array(f_c_ratio_err[good])
 
         p = [np.median(y_to_fit)]
+        pcov = np.array([[np.median(ye_to_fit)**2]])
         first = True
 
         while 1:
