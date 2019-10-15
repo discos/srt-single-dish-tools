@@ -28,7 +28,7 @@ env:
         # to repeat them for all configurations.
         - ASTROPY_VERSION=stable
         - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml numba pyregion'
-        - PIP_DEPENDENCIES='patsy codecov pytest pytest_astropy'
+        - PIP_DEPENDENCIES='patsy codecov pytest pytest_astropy watchdog'
         - MAIN_CMD='python setup.py'
         - SETUP_XVFB=True
         - SETUP_CMD='test'
