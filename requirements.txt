@@ -1,5 +1,7 @@
-scipy
+scipy>=1.0
+numpy>=1.17
 pytest
+pytest_astropy
 pip
 h5py
 pyyaml
