@@ -651,6 +651,8 @@ def calculate_moments(y, imax=None, window_length=5):
 
     N = len(y)
     xk = imax - np.arange(N)
+    # Avoid negative numbers
+    yk -= yk.min()
     yk = np.round(yk / np.sum(yk), decimals=7)
 
     xslice_dist = scipy.stats.rv_discrete(name='custm', values=(xk, yk))
