@@ -4,18 +4,20 @@ Random utilities
 from __future__ import (absolute_import, division,
                         print_function)
 import sys
-import numpy as np
+import six
+import shutil
+import os
+import time
 import warnings
+from collections import OrderedDict
+from collections.abc import Iterable
+
+import numpy as np
 from astropy import log
 
 import scipy
 import scipy.stats
-import six
-import shutil
-import os
 
-from collections import OrderedDict
-from collections.abc import Iterable
 
 try:
     from mahotas.features import zernike_moments
@@ -789,3 +791,39 @@ def get_mH2O(TMP, U):
     ZWDS = 0.002277 * (0.005 + 1255 / TMP) * e0
 
     return ZWDS * C * 100.
+
+
+def look_for_files_or_bust(files, timeout):
+    """
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> Path('blabla1.txt').touch()
+    >>> Path('blabla2.txt').touch()
+    >>> look_for_files_or_bust(['blabla1.txt', 'blabla2.txt', 'blabla3.txt'],
+    ...                        timeout=1)
+    Traceback (most recent call last):
+       ...
+    FileNotFoundError: ...['blabla3.txt']
+    """
+    t0 = time.time()
+    current_time = time.time()
+    number_of_seconds = 0
+    while current_time - t0 < timeout:
+        import numpy as np
+        all_exist = np.zeros(len(files), dtype=bool)
+        for i, fname in enumerate(files):
+            all_exist[i] = os.path.exists(fname)
+        if np.all(all_exist):
+            break
+        current_time = time.time()
+        if current_time - t0 > number_of_seconds:
+            number_of_seconds += 1
+            log.info("Not all files were found. Keep going...")
+
+    else:
+        missing_files = [fname for exists, fname in zip(all_exist, files)
+                         if not exists]
+
+        raise FileNotFoundError(("One or more of the expected files"
+                                 " were not found: {}").format(missing_files))
