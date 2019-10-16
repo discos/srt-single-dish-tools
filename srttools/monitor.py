@@ -305,7 +305,19 @@ def main_monitor(args=None):
         default=1,
         help='The maximum number of worker processes to spawn'
     )
+    parser.add_argument(
+        '--timeout',
+        type=float,
+        default=None,
+        help='Set a timeout for the monitor'
+    )
     args = parser.parse_args(args)
+
+    timeout = args.timeout
+    if args.timeout is None:
+        timeout = 1e32
+        if args.test:
+            timeout = 10
 
     if not args.test:
         del log.handlers[:]  # Needed to prevent duplicate logging entries
@@ -366,11 +378,10 @@ def main_monitor(args=None):
         t.start()
 
     try:
-        count = 0
-        while count < 10:
+        t0 = time.time()
+        while time.time() - t0 < timeout:
             time.sleep(1)
-            if args.test:
-                count += 1
+
         raise KeyboardInterrupt
     except KeyboardInterrupt:
         pass
