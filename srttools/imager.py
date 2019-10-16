@@ -341,7 +341,7 @@ class ScanSet(Table):
                                        self['dec']]))
 
     def get_obstimes(self):
-        """Get `astropy.Time` object for time at the telescope location."""
+        """Get :class:`astropy.time.Time` at the telescope location."""
         from astropy.time import Time
         from .io import locations
         return Time((self['time']) * u.day, format='mjd', scale='utc',
@@ -353,9 +353,10 @@ class ScanSet(Table):
         Parameters
         ----------
         user_func : function
-            This function needs to accept a `scanset` as only argument.
-            `ScanSet` object. It has to return an array with the same length of
-            a column of `scanset`
+            This function needs to accept a :class:`srttools.imager.ScanSet`
+            object as only argument.
+            It has to return an array with the same length of
+            a column of the input dataset
         out_column : str
             column where the results will be stored
 

@@ -240,6 +240,8 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     results.meanspec = meanspec
 
     if dynspec_len < 10:
+        warnings.warn("Very few data in the dataset. "
+                      "Skipping spectral filtering.")
         return results
 
     spectral_var = \
@@ -473,6 +475,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     results.mask = wholemask
 
     if not plot or not HAS_MPL:
+        log.debug("No plotting needs to be done.")
         return results
 
     # Now, PLOT IT ALL --------------------------------
@@ -649,8 +652,8 @@ class Scan(Table):
         data : str or None
             data can be one of the following: None, in which case an empty Scan
             object is created; a FITS or HDF5 archive, containing an on-the-fly
-            or cross scan in one of the accepted formats; another `Scan` or
-            `astropy.Table` object
+            or cross scan in one of the accepted formats; another :class:`srttools.scan.Scan` or
+            :class:`astropy.table.Table` object
         config_file : str
             Config file containing the parameters for the images and the
             directories containing the image and calibration data
@@ -667,7 +670,7 @@ class Scan(Table):
         Other Parameters
         ----------------
         kwargs : additional arguments
-            These will be passed to `astropy.Table` initializer
+            These will be passed to :class:`astropy.table.Table` initializer
         """
         if config_file is None:
             config_file = get_config_file()

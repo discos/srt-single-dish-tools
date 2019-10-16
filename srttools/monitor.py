@@ -51,7 +51,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         super().__init__()
         self.conf = getattr(sys.modules[__name__], 'conf')
         create_index_file(self.conf['debug_file_format'])
-        
+
         self.max_proc = n_proc
 
         self.timers = {}
@@ -399,7 +399,7 @@ def create_index_file(extension, interval=500):
     """
     :param extension: the file extension of the image files to look for.
     :param interval: expressed in milliseconds, it represents the time between
-        two subsequent calls to the `updatePage` function. Since the images
+        two subsequent calls to the ``updatePage`` function. Since the images
         get reloaded without any flickering (as opposed to when the whole page
         gets reloaded from the browser), its value can be set to a fraction of
         a second without any visible issue.

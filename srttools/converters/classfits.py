@@ -309,7 +309,7 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
     an additional calibration factor is applied. If CAL is applied only to
     the OFF/REFERENCE signal (let us call it OFFCAL), a single calibration
     factor is calculated: OFF/(OFFCAL - OFF). If the CAL signal is also applied
-    to the ON signal, and `use_calon` is True, an additional factor
+    to the ON signal, and ``use_calon`` is True, an additional factor
     ON/(ONCAL - ON) is calculated and averaged with the previous.
 
     Parameters
@@ -436,7 +436,7 @@ class CLASSFITS_creator():
     def get_scan(self, scandir, average=False):
         """Treat the data and produce the output, uncalibrated files.
 
-        Fills in the `self.tables` attribute with a dictionary of HDU lists
+        Fills in the ``self.tables`` attribute with a dictionary of HDU lists
         containing a primary header and a MATRIX extension in CLASS-compatible
         FITS format
 
@@ -640,7 +640,7 @@ class CLASSFITS_creator():
     def calibrate_all(self, use_calon=False):
         """Calibrate the scan in all available ways.
 
-        The basic calibration is `(on - off)/off`, where `on` and `off` are
+        The basic calibration is ``(on - off)/off``, where ``on`` and ``off`` are
         on-source and off-source spectra respectively.
 
         New HDU lists are produced and added to the existing, uncalibrated

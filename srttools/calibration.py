@@ -575,8 +575,8 @@ class CalibratorTable(Table):
         """Compute the conversion between Jy and counts.
 
         Try to get a meaningful second-degree polynomial fit over elevation.
-        Revert to the rough function `Jy_over_counts_rough` in case
-        `statsmodels` is not installed. In this latter case, only the baseline
+        Revert to the rough function :func:`Jy_over_counts_rough` in case
+        ``statsmodels`` is not installed. In this latter case, only the baseline
         value is given for flux conversion and error.
         These values are saved in the ``calibration_coeffs`` and
         ``calibration_uncerts`` attributes of ``CalibratorTable``, and a
@@ -718,7 +718,7 @@ class CalibratorTable(Table):
         fc : float
             flux density /count ratio
         fce : float
-            uncertainty on `fc`
+            uncertainty on ``fc``
         """
 
         self.check_up_to_date()
