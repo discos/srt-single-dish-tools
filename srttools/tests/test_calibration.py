@@ -137,11 +137,14 @@ class TestCalibration(object):
         caltable = CalibratorTable.read(self.calfile)
 
         flux_quantity = _get_flux_quantity('Jy/beam')
-        caltable[flux_quantity + "/Counts"][0] += \
-            caltable[flux_quantity + "/Counts Err"][0] * 2000
-        caltable.write('bubu.csv')
+        good = ~np.isnan(caltable[flux_quantity + "/Counts"])
+        firstidx = np.where(good)[0][0]
+        caltable[flux_quantity + "/Counts"][firstidx] += \
+            np.max(caltable[flux_quantity + "/Counts Err"][good]) * 20000
+
         Jc, Jce = caltable.Jy_over_counts_rough(channel='Feed0_LCP',
                                                 map_unit='Jy/beam')
+
         assert 'Outliers: ' in caplog.text
         Cj, Cje = caltable.counts_over_Jy(channel='Feed0_LCP')
         np.testing.assert_allclose(Jc, 1 / Cj)
@@ -279,7 +282,8 @@ class TestCalibration(object):
     def teardown_class(klass):
         """Clean up the mess."""
         if HAS_MPL:
-            os.unlink('calibration_summary.png')
+            if os.path.exists('calibration_summary.png'):
+                os.unlink('calibration_summary.png')
         for d in klass.config['list_of_directories']:
             hfiles = \
                 glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))

@@ -30,11 +30,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import Table, Column
 
-# For Python 2 and 3 compatibility
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
+import configparser
 
 try:
     import matplotlib.pyplot as plt
@@ -270,16 +266,17 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         flux_over_counts, flux_over_counts_err = 0, 0
         calculated_flux, calculated_flux_err = 0, 0
 
-        rows.append([scandir, sname, scan_type, source, channel, feed,
-                     time, frequency, bandwidth, counts, counts_err,
-                     fit_width, width_err,
-                     flux_density, flux_density_err, el, az,
-                     source_temperature,
-                     flux_over_counts, flux_over_counts_err,
-                     flux_over_counts, flux_over_counts_err,
-                     calculated_flux, calculated_flux_err,
-                     pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
-                     dec_err, skewness, kurtosis])
+        new_row = [scandir, sname, scan_type, source, channel, feed,
+                   time, frequency, bandwidth, counts, counts_err,
+                   fit_width, width_err,
+                   flux_density, flux_density_err, el, az,
+                   source_temperature,
+                   flux_over_counts, flux_over_counts_err,
+                   flux_over_counts, flux_over_counts_err,
+                   calculated_flux, calculated_flux_err,
+                   pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
+                   dec_err, skewness, kurtosis]
+        rows.append(new_row)
 
         if plot and HAS_MPL:
             fig = plt.figure("Fit information")
@@ -723,7 +720,7 @@ class CalibratorTable(Table):
         self.check_up_to_date()
 
         if good_mask is None:
-            good_mask = np.ones(len(self["Time"]), dtype=bool)
+            good_mask = self['Flux'] > 0
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:

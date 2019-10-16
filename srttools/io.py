@@ -11,6 +11,7 @@ from astropy import log
 import copy
 import re
 import six
+import glob
 from collections.abc import Iterable
 
 
@@ -26,6 +27,12 @@ chan_re = re.compile(r'^Ch([0-9]+)$'
                      r'|^Feed([0-9]+)_([a-zA-Z]+)$'
                      r'|^Feed([0-9]+)_([a-zA-Z]+)_([0-9]+)$')
 
+
+# 'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
+#                                   unit=u.m)
+# EarthLocation(Angle("9:14:42.5764", u.deg),
+#                                   Angle("39:29:34.93742", u.deg),
+#                                   600 * u.meter) # not precise enough
 
 locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                   unit=u.m),
