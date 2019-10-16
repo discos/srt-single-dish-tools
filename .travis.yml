@@ -27,8 +27,8 @@ env:
         # overidden underneath. They are defined here in order to save having
         # to repeat them for all configurations.
         - ASTROPY_VERSION=stable
-        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml numba pyregion'
-        - PIP_DEPENDENCIES='patsy codecov pytest pytest_astropy watchdog'
+        - CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml numba'
+        - PIP_DEPENDENCIES='pyregion patsy codecov pytest pytest_astropy watchdog'
         - MAIN_CMD='python setup.py'
         - SETUP_XVFB=True
         - SETUP_CMD='test'
@@ -49,7 +49,7 @@ matrix:
         # No NUMBA, pyregion
         - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py statsmodels pyyaml' SETUP_CMD='test --coverage'
         # No statsmodels
-        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba pyregion' PIP_DEPENDENCIES='patsy codecov mahotas watchdog pillow' SETUP_CMD='test --coverage'
+        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy matplotlib pytest pip h5py pyyaml numba' PIP_DEPENDENCIES='patsy codecov mahotas watchdog pillow pyregion' SETUP_CMD='test --coverage'
         # Documentation
         - env: PYTHON_VERSION=3.6 SETUP_CMD='build_docs -w' PIP_DEPENDENCIES='patsy codecov sphinx_astropy'
 
