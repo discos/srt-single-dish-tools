@@ -21,8 +21,7 @@ resampling as there is just one set of coordinates but several data arrays
 Therefore repeated computations are prevented.
 '''
 
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 import numpy as np
 from numpy import atleast_2d, asarray, zeros, ones, array, atleast_1d, arange,\

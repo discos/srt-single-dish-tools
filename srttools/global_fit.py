@@ -1,7 +1,6 @@
 """Functions to clean images by fitting linear trends to the initial scans."""
 
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 try:
     import matplotlib.pyplot as plt

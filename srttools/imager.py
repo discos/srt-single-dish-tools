@@ -4,8 +4,7 @@
 on-the-fly map, is able to calculate the map and save it in FITS format after
 cleaning the data.
 """
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 import numpy as np
 import astropy

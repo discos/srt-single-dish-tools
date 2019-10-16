@@ -1,6 +1,5 @@
 """Scan class."""
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 from .io import read_data, root_name, get_chan_columns, get_channel_feed
 from .io import mkdir_p

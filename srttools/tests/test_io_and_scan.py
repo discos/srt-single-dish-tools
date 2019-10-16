@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 from srttools.read_config import read_config
 from astropy.time import Time

@@ -1,6 +1,4 @@
 """Input/output functions."""
-from __future__ import (absolute_import, division,
-                        print_function)
 import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
@@ -14,10 +12,6 @@ import copy
 import re
 import six
 from collections.abc import Iterable
-try:
-    import glob2 as glob
-except ImportError:
-    import glob
 
 
 from .utils import force_move_file

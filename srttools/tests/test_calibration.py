@@ -139,6 +139,7 @@ class TestCalibration(object):
         flux_quantity = _get_flux_quantity('Jy/beam')
         caltable[flux_quantity + "/Counts"][0] += \
             caltable[flux_quantity + "/Counts Err"][0] * 2000
+        caltable.write('bubu.csv')
         Jc, Jce = caltable.Jy_over_counts_rough(channel='Feed0_LCP',
                                                 map_unit='Jy/beam')
         assert 'Outliers: ' in caplog.text
@@ -290,3 +291,5 @@ class TestCalibration(object):
                                        '*_scanfit'))
             for dirname in dirs:
                 shutil.rmtree(dirname)
+        if os.path.exists(klass.calfile):
+            os.remove(klass.calfile)

@@ -1,7 +1,6 @@
 """Read the relevant information and link observations to calibrators."""
 
-from __future__ import (absolute_import, division,
-                        print_function)
+
 import os
 import glob
 import warnings

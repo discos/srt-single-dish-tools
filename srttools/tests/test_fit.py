@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import (absolute_import, division,
-                        print_function)
+
 from srttools.fit import fit_baseline_plus_bell, purge_outliers, align
 from srttools.fit import baseline_rough, ref_mad, ref_std, _rolling_window
 from srttools.fit import linear_fit, offset_fit, detrend_spectroscopic_data

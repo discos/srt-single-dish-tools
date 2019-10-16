@@ -1,6 +1,5 @@
 """Useful fitting functions."""
-from __future__ import (absolute_import, division,
-                        print_function)
+
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
 import numpy as np
