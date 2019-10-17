@@ -719,6 +719,8 @@ class CalibratorTable(Table):
 
         self.check_up_to_date()
 
+        flux_quantity = _get_flux_quantity(map_unit)
+
         if good_mask is None:
             good_mask = self['Flux'] > 0
 
@@ -727,8 +729,6 @@ class CalibratorTable(Table):
             good_chans = compare_strings(self['Chan'], channel)
 
         good_chans = good_chans & good_mask
-
-        flux_quantity = _get_flux_quantity(map_unit)
 
         f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
         f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
@@ -749,6 +749,7 @@ class CalibratorTable(Table):
 
         while 1:
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
+
             if not np.any(bad) and not first:
                 break
 
@@ -853,7 +854,7 @@ class CalibratorTable(Table):
             True if, for all calibrators, the tabulated and calculated values
             of the flux are consistent. False otherwise.
         """
-        is_cal = self['Flux'] > 0
+        is_cal = (~np.isnan(self['Flux']))&(self['Flux'] > 0)
         calibrators = list(set(self['Source'][is_cal]))
         for cal in calibrators:
             self.calculate_src_flux(channel=channel, source=cal)

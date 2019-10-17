@@ -14,7 +14,6 @@ import shutil
 
 import os
 import numpy as np
-import subprocess as sp
 
 try:
     from tqdm import tqdm
@@ -138,9 +137,9 @@ class TestCalibration(object):
 
         flux_quantity = _get_flux_quantity('Jy/beam')
         good = ~np.isnan(caltable[flux_quantity + "/Counts"])
+        std = np.std(np.diff(caltable[flux_quantity + "/Counts Err"][good]))
         firstidx = np.where(good)[0][0]
-        caltable[flux_quantity + "/Counts"][firstidx] += \
-            np.max(caltable[flux_quantity + "/Counts Err"][good]) * 20000
+        caltable[flux_quantity + "/Counts"][firstidx] += std * 20000
 
         Jc, Jce = caltable.Jy_over_counts_rough(channel='Feed0_LCP',
                                                 map_unit='Jy/beam')
