@@ -29,7 +29,7 @@ env:
         # to repeat them for all configurations.
         - ASTROPY_VERSION=stable
         - CONDA_DEPENDENCIES='scipy matplotlib pip h5py pyyaml'
-        - PIP_DEPENDENCIES='pyregion patsy codecov pytest pytest_astropy mahotas pillow'
+        - PIP_DEPENDENCIES='patsy codecov pytest pytest_astropy mahotas pillow'
         - MAIN_CMD='python setup.py'
         - SETUP_XVFB=True
         - SETUP_CMD='test'
