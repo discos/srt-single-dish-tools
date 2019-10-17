@@ -36,6 +36,9 @@ except ImportError:
     print('ERROR: the documentation requires the sphinx-astropy package to be installed')
     sys.exit(1)
 
+ON_RTD = os.environ.get('READTHEDOCS') == 'True'
+ON_TRAVIS = os.environ.get('TRAVIS') == 'true'
+
 # Get configuration information from setup.cfg
 from configparser import ConfigParser
 conf = ConfigParser()
@@ -98,12 +101,12 @@ release = package.__version__
 # Add any paths that contain custom themes here, relative to this directory.
 # To use a different custom theme, add the directory containing the theme.
 #html_theme_path = []
-
+html_theme_path = ['themes']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes. To override the custom theme, set this to the
 # name of a builtin theme or the name of a custom theme in html_theme_path.
 #html_theme = None
-
+html_theme = 'bootstrap-astropy'
 
 html_theme_options = {
     'logotext1': 'SRT',  # white,  semi-bold
@@ -169,6 +172,32 @@ if eval(setup_cfg.get('edit_on_github')):
 
 # -- Resolving issue number to links in changelog -----------------------------
 github_issues_url = 'https://github.com/{0}/issues/'.format(setup_cfg['github_project'])
+
+
+if not ON_RTD and not ON_TRAVIS:
+    scripts = dict(conf.items('entry_points'))
+    import subprocess as sp
+    with open(os.path.join(os.getcwd(), 'scripts',
+                           'cli.rst'), 'w') as fobj:
+        print("""Command line interface""", file=fobj)
+        print("""======================\n""", file=fobj)
+
+        for cl in sorted(scripts.keys()):
+            if cl.startswith('MP'):
+                continue
+            print(cl, file=fobj)
+            print('-' * len(cl), file=fobj)
+            print(file=fobj)
+            print('.. code-block:: none', file=fobj)
+            print(file=fobj)
+            lines = sp.check_output([cl, '--help']).decode().split('\n')
+            for l in lines:
+                if l.strip() == '':
+                    print(file=fobj)
+                else:
+                    print('    ' + l, file=fobj)
+            print(file=fobj)
+
 
 # -- Turn on nitpicky mode for sphinx (to warn about references not found) ----
 #
