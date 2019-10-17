@@ -1,4 +1,8 @@
-from __future__ import division, print_function
+import glob
+import shutil
+import os
+import subprocess as sp
+
 from srttools.calibration import CalibratorTable
 from srttools.calibration import main_lcurve, _get_flux_quantity, main_cal
 from srttools.read_config import read_config
@@ -9,10 +13,6 @@ from srttools.utils import compare_strings, HAS_MPL
 import pytest
 from astropy import log
 from astropy.logger import logging
-import glob
-import shutil
-
-import os
 import numpy as np
 
 try:
