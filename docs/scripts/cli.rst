@@ -273,6 +273,7 @@ SDTmonitor
 
     usage: SDTmonitor [-h] [-c CONFIG] [--test] [--nosave] [-p]
                       [--http-server-port HTTP_SERVER_PORT] [-v] [-w WORKERS]
+                      [--timeout TIMEOUT]
                       directories [directories ...]
 
     Run the SRT quicklook in a given directory.
@@ -293,6 +294,7 @@ SDTmonitor
       -v, --verbosity       Set the verbosity level
       -w WORKERS, --workers WORKERS
                             The maximum number of worker processes to spawn
+      --timeout TIMEOUT     Set a timeout for the monitor
 
 
 SDTopacity

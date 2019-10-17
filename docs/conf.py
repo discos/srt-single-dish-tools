@@ -175,17 +175,19 @@ github_issues_url = 'https://github.com/{0}/issues/'.format(setup_cfg['github_pr
 
 
 if not ON_RTD and not ON_TRAVIS:
-    scripts = dict(conf.items('entry_points'))
+    scripts = dict(conf.items('options.entry_points'))['console_scripts'].split("\n")
     import subprocess as sp
     with open(os.path.join(os.getcwd(), 'scripts',
                            'cli.rst'), 'w') as fobj:
         print("""Command line interface""", file=fobj)
         print("""======================\n""", file=fobj)
 
-        for cl in sorted(scripts.keys()):
-            if cl.startswith('MP'):
+        for script in sorted(scripts):
+            try:
+                cl, fun = [val.strip() for val in script.split('=')]
+            except ValueError:
                 continue
-            print(cl, file=fobj)
+            print(cl.strip(), file=fobj)
             print('-' * len(cl), file=fobj)
             print(file=fobj)
             print('.. code-block:: none', file=fobj)
