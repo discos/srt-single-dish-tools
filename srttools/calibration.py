@@ -8,6 +8,20 @@ counts into a density flux value in Jy.
 
 """
 
+import os
+import sys
+import glob
+import re
+import warnings
+import traceback
+import configparser
+import copy
+
+import numpy as np
+from astropy import log
+import astropy.units as u
+from scipy.optimize import curve_fit
+from astropy.table import Table, Column
 
 from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file, get_config_file
@@ -15,22 +29,6 @@ from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
 from .utils import standard_string, standard_byte, compare_strings
 from .utils import HAS_STATSM, calculate_moments, scantype
-
-import os
-import sys
-import glob
-import re
-from astropy import log
-import warnings
-import traceback
-from scipy.optimize import curve_fit
-
-import astropy.units as u
-
-import numpy as np
-from astropy.table import Table, Column
-
-import configparser
 
 try:
     import matplotlib.pyplot as plt
@@ -806,6 +804,7 @@ class CalibratorTable(Table):
         else:
             good_source = compare_strings(self['Source'], source)
         non_source = np.logical_not(good_source)
+        non_source = np.logical_not(good_source)
 
         if channel is None:
             channels = [standard_string(s) for s in set(self['Chan'])]
@@ -822,8 +821,8 @@ class CalibratorTable(Table):
                                           map_unit=map_unit,
                                           good_mask=non_source)
 
-            calculated_flux = np.array(self['Calculated Flux'])
-            calculated_flux_err = np.array(self['Calculated Flux Err'])
+            calculated_flux = copy.deepcopy(self['Calculated Flux'])
+            calculated_flux_err = copy.deepcopy(self['Calculated Flux Err'])
             counts = np.array(self['Counts'])
             counts_err = np.array(self['Counts Err'])
 
@@ -858,10 +857,12 @@ class CalibratorTable(Table):
         calibrators = list(set(self['Source'][is_cal]))
         for cal in calibrators:
             self.calculate_src_flux(channel=channel, source=cal)
+
         if channel is None:
             good_chan = np.ones_like(self['Chan'], dtype=bool)
         else:
             good_chan = compare_strings(self['Chan'], channel)
+
         calc_fluxes = self['Calculated Flux'][is_cal & good_chan]
         biblio_fluxes = self['Flux'][is_cal & good_chan]
         names = self['Source'][is_cal & good_chan]

@@ -137,6 +137,7 @@ class TestCalibration(object):
 
         flux_quantity = _get_flux_quantity('Jy/beam')
         good = ~np.isnan(caltable[flux_quantity + "/Counts"])
+        good = good&(caltable['Chan'] == 'Feed0_LCP')
         std = np.std(np.diff(caltable[flux_quantity + "/Counts Err"][good]))
         firstidx = np.where(good)[0][0]
         caltable[flux_quantity + "/Counts"][firstidx] += std * 20000
@@ -223,12 +224,14 @@ class TestCalibration(object):
         res = caltable.check_consistency(channel='Feed0_LCP')
         assert not np.all(res)
 
-    def test_check_consistency(self):
+    @pytest.mark.parametrize('chan', ['Feed0_LCP', 'Feed0_RCP'])
+    def test_check_consistency_chan_by_chan(self, chan):
         caltable = CalibratorTable.read(self.calfile)
-        res = caltable.check_consistency(channel='Feed0_LCP')
+        res = caltable.check_consistency(channel=chan)
         assert np.all(res)
-        res = caltable.check_consistency(channel='Feed0_RCP')
-        assert np.all(res)
+
+    def test_check_consistency_all(self):
+        caltable = CalibratorTable.read(self.calfile)
         res = caltable.check_consistency()
         assert np.all(res)
 
