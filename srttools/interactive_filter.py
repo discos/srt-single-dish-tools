@@ -1,6 +1,5 @@
 """Interactive operations."""
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 import copy
 import warnings
@@ -478,7 +477,7 @@ class ImageSelector():
         the axis where the image will be plotted
     fun : function
         the function to call when a key is pressed. It must accept three
-        arguments: `x`, `y` and `key`
+        arguments: ``x``, ``y`` and ``key``
     """
 
     def __init__(self, data, ax, fun=None, test=False):
@@ -493,7 +492,7 @@ class ImageSelector():
             the axis where the image will be plotted
         fun : function, optional
             the function to call when a key is pressed. It must accept three
-            arguments: `x`, `y` and `key`
+            arguments: ``x``, ``y`` and ``key``
         """
         if not HAS_MPL:
             raise ImportError("matplotlib not installed")

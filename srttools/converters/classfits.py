@@ -58,8 +58,7 @@ The conversion is performed as follows:
 """
 
 
-from __future__ import (absolute_import, division,
-                        print_function)
+
 from astropy.io import fits
 from astropy.table import Table, vstack
 from astropy.time import Time
@@ -75,7 +74,7 @@ from ..io import label_from_chan_name
 from scipy.signal import medfilt
 import copy
 import warnings
-import collections
+from collections.abc import Iterable
 from astropy import log
 
 
@@ -309,7 +308,7 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
     an additional calibration factor is applied. If CAL is applied only to
     the OFF/REFERENCE signal (let us call it OFFCAL), a single calibration
     factor is calculated: OFF/(OFFCAL - OFF). If the CAL signal is also applied
-    to the ON signal, and `use_calon` is True, an additional factor
+    to the ON signal, and ``use_calon`` is True, an additional factor
     ON/(ONCAL - ON) is calculated and averaged with the previous.
 
     Parameters
@@ -380,7 +379,7 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
         else:
             return None, ""
 
-    if not isinstance(calibration_factor, collections.Iterable):
+    if not isinstance(calibration_factor, Iterable):
         calibration_factor *= np.ones(newtable['SPECTRUM'].shape[0])
 
     for i, calf in enumerate(calibration_factor):
@@ -436,7 +435,7 @@ class CLASSFITS_creator():
     def get_scan(self, scandir, average=False):
         """Treat the data and produce the output, uncalibrated files.
 
-        Fills in the `self.tables` attribute with a dictionary of HDU lists
+        Fills in the ``self.tables`` attribute with a dictionary of HDU lists
         containing a primary header and a MATRIX extension in CLASS-compatible
         FITS format
 
@@ -564,7 +563,7 @@ class CLASSFITS_creator():
 
                     data['SIGNAL'][id0:id1] = on_or_off(subscan, f)
                     is_on = cal_is_on(subscan)
-                    if isinstance(is_on, collections.Iterable) and average:
+                    if isinstance(is_on, Iterable) and average:
                         if len(list(set(is_on))) != 1:
                             raise ValueError('flag_cal is inconsistent '
                                              'in {}'.format(fname))
@@ -640,7 +639,7 @@ class CLASSFITS_creator():
     def calibrate_all(self, use_calon=False):
         """Calibrate the scan in all available ways.
 
-        The basic calibration is `(on - off)/off`, where `on` and `off` are
+        The basic calibration is ``(on - off)/off``, where ``on`` and ``off`` are
         on-source and off-source spectra respectively.
 
         New HDU lists are produced and added to the existing, uncalibrated

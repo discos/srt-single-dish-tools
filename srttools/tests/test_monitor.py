@@ -1,14 +1,19 @@
-from __future__ import (absolute_import, division,
-                        print_function)
+
 import os
 import subprocess as sp
 import threading
 import time
 import pytest
 import urllib
+import shutil
+
 from ..read_config import read_config
 from ..monitor import main_monitor, create_dummy_config, HAS_WATCHDOG
 from ..scan import product_path_from_file_name
+from ..utils import look_for_files_or_bust
+
+
+STANDARD_TIMEOUT = 10
 
 
 class TestMonitor(object):
@@ -106,15 +111,15 @@ class TestMonitor(object):
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init,
-                                        self.file_empty).split())
+        shutil.copy(self.file_empty_init, self.file_empty)
 
-        time.sleep(8)
+        files = [self.file_empty_pdf0, self.file_empty_pdf1,
+                 'latest_0.png', 'latest_1.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
         w.join()
 
-        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.png', 'latest_1.png']:
-            assert os.path.exists(fname)
+        for fname in files:
             os.unlink(fname)
 
     @pytest.mark.skipif('not HAS_WATCHDOG')
@@ -128,15 +133,15 @@ class TestMonitor(object):
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init,
-                                        self.file_empty).split())
+        shutil.copy(self.file_empty_init, self.file_empty)
 
-        time.sleep(8)
+        files = [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
+                      'latest_0.png', 'latest_1.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
         w.join()
 
-        for fname in [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
-                      'latest_0.png', 'latest_1.png']:
-            assert os.path.exists(fname)
+        for fname in files:
             os.unlink(fname)
 
     @pytest.mark.skipif('not HAS_WATCHDOG')
@@ -150,15 +155,15 @@ class TestMonitor(object):
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init,
-                                        self.file_empty).split())
+        shutil.copy(self.file_empty_init, self.file_empty)
 
-        time.sleep(8)
+        files = [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
+                      'latest_0.png', 'latest_1.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
         w.join()
 
-        for fname in [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
-                      'latest_0.png', 'latest_1.png']:
-            assert os.path.exists(fname)
+        for fname in files:
             os.unlink(fname)
 
     @pytest.mark.skipif('not HAS_WATCHDOG')
@@ -172,15 +177,16 @@ class TestMonitor(object):
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init_single_feed,
-                                        self.file_empty_single_feed).split())
+        shutil.copy(self.file_empty_init_single_feed,
+                    self.file_empty_single_feed)
 
-        time.sleep(8)
+        files = [self.file_empty_pdf10, self.file_empty_hdf5_SF,
+                 'latest_10.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
         w.join()
 
-        for fname in [self.file_empty_pdf10, self.file_empty_hdf5_SF,
-                      'latest_10.png']:
-            assert os.path.exists(fname)
+        for fname in files:
             os.unlink(fname)
 
     @pytest.mark.skipif('not HAS_WATCHDOG')
@@ -192,15 +198,15 @@ class TestMonitor(object):
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init,
-                                        self.file_empty).split())
+        shutil.copy(self.file_empty_init, self.file_empty)
 
-        time.sleep(8)
+        files = [self.file_empty_pdf0, self.file_empty_pdf1,
+                 'latest_0.png', 'latest_1.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
         w.join()
 
-        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.png', 'latest_1.png']:
-            assert os.path.exists(fname)
+        for fname in files:
             os.unlink(fname)
 
     @pytest.mark.skipif('not HAS_WATCHDOG')
@@ -212,42 +218,23 @@ class TestMonitor(object):
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init,
-                                        self.file_empty).split())
+        shutil.copy(self.file_empty_init, self.file_empty)
 
-        time.sleep(8)
+        files = ['latest_0.png', 'latest_1.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
         w.join()
+
+        for fname in files:
+            os.unlink(fname)
 
         for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
                       self.file_empty_hdf5]:
             assert not os.path.exists(fname)
 
-        for fname in ['latest_0.png', 'latest_1.png']:
-            assert os.path.exists(fname)
-            os.unlink(fname)
-
     @pytest.mark.skipif('not HAS_WATCHDOG')
     def test_workers(self):
         fname = self.config_file
-
-        def process():
-            main_monitor([self.datadir, '--test', '-c', fname, '--workers', '2'])
-
-        w = threading.Thread(name='worker', target=process)
-        w.start()
-        time.sleep(1)
-
-        sp.check_call('cp {} {}'.format(
-            self.file_empty_init_single_feed,
-            self.file_empty_single_feed
-        ).split())
-        sp.check_call('cp {} {}'.format(
-            self.file_empty_init_single_feed,
-            self.file_empty_single_feed.replace('fits5', 'fits4')
-        ).split())
-
-        time.sleep(8)
-        w.join()
 
         files = [
             self.file_empty_pdf10,
@@ -258,10 +245,29 @@ class TestMonitor(object):
             'latest_10.png'
         ]
 
-        print(files)
+        def process():
+            main_monitor([self.datadir, '--test', '-c', fname,
+                          '--timeout', '30',
+                          '--workers', '2'])
 
-        for fname in files:
-            assert os.path.exists(fname)
+        w = threading.Thread(name='worker', target=process)
+        w.start()
+        time.sleep(1)
+
+        shutil.copy(
+            self.file_empty_init_single_feed,
+            self.file_empty_single_feed
+        )
+        shutil.copy(
+            self.file_empty_init_single_feed,
+            self.file_empty_single_feed.replace('fits5', 'fits4')
+        )
+
+        look_for_files_or_bust(files, 30)
+
+        w.join()
+
+        for i, fname in enumerate(files):
             os.unlink(fname)
 
         os.unlink(self.file_empty_single_feed.replace('fits5', 'fits4'))
@@ -281,10 +287,9 @@ class TestMonitor(object):
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init,
-                                        self.file_empty).split())
+        shutil.copy(self.file_empty_init, self.file_empty)
 
-        time.sleep(8)
+        time.sleep(STANDARD_TIMEOUT)
         w.join()
 
         for fname in files[4:]:
@@ -296,28 +301,36 @@ class TestMonitor(object):
     @pytest.mark.skipif('not HAS_WATCHDOG')
     def test_http_server_found(self):
         def process():
-            main_monitor([self.datadir, '--test', '--http-server-port', '10000'])
+            main_monitor([self.datadir, '--test',
+                          '--http-server-port', '10000', '--timeout', '30'])
 
         w = threading.Thread(name='worker', target=process)
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init,
-                                        self.file_empty).split())
+        shutil.copy(self.file_empty_init, self.file_empty)
 
         time.sleep(7)
         urls = [
             '',
             'index.html',
             'latest_0.png',
-            'latest_1.png',
-            'latest_0.png?%d' % int(time.time())
+            'latest_1.png'#,
+            # 'latest_0.png?%d' % int(time.time())
         ]
         # Check that the files are provided by the HTTP server
         for url in urls:
             url = 'http://127.0.0.1:10000/' + url
+            print(url)
+            # import socket
+            # try:
             r = urllib.request.urlopen(url, timeout=5)
             assert r.code == 200
+            # except socket.timeout as e:
+            #     w.join()
+            #     raise
+
+        print("Done")
 
         w.join()
 
@@ -335,8 +348,7 @@ class TestMonitor(object):
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init,
-                                        self.file_empty).split())
+        shutil.copy(self.file_empty_init, self.file_empty)
 
         time.sleep(7)
 
@@ -344,7 +356,7 @@ class TestMonitor(object):
         for i in [20, 21]:
             url = 'http://127.0.0.1:10000/latest_{}.png'.format(i)
             with pytest.raises(urllib.error.HTTPError):
-                r = urllib.request.urlopen(url)
+                r = urllib.request.urlopen(url, timeout=10)
 
         w.join()
 
@@ -362,8 +374,7 @@ class TestMonitor(object):
         w.start()
         time.sleep(1)
 
-        sp.check_call('cp {} {}'.format(self.file_empty_init,
-                                        self.file_empty).split())
+        shutil.copy(self.file_empty_init, self.file_empty)
 
         time.sleep(7)
 
@@ -375,7 +386,7 @@ class TestMonitor(object):
         open(forbidden_file, 'w').close()
         url = 'http://127.0.0.1:10000/' + forbidden_file
         with pytest.raises(urllib.error.HTTPError):
-            r = urllib.request.urlopen(url)
+            r = urllib.request.urlopen(url, timeout=10)
 
         w.join()
 

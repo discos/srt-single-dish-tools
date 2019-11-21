@@ -21,8 +21,7 @@ resampling as there is just one set of coordinates but several data arrays
 Therefore repeated computations are prevented.
 '''
 
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 import numpy as np
 from numpy import atleast_2d, asarray, zeros, ones, array, atleast_1d, arange,\
@@ -53,13 +52,13 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
 
     bin_range : sequence, optional
         A sequence of lower and upper bin edges to be used if the edges are
-        not given explicitly in `bins`. Defaults to the minimum and maximum
+        not given explicitly in ``bins``. Defaults to the minimum and maximum
         values along each dimension.
     normed : bool, optional
         If False, returns the number of samples in each bin. If True,
         returns the bin density ``bin_count / sample_count / bin_volume``.
     weights : array_like (N,), optional
-        An array of values `w_i` weighing each sample `(x_i, y_i, z_i, ...)`.
+        An array of values ``w_i`` weighing each sample ``(x_i, y_i, z_i, ...)``.
         Weights are normalized to 1 if normed is True. If normed is False,
         the values of the returned histogram are equal to the sum of the
         weights belonging to the samples falling into each bin.
@@ -292,7 +291,7 @@ def histogram2d(x, y, bins=10, bin_range=None, normed=False, weights=None):
 
     bin_range : array_like, shape(2,2), optional
         The leftmost and rightmost edges of the bins along each dimension
-        (if not specified explicitly in the `bins` parameters):
+        (if not specified explicitly in the ``bins`` parameters):
         ``[[xmin, xmax], [ymin, ymax]]``. All values outside of this range
         will be considered outliers and not tallied in the histogram.
     normed : bool, optional
@@ -300,7 +299,7 @@ def histogram2d(x, y, bins=10, bin_range=None, normed=False, weights=None):
         returns the bin density ``bin_count / sample_count / bin_area``.
     weights : array_like, shape(N,), optional
         An array of values ``w_i`` weighing each sample ``(x_i, y_i)``.
-        Weights are normalized to 1 if `normed` is True. If `normed` is
+        Weights are normalized to 1 if ``normed`` is True. If ``normed`` is
         False, the values of the returned histogram are equal to the sum of
         the weights belonging to the samples falling into each bin.
         Weights can also be a list of (weight arrays or None), in which case
@@ -309,9 +308,9 @@ def histogram2d(x, y, bins=10, bin_range=None, normed=False, weights=None):
     Returns
     -------
     H : ndarray, shape(nx, ny)
-        The bi-dimensional histogram of samples `x` and `y`. Values in `x`
-        are histogrammed along the first dimension and values in `y` are
-        histogrammed along the second dimension.
+        The bi-dimensional histogram of samples ``x`` and ``y``. Values in
+        ``x`` are histogrammed along the first dimension and values in ``y``
+        are histogrammed along the second dimension.
     xedges : ndarray, shape(nx,)
         The bin edges along the first dimension.
     yedges : ndarray, shape(ny,)
@@ -319,20 +318,20 @@ def histogram2d(x, y, bins=10, bin_range=None, normed=False, weights=None):
 
     See Also
     --------
-    histogram : 1D histogram
-    histogramdd : Multidimensional histogram
+    :func:`histogram` : 1D histogram
+    :func:`histogramdd` : Multidimensional histogram
 
     Notes
     -----
-    When `normed` is True, then the returned histogram is the sample
+    When ``normed`` is True, then the returned histogram is the sample
     density, defined such that the sum over bins of the product
     ``bin_value * bin_area`` is 1.
 
     Please note that the histogram does not follow the Cartesian convention
-    where `x` values are on the abscissa and `y` values on the ordinate
-    axis.  Rather, `x` is histogrammed along the first dimension of the
-    array (vertical), and `y` along the second dimension of the array
-    (horizontal).  This ensures compatibility with `histogramdd`.
+    where ``x`` values are on the abscissa and ``y`` values on the ordinate
+    axis.  Rather, ``x`` is histogrammed along the first dimension of the
+    array (vertical), and ``y`` along the second dimension of the array
+    (horizontal).  This ensures compatibility with ``histogramdd``.
 
     Examples
     --------

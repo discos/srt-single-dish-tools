@@ -1,7 +1,6 @@
 """Functions to clean images by fitting linear trends to the initial scans."""
 
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 try:
     import matplotlib.pyplot as plt
@@ -123,7 +122,7 @@ def _obj_fun(par, data, data_idx, excluded, bx, by):
     data : [times, idxs, x, y, counts]
         All five quantities are ``numpy`` ``array``s; ``time`` is time
         from the start of the scan; ``x``, ``y`` are the image coordinates,
-        ``idx`` corresponds to the scan number and `counts` to the scan
+        ``idx`` corresponds to the scan number and ``counts`` to the scan
         values at those coordinates.
     excluded : [[centerx0, centery0, radius0]]
         list of circular regions to exclude from fitting (e.g. strong sources

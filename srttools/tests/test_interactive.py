@@ -1,5 +1,4 @@
-from __future__ import (absolute_import, division,
-                        print_function)
+
 import numpy as np
 from srttools.interactive_filter import ImageSelector, DataSelector
 from srttools.interactive_filter import select_data, HAS_MPL

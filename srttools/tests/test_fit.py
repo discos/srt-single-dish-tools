@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import (absolute_import, division,
-                        print_function)
+
 from srttools.fit import fit_baseline_plus_bell, purge_outliers, align
 from srttools.fit import baseline_rough, ref_mad, ref_std, _rolling_window
 from srttools.fit import linear_fit, offset_fit, detrend_spectroscopic_data
@@ -152,7 +151,7 @@ class TestFit(object):
         y = np.copy(self.series) + _test_shape(x) + x * 6 + 20
         with pytest.raises(ValueError) as excinfo:
             model, _ = fit_baseline_plus_bell(x, y, ye=10, kind='zxcdf')
-        assert 'kind has to be one of: gauss, lorentz' in str(excinfo)
+        assert 'kind has to be one of: gauss, lorentz' in str(excinfo.value)
 
     def test_fit_baseline_rough_return_baseline(self):
         """Test that the fit procedure works."""

@@ -1,4 +1,8 @@
-from __future__ import division, print_function
+import glob
+import shutil
+import os
+import subprocess as sp
+
 from srttools.calibration import CalibratorTable
 from srttools.calibration import main_lcurve, _get_flux_quantity, main_cal
 from srttools.read_config import read_config
@@ -9,12 +13,7 @@ from srttools.utils import compare_strings, HAS_MPL
 import pytest
 from astropy import log
 from astropy.logger import logging
-import glob
-import shutil
-
-import os
 import numpy as np
-import subprocess as sp
 
 try:
     from tqdm import tqdm
@@ -124,23 +123,28 @@ class TestCalibration(object):
             caltable.check_up_to_date()
 
     def test_check_class_from_file(self):
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         assert caltable.check_up_to_date()
 
     def test_Jy_over_counts_and_back(self):
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         Jc, Jce = caltable.Jy_over_counts(channel='Feed0_LCP')
         Cj, Cje = caltable.counts_over_Jy(channel='Feed0_LCP')
         np.testing.assert_allclose(Jc, 1 / Cj)
 
     def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
 
         flux_quantity = _get_flux_quantity('Jy/beam')
-        caltable[flux_quantity + "/Counts"][0] += \
-            caltable[flux_quantity + "/Counts Err"][0] * 2000
+        good = ~np.isnan(caltable[flux_quantity + "/Counts"])
+        good = good&(caltable['Chan'] == 'Feed0_LCP')
+        std = np.std(np.diff(caltable[flux_quantity + "/Counts Err"][good]))
+        firstidx = np.where(good)[0][0]
+        caltable[flux_quantity + "/Counts"][firstidx] += std * 20000
+
         Jc, Jce = caltable.Jy_over_counts_rough(channel='Feed0_LCP',
                                                 map_unit='Jy/beam')
+
         assert 'Outliers: ' in caplog.text
         Cj, Cje = caltable.counts_over_Jy(channel='Feed0_LCP')
         np.testing.assert_allclose(Jc, 1 / Cj)
@@ -161,7 +165,7 @@ class TestCalibration(object):
     def test_calibration_counts(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         caltable = caltable[compare_strings(caltable['Source'], 'DummyCal')]
         caltable_0 = caltable[compare_strings(caltable['Chan'], 'Feed0_LCP')]
         assert np.all(
@@ -173,7 +177,7 @@ class TestCalibration(object):
     def test_calibration_width(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         caltable0 = caltable[compare_strings(caltable['Chan'], 'Feed0_LCP')]
         assert np.all(
             np.abs(caltable0['Width'] - 2.5/60.) < 5 * caltable0['Width Err'])
@@ -188,7 +192,7 @@ class TestCalibration(object):
     def test_calibration_plot_two_cols(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         caltable.plot_two_columns('RA', "Flux/Counts", xerrcol="RA err",
                                   yerrcol="Flux/Counts Err", test=True)
 
@@ -196,12 +200,12 @@ class TestCalibration(object):
     def test_calibration_show(self):
         """Simple calibration from scans."""
 
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
 
         caltable.show()
 
     def test_calibrated_crossscans(self):
-        caltable = CalibratorTable.read(self.calfile, path='table')
+        caltable = CalibratorTable.read(self.calfile)
         dummy_flux, dummy_flux_err = \
             caltable.calculate_src_flux(source='DummySrc', channel='Feed0_LCP')
         assert (dummy_flux[0] - 0.52) < dummy_flux_err[0] * 3
@@ -220,12 +224,14 @@ class TestCalibration(object):
         res = caltable.check_consistency(channel='Feed0_LCP')
         assert not np.all(res)
 
-    def test_check_consistency(self):
-        caltable = CalibratorTable.read(self.calfile, path='table')
-        res = caltable.check_consistency(channel='Feed0_LCP')
+    @pytest.mark.parametrize('chan', ['Feed0_LCP', 'Feed0_RCP'])
+    def test_check_consistency_chan_by_chan(self, chan):
+        caltable = CalibratorTable.read(self.calfile)
+        res = caltable.check_consistency(channel=chan)
         assert np.all(res)
-        res = caltable.check_consistency(channel='Feed0_RCP')
-        assert np.all(res)
+
+    def test_check_consistency_all(self):
+        caltable = CalibratorTable.read(self.calfile)
         res = caltable.check_consistency()
         assert np.all(res)
 
@@ -255,13 +261,13 @@ class TestCalibration(object):
         # ValueError("Please specify the config file!")
         with pytest.raises(ValueError) as excinfo:
             main_cal([])
-            assert "Please specify the config file!" in str(excinfo)
+            assert "Please specify the config file!" in str(excinfo.value)
 
     def test_sdtcal_no_config_dir(self):
         ValueError("No calibrators specified in config file")
         with pytest.raises(ValueError) as excinfo:
             main_cal(["-c", self.config_file_empty])
-            assert "No calibrators specified in config file" in str(excinfo)
+            assert "No calibrators specified in config file" in str(excinfo.value)
 
     def test_lcurve_with_single_source(self):
         main_lcurve([self.calfile, '-s', 'DummySrc'])
@@ -278,7 +284,8 @@ class TestCalibration(object):
     def teardown_class(klass):
         """Clean up the mess."""
         if HAS_MPL:
-            os.unlink('calibration_summary.png')
+            if os.path.exists('calibration_summary.png'):
+                os.unlink('calibration_summary.png')
         for d in klass.config['list_of_directories']:
             hfiles = \
                 glob.glob(os.path.join(klass.config['datadir'], d, '*.hdf5'))
@@ -290,3 +297,5 @@ class TestCalibration(object):
                                        '*_scanfit'))
             for dirname in dirs:
                 shutil.rmtree(dirname)
+        if os.path.exists(klass.calfile):
+            os.remove(klass.calfile)

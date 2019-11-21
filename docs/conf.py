@@ -25,34 +25,23 @@
 # Thus, any C-extensions that are needed to build the documentation will *not*
 # be accessible, and the documentation will not build correctly.
 
-from __future__ import print_function, division
-import datetime
 import os
 import sys
+import datetime
+from importlib import import_module
+
+try:
+    from sphinx_astropy.conf.v1 import *  # noqa
+except ImportError:
+    print('ERROR: the documentation requires the sphinx-astropy package to be installed')
+    sys.exit(1)
 
 ON_RTD = os.environ.get('READTHEDOCS') == 'True'
 ON_TRAVIS = os.environ.get('TRAVIS') == 'true'
 
-try:
-    import astropy_helpers
-except ImportError:
-    # Building from inside the docs/ directory?
-    if os.path.basename(os.getcwd()) == 'docs':
-        a_h_path = os.path.abspath(os.path.join('..', 'astropy_helpers'))
-        if os.path.isdir(a_h_path):
-            sys.path.insert(1, a_h_path)
-
-# Load all of the global Astropy configuration
-from astropy_helpers.sphinx.conf import *
-
 # Get configuration information from setup.cfg
-try:
-    from ConfigParser import ConfigParser
-except ImportError:
-    from configparser import ConfigParser
+from configparser import ConfigParser
 conf = ConfigParser()
-# Make it case sensitive
-conf.optionxform = str
 
 conf.read([os.path.join(os.path.dirname(__file__), '..', 'setup.cfg')])
 setup_cfg = dict(conf.items('metadata'))
@@ -81,7 +70,7 @@ rst_epilog += """
 # -- Project information ------------------------------------------------------
 
 # This does not *have* to match the package name, but typically does
-project = setup_cfg['package_name']
+project = setup_cfg['name']
 author = setup_cfg['author']
 copyright = '{0}, {1}'.format(
     datetime.datetime.now().year, setup_cfg['author'])
@@ -90,8 +79,8 @@ copyright = '{0}, {1}'.format(
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 
-__import__(setup_cfg['package_name'])
-package = sys.modules[setup_cfg['package_name']]
+import_module(setup_cfg['name'])
+package = sys.modules[setup_cfg['name']]
 
 # The short X.Y version.
 version = package.__version__.split('-', 1)[0]
@@ -108,24 +97,22 @@ release = package.__version__
 # variables set in the global configuration. The variables set in the
 # global configuration are listed below, commented out.
 
-# latex_elements['paper_size'] = 'a4'
 
 # Add any paths that contain custom themes here, relative to this directory.
 # To use a different custom theme, add the directory containing the theme.
+#html_theme_path = []
 html_theme_path = ['themes']
-
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes. To override the custom theme, set this to the
 # name of a builtin theme or the name of a custom theme in html_theme_path.
+#html_theme = None
 html_theme = 'bootstrap-astropy'
 
-# Please update these texts to match the name of your package.
 html_theme_options = {
     'logotext1': 'SRT',  # white,  semi-bold
     'logotext2': '-SDT',  # orange, light
     'logotext3': ':docs'   # white,  light
     }
-
 
 
 # Custom sidebar templates, maps document names to template names.
@@ -142,7 +129,7 @@ html_favicon = 'images/srttools.ico'
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
-#html_last_updated_fmt = ''
+html_last_updated_fmt = '%Y-%m-%d %H:%M:%S'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -171,12 +158,12 @@ man_pages = [('index', project.lower(), project + u' Documentation',
 # -- Options for the edit_on_github extension ---------------------------------
 
 if eval(setup_cfg.get('edit_on_github')):
-    extensions += ['astropy_helpers.sphinx.ext.edit_on_github']
+    extensions += ['sphinx_astropy.ext.edit_on_github']
 
-    versionmod = __import__(setup_cfg['package_name'] + '.version')
+    versionmod = import_module(setup_cfg['name'] + '.version')
     edit_on_github_project = setup_cfg['github_project']
-    if versionmod.version.release:
-        edit_on_github_branch = "v" + versionmod.version.version
+    if versionmod.release:
+        edit_on_github_branch = "v" + versionmod.version
     else:
         edit_on_github_branch = "master"
 
@@ -186,18 +173,21 @@ if eval(setup_cfg.get('edit_on_github')):
 # -- Resolving issue number to links in changelog -----------------------------
 github_issues_url = 'https://github.com/{0}/issues/'.format(setup_cfg['github_project'])
 
+
 if not ON_RTD and not ON_TRAVIS:
-    scripts = dict(conf.items('entry_points'))
+    scripts = dict(conf.items('options.entry_points'))['console_scripts'].split("\n")
     import subprocess as sp
     with open(os.path.join(os.getcwd(), 'scripts',
                            'cli.rst'), 'w') as fobj:
         print("""Command line interface""", file=fobj)
         print("""======================\n""", file=fobj)
 
-        for cl in sorted(scripts.keys()):
-            if cl.startswith('MP'):
+        for script in sorted(scripts):
+            try:
+                cl, fun = [val.strip() for val in script.split('=')]
+            except ValueError:
                 continue
-            print(cl, file=fobj)
+            print(cl.strip(), file=fobj)
             print('-' * len(cl), file=fobj)
             print(file=fobj)
             print('.. code-block:: none', file=fobj)
@@ -209,3 +199,31 @@ if not ON_RTD and not ON_TRAVIS:
                 else:
                     print('    ' + l, file=fobj)
             print(file=fobj)
+
+
+# -- Turn on nitpicky mode for sphinx (to warn about references not found) ----
+#
+nitpicky = True
+nitpick_ignore = [('py:obj', 'histogram'),
+                  ('py:func', 'histogram')]
+#
+# Some warnings are impossible to suppress, and you can list specific references
+# that should be ignored in a nitpick-exceptions file which should be inside
+# the docs/ directory. The format of the file should be:
+#
+# <type> <class>
+#
+# for example:
+#
+# py:class astropy.io.votable.tree.Element
+# py:class astropy.io.votable.tree.SimpleElement
+# py:class astropy.io.votable.tree.SimpleElementWithContent
+#
+# Uncomment the following lines to enable the exceptions:
+#
+# for line in open('nitpick-exceptions'):
+#     if line.strip() == "" or line.startswith("#"):
+#         continue
+#     dtype, target = line.split(None, 1)
+#     target = target.strip()
+#     nitpick_ignore.append((dtype, six.u(target)))

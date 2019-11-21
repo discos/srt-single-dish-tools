@@ -1,5 +1,4 @@
-from __future__ import (absolute_import, division,
-                        print_function)
+
 from srttools.convert import convert_to_complete_fitszilla, main_convert
 from srttools.scan import Scan
 import numpy as np
@@ -116,7 +115,7 @@ class Test1_Scan(object):
         with pytest.raises(ValueError) as excinfo:
             main_convert([self.fname, '-f', 'mbfits'])
 
-        assert "Input for MBFITS conversion must be " in str(excinfo)
+        assert "Input for MBFITS conversion must be " in str(excinfo.value)
 
     def test_main_mbfitsw(self):
         main_convert([self.skydip, '-f', 'mbfitsw', '--test'])

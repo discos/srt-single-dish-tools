@@ -1,6 +1,5 @@
 """Scan class."""
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 from .io import read_data, root_name, get_chan_columns, get_channel_feed
 from .io import mkdir_p
@@ -240,6 +239,8 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     results.meanspec = meanspec
 
     if dynspec_len < 10:
+        warnings.warn("Very few data in the dataset. "
+                      "Skipping spectral filtering.")
         return results
 
     spectral_var = \
@@ -282,7 +283,7 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     if not np.any(mask):
         warnings.warn("No good channels found. A problem with the data or "
                       "incorrect noise threshold?")
-        mask[:] = True
+        # mask[:] = True
 
     results.mask = mask
     results.spectral_var = spectral_var
@@ -412,7 +413,9 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     df = bandwidth / nbin
 
     spec_stats = _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
-                                  smoothing_window, noise_threshold)
+                                     smoothing_window, noise_threshold)
+    if not np.any(spec_stats.mask):
+        return None
     freqmask = spec_stats.freqmask
     mask = spec_stats.mask
     freqmin = spec_stats.freqmin
@@ -471,6 +474,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     results.mask = wholemask
 
     if not plot or not HAS_MPL:
+        log.debug("No plotting needs to be done.")
         return results
 
     # Now, PLOT IT ALL --------------------------------
@@ -543,6 +547,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_var.plot(allbins[mask], spectral_var[mask])
     ax_var.plot(allbins, cleaned_spectral_var,
                 zorder=10, color="k")
+
     if baseline is not None:
         ax_var.plot(allbins[1:], baseline[1:])
         ax_var.plot(allbins[1:], thresh_high[1:], color='r', lw=2)
@@ -646,8 +651,8 @@ class Scan(Table):
         data : str or None
             data can be one of the following: None, in which case an empty Scan
             object is created; a FITS or HDF5 archive, containing an on-the-fly
-            or cross scan in one of the accepted formats; another `Scan` or
-            `astropy.Table` object
+            or cross scan in one of the accepted formats; another :class:`srttools.scan.Scan` or
+            :class:`astropy.table.Table` object
         config_file : str
             Config file containing the parameters for the images and the
             directories containing the image and calibration data
@@ -664,15 +669,15 @@ class Scan(Table):
         Other Parameters
         ----------------
         kwargs : additional arguments
-            These will be passed to `astropy.Table` initializer
+            These will be passed to :class:`astropy.table.Table` initializer
         """
         if config_file is None:
             config_file = get_config_file()
 
         if isinstance(data, Table):
-            Table.__init__(self, data, **kwargs)
+            super().__init__(data, **kwargs)
         elif data is None:
-            Table.__init__(self, **kwargs)
+            super().__init__(**kwargs)
             self.meta['config_file'] = config_file
             self.meta.update(read_config(self.meta['config_file']))
         else:  # if data is a filename
@@ -687,7 +692,7 @@ class Scan(Table):
             if debug:
                 log.info('Loading file {}'.format(data))
             table = read_data(data)
-            Table.__init__(self, table, masked=True, **kwargs)
+            super().__init__(table, **kwargs)
             if not data.endswith('hdf5'):
                 self.meta['filename'] = os.path.abspath(data)
             self.meta['config_file'] = config_file
@@ -705,8 +710,11 @@ class Scan(Table):
             if (('backsub' not in self.meta.keys() or
                     not self.meta['backsub'])) and not nosub:
                 log.info('Subtracting the baseline')
-                self.baseline_subtract(avoid_regions=avoid_regions,
-                                       plot=plot)
+                try:
+                    self.baseline_subtract(avoid_regions=avoid_regions,
+                                           plot=plot)
+                except Exception as e:
+                    log.error("Baseline subtraction failed: {str(e)}")
 
             if not nosave:
                 self.save()
@@ -801,6 +809,7 @@ class Scan(Table):
 
             if results is None:
                 continue
+
             mask = mask & results.mask
             lc_corr = results.lc
             freqmin, freqmax = results.freqmin, results.freqmax
@@ -896,10 +905,12 @@ class Scan(Table):
 
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
-        log.info('Saving to {}'.format(fname))
+        # log.info('Saving to {}'.format(fname))
+
         if fname.endswith('.hdf5'):
-            Table.write(self, fname, *args, path='scan', serialize_meta=True,
-                        **kwargs)
+            kwargs['serialize_meta'] = kwargs.pop('serialize_meta', True)
+            super(Scan, self).write(fname, *args, **kwargs)
+
         else:
             raise TypeError("Saving to anything else than HDF5 is not "
                             "supported at the moment")

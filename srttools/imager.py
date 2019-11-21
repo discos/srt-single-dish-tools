@@ -4,8 +4,7 @@
 on-the-fly map, is able to calculate the map and save it in FITS format after
 cleaning the data.
 """
-from __future__ import (absolute_import, division,
-                        print_function)
+
 
 import numpy as np
 import astropy
@@ -21,7 +20,7 @@ import traceback
 import six
 import copy
 import functools
-import collections
+from collections.abc import Iterable
 from scipy.stats import binned_statistic_2d
 from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
@@ -59,7 +58,7 @@ def all_lower(list_of_strings):
 
 
 def _load_calibration(calibration, map_unit):
-    caltable = CalibratorTable().read(calibration, path='table')
+    caltable = CalibratorTable().read(calibration)
     caltable.update()
     caltable.compute_conversion_function(map_unit)
 
@@ -143,7 +142,7 @@ class ScanSet(Table):
         self.images_hor = None
         self.images_ver = None
 
-        if isinstance(data, collections.Iterable) and \
+        if isinstance(data, Iterable) and \
                 not isinstance(data, six.string_types):
             alldata = [ScanSet(d, norefilt=norefilt, config_file=config_file,
                                freqsplat=freqsplat, nofilt=nofilt,
@@ -159,7 +158,7 @@ class ScanSet(Table):
             data = vstack(alldata)
             data.scan_list = scan_list
         elif isinstance(data, six.string_types) and data.endswith('hdf5'):
-            data = Table.read(data, path='scanset')
+            data = super().read(data)
 
             txtfile = data.meta['scan_list_file']
 
@@ -341,7 +340,7 @@ class ScanSet(Table):
                                        self['dec']]))
 
     def get_obstimes(self):
-        """Get `astropy.Time` object for time at the telescope location."""
+        """Get :class:`astropy.time.Time` at the telescope location."""
         from astropy.time import Time
         from .io import locations
         return Time((self['time']) * u.day, format='mjd', scale='utc',
@@ -353,9 +352,10 @@ class ScanSet(Table):
         Parameters
         ----------
         user_func : function
-            This function needs to accept a `scanset` as only argument.
-            `ScanSet` object. It has to return an array with the same length of
-            a column of `scanset`
+            This function needs to accept a :class:`srttools.imager.ScanSet`
+            object as only argument.
+            It has to return an array with the same length of
+            a column of the input dataset
         out_column : str
             column where the results will be stored
 
@@ -1019,7 +1019,7 @@ class ScanSet(Table):
         self['barytime'] = obstimes_tdb
         return obstimes_tdb
 
-    def write(self, fname, **kwargs):
+    def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5.
 
         Moreover, saves the scan list to a txt file, that will be read when
@@ -1036,8 +1036,10 @@ class ScanSet(Table):
         self.update_meta_with_images()
 
         try:
-            Table.write(self, fname, path='scanset', serialize_meta=True,
-                        **kwargs)
+            kwargs['serialize_meta'] = kwargs.pop('serialize_meta', True)
+            super(ScanSet, self).write(fname, *args, **kwargs)
+            # Table.write(self, fname, serialize_meta=True,
+            #             **kwargs)
         except astropy.io.registry.IORegistryError as e:
             raise astropy.io.registry.IORegistryError(fname + ': ' + str(e))
 

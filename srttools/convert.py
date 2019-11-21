@@ -1,5 +1,4 @@
-from __future__ import (absolute_import, division,
-                        print_function)
+
 from __future__ import print_function, division
 from astropy.io import fits
 import astropy.units as u

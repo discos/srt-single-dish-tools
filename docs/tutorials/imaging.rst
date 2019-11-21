@@ -42,7 +42,7 @@ of directories:
 
 Some of these observations might have been done in different bands, or using different
 receivers, and you might have lost the list of observations (or the user was not the observer).
-The script `SDTinspector` is there to help, dividing the observations in groups based
+The script ``SDTinspector`` is there to help, dividing the observations in groups based
 on observing time, backend, receiver, etc.:
 
 .. code-block:: console
@@ -330,7 +330,7 @@ can construct an alternative config file with
     (py3) $ SDTcal  --sample-config
 
 and modify the configuration file adding calibrator directories
-below `calibrator_directories`
+below ``calibrator_directories``
 
 .. code-block:: console
 

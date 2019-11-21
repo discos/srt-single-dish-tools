@@ -7,8 +7,21 @@ counts into a density flux value in Jy.
 
 
 """
-from __future__ import (absolute_import, division,
-                        print_function)
+
+import os
+import sys
+import glob
+import re
+import warnings
+import traceback
+import configparser
+import copy
+
+import numpy as np
+from astropy import log
+import astropy.units as u
+from scipy.optimize import curve_fit
+from astropy.table import Table, Column
 
 from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file, get_config_file
@@ -16,26 +29,6 @@ from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
 from .utils import standard_string, standard_byte, compare_strings
 from .utils import HAS_STATSM, calculate_moments, scantype
-
-import os
-import sys
-import glob
-import re
-from astropy import log
-import warnings
-import traceback
-from scipy.optimize import curve_fit
-
-import astropy.units as u
-
-import numpy as np
-from astropy.table import Table, Column
-
-# For Python 2 and 3 compatibility
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
 
 try:
     import matplotlib.pyplot as plt
@@ -271,16 +264,17 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         flux_over_counts, flux_over_counts_err = 0, 0
         calculated_flux, calculated_flux_err = 0, 0
 
-        rows.append([scandir, sname, scan_type, source, channel, feed,
-                     time, frequency, bandwidth, counts, counts_err,
-                     fit_width, width_err,
-                     flux_density, flux_density_err, el, az,
-                     source_temperature,
-                     flux_over_counts, flux_over_counts_err,
-                     flux_over_counts, flux_over_counts_err,
-                     calculated_flux, calculated_flux_err,
-                     pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
-                     dec_err, skewness, kurtosis])
+        new_row = [scandir, sname, scan_type, source, channel, feed,
+                   time, frequency, bandwidth, counts, counts_err,
+                   fit_width, width_err,
+                   flux_density, flux_density_err, el, az,
+                   source_temperature,
+                   flux_over_counts, flux_over_counts_err,
+                   flux_over_counts, flux_over_counts_err,
+                   calculated_flux, calculated_flux_err,
+                   pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
+                   dec_err, skewness, kurtosis]
+        rows.append(new_row)
 
         if plot and HAS_MPL:
             fig = plt.figure("Fit information")
@@ -448,9 +442,10 @@ class CalibratorTable(Table):
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
         if fname.endswith('.hdf5'):
-            Table.write(self, fname, *args, path='table', **kwargs)
+            super(CalibratorTable, self).write(fname, *args,
+                    **kwargs)
         else:
-            Table.write(self, fname, *args, **kwargs)
+            super(CalibratorTable, self).write(fname, *args, **kwargs)
 
     def check_not_empty(self):
         """Check that table is not empty.
@@ -574,8 +569,8 @@ class CalibratorTable(Table):
         """Compute the conversion between Jy and counts.
 
         Try to get a meaningful second-degree polynomial fit over elevation.
-        Revert to the rough function `Jy_over_counts_rough` in case
-        `statsmodels` is not installed. In this latter case, only the baseline
+        Revert to the rough function :func:`Jy_over_counts_rough` in case
+        ``statsmodels`` is not installed. In this latter case, only the baseline
         value is given for flux conversion and error.
         These values are saved in the ``calibration_coeffs`` and
         ``calibration_uncerts`` attributes of ``CalibratorTable``, and a
@@ -717,21 +712,21 @@ class CalibratorTable(Table):
         fc : float
             flux density /count ratio
         fce : float
-            uncertainty on `fc`
+            uncertainty on ``fc``
         """
 
         self.check_up_to_date()
 
+        flux_quantity = _get_flux_quantity(map_unit)
+
         if good_mask is None:
-            good_mask = np.ones(len(self["Time"]), dtype=bool)
+            good_mask = self['Flux'] > 0
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:
             good_chans = compare_strings(self['Chan'], channel)
 
         good_chans = good_chans & good_mask
-
-        flux_quantity = _get_flux_quantity(map_unit)
 
         f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
         f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
@@ -747,10 +742,12 @@ class CalibratorTable(Table):
         ye_to_fit = np.array(f_c_ratio_err[good])
 
         p = [np.median(y_to_fit)]
+        pcov = np.array([[np.median(ye_to_fit)**2]])
         first = True
 
         while 1:
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
+
             if not np.any(bad) and not first:
                 break
 
@@ -807,6 +804,7 @@ class CalibratorTable(Table):
         else:
             good_source = compare_strings(self['Source'], source)
         non_source = np.logical_not(good_source)
+        non_source = np.logical_not(good_source)
 
         if channel is None:
             channels = [standard_string(s) for s in set(self['Chan'])]
@@ -823,8 +821,8 @@ class CalibratorTable(Table):
                                           map_unit=map_unit,
                                           good_mask=non_source)
 
-            calculated_flux = np.array(self['Calculated Flux'])
-            calculated_flux_err = np.array(self['Calculated Flux Err'])
+            calculated_flux = copy.deepcopy(self['Calculated Flux'])
+            calculated_flux_err = copy.deepcopy(self['Calculated Flux Err'])
             counts = np.array(self['Counts'])
             counts_err = np.array(self['Counts Err'])
 
@@ -855,14 +853,16 @@ class CalibratorTable(Table):
             True if, for all calibrators, the tabulated and calculated values
             of the flux are consistent. False otherwise.
         """
-        is_cal = self['Flux'] > 0
+        is_cal = (~np.isnan(self['Flux']))&(self['Flux'] > 0)
         calibrators = list(set(self['Source'][is_cal]))
         for cal in calibrators:
             self.calculate_src_flux(channel=channel, source=cal)
+
         if channel is None:
             good_chan = np.ones_like(self['Chan'], dtype=bool)
         else:
             good_chan = compare_strings(self['Chan'], channel)
+
         calc_fluxes = self['Calculated Flux'][is_cal & good_chan]
         biblio_fluxes = self['Flux'][is_cal & good_chan]
         names = self['Source'][is_cal & good_chan]
@@ -871,9 +871,9 @@ class CalibratorTable(Table):
         consistent = \
             np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
 
-        for n, t, b, c, in zip(names, times, biblio_fluxes, calc_fluxes):
-            consistent = np.abs(b - c) < epsilon * b
-            if not consistent:
+        for n, t, b, c, cons, in zip(
+                names, times, biblio_fluxes, calc_fluxes, consistent):
+            if not cons:
                 warnings.warn("{}, MJD {}: Expected {}, "
                               "measured {}".format(n, t, b, c))
 

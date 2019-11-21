@@ -1,5 +1,4 @@
-from __future__ import (absolute_import, division,
-                        print_function)
+
 import time
 import os
 import shutil
@@ -51,7 +50,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         super().__init__()
         self.conf = getattr(sys.modules[__name__], 'conf')
         create_index_file(self.conf['debug_file_format'])
-        
+
         self.max_proc = n_proc
 
         self.timers = {}
@@ -305,7 +304,19 @@ def main_monitor(args=None):
         default=1,
         help='The maximum number of worker processes to spawn'
     )
+    parser.add_argument(
+        '--timeout',
+        type=float,
+        default=None,
+        help='Set a timeout for the monitor'
+    )
     args = parser.parse_args(args)
+
+    timeout = args.timeout
+    if args.timeout is None:
+        timeout = 1e32
+        if args.test:
+            timeout = 10
 
     if not args.test:
         del log.handlers[:]  # Needed to prevent duplicate logging entries
@@ -366,11 +377,10 @@ def main_monitor(args=None):
         t.start()
 
     try:
-        count = 0
-        while count < 10:
+        t0 = time.time()
+        while time.time() - t0 < timeout:
             time.sleep(1)
-            if args.test:
-                count += 1
+
         raise KeyboardInterrupt
     except KeyboardInterrupt:
         pass
@@ -399,7 +409,7 @@ def create_index_file(extension, interval=500):
     """
     :param extension: the file extension of the image files to look for.
     :param interval: expressed in milliseconds, it represents the time between
-        two subsequent calls to the `updatePage` function. Since the images
+        two subsequent calls to the ``updatePage`` function. Since the images
         get reloaded without any flickering (as opposed to when the whole page
         gets reloaded from the browser), its value can be set to a fraction of
         a second without any visible issue.

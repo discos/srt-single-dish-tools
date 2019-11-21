@@ -1,6 +1,4 @@
 """Input/output functions."""
-from __future__ import (absolute_import, division,
-                        print_function)
 import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
@@ -13,11 +11,8 @@ from astropy import log
 import copy
 import re
 import six
-import collections
-try:
-    import glob2 as glob
-except ImportError:
-    import glob
+import glob
+from collections.abc import Iterable
 
 
 from .utils import force_move_file
@@ -32,6 +27,12 @@ chan_re = re.compile(r'^Ch([0-9]+)$'
                      r'|^Feed([0-9]+)_([a-zA-Z]+)$'
                      r'|^Feed([0-9]+)_([a-zA-Z]+)_([0-9]+)$')
 
+
+# 'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
+#                                   unit=u.m)
+# EarthLocation(Angle("9:14:42.5764", u.deg),
+#                                   Angle("39:29:34.93742", u.deg),
+#                                   600 * u.meter) # not precise enough
 
 locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
                                   unit=u.m),
@@ -374,7 +375,7 @@ def get_value_with_units(fitsext, keyword, default=""):
         unit = u.Unit(unitstr)
     value = fitsext[keyword]
     is_string = isinstance(value, six.string_types)
-    is_iterable = isinstance(value, collections.Iterable)
+    is_iterable = isinstance(value, Iterable)
     if is_string or (is_iterable and isinstance(value[0], six.string_types)):
         return value
     else:
@@ -762,7 +763,7 @@ def read_data(fname):
     if kind == 'fitszilla':
         return read_data_fitszilla(fname)
     elif kind == 'hdf5':
-        return Table.read(fname, path='scan')
+        return Table.read(fname)
 
 
 def root_name(fname):

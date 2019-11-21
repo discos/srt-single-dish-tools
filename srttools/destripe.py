@@ -1,5 +1,4 @@
-from __future__ import (absolute_import, division,
-                        print_function)
+
 import numpy as np
 try:
     import matplotlib.pyplot as plt
@@ -92,7 +91,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     True
     """
     from scipy.ndimage import gaussian_filter, gaussian_filter1d
-    import collections
+    from collections.abc import Iterable
     if img.shape[0] * img.shape[0] > 100:
         rms = mad(img.flatten())
     else:
@@ -107,7 +106,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     if smooth_window == 0:
         pass
 
-    elif isinstance(smooth_window, collections.Iterable):
+    elif isinstance(smooth_window, Iterable):
         img = gaussian_filter(img, np.array(smooth_window) / 5)
     else:
         img = gaussian_filter1d(img, smooth_window / 5,
