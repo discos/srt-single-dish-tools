@@ -303,7 +303,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  nofilt=False, outfile="out", label="",
                                  smoothing_window=0.05,
                                  debug_file_format='pdf',
-                                 info_string="Empty info string"):
+                                 info_string="Empty info string", dpi=100):
     """Clean a spectroscopic scan using the difference of channel variability.
 
     From the dynamical spectrum, i.e. the list of spectra obtained in each
@@ -395,7 +395,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         plt.gca().text(0.05, 0.95, info_string, horizontalalignment='left',
                        verticalalignment='top',
                        transform=plt.gca().transAxes, fontsize=19)
-        plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format))
+        plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format),
+                    dpi=dpi)
         plt.close(fig)
         return None
 
@@ -492,7 +493,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         ax.text(0.05, 0.95, info_string, horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=19)
-        plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format))
+        plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format),
+                    dpi=dpi)
         plt.close(fig)
         return results
 
@@ -597,7 +599,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     fig.tight_layout()
 
     plt.savefig(
-        "{}_{}.{}".format(outfile, label, debug_file_format))
+        "{}_{}.{}".format(outfile, label, debug_file_format),
+        dpi=dpi)
     plt.close(fig)
     return results
 

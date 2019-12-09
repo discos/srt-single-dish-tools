@@ -274,7 +274,8 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
 
 
 def outlier_from_median_filt(y, window_size, down=True, up=True):
-    diffs = y - medfilt(y, window_size)
+    y_medfilt = medfilt(y, window_size)
+    diffs = y - y_medfilt
     min_diff = mad(diffs)
 
     outliers = np.zeros(len(y), dtype=bool)
@@ -392,10 +393,12 @@ def _als(y, lam, p, niter=30):
     return z
 
 
-def baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
-                 offset_correction=True, mask=None,
-                 outlier_purging=True):
+def baseline_als(x, y, **kwargs):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
+
+    If the input arrays are larger than 300 elements, ignores outlier_purging
+    and executes the baseline calculation on a small subset of the
+    (median-filtered) y-array
 
     Parameters
     ----------
@@ -432,6 +435,31 @@ def baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
     baseline : array-like, same size as y
         Fitted baseline. Only returned if return_baseline is True
     """
+    from scipy.interpolate import interp1d
+    if y.size < 300:
+        return _baseline_als(x, y, **kwargs)
+
+    _ = kwargs.pop('outlier_purging', False)
+    return_baseline = kwargs.pop('return_baseline', False)
+
+    y_medf = medfilt(y, 31)
+
+    els = np.array(
+        np.rint(np.linspace(0, y.size - 1, 31)), dtype=int)
+    y_sub, base = _baseline_als(x[els], y_medf[els], outlier_purging=False,
+                                return_baseline=True, **kwargs)
+
+    func = interp1d(x[els], base)
+    baseline = func(x)
+    if return_baseline:
+        return y - baseline, baseline
+    else:
+        return y - baseline
+
+
+def _baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
+                  offset_correction=True, mask=None,
+                  outlier_purging=True):
 
     if not isinstance(outlier_purging, Iterable):
         outlier_purging = (outlier_purging, outlier_purging)
