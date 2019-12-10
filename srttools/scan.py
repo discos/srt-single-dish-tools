@@ -323,7 +323,6 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
         good_mask = np.zeros_like(freqmask, dtype=bool)
     results.wholemask[good_mask] = 1
 
-    import pickle
     with open(filename, 'wb') as fobj:
         pickle.dump(results, fobj)
     return filename
@@ -376,7 +375,7 @@ def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
     # Calculate first light curve
     times = length * np.arange(dynspec_len) / dynspec_len
 
-    spec_stats = pickle.load(open(stat_file, 'rb'))
+    spec_stats = object_or_pickle(stat_file)
 
     freqmask = spec_stats.freqmask
     freqmin = spec_stats.freqmin
@@ -415,14 +414,13 @@ def plot_spectrum_cleaning_results(
         info_string="Empty info string"):
     # Now, PLOT IT ALL --------------------------------
     # Prepare subplots
-    with open(cleaning_res_file, 'rb') as fobj:
-        cleaning_results = pickle.load(fobj)
+
+    cleaning_results = object_or_pickle(cleaning_res_file)
     lc_corr = cleaning_results.lc
     dynspec_len = dynamical_spectrum.shape[0]
     cleaned_dynamical_spectrum = cleaning_results.dynspec
 
-    with open(spec_stats_file, 'rb') as fobj:
-        spec_stats = pickle.load(fobj)
+    spec_stats = object_or_pickle(spec_stats_file)
 
     freqmask = spec_stats.freqmask
     wholemask = spec_stats.wholemask
@@ -588,6 +586,13 @@ def plot_spectrum_cleaning_results(
     plt.close(fig)
 
 
+def object_or_pickle(obj):
+    if isinstance(obj, str):
+        with open(obj, 'rb') as fobj:
+            return pickle.load(fobj)
+    return obj
+
+
 def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  good_mask=None, freqsplat=None,
                                  noise_threshold=5., debug=True, plot=True,
@@ -698,7 +703,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     if not plot or not HAS_MPL:
         log.debug("No plotting needs to be done.")
-        return pickle.load(open(cleaning_res_file, 'rb'))
+        return object_or_pickle(cleaning_res_file)
 
     plot_spectrum_cleaning_results(
         cleaning_res_file, dummy_file, dynamical_spectrum,
@@ -708,7 +713,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
 
     gc.collect()
 
-    results = pickle.load(open(cleaning_res_file, 'rb'))
+    results = object_or_pickle(cleaning_res_file)
     os.unlink(cleaning_res_file)
     os.unlink(dummy_file)
     return results
