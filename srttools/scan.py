@@ -241,7 +241,7 @@ def object_or_pickle(obj):
     return obj
 
 
-def pickle_or_not(results, filename, test_data, min_MB = 50):
+def pickle_or_not(results, filename, test_data, min_MB=50):
     if sys.getsizeof(test_data) > min_MB * 1e6:
         log.info("The data set is large. Using partial data dumps")
         with open(filename, 'wb') as fobj:
@@ -921,7 +921,7 @@ class Scan(Table):
 
             results = \
                 clean_scan_using_variability(
-                    self[ch], 86400 * (self['time'][-1] - self['time'][0]),
+                    np.array(self[ch]), 86400 * (self['time'][-1] - self['time'][0]),
                     self[ch].meta['bandwidth'],
                     good_mask=good_mask,
                     freqsplat=freqsplat,
