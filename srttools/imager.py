@@ -5,7 +5,6 @@ on-the-fly map, is able to calculate the map and save it in FITS format after
 cleaning the data.
 """
 
-
 import numpy as np
 import astropy
 from astropy import wcs

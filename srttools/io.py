@@ -381,7 +381,8 @@ def get_value_with_units(fitsext, keyword, default=""):
     else:
         return value * unit
 
-
+# from memory_profiler import profile
+# @profile
 def _read_data_fitszilla(lchdulist):
     """Open a fitszilla FITS file and read all relevant information."""
     is_new_fitszilla = np.any(['coord' in i.name.lower() for i in lchdulist])
@@ -495,7 +496,13 @@ def _read_data_fitszilla(lchdulist):
 
     # -------------- Read data!-----------------------------------------
     datahdu = lchdulist['DATA TABLE']
+    # N.B.: there is an increase in memory usage here. This is just because
+    # data are being read from the file at this point, not before.
     data_table_data = Table(datahdu.data)
+    tempdata = Table(lchdulist['ANTENNA TEMP TABLE'].data)
+
+    lchdulist.close()
+
     for col in data_table_data.colnames:
         if col == col.lower():
             continue
@@ -580,13 +587,16 @@ def _read_data_fitszilla(lchdulist):
                     data_table_data[section_name][:, ustart:uend]
 
                 chan_names += [qname, uname]
+
+        for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
+            section_name = 'ch{}'.format(s)
+            data_table_data.remove_column(section_name)
     else:
         for ic, ch in enumerate(chan_names):
             data_table_data[ch] = \
                 data_table_data['ch{}'.format(chan_ids[ic])]
 
     # ----------- Read temperature data, if possible ----------------
-    tempdata = lchdulist['ANTENNA TEMP TABLE'].data
     try:
         for ic, ch in enumerate(chan_names):
             td = tempdata['ch{}'.format(chan_ids[ic])]
@@ -694,6 +704,10 @@ def _read_data_fitszilla(lchdulist):
         new_table[chan_name] = \
             data_table_data[chan_name] * relpowers[feeds[ic]]
 
+        new_table[chan_name + '-filt'] = \
+            np.ones(len(data_table_data[chan_name]), dtype=bool)
+        data_table_data.remove_column(chan_name)
+
         newmeta = \
             {'polarization': polarizations[ic],
              'feed': int(f),
@@ -712,9 +726,6 @@ def _read_data_fitszilla(lchdulist):
         new_table[chan_name].meta.update(headerdict)
         new_table[chan_name].meta.update(new_table.meta)
         new_table[chan_name].meta.update(newmeta)
-
-        new_table[chan_name + '-filt'] = \
-            np.ones(len(data_table_data[chan_name]), dtype=bool)
 
     if is_polarized:
         for s in list(set(sections)):
@@ -753,6 +764,7 @@ def _read_data_fitszilla(lchdulist):
 
                 new_table[chan_name + '-filt'] = \
                     np.ones(len(data_table_data[chan_name]), dtype=bool)
+                data_table_data.remove_column(chan_name)
 
     return new_table
 
