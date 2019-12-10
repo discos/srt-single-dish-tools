@@ -1494,16 +1494,16 @@ def main_preprocess(args=None):
 
     if args.files is not None and args.files:
         for f in args.files:
-            try:
+            # try:
                 Scan(f, freqsplat=args.splat, nosub=not args.sub,
                      norefilt=False, debug=args.debug,
                      plot=args.plot, interactive=args.interactive,
                      avoid_regions=excluded_radec,
                      config_file=args.config,
                      nosave=args.nosave)
-            except OSError:
-                warnings.warn("File {} is not in a known format".format(f))
-                return 1
+            # except OSError:
+            #     warnings.warn("File {} is not in a known format".format(f))
+            #     return 1
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")

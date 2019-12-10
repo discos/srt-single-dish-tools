@@ -4,6 +4,7 @@ import pickle
 import glob
 import os
 import warnings
+import sys
 
 from astropy import log
 import astropy.units as u
@@ -233,6 +234,21 @@ class CleaningResults():
     mask = None
 
 
+def object_or_pickle(obj):
+    if isinstance(obj, str):
+        with open(obj, 'rb') as fobj:
+            return pickle.load(fobj)
+    return obj
+
+
+def pickle_or_not(results, filename, test_data, min_MB = 50):
+    if sys.getsizeof(test_data) > min_MB * 1e6:
+        log.info("The data set is large. Using partial data dumps")
+        with open(filename, 'wb') as fobj:
+            pickle.dump(results, fobj)
+            results = filename
+    return results
+
 
 # @profile
 def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
@@ -323,9 +339,8 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
         good_mask = np.zeros_like(freqmask, dtype=bool)
     results.wholemask[good_mask] = 1
 
-    with open(filename, 'wb') as fobj:
-        pickle.dump(results, fobj)
-    return filename
+    results = pickle_or_not(results, filename, varimg)
+    return results
 
 
 def plot_light_curve(
@@ -403,9 +418,8 @@ def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
     results.mask = wholemask
     results.dynspec =  cleaned_dynamical_spectrum
 
-    with open(filename, 'wb') as fobj:
-        pickle.dump(results, fobj)
-    return filename
+    results = pickle_or_not(results, filename, cleaned_dynamical_spectrum)
+    return results
 
 
 def plot_spectrum_cleaning_results(
@@ -586,13 +600,6 @@ def plot_spectrum_cleaning_results(
     plt.close(fig)
 
 
-def object_or_pickle(obj):
-    if isinstance(obj, str):
-        with open(obj, 'rb') as fobj:
-            return pickle.load(fobj)
-    return obj
-
-
 def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  good_mask=None, freqsplat=None,
                                  noise_threshold=5., debug=True, plot=True,
@@ -697,7 +704,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         return None
 
     cleaning_res_file = _clean_spectrum(
-        dynamical_spectrum, dummy_file, length,
+        dynamical_spectrum, spec_stats_, length,
         filename=dummy_file.replace('.p', '_cl.p'))
     gc.collect()
 
@@ -706,7 +713,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         return object_or_pickle(cleaning_res_file)
 
     plot_spectrum_cleaning_results(
-        cleaning_res_file, dummy_file, dynamical_spectrum,
+        cleaning_res_file, spec_stats_, dynamical_spectrum,
         outfile=outfile, label=label,
         debug_file_format=debug_file_format, dpi=dpi,
         info_string=info_string)
@@ -714,8 +721,11 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     gc.collect()
 
     results = object_or_pickle(cleaning_res_file)
-    os.unlink(cleaning_res_file)
-    os.unlink(dummy_file)
+
+    for filename in [cleaning_res_file, dummy_file]:
+        if isinstance(filename, str) and os.path.exists(filename):
+            os.unlink(filename)
+
     return results
 
 
