@@ -13,7 +13,7 @@ import re
 import six
 import glob
 from collections.abc import Iterable
-
+from scipy.interpolate import interp1d
 
 from .utils import force_move_file
 
@@ -501,12 +501,14 @@ def _read_data_fitszilla(lchdulist):
     data_table_data = Table(datahdu.data)
     tempdata = Table(lchdulist['ANTENNA TEMP TABLE'].data)
 
-    lchdulist.close()
-
     for col in data_table_data.colnames:
         if col == col.lower():
             continue
         data_table_data.rename_column(col, col.lower())
+    for col in tempdata.colnames:
+        if col == col.lower():
+            continue
+        tempdata.rename_column(col, col.lower())
 
     is_old_spectrum = 'SPECTRUM' in list(datahdu.header.values())
     if is_old_spectrum:
@@ -590,7 +592,8 @@ def _read_data_fitszilla(lchdulist):
 
         for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
             section_name = 'ch{}'.format(s)
-            data_table_data.remove_column(section_name)
+            if section_name in data_table_data.colnames:
+                data_table_data.remove_column(section_name)
     else:
         for ic, ch in enumerate(chan_names):
             data_table_data[ch] = \
@@ -599,8 +602,15 @@ def _read_data_fitszilla(lchdulist):
     # ----------- Read temperature data, if possible ----------------
     try:
         for ic, ch in enumerate(chan_names):
-            td = tempdata['ch{}'.format(chan_ids[ic])]
-            data_table_data[ch + '-Temp'] = td
+            td = np.asarray(tempdata['ch{}'.format(chan_ids[ic])])
+            Ntemp = td.size
+            Ndata = data_table_data['time'].size
+
+            temp_func = interp1d(np.arange(Ntemp), td)
+
+            data_table_data[ch + '-Temp'] = \
+                temp_func(np.arange(Ndata) * (Ntemp / Ndata))
+
     except Exception as e:
         warnings.warn("Could not read temperature information from file. "
                       "This is usually a minor problem.\n"
@@ -676,6 +686,8 @@ def _read_data_fitszilla(lchdulist):
             new_table['dec'][:, i] = dec
             new_table['el'][:, i] = el
             new_table['az'][:, i] = az
+
+    lchdulist.close()
 
     # So ugly. But it works
     filtered_frequencies = [f for (f, g) in zip(frequencies, good) if g]

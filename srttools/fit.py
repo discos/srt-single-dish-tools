@@ -69,7 +69,7 @@ def _rolling_window(a, window):
         raise
 
 
-def ref_std(array, window):
+def ref_std(array, window=1):
     """Minimum standard deviation along an array.
 
     If a data series is noisy, it is difficult to determine the underlying
@@ -93,7 +93,7 @@ def ref_std(array, window):
     return np.std(np.diff(array)) / np.sqrt(2)
 
 
-def ref_mad(array, window):
+def ref_mad(array, window=1):
     """Ref. Median Absolute Deviation of an array, rolling median-subtracted.
 
     If a data series is noisy, it is difficult to determine the underlying
@@ -113,6 +113,7 @@ def ref_mad(array, window):
     ref_std : float
         The reference MAD
     """
+
     return mad(np.diff(array)) / np.sqrt(2)
 
 

@@ -308,7 +308,6 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
         warnings.warn("No good channels found. A problem with the data or "
                       "incorrect noise threshold?")
         return None
-        # mask[:] = True
 
     results.bandwidth = bandwidth
     results.mask = mask
@@ -403,6 +402,7 @@ def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
     results.freqmin = freqmin * u.MHz
     results.freqmax = freqmax * u.MHz
     results.mask = wholemask
+    results.dynspec =  cleaned_dynamical_spectrum
 
     with open(filename, 'wb') as fobj:
         pickle.dump(results, fobj)
@@ -419,6 +419,7 @@ def plot_spectrum_cleaning_results(
         cleaning_results = pickle.load(fobj)
     lc_corr = cleaning_results.lc
     dynspec_len = dynamical_spectrum.shape[0]
+    cleaned_dynamical_spectrum = cleaning_results.dynspec
 
     with open(spec_stats_file, 'rb') as fobj:
         spec_stats = pickle.load(fobj)
@@ -456,9 +457,6 @@ def plot_spectrum_cleaning_results(
     else:
         lc_masked -= np.median(lc_masked)
 
-    cleaned_dynamical_spectrum = \
-        _clean_dyn_spec(dynamical_spectrum, bad_intervals)
-
     meanspec = np.sum(dynamical_spectrum, axis=0) / dynspec_len
     cleaned_meanspec = \
         np.sum(cleaned_dynamical_spectrum,
@@ -493,6 +491,8 @@ def plot_spectrum_cleaning_results(
     ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
     ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
     ax_text = plt.subplot(gs[0, 2])
+    for ax in [ax_meanspec, ax_dynspec, ax_cleanspec, ax_var, ax_text]:
+        ax.autoscale(False)
 
     ax_meanspec.set_ylabel('Counts')
     ax_dynspec.set_ylabel('Sample')
@@ -504,7 +504,6 @@ def plot_spectrum_cleaning_results(
     # Plot mean spectrum
 
     ax_meanspec.plot(allbins[1:], meanspec[1:], label="Unfiltered")
-    # ax_meanspec.plot(allbins[1:], meanspec[1:], label="Whitelist applied")
     ax_meanspec.plot(allbins[wholemask], meanspec[wholemask],
                      label="Final mask")
     ax_meanspec.set_ylim([np.min(cleaned_meanspec),
@@ -706,9 +705,13 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         outfile=outfile, label=label,
         debug_file_format=debug_file_format, dpi=dpi,
         info_string=info_string)
+
     gc.collect()
 
-    return pickle.load(open(cleaning_res_file, 'rb'))
+    results = pickle.load(open(cleaning_res_file, 'rb'))
+    os.unlink(cleaning_res_file)
+    os.unlink(dummy_file)
+    return results
 
 
 def frequency_filter(dynamical_spectrum, mask):
