@@ -277,6 +277,7 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     results.allbins = allbins
     results.meanspec = meanspec
     results.df = df
+    results.length = length
 
     if dynspec_len < 10:
         warnings.warn("Very few data in the dataset. "
@@ -334,7 +335,6 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     results.thresh_low = threshold_low
     results.thresh_high = threshold_high
     results.wholemask = freqmask & mask
-    results.length = length
     if good_mask is None:
         good_mask = np.zeros_like(freqmask, dtype=bool)
     results.wholemask[good_mask] = 1
