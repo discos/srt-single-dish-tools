@@ -30,7 +30,7 @@ def logger():
     return logger
 
 
-np.random.seed(1241347)
+np.random.seed(124137)
 
 
 def source_scan_func(x):
