@@ -26,7 +26,7 @@ from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, jit
 
-from .io import chan_re, get_channel_feed
+from .io import chan_re, get_channel_feed, detect_data_kind
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
@@ -1494,16 +1494,15 @@ def main_preprocess(args=None):
 
     if args.files is not None and args.files:
         for f in args.files:
-            try:
-                Scan(f, freqsplat=args.splat, nosub=not args.sub,
-                     norefilt=False, debug=args.debug,
-                     plot=args.plot, interactive=args.interactive,
-                     avoid_regions=excluded_radec,
-                     config_file=args.config,
-                     nosave=args.nosave)
-            except OSError:
-                warnings.warn("File {} is not in a known format".format(f))
-                return 1
+            kind = detect_data_kind(f)
+            if kind is None:
+                continue
+            Scan(f, freqsplat=args.splat, nosub=not args.sub,
+                 norefilt=False, debug=args.debug,
+                 plot=args.plot, interactive=args.interactive,
+                 avoid_regions=excluded_radec,
+                 config_file=args.config,
+                 nosave=args.nosave)
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")

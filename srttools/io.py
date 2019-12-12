@@ -170,8 +170,10 @@ def detect_data_kind(fname):
     """Placeholder for function that recognizes data format."""
     if fname.endswith('.hdf5'):
         return 'hdf5'
-    else:
+    elif 'fits' in fname:
         return 'fitszilla'
+    else:
+        return None
 
 
 def correct_offsets(obs_angle, xoffset, yoffset):
@@ -788,6 +790,9 @@ def read_data(fname):
         return read_data_fitszilla(fname)
     elif kind == 'hdf5':
         return Table.read(fname)
+    else:
+        warnings.warn("File {} is not in a known format".format(fname))
+        return None
 
 
 def root_name(fname):
