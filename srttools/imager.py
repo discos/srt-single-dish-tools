@@ -5,6 +5,17 @@ on-the-fly map, is able to calculate the map and save it in FITS format after
 cleaning the data.
 """
 
+import os
+import sys
+import warnings
+import traceback
+import six
+import copy
+import functools
+from collections.abc import Iterable
+
+from scipy.stats import binned_statistic_2d
+from astropy import log
 import numpy as np
 import astropy
 from astropy import wcs
@@ -12,15 +23,8 @@ from astropy.table import Table, vstack, Column
 from astropy.utils.metadata import MergeConflictWarning
 import astropy.io.fits as fits
 import astropy.units as u
-import sys
-import warnings
-from astropy import log
-import traceback
-import six
-import copy
-import functools
-from collections.abc import Iterable
-from scipy.stats import binned_statistic_2d
+from astropy.table.np_utils import TableMergeError
+
 from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
@@ -31,8 +35,6 @@ from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
 from .opacity import calculate_opacity
-from astropy.table.np_utils import TableMergeError
-
 from .global_fit import fit_full_image
 from .interactive_filter import create_empty_info
 
@@ -1494,6 +1496,10 @@ def main_preprocess(args=None):
 
     if args.files is not None and args.files:
         for f in args.files:
+            if not os.path.exists(f):
+                warnings.warn('File {} does not exist'.format(f))
+                continue
+
             kind = detect_data_kind(f)
             if kind is None:
                 continue
