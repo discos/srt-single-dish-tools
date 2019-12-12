@@ -173,6 +173,7 @@ def detect_data_kind(fname):
     elif 'fits' in fname:
         return 'fitszilla'
     else:
+        warnings.warn("File {} is not in a known format".format(fname))
         return None
 
 
@@ -791,7 +792,6 @@ def read_data(fname):
     elif kind == 'hdf5':
         return Table.read(fname)
     else:
-        warnings.warn("File {} is not in a known format".format(fname))
         return None
 
 

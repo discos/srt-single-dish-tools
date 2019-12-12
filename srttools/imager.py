@@ -1497,6 +1497,7 @@ def main_preprocess(args=None):
             kind = detect_data_kind(f)
             if kind is None:
                 continue
+
             Scan(f, freqsplat=args.splat, nosub=not args.sub,
                  norefilt=False, debug=args.debug,
                  plot=args.plot, interactive=args.interactive,
