@@ -13,7 +13,7 @@ import re
 import six
 import glob
 from collections.abc import Iterable
-
+from scipy.interpolate import interp1d
 
 from .utils import force_move_file
 
@@ -170,8 +170,11 @@ def detect_data_kind(fname):
     """Placeholder for function that recognizes data format."""
     if fname.endswith('.hdf5'):
         return 'hdf5'
-    else:
+    elif 'fits' in fname:
         return 'fitszilla'
+    else:
+        warnings.warn("File {} is not in a known format".format(fname))
+        return None
 
 
 def correct_offsets(obs_angle, xoffset, yoffset):
@@ -381,7 +384,8 @@ def get_value_with_units(fitsext, keyword, default=""):
     else:
         return value * unit
 
-
+# from memory_profiler import profile
+# @profile
 def _read_data_fitszilla(lchdulist):
     """Open a fitszilla FITS file and read all relevant information."""
     is_new_fitszilla = np.any(['coord' in i.name.lower() for i in lchdulist])
@@ -495,11 +499,19 @@ def _read_data_fitszilla(lchdulist):
 
     # -------------- Read data!-----------------------------------------
     datahdu = lchdulist['DATA TABLE']
+    # N.B.: there is an increase in memory usage here. This is just because
+    # data are being read from the file at this point, not before.
     data_table_data = Table(datahdu.data)
+    tempdata = Table(lchdulist['ANTENNA TEMP TABLE'].data)
+
     for col in data_table_data.colnames:
         if col == col.lower():
             continue
         data_table_data.rename_column(col, col.lower())
+    for col in tempdata.colnames:
+        if col == col.lower():
+            continue
+        tempdata.rename_column(col, col.lower())
 
     is_old_spectrum = 'SPECTRUM' in list(datahdu.header.values())
     if is_old_spectrum:
@@ -580,17 +592,28 @@ def _read_data_fitszilla(lchdulist):
                     data_table_data[section_name][:, ustart:uend]
 
                 chan_names += [qname, uname]
+
+        for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
+            section_name = 'ch{}'.format(s)
+            if section_name in data_table_data.colnames:
+                data_table_data.remove_column(section_name)
     else:
         for ic, ch in enumerate(chan_names):
             data_table_data[ch] = \
                 data_table_data['ch{}'.format(chan_ids[ic])]
 
     # ----------- Read temperature data, if possible ----------------
-    tempdata = lchdulist['ANTENNA TEMP TABLE'].data
     try:
         for ic, ch in enumerate(chan_names):
-            td = tempdata['ch{}'.format(chan_ids[ic])]
-            data_table_data[ch + '-Temp'] = td
+            td = np.asarray(tempdata['ch{}'.format(chan_ids[ic])])
+            Ntemp = td.size
+            Ndata = data_table_data['time'].size
+
+            temp_func = interp1d(np.arange(Ntemp), td)
+
+            data_table_data[ch + '-Temp'] = \
+                temp_func(np.arange(Ndata) * (Ntemp / Ndata))
+
     except Exception as e:
         warnings.warn("Could not read temperature information from file. "
                       "This is usually a minor problem.\n"
@@ -667,6 +690,8 @@ def _read_data_fitszilla(lchdulist):
             new_table['el'][:, i] = el
             new_table['az'][:, i] = az
 
+    lchdulist.close()
+
     # So ugly. But it works
     filtered_frequencies = [f for (f, g) in zip(frequencies, good) if g]
 
@@ -694,6 +719,10 @@ def _read_data_fitszilla(lchdulist):
         new_table[chan_name] = \
             data_table_data[chan_name] * relpowers[feeds[ic]]
 
+        new_table[chan_name + '-filt'] = \
+            np.ones(len(data_table_data[chan_name]), dtype=bool)
+        data_table_data.remove_column(chan_name)
+
         newmeta = \
             {'polarization': polarizations[ic],
              'feed': int(f),
@@ -712,9 +741,6 @@ def _read_data_fitszilla(lchdulist):
         new_table[chan_name].meta.update(headerdict)
         new_table[chan_name].meta.update(new_table.meta)
         new_table[chan_name].meta.update(newmeta)
-
-        new_table[chan_name + '-filt'] = \
-            np.ones(len(data_table_data[chan_name]), dtype=bool)
 
     if is_polarized:
         for s in list(set(sections)):
@@ -753,6 +779,7 @@ def _read_data_fitszilla(lchdulist):
 
                 new_table[chan_name + '-filt'] = \
                     np.ones(len(data_table_data[chan_name]), dtype=bool)
+                data_table_data.remove_column(chan_name)
 
     return new_table
 
@@ -764,6 +791,8 @@ def read_data(fname):
         return read_data_fitszilla(fname)
     elif kind == 'hdf5':
         return Table.read(fname)
+    else:
+        return None
 
 
 def root_name(fname):

@@ -1,15 +1,18 @@
 """Scan class."""
-
-
-from .io import read_data, root_name, get_chan_columns, get_channel_feed
-from .io import mkdir_p
+import time
+import pickle
 import glob
-from .read_config import read_config, get_config_file
-from .fit import ref_mad, contiguous_regions
 import os
+import warnings
+import sys
+
+from astropy import log
+import astropy.units as u
 import numpy as np
 from scipy.signal import medfilt
 from astropy.table import Table, Column
+#from memory_profiler import profile
+
 try:
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
@@ -17,15 +20,13 @@ try:
 except ImportError:
     HAS_MPL = False
 
+from .io import read_data, root_name, get_chan_columns, get_channel_feed
+from .io import mkdir_p
+from .read_config import read_config, get_config_file
+from .fit import ref_mad, contiguous_regions
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
 from .utils import jit, vectorize, HAS_NUMBA
-
-import warnings
-from astropy import log
-
-import astropy.units as u
-
 
 __all__ = ["Scan", "interpret_frequency_range", "clean_scan_using_variability",
            "list_scans"]
@@ -208,16 +209,54 @@ def _clean_dyn_spec(dynamical_spectrum, bad_intervals):
     return cleaned_dynamical_spectrum
 
 
+class StatResults():
+    meanspec = None
+    spectral_var = None
+    baseline = None
+    mask = None
+    allbins = None
+    varimg = None
+    thresh_low = None
+    thresh_high = None
+    freqmask = None
+    freqmin = None
+    freqmax = None
+    wholemask = None
+    bandwidth = None
+    length = None
+    df = None
+
+
+class CleaningResults():
+    lc = None
+    freqmin = None
+    freqmax = None
+    mask = None
+
+
+def object_or_pickle(obj):
+    if isinstance(obj, str):
+        with open(obj, 'rb') as fobj:
+            return pickle.load(fobj)
+    return obj
+
+
+def pickle_or_not(results, filename, test_data, min_MB=50):
+    if sys.getsizeof(test_data) > min_MB * 1e6:
+        log.info("The data set is large. Using partial data dumps")
+        with open(filename, 'wb') as fobj:
+            pickle.dump(results, fobj)
+            results = filename
+    return results
+
+
+# @profile
 def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
-                        smoothing_window, noise_threshold):
+                        smoothing_window, noise_threshold, good_mask=None,
+                        length=1,
+                        filename='stats.p'):
 
-    results = type('stats', (), {})()  # create empty object
-    results.meanspec = results.spectral_var = None
-    results.baseline = results.mask = None
-    results.allbins = results.varimg = None
-    results.thresh_low = None
-    results.thresh_high = None
-
+    results = StatResults()
     dynspec_len, nbin = dynamical_spectrum.shape
     # Calculate spectral variability curve
 
@@ -237,6 +276,8 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     results.wholemask = freqmask
     results.allbins = allbins
     results.meanspec = meanspec
+    results.df = df
+    results.length = length
 
     if dynspec_len < 10:
         warnings.warn("Very few data in the dataset. "
@@ -283,8 +324,9 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     if not np.any(mask):
         warnings.warn("No good channels found. A problem with the data or "
                       "incorrect noise threshold?")
-        # mask[:] = True
+        return None
 
+    results.bandwidth = bandwidth
     results.mask = mask
     results.spectral_var = spectral_var
     results.freqmask = freqmask
@@ -293,116 +335,123 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     results.thresh_low = threshold_low
     results.thresh_high = threshold_high
     results.wholemask = freqmask & mask
+    if good_mask is None:
+        good_mask = np.zeros_like(freqmask, dtype=bool)
+    results.wholemask[good_mask] = 1
 
+    results = pickle_or_not(results, filename, varimg)
     return results
 
 
-def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
-                                 good_mask=None, freqsplat=None,
-                                 noise_threshold=5., debug=True, plot=True,
-                                 nofilt=False, outfile="out", label="",
-                                 smoothing_window=0.05,
-                                 debug_file_format='pdf',
-                                 info_string="Empty info string", dpi=100):
-    """Clean a spectroscopic scan using the difference of channel variability.
+def plot_light_curve(
+        lc, length, outfile="out", label="",
+        debug_file_format='pdf', dpi=100, info_string="Empty info string"):
+    times = \
+        length * np.arange(lc.size) / lc.size
+    fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+    plt.plot(times, lc)
+    plt.xlabel('Time')
+    plt.ylabel('Counts')
+    plt.gca().text(0.05, 0.95, info_string, horizontalalignment='left',
+                   verticalalignment='top',
+                   transform=plt.gca().transAxes, fontsize=19)
+    plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format),
+                dpi=dpi)
+    plt.close(fig)
 
-    From the dynamical spectrum, i.e. the list of spectra obtained in each
-    sample of a scan, we calculate the rms variability of each frequency
-    channel. This forms a sort of rms spectrum. We calculate the baseline of
-    this spectrum, and all channels whose rms is above above noise_threshold
-    times the reference median absolute deviation
-    (:func:`srttools.fit.ref_mad`), calculated
-    with a minimum window of 20 samples, are cut and assigned an interpolated
-    value between the closest valid points.
-    The baseline is calculated with
-    :func:`srttools.fit.baseline_als`, using a lambda value depending on
-    the number of channels, with a formula that has been shown to work in a few
-    standard cases but might be modified in the future.
 
-    Parameters
-    ----------
-    dynamical_spectrum : 2-d array
-        Array of shape MxN, with M spectra of N elements each.
-    length : float
-        Duration in seconds of the scan (assumed to have constant sample time)
-    bandwidth : float
-        Bandwidth in MHz
+def plot_all_spectra(allbins, dynamical_spectrum, outfile="out", label="",
+        debug_file_format='pdf', dpi=100,
+        info_string="Empty info string", fig=None):
 
-    Other parameters
-    ----------------
-    good_mask : boolean array
-        this mask specifies channels that should never be discarded as
-        RFI, for example because they contain spectral lines
-    freqsplat : str
-        List of frequencies to be merged into one. See
-        :func:`srttools.scan.interpret_frequency_range`
-    noise_threshold : float
-        The threshold, in sigmas, over which a given channel is
-        considered noisy
-    debug : bool
-        Print out debugging information
-    plot : bool
-        Plot stuff
-    nofilt : bool
-        Do not filter noisy channels (set noise_threshold to 1e32)
-    outfile : str
-        Root file name for the diagnostics plots (outfile_label.png)
-    label : str
-        Label to append to the filename (outfile_label.png)
-    smoothing_window : float
-        Width of smoothing window, in fraction of spectral length
-
-    Returns
-    -------
-    results : object
-        The attributes of this object are:
-
-        lc : array-like
-            The cleaned light curve
-        freqmin : float
-            Minimum frequency in MHz, referred to local oscillator
-        freqmax : float
-            Maximum frequency in MHz, referred to local oscillator
-
-    See Also
-    --------
-    srttools.fit.baseline_als
-    srttools.fit.ref_mad
-    """
-    rootdir, _ = os.path.split(outfile)
-    if not os.path.exists(rootdir):
-        mkdir_p(rootdir)
-
-    try:
-        bandwidth_unit = bandwidth.unit
-        bandwidth = bandwidth.value
-    except AttributeError:
-        bandwidth_unit = u.MHz
-
-    if len(dynamical_spectrum.shape) == 1:
-        if not plot or not HAS_MPL:
-            return None
-
-        lc = dynamical_spectrum
-        times = length * np.arange(lc.size) / lc.size
-
-        # Now, PLOT IT ALL --------------------------------
-        # Prepare subplots
+    if fig is None:
         fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
-        plt.plot(times, lc)
-        plt.xlabel('Time')
-        plt.ylabel('Counts')
-        plt.gca().text(0.05, 0.95, info_string, horizontalalignment='left',
-                       verticalalignment='top',
-                       transform=plt.gca().transAxes, fontsize=19)
-        plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format),
-                    dpi=dpi)
-        plt.close(fig)
-        return None
 
+    for i in dynamical_spectrum:
+        plt.plot(allbins[1:], i[1:])
+
+    meanspec = np.sum(dynamical_spectrum, axis=0) / dynamical_spectrum.shape[0]
+
+    plt.plot(allbins[1:], meanspec[1:])
+    plt.xlabel('Time')
+    plt.ylabel('Counts')
+    ax = plt.gca()
+    ax.text(0.05, 0.95, info_string, horizontalalignment='left',
+            verticalalignment='top',
+            transform=ax.transAxes, fontsize=19)
+    plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format),
+                dpi=dpi)
+    plt.close(fig)
+
+
+def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
     dynspec_len, nbin = dynamical_spectrum.shape
 
     # Calculate first light curve
+    times = length * np.arange(dynspec_len) / dynspec_len
+
+    spec_stats = object_or_pickle(stat_file)
+
+    freqmask = spec_stats.freqmask
+    freqmin = spec_stats.freqmin
+    freqmax = spec_stats.freqmax
+
+    wholemask = spec_stats.wholemask
+
+    bad_intervals = contiguous_regions(np.logical_not(wholemask))
+
+    # Calculate cleaned dynamical spectrum
+
+    cleaned_dynamical_spectrum = \
+        _clean_dyn_spec(dynamical_spectrum, bad_intervals)
+
+    lc_corr = np.sum(cleaned_dynamical_spectrum[:, freqmask], axis=1)
+    if len(lc_corr) > 10:
+        lc_corr = baseline_als(times, lc_corr, outlier_purging=False)
+    else:
+        lc_corr -= np.median(lc_corr)
+
+    results = CleaningResults()  # create empty object
+    results.lc = lc_corr
+    results.freqmin = freqmin * u.MHz
+    results.freqmax = freqmax * u.MHz
+    results.mask = wholemask
+    results.dynspec =  cleaned_dynamical_spectrum
+
+    results = pickle_or_not(results, filename, cleaned_dynamical_spectrum)
+    return results
+
+
+def plot_spectrum_cleaning_results(
+        cleaning_res_file, spec_stats_file, dynamical_spectrum,
+        outfile="out", label="", debug_file_format='pdf', dpi=100,
+        info_string="Empty info string"):
+    # Now, PLOT IT ALL --------------------------------
+    # Prepare subplots
+
+    cleaning_results = object_or_pickle(cleaning_res_file)
+    lc_corr = cleaning_results.lc
+    dynspec_len = dynamical_spectrum.shape[0]
+    cleaned_dynamical_spectrum = cleaning_results.dynspec
+
+    spec_stats = object_or_pickle(spec_stats_file)
+
+    freqmask = spec_stats.freqmask
+    wholemask = spec_stats.wholemask
+    mask = spec_stats.mask
+    baseline = spec_stats.baseline
+    varimg = spec_stats.varimg
+    thresh_high = spec_stats.thresh_high
+    thresh_low = spec_stats.thresh_low
+    spectral_var = spec_stats.spectral_var
+    bandwidth = spec_stats.bandwidth
+    length = spec_stats.length
+    allbins = spec_stats.allbins
+    freqmin = spec_stats.freqmin
+    freqmax = spec_stats.freqmax
+    df = spec_stats.df
+
+    bad_intervals = contiguous_regions(np.logical_not(wholemask))
 
     times = length * np.arange(dynspec_len) / dynspec_len
     lc = np.sum(dynamical_spectrum, axis=1)
@@ -410,29 +459,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         lc = baseline_als(times, lc)
     else:
         lc -= np.median(lc)
-    lcbins = np.arange(len(lc))
-    df = bandwidth / nbin
-
-    spec_stats = _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
-                                     smoothing_window, noise_threshold)
-    if not np.any(spec_stats.mask):
-        return None
-    freqmask = spec_stats.freqmask
-    mask = spec_stats.mask
-    freqmin = spec_stats.freqmin
-    freqmax = spec_stats.freqmax
-    meanspec = spec_stats.meanspec
-    allbins = spec_stats.allbins
-    varimg = spec_stats.varimg
-    baseline = spec_stats.baseline
-    thresh_low = spec_stats.thresh_low
-    thresh_high = spec_stats.thresh_high
-    spectral_var = spec_stats.spectral_var
-    wholemask = spec_stats.wholemask
-
-    if good_mask is None:
-        good_mask = np.zeros_like(freqmask, dtype=bool)
-    wholemask[good_mask] = 1
+    lcbins = np.arange(lc.size)
 
     # Calculate frequency-masked lc
     lc_masked = np.sum(dynamical_spectrum[:, freqmask], axis=1)
@@ -442,13 +469,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     else:
         lc_masked -= np.median(lc_masked)
 
-    bad_intervals = contiguous_regions(np.logical_not(wholemask))
-
-    # Calculate cleaned dynamical spectrum
-
-    cleaned_dynamical_spectrum = \
-        _clean_dyn_spec(dynamical_spectrum, bad_intervals)
-
+    meanspec = np.sum(dynamical_spectrum, axis=0) / dynspec_len
     cleaned_meanspec = \
         np.sum(cleaned_dynamical_spectrum,
                axis=0) / len(cleaned_dynamical_spectrum)
@@ -462,41 +483,15 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     mean_varimg = np.mean(cleaned_varimg[:, freqmask])
     std_varimg = np.std(cleaned_varimg[:, freqmask])
 
-    lc_corr = np.sum(cleaned_dynamical_spectrum[:, freqmask], axis=1)
-    if len(lc_corr) > 10:
-        lc_corr = baseline_als(times, lc_corr, outlier_purging=False)
-    else:
-        lc_corr -= np.median(lc_corr)
+    bandwidth_unit = cleaning_results.freqmin.unit
 
-    results = type('test', (), {})()  # create empty object
-    results.lc = lc_corr
-    results.freqmin = freqmin * u.MHz
-    results.freqmax = freqmax * u.MHz
-    results.mask = wholemask
-
-    if not plot or not HAS_MPL:
-        log.debug("No plotting needs to be done.")
-        return results
-
-    # Now, PLOT IT ALL --------------------------------
-    # Prepare subplots
     fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
 
     if len(lc_corr) < 10:
-        for i in dynamical_spectrum:
-            plt.plot(allbins[1:], i[1:])
-
-        plt.plot(allbins[1:], meanspec[1:])
-        plt.xlabel('Time')
-        plt.ylabel('Counts')
-        ax = plt.gca()
-        ax.text(0.05, 0.95, info_string, horizontalalignment='left',
-                verticalalignment='top',
-                transform=ax.transAxes, fontsize=19)
-        plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format),
-                    dpi=dpi)
-        plt.close(fig)
-        return results
+        plot_all_spectra(allbins, dynamical_spectrum, outfile="out", label="",
+                         debug_file_format='pdf', dpi=100,
+                         info_string="Empty info string", fig=fig)
+        return cleaning_results
 
     gs = GridSpec(4, 3, hspace=0, wspace=0,
                   height_ratios=(1.5, 1.5, 1.5, 1.5),
@@ -508,6 +503,8 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
     ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
     ax_text = plt.subplot(gs[0, 2])
+    for ax in [ax_meanspec, ax_dynspec, ax_cleanspec, ax_var, ax_text]:
+        ax.autoscale(False)
 
     ax_meanspec.set_ylabel('Counts')
     ax_dynspec.set_ylabel('Sample')
@@ -519,7 +516,6 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
     # Plot mean spectrum
 
     ax_meanspec.plot(allbins[1:], meanspec[1:], label="Unfiltered")
-    # ax_meanspec.plot(allbins[1:], meanspec[1:], label="Whitelist applied")
     ax_meanspec.plot(allbins[wholemask], meanspec[wholemask],
                      label="Final mask")
     ax_meanspec.set_ylim([np.min(cleaned_meanspec),
@@ -602,6 +598,134 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         "{}_{}.{}".format(outfile, label, debug_file_format),
         dpi=dpi)
     plt.close(fig)
+
+
+def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
+                                 good_mask=None, freqsplat=None,
+                                 noise_threshold=5., debug=True, plot=True,
+                                 nofilt=False, outfile="out", label="",
+                                 smoothing_window=0.05,
+                                 debug_file_format='pdf',
+                                 info_string="Empty info string", dpi=100):
+    """Clean a spectroscopic scan using the difference of channel variability.
+
+    From the dynamical spectrum, i.e. the list of spectra obtained in each
+    sample of a scan, we calculate the rms variability of each frequency
+    channel. This forms a sort of rms spectrum. We calculate the baseline of
+    this spectrum, and all channels whose rms is above above noise_threshold
+    times the reference median absolute deviation
+    (:func:`srttools.fit.ref_mad`), calculated
+    with a minimum window of 20 samples, are cut and assigned an interpolated
+    value between the closest valid points.
+    The baseline is calculated with
+    :func:`srttools.fit.baseline_als`, using a lambda value depending on
+    the number of channels, with a formula that has been shown to work in a few
+    standard cases but might be modified in the future.
+
+    Parameters
+    ----------
+    dynamical_spectrum : 2-d array
+        Array of shape MxN, with M spectra of N elements each.
+    length : float
+        Duration in seconds of the scan (assumed to have constant sample time)
+    bandwidth : float
+        Bandwidth in MHz
+
+    Other parameters
+    ----------------
+    good_mask : boolean array
+        this mask specifies channels that should never be discarded as
+        RFI, for example because they contain spectral lines
+    freqsplat : str
+        List of frequencies to be merged into one. See
+        :func:`srttools.scan.interpret_frequency_range`
+    noise_threshold : float
+        The threshold, in sigmas, over which a given channel is
+        considered noisy
+    debug : bool
+        Print out debugging information
+    plot : bool
+        Plot stuff
+    nofilt : bool
+        Do not filter noisy channels (set noise_threshold to 1e32)
+    outfile : str
+        Root file name for the diagnostics plots (outfile_label.png)
+    label : str
+        Label to append to the filename (outfile_label.png)
+    smoothing_window : float
+        Width of smoothing window, in fraction of spectral length
+
+    Returns
+    -------
+    results : object
+        The attributes of this object are:
+
+        lc : array-like
+            The cleaned light curve
+        freqmin : float
+            Minimum frequency in MHz, referred to local oscillator
+        freqmax : float
+            Maximum frequency in MHz, referred to local oscillator
+
+    See Also
+    --------
+    srttools.fit.baseline_als
+    srttools.fit.ref_mad
+    """
+    import gc
+    rootdir, _ = os.path.split(outfile)
+    if not os.path.exists(rootdir):
+        mkdir_p(rootdir)
+
+    try:
+        bandwidth_unit = bandwidth.unit
+        bandwidth = bandwidth.value
+    except AttributeError:
+        bandwidth_unit = u.MHz
+
+    if len(dynamical_spectrum.shape) == 1:
+        if not plot or not HAS_MPL:
+            return None
+
+        # Now, PLOT IT ALL --------------------------------
+        # Prepare subplots
+        plot_light_curve(
+            dynamical_spectrum, length, outfile=outfile, label=label,
+            debug_file_format=debug_file_format, dpi=dpi,
+            info_string=info_string)
+        return None
+
+    dummy_file = f'{time.time() - 1570000000}_{np.random.randint(10**8)}.p'
+    spec_stats_ = _get_spectrum_stats(
+        dynamical_spectrum, freqsplat, bandwidth, smoothing_window,
+        noise_threshold, length=length, good_mask=good_mask,
+        filename=dummy_file)
+    if spec_stats_ is None:
+        return None
+
+    cleaning_res_file = _clean_spectrum(
+        dynamical_spectrum, spec_stats_, length,
+        filename=dummy_file.replace('.p', '_cl.p'))
+    gc.collect()
+
+    if not plot or not HAS_MPL:
+        log.debug("No plotting needs to be done.")
+        return object_or_pickle(cleaning_res_file)
+
+    plot_spectrum_cleaning_results(
+        cleaning_res_file, spec_stats_, dynamical_spectrum,
+        outfile=outfile, label=label,
+        debug_file_format=debug_file_format, dpi=dpi,
+        info_string=info_string)
+
+    gc.collect()
+
+    results = object_or_pickle(cleaning_res_file)
+
+    for filename in [cleaning_res_file, dummy_file]:
+        if isinstance(filename, str) and os.path.exists(filename):
+            os.unlink(filename)
+
     return results
 
 
@@ -642,7 +766,6 @@ def list_scans(datadir, dirlist):
 
 class Scan(Table):
     """Class containing a single scan."""
-
     def __init__(self, data=None, config_file=None, norefilt=True,
                  interactive=False, nosave=False, debug=False, plot=False,
                  freqsplat=None, nofilt=False, nosub=False, avoid_regions=None,
@@ -798,7 +921,7 @@ class Scan(Table):
 
             results = \
                 clean_scan_using_variability(
-                    self[ch], 86400 * (self['time'][-1] - self['time'][0]),
+                    np.array(self[ch]), 86400 * (self['time'][-1] - self['time'][0]),
                     self[ch].meta['bandwidth'],
                     good_mask=good_mask,
                     freqsplat=freqsplat,
