@@ -199,7 +199,7 @@ class Monitor(object):
     def _enqueue(self, infile):
         self._timers[infile].processing = True
         proc_args = (
-            ['--plot', '-c', self._config_file, infile],
+            ['--plot', '--nosave', '-c', self._config_file, infile],
             self._verbosity
         )
         p = mp.Process(target=self._process, args=proc_args)
