@@ -5,7 +5,7 @@ import argparse
 import threading
 
 from srttools.monitor.monitor import Monitor
-from srttools.monitor.common import MAX_FEEDS, log
+from srttools.monitor.common import MAX_FEEDS
 
 
 def main_monitor(args=None):
@@ -102,13 +102,9 @@ def main_monitor(args=None):
         parser.error(str(e))
 
     monitor.start()
-    log.info('SDTmonitor started, process id: {}'.format(os.getpid()))
-
     try:
         while True:
             time.sleep(0.1)
     except KeyboardInterrupt:
         pass
-
     monitor.stop()
-    log.info('SDTmonitor stopped, process id: {}'.format(os.getpid()))

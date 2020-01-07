@@ -1,11 +1,11 @@
 # Replace the default logging configuration with a custom one
-from astropy import log
-log.handlers.clear()
 from astropy.logger import logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+log = logging.getLogger('SDTmonitor')
+log.propagate = False
+sh = logging.StreamHandler()
+f = logging.Formatter('%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+sh.setFormatter(f)
+log.addHandler(sh)
+log.setLevel(logging.INFO)
 
 MAX_FEEDS = 7

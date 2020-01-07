@@ -125,6 +125,7 @@ class Monitor(object):
         self._worker_thread.start()
         self._observer.start()
         self._web_server.start()
+        log.info('SDTmonitor started, process id: {}'.format(os.getpid()))
 
     def stop(self):
         # Stop the worker thread
@@ -152,6 +153,7 @@ class Monitor(object):
                 pass
             except queue.Empty:
                 break
+        log.info('SDTmonitor stopped, process id: {}'.format(os.getpid()))
 
     def _worker_method(self):
         while not self._stop:
