@@ -12,11 +12,17 @@ import base64
 
 from srttools.read_config import read_config
 try:
-    from srttools.monitor import main_monitor, Monitor, MAX_FEEDS
+    from srttools.monitor import Monitor, MAX_FEEDS
     from tornado.websocket import websocket_connect
     HAS_DEPENDENCIES = True
 except ImportError:
     HAS_DEPENDENCIES = False
+
+try:
+    import pytest_asyncio
+    HAS_PYTEST_ASYNCIO = True
+except ImportError:
+    HAS_PYTEST_ASYNCIO = False
 
 
 from srttools.scan import product_path_from_file_name
@@ -234,7 +240,7 @@ class TestMonitor(object):
         shutil.copy(self.file_empty_init_single_feed,
                     self.file_empty_single_feed)
 
-        files = [self.file_empty_hdf5_SF, 'latest_10.png']
+        files = ['latest_10.png']
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         for fname in files:
@@ -262,12 +268,7 @@ class TestMonitor(object):
 
     @pytest.mark.skipif('not HAS_DEPENDENCIES')
     def test_workers(self):
-        files = [
-            self.file_empty_hdf5_SF, 
-            'latest_10.png',
-            self.file_empty_hdf5_SF.replace('dummy5', 'dummy4'),
-            'latest_8.png'
-        ]
+        files = ['latest_8.png', 'latest_10.png']
 
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -348,7 +349,7 @@ class TestMonitor(object):
             os.unlink(fname)
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif('not HAS_DEPENDENCIES')
+    @pytest.mark.skipif('not HAS_DEPENDENCIES or not HAS_PYTEST_ASYNCIO')
     async def test_websocket_server(self):
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -386,6 +387,15 @@ class TestMonitor(object):
             for fname in files:
                 assert os.path.exists(fname)
                 os.unlink(fname)
+
+    @pytest.mark.skipif('HAS_DEPENDENCIES')
+    def test_dependencies_missing(self):
+        with pytest.raises(ImportError) as exc:
+            from srttools.monitor import Monitor
+        missing_watchdog = 'install watchdog' in str(exc.value)
+        missing_tornado  = 'install tornado'  in str(exc.value)
+        assert missing_watchdog or missing_tornado
+
 
     @classmethod
     def teardown_class(klass):
