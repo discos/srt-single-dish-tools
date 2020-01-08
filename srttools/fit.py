@@ -644,7 +644,7 @@ def total_variance(xs, ys, params):
 
     x_range = [np.min(x), np.max(x)]
 
-    xints = np.linspace(x_range[0], x_range[1], len(x) / 20)
+    xints = np.linspace(x_range[0], x_range[1], int(len(x) / 20))
 
     values = np.array([np.var(y[(x >= xints[k]) & (x < xints[k+1])])
                       for k in range(len(xints[:-1]))])

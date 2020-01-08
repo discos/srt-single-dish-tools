@@ -497,10 +497,10 @@ class ScanSet(Table):
 
         xbins = np.linspace(0,
                             self.meta['npix'][0],
-                            self.meta['npix'][0] + 1)
+                            int(self.meta['npix'][0] + 1))
         ybins = np.linspace(0,
                             self.meta['npix'][1],
-                            self.meta['npix'][1] + 1)
+                            int(self.meta['npix'][1] + 1))
 
         for ch in self.chan_columns:
             if direction is None:
