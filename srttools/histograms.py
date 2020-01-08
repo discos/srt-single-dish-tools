@@ -165,7 +165,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
                     "Element at index %s in `bins` should be a positive "
                     "integer." % i)
             nbin[i] = bins[i] + 2  # +2 for outlier bins
-            edges[i] = linspace(smin[i], smax[i], nbin[i]-1)
+            edges[i] = linspace(smin[i], smax[i], int(nbin[i])-1)
         else:
             edges[i] = asarray(bins[i], float)
             nbin[i] = len(edges[i]) + 1  # +1 for outlier bins
