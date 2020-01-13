@@ -48,7 +48,7 @@ matrix:
         # may run for a long time
         # Try all python versions with the latest numpy
 
-        - env: PYTHON_VERSION=3.7 SETUP_CMD='test --coverage' SETUP_XVFB=False USE_WATCHDOG=yes
+        - env: PYTHON_VERSION=3.7 SETUP_CMD='test --coverage' SETUP_XVFB=False USE_WATCHDOG=yes USE_TORNADO=yes
 #        # No matplotlib, with old scipy
 #        - env: PYTHON_VERSION=3.6 CONDA_DEPENDENCIES='scipy=0.19 pytest pip h5py statsmodels pyyaml numba pyregion' SETUP_CMD='test --coverage'
         # No NUMBA, pyregion
@@ -80,6 +80,7 @@ install:
     # install since this ensures Numpy does not get automatically upgraded.
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_NUMBA == yes ]]; then $CONDA_INSTALL numba; fi
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_WATCHDOG == yes ]]; then $PIP_INSTALL watchdog; fi
+    - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_TORNADO == yes ]]; then $PIP_INSTALL tornado; fi
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_PYREG == yes ]]; then $PIP_INSTALL pyregion; fi
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_STATSM == yes ]]; then $CONDA_INSTALL statsmodels; fi
     - if [[ $SETUP_CMD != egg_info ]]; then pip install .; fi

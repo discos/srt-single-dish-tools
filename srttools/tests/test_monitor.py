@@ -1,4 +1,3 @@
-
 import os
 import subprocess as sp
 import threading
@@ -6,14 +5,72 @@ import time
 import pytest
 import urllib
 import shutil
+import socket
+import asyncio
+import json
+import base64
 
-from ..read_config import read_config
-from ..monitor import main_monitor, create_dummy_config, HAS_WATCHDOG
-from ..scan import product_path_from_file_name
-from ..utils import look_for_files_or_bust
+from srttools.read_config import read_config
+try:
+    from srttools.monitor import Monitor, MAX_FEEDS
+    from tornado.websocket import websocket_connect
+    HAS_DEPENDENCIES = True
+except ImportError:
+    HAS_DEPENDENCIES = False
 
+try:
+    import pytest_asyncio
+    HAS_PYTEST_ASYNCIO = True
+except ImportError:
+    HAS_PYTEST_ASYNCIO = False
+
+
+from srttools.scan import product_path_from_file_name
+from srttools.utils import look_for_files_or_bust
 
 STANDARD_TIMEOUT = 10
+
+def get_free_tcp_port():
+    """This method provides an available TCP port to test
+    the WebSocket server without getting a SocketError"""
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp.bind(('', 0))
+    addr, port = tcp.getsockname()
+    tcp.close()
+    return port
+
+def compare_images(received_string, image_file):
+    image_string = base64.b64encode(open(image_file, 'rb').read())
+    image_string = image_string.decode('utf-8')
+    assert received_string == image_string
+
+
+class WebSocketClient(object):
+    def __init__(self, url):
+        self._url = url
+        self._ws = None
+
+    async def __aenter__(self):
+        self._ws = await websocket_connect(self._url)
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if self._ws:
+            self._ws.close()
+
+    async def get_messages(self, n, timeout=None):
+        messages = []
+        t0 = time.time()
+        while True:
+            elapsed = time.time() - t0
+            if len(messages) == n or (timeout and elapsed >= timeout):
+                break
+            try:
+                remaining = timeout - elapsed if timeout else 0
+                messages.append(await asyncio.wait_for(self._ws.read_message(), timeout=remaining))
+            except asyncio.TimeoutError:
+                pass
+        return messages
 
 
 class TestMonitor(object):
@@ -82,7 +139,13 @@ class TestMonitor(object):
         if os.path.exists(klass.file_empty_pdf1):
             os.unlink(klass.file_empty_pdf1)
 
+    def setup_method(self):
+        self.monitor = None
+
     def teardown_method(self):
+        if self.monitor:
+            # This ensures to stop the monitor even when an exception is raised in a test
+            self.monitor.stop()
         files = [
             self.file_empty,
             self.file_empty_single_feed,
@@ -98,124 +161,19 @@ class TestMonitor(object):
             if os.path.exists(fname):
                 os.unlink(fname)
 
-    @pytest.mark.skipif('not HAS_WATCHDOG')
+    @pytest.mark.skipif('not HAS_DEPENDENCIES')
     def test_monitor_installed(self):
         sp.check_call('SDTmonitor -h'.split())
 
-    @pytest.mark.skipif('not HAS_WATCHDOG')
+    @pytest.mark.skipif('not HAS_DEPENDENCIES')
     def test_all(self):
-        def process():
-            main_monitor([self.datadir, '--test'])
+        port = get_free_tcp_port()
+        self.monitor = Monitor(
+            [self.datadir],
+            port=port
+        )
+        self.monitor.start()
 
-        w = threading.Thread(name='worker', target=process)
-        w.start()
-        time.sleep(1)
-
-        shutil.copy(self.file_empty_init, self.file_empty)
-
-        files = [self.file_empty_pdf0, self.file_empty_pdf1,
-                 'latest_0.png', 'latest_1.png']
-        look_for_files_or_bust(files, STANDARD_TIMEOUT)
-
-        w.join()
-
-        for fname in files:
-            os.unlink(fname)
-
-    @pytest.mark.skipif('not HAS_WATCHDOG')
-    def test_all_new_with_config(self):
-        fname = self.config_file
-
-        def process():
-            main_monitor([self.datadir, '--test', '-c', fname])
-
-        w = threading.Thread(name='worker', target=process)
-        w.start()
-        time.sleep(1)
-
-        shutil.copy(self.file_empty_init, self.file_empty)
-
-        files = [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
-                      'latest_0.png', 'latest_1.png']
-        look_for_files_or_bust(files, STANDARD_TIMEOUT)
-
-        w.join()
-
-        for fname in files:
-            os.unlink(fname)
-
-    @pytest.mark.skipif('not HAS_WATCHDOG')
-    def test_verbose(self):
-        fname = self.config_file
-
-        def process():
-            main_monitor([self.datadir, '--test', '-v', '-c', fname])
-
-        w = threading.Thread(name='worker', target=process)
-        w.start()
-        time.sleep(1)
-
-        shutil.copy(self.file_empty_init, self.file_empty)
-
-        files = [self.file_empty_pdf0_alt, self.file_empty_pdf1_alt,
-                      'latest_0.png', 'latest_1.png']
-        look_for_files_or_bust(files, STANDARD_TIMEOUT)
-
-        w.join()
-
-        for fname in files:
-            os.unlink(fname)
-
-    @pytest.mark.skipif('not HAS_WATCHDOG')
-    def test_a_single_feed(self):
-        fname = self.config_file
-
-        def process():
-            main_monitor([self.datadir, '--test', '-c', fname])
-
-        w = threading.Thread(name='worker', target=process)
-        w.start()
-        time.sleep(1)
-
-        shutil.copy(self.file_empty_init_single_feed,
-                    self.file_empty_single_feed)
-
-        files = [self.file_empty_pdf10, self.file_empty_hdf5_SF,
-                 'latest_10.png']
-        look_for_files_or_bust(files, STANDARD_TIMEOUT)
-
-        w.join()
-
-        for fname in files:
-            os.unlink(fname)
-
-    @pytest.mark.skipif('not HAS_WATCHDOG')
-    def test_polling(self):
-        def process():
-            main_monitor([self.datadir, '--test', '--polling'])
-
-        w = threading.Thread(name='worker', target=process)
-        w.start()
-        time.sleep(1)
-
-        shutil.copy(self.file_empty_init, self.file_empty)
-
-        files = [self.file_empty_pdf0, self.file_empty_pdf1,
-                 'latest_0.png', 'latest_1.png']
-        look_for_files_or_bust(files, STANDARD_TIMEOUT)
-
-        w.join()
-
-        for fname in files:
-            os.unlink(fname)
-
-    @pytest.mark.skipif('not HAS_WATCHDOG')
-    def test_nosave(self):
-        def process():
-            main_monitor([self.datadir, '--test', '--nosave'])
-
-        w = threading.Thread(name='worker', target=process)
-        w.start()
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
@@ -223,35 +181,104 @@ class TestMonitor(object):
         files = ['latest_0.png', 'latest_1.png']
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-        w.join()
+        for fname in files:
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_DEPENDENCIES')
+    def test_all_new_with_config(self):
+        port = get_free_tcp_port()
+        self.monitor = Monitor(
+            [self.datadir],
+            config_file = self.config_file,
+            port=port
+        )
+        self.monitor.start()
+
+        time.sleep(1)
+
+        shutil.copy(self.file_empty_init, self.file_empty)
+
+        files = ['latest_0.png', 'latest_1.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         for fname in files:
             os.unlink(fname)
 
-        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      self.file_empty_hdf5]:
-            assert not os.path.exists(fname)
+    @pytest.mark.skipif('not HAS_DEPENDENCIES')
+    def test_verbose(self):
+        port = get_free_tcp_port()
+        self.monitor = Monitor(
+            [self.datadir],
+            verbosity=1,
+            config_file=self.config_file,
+            port=port
+        )
+        self.monitor.start()
 
-    @pytest.mark.skipif('not HAS_WATCHDOG')
+        time.sleep(1)
+
+        shutil.copy(self.file_empty_init, self.file_empty)
+
+        files = ['latest_0.png', 'latest_1.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
+        for fname in files:
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_DEPENDENCIES')
+    def test_a_single_feed(self):
+        port = get_free_tcp_port()
+        self.monitor = Monitor(
+            [self.datadir],
+            config_file=self.config_file,
+            port=port
+        )
+        self.monitor.start()
+
+        time.sleep(1)
+
+        shutil.copy(self.file_empty_init_single_feed,
+                    self.file_empty_single_feed)
+
+        files = ['latest_10.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
+        for fname in files:
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_DEPENDENCIES')
+    def test_polling(self):
+        port = get_free_tcp_port()
+        self.monitor = Monitor(
+            [self.datadir],
+            polling=True,
+            port=port
+        )
+        self.monitor.start()
+
+        time.sleep(1)
+
+        shutil.copy(self.file_empty_init, self.file_empty)
+
+        files = ['latest_0.png', 'latest_1.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
+        for fname in files:
+            os.unlink(fname)
+
+    @pytest.mark.skipif('not HAS_DEPENDENCIES')
     def test_workers(self):
-        fname = self.config_file
+        files = ['latest_8.png', 'latest_10.png']
 
-        files = [
-            self.file_empty_pdf10,
-            self.file_empty_pdf10.replace('dummy5', 'dummy4'),
-            self.file_empty_hdf5_SF,
-            self.file_empty_hdf5_SF.replace('dummy5', 'dummy4'),
-            'latest_8.png',
-            'latest_10.png'
-        ]
+        port = get_free_tcp_port()
+        self.monitor = Monitor(
+            [self.datadir],
+            config_file=self.config_file,
+            workers=2,
+            port=port
+        )
+        self.monitor.start()
 
-        def process():
-            main_monitor([self.datadir, '--test', '-c', fname,
-                          '--timeout', '30',
-                          '--workers', '2'])
-
-        w = threading.Thread(name='worker', target=process)
-        w.start()
         time.sleep(1)
 
         shutil.copy(
@@ -263,137 +290,112 @@ class TestMonitor(object):
             self.file_empty_single_feed.replace('fits5', 'fits4')
         )
 
-        look_for_files_or_bust(files, 30)
-
-        w.join()
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         for i, fname in enumerate(files):
             os.unlink(fname)
 
         os.unlink(self.file_empty_single_feed.replace('fits5', 'fits4'))
 
-    @pytest.mark.skipif('not HAS_WATCHDOG')
+    @pytest.mark.skipif('not HAS_DEPENDENCIES')
     def test_delete_old_images(self):
-        def process():
-            main_monitor([self.datadir, '--test'])
-
-        files = [self.file_empty_pdf0, self.file_empty_pdf1]
-        files += ['latest_{}.png'.format(i) for i in range(8)]
+        files = ['latest_{}.png'.format(i) for i in range(8)]
 
         for fname in files[2:]:
             sp.check_call('touch {}'.format(fname).split())
 
-        w = threading.Thread(name='worker', target=process)
-        w.start()
+        port = get_free_tcp_port()
+        self.monitor = Monitor(
+            [self.datadir],
+            port=port
+        )
+        self.monitor.start()
+
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
 
-        time.sleep(STANDARD_TIMEOUT)
-        w.join()
+        look_for_files_or_bust(files[:2], STANDARD_TIMEOUT)
 
-        for fname in files[4:]:
+        for fname in files[2:]:
             assert not os.path.exists(fname)
-        for fname in files[:4]:
-            assert os.path.exists(fname)
+
+        for fname in files[:2]:
             os.unlink(fname)
 
-    @pytest.mark.skipif('not HAS_WATCHDOG')
-    def test_http_server_found(self):
-        def process():
-            main_monitor([self.datadir, '--test',
-                          '--http-server-port', '10000', '--timeout', '30'])
+    @pytest.mark.skipif('not HAS_DEPENDENCIES')
+    def test_http_server(self):
+        port = get_free_tcp_port()
+        self.monitor = Monitor(
+            [self.datadir],
+            port=port
+        )
+        self.monitor.start()
 
-        w = threading.Thread(name='worker', target=process)
-        w.start()
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
 
-        time.sleep(7)
-        urls = [
-            '',
-            'index.html',
-            'latest_0.png',
-            'latest_1.png'#,
-            # 'latest_0.png?%d' % int(time.time())
-        ]
-        # Check that the files are provided by the HTTP server
-        for url in urls:
-            url = 'http://127.0.0.1:10000/' + url
-            print(url)
-            # import socket
-            # try:
-            r = urllib.request.urlopen(url, timeout=5)
-            assert r.code == 200
-            # except socket.timeout as e:
-            #     w.join()
-            #     raise
+        # Check that index.html is provided by the HTTP server
+        url = 'http://127.0.0.1:{}/'.format(port)
+        r = urllib.request.urlopen(url, timeout=5)
+        assert r.code == 200
 
-        print("Done")
+        files = ['latest_0.png', 'latest_1.png']
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-        w.join()
-
-        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.png', 'latest_1.png']:
+        for fname in files:
             assert os.path.exists(fname)
             os.unlink(fname)
 
-    @pytest.mark.skipif('not HAS_WATCHDOG')
-    def test_http_server_not_found(self):
-        def process():
-            main_monitor([self.datadir, '--test', '--http-server-port', '10000'])
+    @pytest.mark.asyncio
+    @pytest.mark.skipif('not HAS_DEPENDENCIES or not HAS_PYTEST_ASYNCIO')
+    async def test_websocket_server(self):
+        port = get_free_tcp_port()
+        self.monitor = Monitor(
+            [self.datadir],
+            port=port
+        )
+        self.monitor.start()
 
-        w = threading.Thread(name='worker', target=process)
-        w.start()
         time.sleep(1)
 
-        shutil.copy(self.file_empty_init, self.file_empty)
+        ws_url = 'ws://localhost:{}/images'.format(port)
+        async with WebSocketClient(ws_url) as ws:
+            # Retrieve the starting images, they should be 14 blanks,
+            # we ask for 15 and make sure they are actually 14
+            l = await ws.get_messages(15, timeout=1)
+            assert len(l) == 14
+            for image_string in l:
+                image = json.loads(image_string)
+                assert image['image'] == ''
 
-        time.sleep(7)
+            # Now trigger the process of a file
+            shutil.copy(self.file_empty_init, self.file_empty)
 
-        # Ask for non-existent files
-        for i in [20, 21]:
-            url = 'http://127.0.0.1:10000/latest_{}.png'.format(i)
-            with pytest.raises(urllib.error.HTTPError):
-                r = urllib.request.urlopen(url, timeout=10)
+            files = ['latest_0.png', 'latest_1.png']
+            look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-        w.join()
+            # Ask the new images
+            l = await ws.get_messages(2, timeout=1)
+            assert len(l) == 2
+            for image_string in l:
+                image = json.loads(image_string)
+                assert image['index'] in [0, 1]
+                compare_images(image['image'], 'latest_{}.png'.format(image['index']))
 
-        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.png', 'latest_1.png']:
-            assert os.path.exists(fname)
-            os.unlink(fname)
+            for fname in files:
+                assert os.path.exists(fname)
+                os.unlink(fname)
 
-    @pytest.mark.skipif('not HAS_WATCHDOG')
-    def test_http_server_forbidden(self):
-        def process():
-            main_monitor([self.datadir, '--test', '--http-server-port', '10000'])
+    @pytest.mark.skipif('HAS_DEPENDENCIES')
+    def test_dependencies_missing(self):
+        with pytest.raises(ImportError) as exc:
+            from srttools.monitor import Monitor
+        missing_watchdog = 'install watchdog' in str(exc.value)
+        missing_tornado  = 'install tornado'  in str(exc.value)
+        assert missing_watchdog or missing_tornado
 
-        w = threading.Thread(name='worker', target=process)
-        w.start()
-        time.sleep(1)
-
-        shutil.copy(self.file_empty_init, self.file_empty)
-
-        time.sleep(7)
-
-        # Create a dummy 'latest_0.txt' file.
-        # The file should not be accessible since its name does not match
-        # 'index.html' nor 'index.html' nor 'latest_X.EXT' pattern, with EXT
-        # equal to the configured file extension, in this case is 'png'
-        forbidden_file = 'latest_0.txt'
-        open(forbidden_file, 'w').close()
-        url = 'http://127.0.0.1:10000/' + forbidden_file
-        with pytest.raises(urllib.error.HTTPError):
-            r = urllib.request.urlopen(url, timeout=10)
-
-        w.join()
-
-        for fname in [self.file_empty_pdf0, self.file_empty_pdf1,
-                      'latest_0.png', 'latest_1.png', forbidden_file]:
-            assert os.path.exists(fname)
-            os.unlink(fname)
 
     @classmethod
     def teardown_class(klass):
