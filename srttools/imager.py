@@ -997,7 +997,7 @@ class ScanSet(Table):
         if len(fit_info) > 1:
             resave = True
             sub = linear_fun(s[dim][:, feed], *fit_info)
-            s[ch] = np.array(s[ch]) - sub
+            s[ch][:] = np.array(s[ch]) - sub
         # TODO: make it channel-independent
             s.meta['backsub'] = True
             self[ch][mask] = s[ch]
