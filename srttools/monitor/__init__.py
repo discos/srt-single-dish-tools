@@ -93,6 +93,7 @@ def main_monitor(args=None):
     if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGTERM, sigterm_received)
 
+    monitor = None
     try:
         monitor = Monitor(
             args.directories,
@@ -102,13 +103,13 @@ def main_monitor(args=None):
             polling=args.polling,
             port=args.port
         )
-    except OSError as e:
-        parser.error(str(e))
+        monitor.start()
 
-    monitor.start()
-    try:
         while True:
             time.sleep(0.1)
+    except OSError as e:  # This happens when the given port is already busy
+        parser.error(str(e))
     except KeyboardInterrupt:
         pass
-    monitor.stop()
+    if monitor is not None:
+        monitor.stop()

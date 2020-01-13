@@ -40,6 +40,12 @@ def create_dummy_config(filename='monitor_config.ini', extension='png'):
 
 
 class MyEventHandler(PatternMatchingEventHandler):
+    ignore_patterns = [
+        '*/tmp/*',
+        '*/tempfits/*',
+        '*/*.fitstemp',
+        '*/summary.fits'
+    ]
     patterns = \
         ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 
