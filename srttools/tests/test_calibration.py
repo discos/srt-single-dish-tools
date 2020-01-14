@@ -138,7 +138,9 @@ class TestCalibration(object):
         flux_quantity = _get_flux_quantity('Jy/beam')
         good = ~np.isnan(caltable[flux_quantity + "/Counts"])
         good = good&(caltable['Chan'] == 'Feed0_LCP')
-        std = np.std(np.diff(caltable[flux_quantity + "/Counts Err"][good]))
+        assert np.count_nonzero(good) > 1
+        std = np.std(np.diff(caltable[flux_quantity + "/Counts"][good]))
+        assert std > 0
         firstidx = np.where(good)[0][0]
         caltable[flux_quantity + "/Counts"][firstidx] += std * 20000
 
@@ -297,5 +299,5 @@ class TestCalibration(object):
                                        '*_scanfit'))
             for dirname in dirs:
                 shutil.rmtree(dirname)
-        if os.path.exists(klass.calfile):
-            os.remove(klass.calfile)
+        # if os.path.exists(klass.calfile):
+        #     os.remove(klass.calfile)
