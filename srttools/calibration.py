@@ -87,7 +87,8 @@ def read_calibrator_config():
 
     Examples
     --------
-    >>> calibs = read_calibrator_config()
+    >>> calibs = read_calibrator_config() # doctest: +ELLIPSIS
+    INFO...
     >>> calibs['DummyCal']['Kind']
     'CoeffTable'
     >>> 'coeffs' in calibs['DummyCal']['CoeffTable']
