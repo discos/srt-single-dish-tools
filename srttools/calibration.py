@@ -103,6 +103,7 @@ def read_calibrator_config():
         cparser = configparser.ConfigParser()
         cparser.read(cfile)
 
+        log.info(f"Reading {cfile}")
         if 'CoeffTable' not in list(cparser.sections()):
             configs[cparser.get("Info", "Name")] = {"Kind": "FreqList",
                                                     "Frequencies": [],
@@ -125,12 +126,13 @@ def read_calibrator_config():
             configs[cparser.get("Info", "Name")] = \
                 {"CoeffTable": dict(cparser.items("CoeffTable")),
                  "Kind": "CoeffTable"}
-
     return configs
 
 
 def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
     global CALIBRATOR_CONFIG
+
+    log.info(f"Getting calibrator flux from {calibrator}")
 
     if CALIBRATOR_CONFIG is None:
         CALIBRATOR_CONFIG = read_calibrator_config()
@@ -138,7 +140,7 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
     calibrators = CALIBRATOR_CONFIG.keys()
 
     for cal in calibrators:
-        if cal in calibrator:
+        if cal == calibrator:
             calibrator = cal
             break
     else:
@@ -146,15 +148,11 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
 
     conf = CALIBRATOR_CONFIG[calibrator]
 
-    print(f"Bandwidth = {bandwidth}")
-
     # find closest value among frequencies
     if conf["Kind"] == "FreqList":
         idx = (np.abs(np.array(conf["Frequencies"]) - frequency)).argmin()
-        print(idx)
-        print(conf["Fluxes"][idx], conf["Bandwidths"][idx], bandwidth)
-        return conf["Fluxes"][idx] * bandwidth, \
-            conf["Flux Errors"][idx] * bandwidth
+        return conf["Fluxes"][idx], \
+            conf["Flux Errors"][idx]
     elif conf["Kind"] == "CoeffTable":
         return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
@@ -206,7 +204,6 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         frequency = scan[channel].meta['frequency']
         bandwidth = scan[channel].meta['bandwidth']
         temperature = scan[channel + '-Temp']
-        print(f"{channel} {bandwidth}")
 
         y = scan[channel]
 
@@ -606,7 +603,7 @@ class CalibratorTable(Table):
 
         channels = list(set(self["Chan"]))
         for channel in channels:
-            good_chans = compare_strings(self["Chan"], channel) & good_mask
+            good_chans = (self["Chan"] == channel) & good_mask
 
             f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
             f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
@@ -688,7 +685,7 @@ class CalibratorTable(Table):
 
         fc = self.calibration[channel].predict(X)
 
-        goodch = compare_strings(self["Chan"], channel)
+        goodch = self["Chan"] == channel
         good = good_mask & goodch
         fce = np.sqrt(np.mean(
             self[flux_quantity + "/Counts Err"][good]**2)) + np.zeros_like(fc)
@@ -730,7 +727,7 @@ class CalibratorTable(Table):
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:
-            good_chans = compare_strings(self['Chan'], channel)
+            good_chans = self['Chan'] == channel
 
         good_chans = good_chans & good_mask
 
@@ -750,7 +747,7 @@ class CalibratorTable(Table):
         p = [np.median(y_to_fit)]
         pcov = np.array([[np.median(ye_to_fit)**2]])
         first = True
-
+        print(x_to_fit, y_to_fit, ye_to_fit)
         while 1:
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
 
@@ -808,7 +805,8 @@ class CalibratorTable(Table):
         if source is None:
             good_source = np.ones_like(self['Flux'], dtype=bool)
         else:
-            good_source = compare_strings(self['Source'], source)
+            good_source = self['Source'] == source
+
         non_source = np.logical_not(good_source)
 
         if channel is None:
@@ -819,7 +817,7 @@ class CalibratorTable(Table):
         mean_flux = []
         mean_flux_err = []
         for channel in channels:
-            good_chan = compare_strings(self['Chan'], channel)
+            good_chan = self['Chan'] == channel
             good = good_source & good_chan
             elevation = np.radians(self['Elevation'][good])
             fc, fce = self.Jy_over_counts(channel=channel, elevation=elevation,
@@ -866,15 +864,12 @@ class CalibratorTable(Table):
         if channel is None:
             good_chan = np.ones_like(self['Chan'], dtype=bool)
         else:
-            good_chan = compare_strings(self['Chan'], channel)
+            good_chan = self['Chan'] == channel
 
         calc_fluxes = self['Calculated Flux'][is_cal & good_chan]
         biblio_fluxes = self['Flux'][is_cal & good_chan]
         names = self['Source'][is_cal & good_chan]
         times = self['Time'][is_cal & good_chan]
-
-        print(np.array(calc_fluxes))
-        print(np.array(biblio_fluxes))
 
         consistent = \
             np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
@@ -894,7 +889,7 @@ class CalibratorTable(Table):
         """
         goodch = np.ones(len(self), dtype=bool)
         if channel is not None:
-            goodch = compare_strings(self['Chan'], channel)
+            goodch = self['Chan'] == channel
         allwidths = self[goodch]['Width']
         allwidth_errs = self[goodch]['Width Err']
         good = (allwidth_errs > 0) & (allwidth_errs == allwidth_errs)
@@ -1236,7 +1231,7 @@ def main_lcurve(args=None):
 
     for s in sources:
         caltable.calculate_src_flux(source=s)
-        good = compare_strings(caltable['Source'], s)
+        good = caltable['Source'] == s
         lctable = Table()
         lctable.add_column(Column(name="Time", dtype=float))
         lctable['Time'] = caltable['Time'][good]

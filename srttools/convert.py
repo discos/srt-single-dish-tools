@@ -1,5 +1,3 @@
-
-from __future__ import print_function, division
 from astropy.io import fits
 import astropy.units as u
 from astropy.time import Time

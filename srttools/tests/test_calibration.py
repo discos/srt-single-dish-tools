@@ -37,6 +37,10 @@ def source_scan_func(x):
     return 52 * _2d_gauss(x, 0, sigma=2.5 / 60)
 
 
+def cal2_scan_func(x):
+    return 132.1 * _2d_gauss(x, 0, sigma=2.5 / 60)
+
+
 class TestCalibration(object):
     @classmethod
     def setup_class(klass):
@@ -67,9 +71,10 @@ class TestCalibration(object):
             mkdir_p(klass.caldir)
             sim_crossscans(5, klass.caldir)
         if not os.path.exists(klass.caldir2):
-            log.info('Fake calibrators: DummyCal2, 1 Jy.')
+            log.info('Fake calibrators: DummyCal2, 1.321 Jy.')
             mkdir_p(klass.caldir2)
-            sim_crossscans(5, klass.caldir2, srcname='DummyCal2')
+            sim_crossscans(5, klass.caldir2, srcname='DummyCal2',
+                           scan_func=cal2_scan_func)
         if not os.path.exists(klass.caldir3):
             log.info('Fake calibrators: DummyCal2, wrong flux 0.52 Jy.')
             mkdir_p(klass.caldir3)
@@ -150,7 +155,9 @@ class TestCalibration(object):
         std = np.std(np.diff(caltable[flux_quantity + "/Counts"][good]))
         assert std > 0
         firstidx = np.where(good)[0][0]
-        caltable[flux_quantity + "/Counts"][firstidx] += std * 20000
+        caltable[flux_quantity + "/Counts"][firstidx] = 20000
+
+        assert caltable[flux_quantity + "/Counts"][firstidx] == 20000
 
         Jc, Jce = caltable.Jy_over_counts_rough(channel='Feed0_LCP',
                                                 map_unit='Jy/beam')
