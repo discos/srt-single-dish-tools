@@ -145,9 +145,14 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         return None, None
 
     conf = CALIBRATOR_CONFIG[calibrator]
+
+    print(f"Bandwidth = {bandwidth}")
+
     # find closest value among frequencies
     if conf["Kind"] == "FreqList":
         idx = (np.abs(np.array(conf["Frequencies"]) - frequency)).argmin()
+        print(idx)
+        print(conf["Fluxes"][idx], conf["Bandwidths"][idx], bandwidth)
         return conf["Fluxes"][idx] * bandwidth, \
             conf["Flux Errors"][idx] * bandwidth
     elif conf["Kind"] == "CoeffTable":
@@ -201,6 +206,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         frequency = scan[channel].meta['frequency']
         bandwidth = scan[channel].meta['bandwidth']
         temperature = scan[channel + '-Temp']
+        print(f"{channel} {bandwidth}")
 
         y = scan[channel]
 
