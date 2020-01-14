@@ -499,7 +499,7 @@ class CalibratorTable(Table):
             return
 
         for it, t in enumerate(self['Time']):
-            source = standard_string(self['Source'][it])
+            source = self['Source'][it]
             frequency = self['Frequency'][it] / 1000
             bandwidth = self['Bandwidth'][it] / 1000
             flux, eflux = \
@@ -585,10 +585,10 @@ class CalibratorTable(Table):
                 fc, fce = self.Jy_over_counts_rough(channel=channel,
                                                     map_unit=map_unit,
                                                     good_mask=None)
-                self.calibration_coeffs[standard_string(channel)] = [fc, 0, 0]
-                self.calibration_uncerts[standard_string(channel)] = \
+                self.calibration_coeffs[channel] = [fc, 0, 0]
+                self.calibration_uncerts[channel] = \
                     [fce, 0, 0]
-                self.calibration[standard_string(channel)] = None
+                self.calibration[channel] = None
             return
         else:
             import statsmodels.api as sm
@@ -626,10 +626,10 @@ class CalibratorTable(Table):
             model = sm.RLM(y_to_fit, X, missing='drop')
             results = model.fit()
 
-            self.calibration_coeffs[standard_string(channel)] = results.params
-            self.calibration_uncerts[standard_string(channel)] = \
+            self.calibration_coeffs[channel] = results.params
+            self.calibration_uncerts[channel] = \
                 results.cov_params().diagonal()**0.5
-            self.calibration[standard_string(channel)] = results
+            self.calibration[channel] = results
 
     def Jy_over_counts(self, channel=None, elevation=None,
                        map_unit="Jy/beam", good_mask=None):
@@ -664,7 +664,7 @@ class CalibratorTable(Table):
 
         flux_quantity = _get_flux_quantity(map_unit)
 
-        if standard_string(channel) not in self.calibration.keys():
+        if channel not in self.calibration.keys():
             self.compute_conversion_function(map_unit, good_mask=good_mask)
 
         if elevation is None or rough is True or channel is None:
@@ -680,7 +680,7 @@ class CalibratorTable(Table):
         X = np.column_stack((np.ones(np.array(elevation).size),
                              np.array(elevation)))
 
-        fc = self.calibration[standard_string(channel)].predict(X)
+        fc = self.calibration[channel].predict(X)
 
         goodch = compare_strings(self["Chan"], channel)
         good = good_mask & goodch
@@ -804,12 +804,11 @@ class CalibratorTable(Table):
         else:
             good_source = compare_strings(self['Source'], source)
         non_source = np.logical_not(good_source)
-        non_source = np.logical_not(good_source)
 
         if channel is None:
-            channels = [standard_string(s) for s in set(self['Chan'])]
+            channels = [s for s in set(self['Chan'])]
         else:
-            channels = [standard_string(channel)]
+            channels = [channel]
 
         mean_flux = []
         mean_flux_err = []
@@ -867,6 +866,9 @@ class CalibratorTable(Table):
         biblio_fluxes = self['Flux'][is_cal & good_chan]
         names = self['Source'][is_cal & good_chan]
         times = self['Time'][is_cal & good_chan]
+
+        print(np.array(calc_fluxes))
+        print(np.array(biblio_fluxes))
 
         consistent = \
             np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
@@ -972,7 +974,7 @@ class CalibratorTable(Table):
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
         for ic, channel in enumerate(channels):
             # Ugly workaround for python 2-3 compatibility
-            channel_str = standard_string(channel)
+            channel_str = channel
 
             color = colors[ic]
             self.plot_two_columns('Elevation', "Flux/Counts",
@@ -1224,7 +1226,7 @@ def main_lcurve(args=None):
 
     sources = args.source
     if args.source is None:
-        sources = [standard_string(s) for s in set(caltable['Source'])]
+        sources = [s for s in set(caltable['Source'])]
 
     for s in sources:
         caltable.calculate_src_flux(source=s)
