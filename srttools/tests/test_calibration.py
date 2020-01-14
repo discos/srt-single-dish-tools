@@ -53,10 +53,15 @@ class TestCalibration(object):
                                          "calibrators_nocal.ini"))
 
         klass.config = read_config(klass.config_file)
-        klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
-        klass.caldir2 = os.path.join(klass.datadir, 'sim', 'calibration2')
-        klass.caldir3 = os.path.join(klass.datadir, 'sim', 'calibration_bad')
-        klass.crossdir = os.path.join(klass.datadir, 'sim', 'crossscans')
+        klass.simdir = klass.caldir = os.path.join(klass.datadir, 'sim')
+        if os.getenv('CI') and os.path.exists(klass.simdir):
+            shutil.rmtree(klass.simdir)
+
+        klass.caldir = os.path.join(klass.simdir, 'calibration')
+        klass.caldir2 = os.path.join(klass.simdir, 'calibration2')
+        klass.caldir3 = os.path.join(klass.simdir, 'calibration_bad')
+        klass.crossdir = os.path.join(klass.simdir, 'crossscans')
+
         if not os.path.exists(klass.caldir):
             log.info('Fake calibrators: DummyCal, 1 Jy.')
             mkdir_p(klass.caldir)
@@ -87,6 +92,9 @@ class TestCalibration(object):
         caltable.update()
 
         klass.calfile = os.path.join(klass.curdir, 'test_calibration.hdf5')
+        for calfile in [klass.calfile, klass.calfile.replace('hdf5', 'csv')]:
+            if os.path.exists(calfile):
+                os.remove(calfile)
         caltable.write(klass.calfile, overwrite=True)
         caltable.write(klass.calfile.replace('hdf5', 'csv'))
 
@@ -299,5 +307,5 @@ class TestCalibration(object):
                                        '*_scanfit'))
             for dirname in dirs:
                 shutil.rmtree(dirname)
-        # if os.path.exists(klass.calfile):
-        #     os.remove(klass.calfile)
+        if os.path.exists(klass.calfile):
+            os.remove(klass.calfile)
