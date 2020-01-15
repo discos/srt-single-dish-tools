@@ -37,6 +37,10 @@ def source_scan_func(x):
     return 52 * _2d_gauss(x, 0, sigma=2.5 / 60)
 
 
+def cal2_scan_func(x):
+    return 132.1 * _2d_gauss(x, 0, sigma=2.5 / 60)
+
+
 class TestCalibration(object):
     @classmethod
     def setup_class(klass):
@@ -53,18 +57,24 @@ class TestCalibration(object):
                                          "calibrators_nocal.ini"))
 
         klass.config = read_config(klass.config_file)
-        klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
-        klass.caldir2 = os.path.join(klass.datadir, 'sim', 'calibration2')
-        klass.caldir3 = os.path.join(klass.datadir, 'sim', 'calibration_bad')
-        klass.crossdir = os.path.join(klass.datadir, 'sim', 'crossscans')
+        klass.simdir = klass.caldir = os.path.join(klass.datadir, 'sim')
+        if os.getenv('CI') and os.path.exists(klass.simdir):
+            shutil.rmtree(klass.simdir)
+
+        klass.caldir = os.path.join(klass.simdir, 'calibration')
+        klass.caldir2 = os.path.join(klass.simdir, 'calibration2')
+        klass.caldir3 = os.path.join(klass.simdir, 'calibration_bad')
+        klass.crossdir = os.path.join(klass.simdir, 'crossscans')
+
         if not os.path.exists(klass.caldir):
             log.info('Fake calibrators: DummyCal, 1 Jy.')
             mkdir_p(klass.caldir)
             sim_crossscans(5, klass.caldir)
         if not os.path.exists(klass.caldir2):
-            log.info('Fake calibrators: DummyCal2, 1 Jy.')
+            log.info('Fake calibrators: DummyCal2, 1.321 Jy.')
             mkdir_p(klass.caldir2)
-            sim_crossscans(5, klass.caldir2, srcname='DummyCal2')
+            sim_crossscans(5, klass.caldir2, srcname='DummyCal2',
+                           scan_func=cal2_scan_func)
         if not os.path.exists(klass.caldir3):
             log.info('Fake calibrators: DummyCal2, wrong flux 0.52 Jy.')
             mkdir_p(klass.caldir3)
@@ -87,6 +97,9 @@ class TestCalibration(object):
         caltable.update()
 
         klass.calfile = os.path.join(klass.curdir, 'test_calibration.hdf5')
+        for calfile in [klass.calfile, klass.calfile.replace('hdf5', 'csv')]:
+            if os.path.exists(calfile):
+                os.remove(calfile)
         caltable.write(klass.calfile, overwrite=True)
         caltable.write(klass.calfile.replace('hdf5', 'csv'))
 
@@ -138,9 +151,13 @@ class TestCalibration(object):
         flux_quantity = _get_flux_quantity('Jy/beam')
         good = ~np.isnan(caltable[flux_quantity + "/Counts"])
         good = good&(caltable['Chan'] == 'Feed0_LCP')
-        std = np.std(np.diff(caltable[flux_quantity + "/Counts Err"][good]))
+        assert np.count_nonzero(good) > 1
+        std = np.std(np.diff(caltable[flux_quantity + "/Counts"][good]))
+        assert std > 0
         firstidx = np.where(good)[0][0]
-        caltable[flux_quantity + "/Counts"][firstidx] += std * 20000
+        caltable[flux_quantity + "/Counts"][firstidx] = 20000
+
+        assert caltable[flux_quantity + "/Counts"][firstidx] == 20000
 
         Jc, Jce = caltable.Jy_over_counts_rough(channel='Feed0_LCP',
                                                 map_unit='Jy/beam')

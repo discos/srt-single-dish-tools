@@ -102,14 +102,14 @@ def split_observation_table(info, max_calibrator_delay=0.4,
         start_row = grouped_table[ind[0]]
         log.info("Group {}, Backend = {}, "
                  "Receiver = {}".format(i,
-                                        standard_string(start_row["Backend"]),
-                                        standard_string(start_row["Receiver"])
+                                        start_row["Backend"],
+                                        start_row["Receiver"]
                                         ))
         s = split_by_source(grouped_table[ind[0]:ind[1]],
                             max_calibrator_delay=max_calibrator_delay,
                             max_source_delay=max_source_delay)
 
-        label = ','.join([standard_string(start_row[e])
+        label = ','.join([start_row[e]
                           for e in group_by_entries])
 
         groups[label] = s
@@ -125,13 +125,13 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
     # Find observation blocks of a given source
     retval = {}
     for s in sources:
-        if standard_string(s) in calibrators:
+        if s in calibrators:
             continue
         condition = info["Source"] == s
         filtered_table = info[condition]
         if np.any(filtered_table['is_skydip']):
             continue
-        s = standard_string(s)
+        s = s
         retval[s] = {}
 
         start_idxs = []
@@ -160,9 +160,9 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
             print("Source observations:")
             retval[s]["Obs{}".format(i)]["Src"] = []
             for c in range(cont[0], cont[1]):
-                print(standard_string(filtered_table[c]["Dir"]))
+                print(filtered_table[c]["Dir"])
                 retval[s]["Obs{}".format(i)]["Src"].append(
-                    standard_string(filtered_table[c]["Dir"]))
+                    filtered_table[c]["Dir"])
 
             print("")
             print("Calibrator observations:")
@@ -175,10 +175,10 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
             condition = condition1 & condition2
 
             for row in info[condition]:
-                if standard_string(row["Source"]) in calibrators:
-                    print(standard_string(row["Dir"]))
+                if row["Source"] in calibrators:
+                    print(row["Dir"])
                     retval[s]["Obs{}".format(i)]["Cal"].append(
-                        standard_string(row["Dir"]))
+                        row["Dir"])
 
             print("")
             print("Skydip observations:")
@@ -193,9 +193,9 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
 
             for row in info[condition]:
                 if row["is_skydip"]:
-                    print(standard_string(row["Dir"]))
+                    print(row["Dir"])
                     retval[s]["Obs{}".format(i)]["Skydip"].append(
-                        standard_string(row["Dir"]))
+                        row["Dir"])
 
             print("")
             print("---------------\n")
