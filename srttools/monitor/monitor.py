@@ -204,7 +204,7 @@ class Monitor(object):
         except:
             log.exception(sys.exc_info()[1])
             exit_code = 1
-        sys.exit(exit_code)
+        os._exit(exit_code)
 
     def _enqueue(self, infile):
         self._timers[infile].processing = True
