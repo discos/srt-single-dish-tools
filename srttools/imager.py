@@ -97,7 +97,8 @@ def outlier_score(x):
 
 class ScanSet(Table):
     def __init__(self, data=None, norefilt=True, config_file=None,
-                 freqsplat=None, nofilt=False, nosub=False, **kwargs):
+                 freqsplat=None, nofilt=False, nosub=False,
+                 data_cube=False, **kwargs):
         """Class obtained by a set of scans.
 
         Once the scans are loaded, this class contains all functionality that
@@ -114,6 +115,8 @@ class ScanSet(Table):
         config_file : str
             Config file containing the parameters for the images and the
             directories containing the image and calibration data
+        data_cube : bool
+            If True, save not only the image but the data cube
         norefilt : bool
             See :class:`srttools.scan.Scan`
         freqsplat : str
@@ -195,7 +198,8 @@ class ScanSet(Table):
 
             for i_s, s in self.load_scans(scan_list,
                                           freqsplat=freqsplat, nofilt=nofilt,
-                                          nosub=nosub, **kwargs):
+                                          nosub=nosub, save_spectrum=data_cube,
+                                          **kwargs):
 
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     log.info("{} is flagged".format(s.meta['filename']))
@@ -309,14 +313,16 @@ class ScanSet(Table):
                     )
                 )
 
-    def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
+    def load_scans(self, scan_list, freqsplat=None, nofilt=False,
+                   save_spectrum=False, **kwargs):
         """Load the scans in the list one by ones."""
         nscan = len(scan_list)
         for i, f in enumerate(scan_list):
             print("{}/{}".format(i + 1, nscan), end="\r")
             try:
                 s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
-                         nofilt=nofilt, **kwargs)
+                         nofilt=nofilt, save_spectrum=save_spectrum,
+                         **kwargs)
                 yield i, s
             except KeyError as e:
                 log.warning(
