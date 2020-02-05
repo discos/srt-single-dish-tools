@@ -220,6 +220,8 @@ class ScanSet(Table):
         self.images_hor = None
         self.images_ver = None
 
+        self.data_cube = data_cube
+
         if isinstance(data, Iterable) and \
                 not isinstance(data, six.string_types):
             alldata = [ScanSet(d, norefilt=norefilt, config_file=config_file,
@@ -307,7 +309,6 @@ class ScanSet(Table):
                     warnings.warn(t.colnames)
                     warnings.warn(t[0])
                 raise
-            self.data_cube = data_cube
             Table.__init__(self, scan_table)
             self.scan_list = scan_list
 
@@ -575,8 +576,11 @@ class ScanSet(Table):
 
         images = {}
 
-        bins = [int(self.meta['npix'][0] + 1), int(self.meta['npix'][1] + 1)]
-        ranges = [[0, self.meta['npix'][0]], 0, self.meta['npix'][1]]
+        bins = np.array([int(self.meta['npix'][0] + 1),
+                         int(self.meta['npix'][1] + 1)], dtype=np.long)
+        ranges = np.array([[0, self.meta['npix'][0]],
+                           [0, self.meta['npix'][1]]],
+                          dtype=np.long)
 
         for ch in self.chan_columns:
             if direction is None:
@@ -620,7 +624,8 @@ class ScanSet(Table):
                 counts = np.array(self[ch][good])
 
             image, image_sdev, expomap, img_outliers = \
-                calculate_image(x, y, counts, bins, ranges)
+                calculate_image(np.array(x), np.array(y), np.array(counts),
+                                bins, ranges)
 
             if calibration is not None and calibrate_scans:
                 caltable, conversion_units = _load_calibration(calibration,
@@ -639,6 +644,7 @@ class ScanSet(Table):
                 image = image.to(final_unit).value
                 image_sdev += image * cal_rel_err
 
+            images[ch] = image
             images['{}-Sdev'.format(ch)] = image_sdev
             images['{}-EXPO'.format(ch)] = expomap
             images['{}-Outliers'.format(ch)] = img_outliers
