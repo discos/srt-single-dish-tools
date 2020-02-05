@@ -1,8 +1,11 @@
-#  From https://gist.github.com/neothemachine/e625cb7777376899adca
-
 '''
-This module contains a fast replacement for numpy's histogramdd and
-histogram2d.
+This module contains Two different implementations of faster histograms
+
+Fast replacement for numpy's histogramdd and histogram2d.
+---------------------------------------------------------
+One was copied from
+https://gist.github.com/neothemachine/e625cb7777376899adca
+
 Two changes were made. The first was replacing
 
 np.digitize(a, b)
@@ -19,6 +22,12 @@ The other change is to allow lists of weight arrays. This is advantageous for
 resampling as there is just one set of coordinates but several data arrays
 (=weights).
 Therefore repeated computations are prevented.
+
+Numba-compiled histograms
+-------------------------
+A bunch of stripped-down and specialized histogram algorithms, to speed up
+the computation significantly.
+
 '''
 
 
@@ -32,7 +41,7 @@ from numpy import atleast_2d, asarray, zeros, ones, array, atleast_1d, arange,\
 
 __all__ = ["histogram2d", "histogramdd"]
 
-__doctest_skip__ = ['*']
+__doctest_skip__ = ['histogram*']
 
 
 def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
@@ -439,6 +448,49 @@ def hist2d_numba_seq_weight(x, y, weights, bins, ranges):
 
 
 @njit(nogil=True, parallel=False)
+def _hist2d_numba_seq_weight_array(H, tracks, weights, bins, ranges):
+    delta = 1 / ((ranges[:, 1] - ranges[:, 0]) / bins)
+
+    for t in range(tracks.shape[1]):
+        i = (tracks[0, t] - ranges[0, 0]) * delta[0]
+        j = (tracks[1, t] - ranges[1, 0]) * delta[1]
+        if 0 <= i < bins[0] and 0 <= j < bins[1]:
+            for k in range(weights[t].size):
+                H[int(i), int(j), k] += weights[t, k]
+
+    return H
+
+
+def hist2d_numba_seq_weight_array(x, y, weights, bins, ranges):
+    """Calculate a 2d histogram using array-like weights.
+
+    This works when we are calculating cubes with X, Y, and many-channel
+    spectra.
+
+    Examples
+    --------
+    >>> from scipy.stats import binned_statistic_2d
+    >>> x = np.random.uniform(0., 1., 100)
+    >>> y = np.random.uniform(2., 3., 100)
+    >>> weight = np.random.uniform(0, 1, (100, 10))
+    >>> Hs, _, _, _ = binned_statistic_2d(x, y, weight.T, bins=(5, 5),
+    ...                                   range=[(0., 1.), (2., 3.)],
+    ...                                   statistic='sum')
+    >>> Hn = hist2d_numba_seq_weight_array(x, y, bins=(5, 5),
+    ...                                    ranges=[[0., 1.], [2., 3.]],
+    ...                                    weights=weight)
+    >>> assert Hn.shape[2] == weight.shape[1]
+    >>> assert np.all([np.all(np.isclose(Hs[i, :, :], Hn[:, :, i]))
+    ...                for i in range(weight.shape[1])])
+    """
+    H = np.zeros((bins[0], bins[1], weights.shape[1]), dtype=np.double)
+
+    return _hist2d_numba_seq_weight_array(
+        H, np.array([x, y]), weights, np.asarray(list(bins)),
+        np.asarray(ranges))
+
+
+@njit(nogil=True, parallel=False)
 def _hist3d_numba_seq_weight(H, tracks, weights, bins, ranges):
     delta = 1 / ((ranges[:, 1] - ranges[:, 0]) / bins)
 
@@ -525,7 +577,7 @@ def histnd_numba_seq(tracks, bins, ranges):
     >>> H, _ = np.histogramdd((x, y, z), bins=np.array((5, 6, 7)),
     ...                       range=[(0., 1.), (2., 3.), (4., 5)])
     >>> alldata = np.array([x, y, z])
-    >>> Hn = hist3d_numba_seq(alldata, bins=np.array((5, 6, 7)),
+    >>> Hn = histnd_numba_seq(alldata, bins=np.array((5, 6, 7)),
     ...                       ranges=np.array([[0., 1.], [2., 3.], [4., 5.]]))
     >>> assert np.all(H == Hn)
     """
