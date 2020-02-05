@@ -563,16 +563,12 @@ class ScanSet(Table):
         self.image_wcs.wcs.ctype = ctype
         self.image_wcs.wcs.cunit = cunit
 
-        print(self[ch].meta['frequency'])
-        print(self[ch].meta['bandwidth'])
-
-        freq = self[ch].meta['frequency'].to('Hz').value
-        bandwidth = self[ch].meta['bandwidth'].to('Hz').value
-        nchan = self[ch + '_spec'][0].size
-        step = bandwidth / nchan
-        print(freq, bandwidth, step, nchan)
-
         if self.data_cube:
+            freq = self[ch].meta['frequency'].to('Hz').value
+            bandwidth = self[ch].meta['bandwidth'].to('Hz').value
+            nchan = self[ch + '_spec'][0].size
+            step = bandwidth / nchan
+
             ctype.append('FREQ')
             crval.append(freq)
             cdelt.append(step)

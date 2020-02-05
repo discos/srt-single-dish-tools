@@ -447,6 +447,7 @@ def baseline_als(x, y, **kwargs):
 
     els = np.array(
         np.rint(np.linspace(0, y.size - 1, 31)), dtype=int)
+
     y_sub, base = _baseline_als(x[els], y_medf[els], outlier_purging=False,
                                 return_baseline=True, **kwargs)
 
@@ -535,7 +536,6 @@ def detrend_spectroscopic_data(x, spectrum, kind='als', mask=None,
 
     if len(spectrum.shape) == 1:
         return y_sub, baseline
-
     shape = spectrum.shape
     tiled_baseline = np.tile(baseline, (shape[1], 1)).transpose()
     tiled_norm = np.tile(y, (shape[1], 1)).transpose()

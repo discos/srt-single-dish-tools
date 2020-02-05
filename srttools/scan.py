@@ -836,11 +836,11 @@ class Scan(Table):
             if (('backsub' not in self.meta.keys() or
                     not self.meta['backsub'])) and not nosub:
                 log.info('Subtracting the baseline')
-                try:
-                    self.baseline_subtract(avoid_regions=avoid_regions,
-                                           plot=plot)
-                except Exception as e:
-                    log.error("Baseline subtraction failed: {str(e)}")
+                # try:
+                self.baseline_subtract(avoid_regions=avoid_regions,
+                                       plot=plot)
+                # except Exception as e:
+                #     log.error(f"Baseline subtraction failed: {str(e)}")
 
             if not nosave:
                 self.save()
@@ -1007,6 +1007,7 @@ class Scan(Table):
                     dec_dist = angular_distance(decs, r[1])
                     dist = np.sqrt((ra_dist * np.cos(decs))**2 + dec_dist**2)
                     mask[dist < r[2]] = 0
+
             if kind == 'als' and not force_rough:
                 self[ch] = baseline_als(self['time'], self[ch], mask=mask,
                                         **kwargs)
