@@ -37,6 +37,7 @@ from .calibration import CalibratorTable
 from .opacity import calculate_opacity
 from .global_fit import fit_full_image
 from .interactive_filter import create_empty_info
+from .histograms import hist2d_numba_seq_weight_array, hist2d_numba_seq_weight
 
 try:
     import matplotlib.pyplot as plt
@@ -52,6 +53,79 @@ IMG_VER_STR = '__img_ver_dump_'
 
 
 __all__ = ["ScanSet"]
+
+
+def calculate_image(x, y, fluxes, bins, ranges):
+    """Calculate an image starting from a set of (multi-channel) measurements.
+
+    Examples
+    --------
+    >>> x = np.random.random(100)
+    >>> y = np.random.random(100)
+    >>> Nchan = 3
+    >>> fluxes = np.ones((x.size, Nchan))
+    >>> fluxes[:, 1] = fluxes[:, 0] * 0.5
+    >>> fluxes[:, 2] = fluxes[:, 0] * 0.25
+    >>> img, img_sdev, expo, outl = calculate_image(x, y, fluxes, (10, 10),
+    ...                                             [(0, 1), (0, 1)])
+    >>> np.allclose(img[:, :, 0], img[:, :, 1] * 2)
+    True
+    >>> np.allclose(img[:, :, 0], img[:, :, 2] * 4)
+    True
+    >>> img_flat, _, expo_flat, outl_flat = calculate_image(
+    ...     x, y, fluxes[:, 0], (10, 10), [(0, 1), (0, 1)])
+    >>> np.allclose(img[:, :, 0], img_flat)
+    True
+    >>> np.allclose(expo, expo_flat)
+    True
+    """
+    expomap, _, _ = np.histogram2d(x, y, bins)
+
+    data_cube = len(fluxes.shape) == len(x.shape) + 1
+
+    if data_cube:
+        Nchan = fluxes.shape[1]
+        hist_op = hist2d_numba_seq_weight_array
+        total_power = np.sum(fluxes, axis=1)
+        expomap_rescale = \
+            np.repeat(expomap, Nchan).reshape(expomap.shape[0],
+                                              expomap.shape[1], Nchan)
+    else:
+        hist_op = hist2d_numba_seq_weight
+        total_power = fluxes
+        expomap_rescale = expomap
+
+    img = hist_op(x, y, bins=bins, ranges=ranges, weights=fluxes)
+
+    img_sq = hist_op(x, y, bins=bins, ranges=ranges, weights=fluxes ** 2)
+
+    img_outliers, _, _, _ = \
+        binned_statistic_2d(x, y, total_power, statistic=outlier_score,
+                            bins=bins, range=ranges)
+
+    good = expomap_rescale > 0
+    mean = img.copy()
+
+    mean[good] /= expomap_rescale[good]
+    # For Numpy vs FITS image conventions...
+    output_image = mean
+
+    output_image_sdev = img_sq
+    output_image_sdev[good] = \
+        output_image_sdev[good] / expomap_rescale[good] - mean[good] ** 2
+
+    output_image_sdev[good] = np.sqrt(output_image_sdev[good])
+
+    if data_cube:
+        output_image = np.transpose(output_image, axes=(1, 0, 2))
+        output_image_sdev = np.transpose(output_image_sdev, axes=(1, 0, 2))
+    else:
+        output_image = output_image.T
+        output_image_sdev = output_image_sdev.T
+
+    expomap = expomap.T
+    img_outliers = img_outliers.T
+    return output_image, output_image_sdev, expomap, img_outliers
 
 
 def all_lower(list_of_strings):
@@ -233,7 +307,7 @@ class ScanSet(Table):
                     warnings.warn(t.colnames)
                     warnings.warn(t[0])
                 raise
-
+            self.data_cube = data_cube
             Table.__init__(self, scan_table)
             self.scan_list = scan_list
 
@@ -501,12 +575,8 @@ class ScanSet(Table):
 
         images = {}
 
-        xbins = np.linspace(0,
-                            self.meta['npix'][0],
-                            int(self.meta['npix'][0] + 1))
-        ybins = np.linspace(0,
-                            self.meta['npix'][1],
-                            int(self.meta['npix'][1] + 1))
+        bins = [int(self.meta['npix'][0] + 1), int(self.meta['npix'][1] + 1)]
+        ranges = [[0, self.meta['npix'][0]], 0, self.meta['npix'][1]]
 
         for ch in self.chan_columns:
             if direction is None:
@@ -542,11 +612,15 @@ class ScanSet(Table):
             elif direction == 1:
                 good = good & np.logical_not(self['direction'])
 
-            expomap, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                           self['y'][:, feed][good],
-                                           bins=[xbins, ybins])
+            x, y = self['x'][:, feed][good], self['y'][:, feed][good]
 
-            counts = np.array(self[ch][good])
+            if self.data_cube:
+                counts = np.array(self[ch + '_spec'][good])
+            else:
+                counts = np.array(self[ch][good])
+
+            image, image_sdev, expomap, img_outliers = \
+                calculate_image(x, y, counts, bins, ranges)
 
             if calibration is not None and calibrate_scans:
                 caltable, conversion_units = _load_calibration(calibration,
@@ -558,43 +632,16 @@ class ScanSet(Table):
                     caltable.Jy_over_counts(channel=ch, map_unit=map_unit,
                                             elevation=self['el'][:, feed][good]
                                             )
-
-                counts = counts * u.ct * area_conversion * Jy_over_counts
-                counts = counts.to(final_unit).value
-
-            img, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                       self['y'][:, feed][good],
-                                       bins=[xbins, ybins],
-                                       weights=counts)
-
-            img_sq, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                          self['y'][:, feed][good],
-                                          bins=[xbins, ybins],
-                                          weights=counts ** 2)
-
-            img_outliers, _, _, _ = \
-                binned_statistic_2d(self['x'][:, feed][good],
-                                    self['y'][:, feed][good],
-                                    counts, statistic=outlier_score,
-                                    bins=[xbins, ybins])
-
-            good = expomap > 0
-            mean = img.copy()
-            mean[good] /= expomap[good]
-            # For Numpy vs FITS image conventions...
-            images[ch] = mean.T
-            img_sdev = img_sq
-            img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
-
-            img_sdev[good] = np.sqrt(img_sdev[good])
-            if calibration is not None and calibrate_scans:
                 cal_rel_err = \
                     np.mean(Jy_over_counts_err / Jy_over_counts).value
-                img_sdev += mean * cal_rel_err
 
-            images['{}-Sdev'.format(ch)] = img_sdev.T
-            images['{}-EXPO'.format(ch)] = expomap.T
-            images['{}-Outliers'.format(ch)] = img_outliers.T
+                image *= u.ct * area_conversion * Jy_over_counts
+                image = image.to(final_unit).value
+                image_sdev += image * cal_rel_err
+
+            images['{}-Sdev'.format(ch)] = image_sdev
+            images['{}-EXPO'.format(ch)] = expomap
+            images['{}-Outliers'.format(ch)] = img_outliers
 
         if direction is None:
             self.images = images
