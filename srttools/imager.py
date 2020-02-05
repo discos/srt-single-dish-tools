@@ -221,6 +221,7 @@ class ScanSet(Table):
         self.images_ver = None
 
         self.data_cube = data_cube
+        self._chan_columns = None
 
         if isinstance(data, Iterable) and \
                 not isinstance(data, six.string_types):
@@ -318,10 +319,15 @@ class ScanSet(Table):
 
             self.convert_coordinates()
 
-        self.chan_columns = np.array([i for i in self.columns
-                                      if chan_re.match(i)])
         self.current = None
         self.get_opacity()
+
+    @property
+    def chan_columns(self):
+        if self._chan_columns is None:
+            self._chan_columns = np.array([i for i in self.columns
+                                           if chan_re.match(i)])
+        return self._chan_columns
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
@@ -498,14 +504,23 @@ class ScanSet(Table):
             plt.savefig('altaz_with_src.png')
             plt.close(fig2)
 
-    def create_wcs(self, altaz=False):
+    def create_wcs(self, altaz=False, ch=None):
         """Create a wcs object from the pointing information."""
+        if self.data_cube:
+            if ch is None:
+                ch = self.chan_columns[0]
+
         if altaz:
             hor, ver = 'delta_az', 'delta_el'
         else:
             hor, ver = 'ra', 'dec'
         pixel_size = self.meta['pixel_size']
-        self.wcs = wcs.WCS(naxis=2)
+        naxis = 2
+        if self.data_cube:
+            naxis = 3
+
+        self.image_wcs = wcs.WCS(naxis=2)
+        self.wcs = wcs.WCS(naxis=naxis)
 
         if 'max_' + hor not in self.meta:
             self.analyze_coordinates(altaz)
@@ -521,7 +536,7 @@ class ScanSet(Table):
         self.meta['npix'] = np.array([npix_hor, npix_ver])
 
         # the first pixel is starts from 1, 1!
-        self.wcs.wcs.crpix = self.meta['npix'] / 2 + 1
+        crpix = [npix_hor / 2 + 1, npix_ver / 2 + 1]
 
         # TODO: check consistency of units
         # Here I'm assuming all angles are radians
@@ -531,17 +546,44 @@ class ScanSet(Table):
                          self.meta['min_' + hor].value])
         crver = np.mean([self.meta['max_' + ver].value,
                          self.meta['min_' + ver].value])
-        crval = np.array([crhor, crver])
 
-        self.wcs.wcs.crval = np.degrees(crval)
+        crval = [np.degrees(crhor), np.degrees(crver)]
 
-        cdelt = np.array([-pixel_size.to(u.rad).value,
-                          pixel_size.to(u.rad).value])
-        self.wcs.wcs.cdelt = np.degrees(cdelt)
+        cdelt = [np.degrees(-pixel_size.to(u.rad).value),
+                 np.degrees(pixel_size.to(u.rad).value)]
 
-        self.wcs.wcs.ctype = \
+        ctype = \
             ["RA---{}".format(self.meta['projection']),
              "DEC--{}".format(self.meta['projection'])]
+        cunit = ['deg', 'deg']
+
+        self.image_wcs.wcs.cdelt = cdelt
+        self.image_wcs.wcs.crval = crval
+        self.image_wcs.wcs.crpix = crpix
+        self.image_wcs.wcs.ctype = ctype
+        self.image_wcs.wcs.cunit = cunit
+
+        print(self[ch].meta['frequency'])
+        print(self[ch].meta['bandwidth'])
+
+        freq = self[ch].meta['frequency'].to('Hz').value
+        bandwidth = self[ch].meta['bandwidth'].to('Hz').value
+        nchan = self[ch + '_spec'][0].size
+        step = bandwidth / nchan
+        print(freq, bandwidth, step, nchan)
+
+        if self.data_cube:
+            ctype.append('FREQ')
+            crval.append(freq)
+            cdelt.append(step)
+            crpix.append(nchan / 2)
+            cunit.append('Hz')
+
+        self.wcs.wcs.cdelt = cdelt
+        self.wcs.wcs.crval = crval
+        self.wcs.wcs.crpix = crpix
+        self.wcs.wcs.ctype = ctype
+        self.wcs.wcs.cunit = cunit
 
     def convert_coordinates(self, altaz=False):
         """Convert the coordinates from sky to pixel."""
@@ -549,13 +591,14 @@ class ScanSet(Table):
             hor, ver = 'delta_az', 'delta_el'
         else:
             hor, ver = 'ra', 'dec'
+
         self.create_wcs(altaz)
 
         self['x'] = np.zeros_like(self[hor])
         self['y'] = np.zeros_like(self[ver])
         coords = np.degrees(self.get_coordinates(altaz=altaz))
         for f in range(len(self[hor][0, :])):
-            pixcrd = self.wcs.all_world2pix(coords[:, f], 0.5)
+            pixcrd = self.image_wcs.all_world2pix(coords[:, f], 0.5)
 
             self['x'][:, f] = pixcrd[:, 0] + 0.5
             self['y'][:, f] = pixcrd[:, 1] + 0.5
@@ -603,9 +646,6 @@ class ScanSet(Table):
 
             feed = get_channel_feed(ch)
 
-            if elevation is None:
-                elevation = np.mean(self['el'][:, feed])
-
             if '{}-filt'.format(ch) in self.keys():
                 good = self['{}-filt'.format(ch)]
             else:
@@ -617,6 +657,9 @@ class ScanSet(Table):
                 good = good & np.logical_not(self['direction'])
 
             x, y = self['x'][:, feed][good], self['y'][:, feed][good]
+            elevation_array = np.mean(self['el'][:, feed])
+            if elevation is None:
+                elevation = elevation_array
 
             if self.data_cube:
                 counts = np.array(self[ch + '_spec'][good])
@@ -635,7 +678,7 @@ class ScanSet(Table):
 
                 Jy_over_counts, Jy_over_counts_err = conversion_units * \
                     caltable.Jy_over_counts(channel=ch, map_unit=map_unit,
-                                            elevation=self['el'][:, feed][good]
+                                            elevation=elevation_array
                                             )
                 cal_rel_err = \
                     np.mean(Jy_over_counts_err / Jy_over_counts).value
@@ -1113,6 +1156,7 @@ class ScanSet(Table):
         if self.images_ver is not None:
             for key in self.images_ver.keys():
                 self.meta[IMG_VER_STR + key] = self.images_ver[key]
+        self.meta['data_cube'] = self.data_cube
 
     def read_images_from_meta(self):
         for key in self.meta.keys():
@@ -1293,7 +1337,11 @@ class ScanSet(Table):
                     log.info('FOM_{}'.format(k), moments_dict[k])
                     # header_mod['FOM_{}'.format(k)] = moments_dict[k]
 
-            hdu = fits.ImageHDU(images[ch], header=header_mod, name='IMG' + ch)
+            image = images[ch]
+            if self.data_cube and len(image.shape) == 3:
+                image = np.transpose(image, axes=(2, 1, 0))
+
+            hdu = fits.ImageHDU(image, header=header_mod, name='IMG' + ch)
 
             hdulist.append(hdu)
 
@@ -1348,39 +1396,32 @@ def main_imager(args=None):
     parser.add_argument("file", nargs='?',
                         help="Load intermediate scanset from this file",
                         default=None, type=str)
-
     parser.add_argument("--sample-config", action='store_true', default=False,
                         help='Produce sample config file')
-
     parser.add_argument("-c", "--config", type=str, default=None,
                         help='Config file')
-
+    parser.add_argument("-C", "--data-cube", default=False,
+                        action='store_true',
+                        help='Calculate and save data cube')
     parser.add_argument("--refilt", default=False,
                         action='store_true',
                         help='Re-run the scan filtering')
-
     parser.add_argument("--altaz", default=False,
                         action='store_true',
                         help='Do images in Az-El coordinates')
-
     parser.add_argument("--sub", default=False,
                         action='store_true',
                         help='Subtract the baseline from single scans')
-
     parser.add_argument("--interactive", default=False,
                         action='store_true',
                         help='Open the interactive display')
-
     parser.add_argument("--calibrate", type=str, default=None,
                         help='Calibration file')
-
     parser.add_argument("--nofilt", action='store_true', default=False,
                         help='Do not filter noisy channels')
-
     parser.add_argument("-g", "--global-fit", action='store_true',
                         default=False,
                         help='Perform global fitting of baseline')
-
     parser.add_argument("-e", "--exclude", nargs='+', default=None,
                         help='Exclude region from global fitting of baseline '
                              'and baseline subtraction. It can be specified '
@@ -1391,51 +1432,40 @@ def main_imager(args=None):
                              'subtraction only takes into account fk5 '
                              'coordinates and global fitting image coordinates'
                              '. This will change in the future.')
-
     parser.add_argument("--chans", type=str, default=None,
                         help=('Comma-separated channels to include in global '
                               'fitting (Feed0_RCP, Feed0_LCP, ...)'))
-
     parser.add_argument("-o", "--outfile", type=str, default=None,
                         help='Save intermediate scanset to this file.')
-
     parser.add_argument("-u", "--unit", type=str, default="Jy/beam",
                         help='Unit of the calibrated image. Jy/beam or '
                              'Jy/pixel')
-
     parser.add_argument("--destripe", action='store_true', default=False,
                         help='Destripe the image')
-
     parser.add_argument("--npix-tol", type=int, default=None,
                         help='Number of pixels with zero exposure to tolerate'
                              ' when destriping the image, or the full row or '
                              'column is discarded.'
                              ' Default None, meaning that the image will be'
                              ' destriped as a whole')
-
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Plot stuff and be verbose')
-
     parser.add_argument("--quick", action='store_true', default=False,
                         help='Calibrate after image creation, for speed '
                              '(bad when calibration depends on elevation)')
-
     parser.add_argument("--scrunch-channels", action='store_true',
                         default=False,
                         help='Sum all the images from the single channels into'
                              ' one.')
-
     parser.add_argument("--nosave", action='store_true',
                         default=False,
                         help='Do not save the hdf5 intermediate files when'
                              'loading subscans.')
-
     parser.add_argument("--bad-chans",
                         default="", type=str,
                         help='Channels to be discarded when scrunching, '
                              'separated by a comma (e.g. '
                              '--bad-chans Feed2_RCP,Feed3_RCP )')
-
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -1471,7 +1501,8 @@ def main_imager(args=None):
                           freqsplat=args.splat, nosub=not args.sub,
                           nofilt=args.nofilt, debug=args.debug,
                           avoid_regions=excluded_radec,
-                          nosave=args.nosave)
+                          nosave=args.nosave,
+                          data_cube=args.data_cube)
         infile = args.config
 
         if outfile is None:
@@ -1504,32 +1535,28 @@ def main_preprocess(args=None):
     parser.add_argument("files", nargs='*',
                         help="Single files to preprocess",
                         default=None, type=str)
-
     parser.add_argument("-c", "--config", type=str, default=None,
                         help='Config file')
-
+    parser.add_argument("-C", "--data-cube", default=False,
+                        action='store_true',
+                        help='Calculate and save data cube (or spectrum for'
+                             ' single files)')
     parser.add_argument("--sub", default=False,
                         action='store_true',
                         help='Subtract the baseline from single scans')
-
     parser.add_argument("--interactive", default=False,
                         action='store_true',
                         help='Open the interactive display for each scan')
-
     parser.add_argument("--nofilt", action='store_true', default=False,
                         help='Do not filter noisy channels')
-
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Be verbose')
-
     parser.add_argument("--plot", action='store_true', default=False,
                         help='Plot stuff')
-
     parser.add_argument("--nosave", action='store_true',
                         default=False,
                         help='Do not save the hdf5 intermediate files when'
                              'loading subscans.')
-
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -1537,7 +1564,6 @@ def main_preprocess(args=None):
                               " bin. E.g. '0:1000' indicates 'from the first "
                               "bin of the spectrum up to 1000 MHz above'. ':' "
                               "or 'all' for all the channels."))
-
     parser.add_argument("-e", "--exclude", nargs='+', default=None,
                         help='Exclude region from global fitting of baseline '
                              'and baseline subtraction. It can be specified '
@@ -1568,12 +1594,13 @@ def main_preprocess(args=None):
                  plot=args.plot, interactive=args.interactive,
                  avoid_regions=excluded_radec,
                  config_file=args.config,
-                 nosave=args.nosave)
+                 nosave=args.nosave, save_spectrum=args.data_cube)
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
         ScanSet(args.config, norefilt=False, freqsplat=args.splat,
                 nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
                 plot=args.plot, interactive=args.interactive,
-                avoid_regions=excluded_radec, nosave=args.nosave)
+                avoid_regions=excluded_radec, nosave=args.nosave,
+                data_cube=args.data_cube)
     return 0

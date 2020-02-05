@@ -214,7 +214,9 @@ class TestScanSet(object):
 
         klass.scanset = ScanSet(klass.config_file, nosub=False,
                                 norefilt=False,
-                                debug=True, avoid_regions=excluded_radec)
+                                debug=True, avoid_regions=excluded_radec,
+                                data_cube=True)
+
         klass.scanset.write('test.hdf5', overwrite=True)
 
         klass.stdinfo = {}
@@ -242,68 +244,68 @@ class TestScanSet(object):
     def test_prepare(self):
         pass
 
-    # def test_script_is_installed(self):
-    #     sp.check_call('SDTimage -h'.split(' '))
-    #
-    # def test_preprocess_single_files(self):
-    #     files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
-    #
-    #     main_preprocess(files[:2] + ['--debug', '-c', self.config_file])
-    #     for file in files[:2]:
-    #         # I used debug_file_format : eps in the config
-    #         if HAS_MPL:
-    #             f = os.path.basename(file).replace('.fits', '_0.eps')
-    #
-    #             assert os.path.exists(os.path.join(self.prodir_ra, f))
-    #
-    # def test_script_is_installed_prep(self):
-    #     sp.check_call('SDTpreprocess -h'.split(' '))
-    #
-    # def test_preprocess_no_config(self):
-    #     with pytest.raises(ValueError) as excinfo:
-    #         main_preprocess([])
-    #     assert "Please specify the config file!" in str(excinfo.value)
-    #
-    # def test_preprocess_invalid(self):
-    #     with pytest.warns(UserWarning) as record:
-    #         main_preprocess([self.config_file])
-    #     assert "is not in a known format" in record[0].message.args[0]
-    #     with pytest.warns(UserWarning) as record:
-    #         main_preprocess(['asdfasldkfjw'])
-    #     assert "does not exist" in record[0].message.args[0]
-    #
-    # def test_preprocess_config(self):
-    #     main_preprocess(['-c', self.config_file])
-    #
-    # def test_imager_no_config(self):
-    #     with pytest.raises(ValueError) as excinfo:
-    #         main_imager([])
-    #     assert "Please specify the config file!" in str(excinfo.value)
-    #
-    # def test_load_table_and_config(self):
-    #     from astropy.table import Table
-    #     table = Table.read('test.hdf5')
-    #     scanset = ScanSet(table, config_file=self.config_file)
-    #     for k in self.config.keys():
-    #         assert scanset.meta[k] == self.config[k]
-    #
-    # def test_raonly(self):
-    #     scanset = ScanSet(self.raonly)
-    #     assert np.all(scanset['direction'])
-    #
-    # def test_deconly(self):
-    #     scanset = ScanSet(self.deconly)
-    #     assert not np.any(scanset['direction'])
-    #
-    # def test_multiple_tables(self):
-    #     # scanset_all = ScanSet('test.hdf5')
-    #     scanset = ScanSet([self.raonly, self.deconly])
-    #     assert len(scanset.scan_list) == 122
-    #
-    # def test_wrong_file_name_raises(self):
-    #     scanset = ScanSet('test.hdf5')
-    #     with pytest.raises(astropy.io.registry.IORegistryError):
-    #         scanset.write('asdlkfjsd.fjsdkf')
+    def test_script_is_installed(self):
+        sp.check_call('SDTimage -h'.split(' '))
+
+    def test_preprocess_single_files(self):
+        files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
+
+        main_preprocess(files[:2] + ['--debug', '-c', self.config_file])
+        for file in files[:2]:
+            # I used debug_file_format : eps in the config
+            if HAS_MPL:
+                f = os.path.basename(file).replace('.fits', '_0.eps')
+
+                assert os.path.exists(os.path.join(self.prodir_ra, f))
+
+    def test_script_is_installed_prep(self):
+        sp.check_call('SDTpreprocess -h'.split(' '))
+
+    def test_preprocess_no_config(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_preprocess([])
+        assert "Please specify the config file!" in str(excinfo.value)
+
+    def test_preprocess_invalid(self):
+        with pytest.warns(UserWarning) as record:
+            main_preprocess([self.config_file])
+        assert "is not in a known format" in record[0].message.args[0]
+        with pytest.warns(UserWarning) as record:
+            main_preprocess(['asdfasldkfjw'])
+        assert "does not exist" in record[0].message.args[0]
+
+    def test_preprocess_config(self):
+        main_preprocess(['-c', self.config_file])
+
+    def test_imager_no_config(self):
+        with pytest.raises(ValueError) as excinfo:
+            main_imager([])
+        assert "Please specify the config file!" in str(excinfo.value)
+
+    def test_load_table_and_config(self):
+        from astropy.table import Table
+        table = Table.read('test.hdf5')
+        scanset = ScanSet(table, config_file=self.config_file)
+        for k in self.config.keys():
+            assert scanset.meta[k] == self.config[k]
+
+    def test_raonly(self):
+        scanset = ScanSet(self.raonly)
+        assert np.all(scanset['direction'])
+
+    def test_deconly(self):
+        scanset = ScanSet(self.deconly)
+        assert not np.any(scanset['direction'])
+
+    def test_multiple_tables(self):
+        # scanset_all = ScanSet('test.hdf5')
+        scanset = ScanSet([self.raonly, self.deconly])
+        assert len(scanset.scan_list) == 122
+
+    def test_wrong_file_name_raises(self):
+        scanset = ScanSet('test.hdf5')
+        with pytest.raises(astropy.io.registry.IORegistryError):
+            scanset.write('asdlkfjsd.fjsdkf')
 
     @pytest.mark.skipif('not HAS_MPL')
     def test_interactive_quit(self):

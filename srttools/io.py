@@ -609,10 +609,10 @@ def _read_data_fitszilla(lchdulist):
             Ntemp = td.size
             Ndata = data_table_data['time'].size
 
-            temp_func = interp1d(np.arange(Ntemp), td)
+            temp_func = interp1d(np.linspace(0, 1, Ntemp), td)
 
             data_table_data[ch + '-Temp'] = \
-                temp_func(np.arange(Ndata) * (Ntemp / Ndata))
+                temp_func(np.linspace(0, 1, Ndata))
 
     except Exception as e:
         warnings.warn("Could not read temperature information from file. "
