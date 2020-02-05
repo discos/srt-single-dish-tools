@@ -640,7 +640,7 @@ class ScanSet(Table):
                 cal_rel_err = \
                     np.mean(Jy_over_counts_err / Jy_over_counts).value
 
-                image *= u.ct * area_conversion * Jy_over_counts
+                image = image * u.ct * area_conversion * Jy_over_counts
                 image = image.to(final_unit).value
                 image_sdev += image * cal_rel_err
 
