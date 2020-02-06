@@ -161,7 +161,7 @@ def mkdir_p(path):
 
 def _check_derotator(derot_angle):
     # Check that derotator angle is outside any plausible value
-    if np.any(np.abs(derot_angle) > 2*360):
+    if np.any(np.abs(derot_angle) > 25*360):
         return False
     return True
 
@@ -609,10 +609,10 @@ def _read_data_fitszilla(lchdulist):
             Ntemp = td.size
             Ndata = data_table_data['time'].size
 
-            temp_func = interp1d(np.arange(Ntemp), td)
+            temp_func = interp1d(np.linspace(0, 1, Ntemp), td)
 
             data_table_data[ch + '-Temp'] = \
-                temp_func(np.arange(Ndata) * (Ntemp / Ndata))
+                temp_func(np.linspace(0, 1, Ndata))
 
     except Exception as e:
         warnings.warn("Could not read temperature information from file. "
@@ -647,7 +647,6 @@ def _read_data_fitszilla(lchdulist):
         new_table[info] = data_table_data[info]
 
     if not _check_derotator(new_table['derot_angle']):
-        log.warning('Derotator angle looks weird. Setting to 0')
         new_table['derot_angle'][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)

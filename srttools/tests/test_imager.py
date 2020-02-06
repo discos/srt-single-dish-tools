@@ -144,7 +144,7 @@ def sim_map(obsdir_ra, obsdir_dec):
                  outdir=(obsdir_ra, obsdir_dec), mean_ra=180,
                  mean_dec=45, speed=1.5,
                  spacing=0.5, srcname='Dummy', channel_ratio=0.8,
-                 baseline="flat")
+                 baseline="flat", nbin=4)
 
 
 class TestScanSet(object):
@@ -167,6 +167,8 @@ class TestScanSet(object):
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
         klass.simulated_flux = 0.25
         # First off, simulate a beamed observation  -------
+
+        mkdir_p(klass.sim_dir)
 
         sim_config_file(klass.config_file, add_garbage=True,
                         prefix="./")
@@ -213,6 +215,7 @@ class TestScanSet(object):
         klass.scanset = ScanSet(klass.config_file, nosub=False,
                                 norefilt=False,
                                 debug=True, avoid_regions=excluded_radec)
+
         klass.scanset.write('test.hdf5', overwrite=True)
 
         klass.stdinfo = {}

@@ -30,13 +30,14 @@ from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, jit
 
-from .io import chan_re, get_channel_feed, detect_data_kind
+from .io import get_channel_feed, detect_data_kind, get_chan_columns
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
 from .opacity import calculate_opacity
 from .global_fit import fit_full_image
 from .interactive_filter import create_empty_info
+from .histograms import hist2d_numba_seq_weight_array, hist2d_numba_seq_weight
 
 try:
     import matplotlib.pyplot as plt
@@ -52,6 +53,79 @@ IMG_VER_STR = '__img_ver_dump_'
 
 
 __all__ = ["ScanSet"]
+
+
+def calculate_image(x, y, fluxes, bins, ranges):
+    """Calculate an image starting from a set of (multi-channel) measurements.
+
+    Examples
+    --------
+    >>> x = np.random.random(100)
+    >>> y = np.random.random(100)
+    >>> Nchan = 3
+    >>> fluxes = np.ones((x.size, Nchan))
+    >>> fluxes[:, 1] = fluxes[:, 0] * 0.5
+    >>> fluxes[:, 2] = fluxes[:, 0] * 0.25
+    >>> img, img_sdev, expo, outl = calculate_image(x, y, fluxes, (10, 10),
+    ...                                             [(0, 1), (0, 1)])
+    >>> np.allclose(img[:, :, 0], img[:, :, 1] * 2)
+    True
+    >>> np.allclose(img[:, :, 0], img[:, :, 2] * 4)
+    True
+    >>> img_flat, _, expo_flat, outl_flat = calculate_image(
+    ...     x, y, fluxes[:, 0], (10, 10), [(0, 1), (0, 1)])
+    >>> np.allclose(img[:, :, 0], img_flat)
+    True
+    >>> np.allclose(expo, expo_flat)
+    True
+    """
+    expomap, _, _ = np.histogram2d(x, y, bins)
+
+    data_cube = len(fluxes.shape) == len(x.shape) + 1
+
+    if data_cube:
+        Nchan = fluxes.shape[1]
+        hist_op = hist2d_numba_seq_weight_array
+        total_power = np.sum(fluxes, axis=1)
+        expomap_rescale = \
+            np.repeat(expomap, Nchan).reshape(expomap.shape[0],
+                                              expomap.shape[1], Nchan)
+    else:
+        hist_op = hist2d_numba_seq_weight
+        total_power = fluxes
+        expomap_rescale = expomap
+
+    img = hist_op(x, y, bins=bins, ranges=ranges, weights=fluxes)
+
+    img_sq = hist_op(x, y, bins=bins, ranges=ranges, weights=fluxes ** 2)
+
+    img_outliers, _, _, _ = \
+        binned_statistic_2d(x, y, total_power, statistic=outlier_score,
+                            bins=bins, range=ranges)
+
+    good = expomap_rescale > 0
+    mean = img.copy()
+
+    mean[good] /= expomap_rescale[good]
+    # For Numpy vs FITS image conventions...
+    output_image = mean
+
+    output_image_sdev = img_sq
+    output_image_sdev[good] = \
+        output_image_sdev[good] / expomap_rescale[good] - mean[good] ** 2
+
+    output_image_sdev[good] = np.sqrt(output_image_sdev[good])
+
+    if data_cube:
+        output_image = np.transpose(output_image, axes=(1, 0, 2))
+        output_image_sdev = np.transpose(output_image_sdev, axes=(1, 0, 2))
+    else:
+        output_image = output_image.T
+        output_image_sdev = output_image_sdev.T
+
+    expomap = expomap.T
+    img_outliers = img_outliers.T
+    return output_image, output_image_sdev, expomap, img_outliers
 
 
 def all_lower(list_of_strings):
@@ -97,7 +171,8 @@ def outlier_score(x):
 
 class ScanSet(Table):
     def __init__(self, data=None, norefilt=True, config_file=None,
-                 freqsplat=None, nofilt=False, nosub=False, **kwargs):
+                 freqsplat=None, nofilt=False, nosub=False,
+                 data_cube=False, **kwargs):
         """Class obtained by a set of scans.
 
         Once the scans are loaded, this class contains all functionality that
@@ -114,6 +189,8 @@ class ScanSet(Table):
         config_file : str
             Config file containing the parameters for the images and the
             directories containing the image and calibration data
+        data_cube : bool
+            If True, save not only the image but the data cube
         norefilt : bool
             See :class:`srttools.scan.Scan`
         freqsplat : str
@@ -142,6 +219,9 @@ class ScanSet(Table):
         self.images = None
         self.images_hor = None
         self.images_ver = None
+
+        self.data_cube = data_cube
+        self._chan_columns = None
 
         if isinstance(data, Iterable) and \
                 not isinstance(data, six.string_types):
@@ -195,7 +275,8 @@ class ScanSet(Table):
 
             for i_s, s in self.load_scans(scan_list,
                                           freqsplat=freqsplat, nofilt=nofilt,
-                                          nosub=nosub, **kwargs):
+                                          nosub=nosub, save_spectrum=data_cube,
+                                          **kwargs):
 
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     log.info("{} is flagged".format(s.meta['filename']))
@@ -229,7 +310,6 @@ class ScanSet(Table):
                     warnings.warn(t.colnames)
                     warnings.warn(t[0])
                 raise
-
             Table.__init__(self, scan_table)
             self.scan_list = scan_list
 
@@ -239,10 +319,14 @@ class ScanSet(Table):
 
             self.convert_coordinates()
 
-        self.chan_columns = np.array([i for i in self.columns
-                                      if chan_re.match(i)])
         self.current = None
         self.get_opacity()
+
+    @property
+    def chan_columns(self):
+        if self._chan_columns is None:
+            self._chan_columns = get_chan_columns(self)
+        return self._chan_columns
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
@@ -309,14 +393,16 @@ class ScanSet(Table):
                     )
                 )
 
-    def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
+    def load_scans(self, scan_list, freqsplat=None, nofilt=False,
+                   save_spectrum=False, **kwargs):
         """Load the scans in the list one by ones."""
         nscan = len(scan_list)
         for i, f in enumerate(scan_list):
             print("{}/{}".format(i + 1, nscan), end="\r")
             try:
                 s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
-                         nofilt=nofilt, **kwargs)
+                         nofilt=nofilt, save_spectrum=save_spectrum,
+                         **kwargs)
                 yield i, s
             except KeyError as e:
                 log.warning(
@@ -417,14 +503,23 @@ class ScanSet(Table):
             plt.savefig('altaz_with_src.png')
             plt.close(fig2)
 
-    def create_wcs(self, altaz=False):
+    def create_wcs(self, altaz=False, ch=None):
         """Create a wcs object from the pointing information."""
+        if self.data_cube:
+            if ch is None:
+                ch = self.chan_columns[0]
+
         if altaz:
             hor, ver = 'delta_az', 'delta_el'
         else:
             hor, ver = 'ra', 'dec'
         pixel_size = self.meta['pixel_size']
-        self.wcs = wcs.WCS(naxis=2)
+        naxis = 2
+        if self.data_cube:
+            naxis = 3
+
+        self.image_wcs = wcs.WCS(naxis=2)
+        self.wcs = wcs.WCS(naxis=naxis)
 
         if 'max_' + hor not in self.meta:
             self.analyze_coordinates(altaz)
@@ -440,7 +535,7 @@ class ScanSet(Table):
         self.meta['npix'] = np.array([npix_hor, npix_ver])
 
         # the first pixel is starts from 1, 1!
-        self.wcs.wcs.crpix = self.meta['npix'] / 2 + 1
+        crpix = [npix_hor / 2 + 1, npix_ver / 2 + 1]
 
         # TODO: check consistency of units
         # Here I'm assuming all angles are radians
@@ -450,17 +545,40 @@ class ScanSet(Table):
                          self.meta['min_' + hor].value])
         crver = np.mean([self.meta['max_' + ver].value,
                          self.meta['min_' + ver].value])
-        crval = np.array([crhor, crver])
 
-        self.wcs.wcs.crval = np.degrees(crval)
+        crval = [np.degrees(crhor), np.degrees(crver)]
 
-        cdelt = np.array([-pixel_size.to(u.rad).value,
-                          pixel_size.to(u.rad).value])
-        self.wcs.wcs.cdelt = np.degrees(cdelt)
+        cdelt = [np.degrees(-pixel_size.to(u.rad).value),
+                 np.degrees(pixel_size.to(u.rad).value)]
 
-        self.wcs.wcs.ctype = \
+        ctype = \
             ["RA---{}".format(self.meta['projection']),
              "DEC--{}".format(self.meta['projection'])]
+        cunit = ['deg', 'deg']
+
+        self.image_wcs.wcs.cdelt = cdelt
+        self.image_wcs.wcs.crval = crval
+        self.image_wcs.wcs.crpix = crpix
+        self.image_wcs.wcs.ctype = ctype
+        self.image_wcs.wcs.cunit = cunit
+
+        if self.data_cube:
+            freq = self[ch].meta['frequency'].to('Hz').value
+            bandwidth = self[ch].meta['bandwidth'].to('Hz').value
+            nchan = self[ch + '_spec'][0].size
+            step = bandwidth / nchan
+
+            ctype.append('FREQ')
+            crval.append(freq)
+            cdelt.append(step)
+            crpix.append(nchan / 2)
+            cunit.append('Hz')
+
+        self.wcs.wcs.cdelt = cdelt
+        self.wcs.wcs.crval = crval
+        self.wcs.wcs.crpix = crpix
+        self.wcs.wcs.ctype = ctype
+        self.wcs.wcs.cunit = cunit
 
     def convert_coordinates(self, altaz=False):
         """Convert the coordinates from sky to pixel."""
@@ -468,13 +586,14 @@ class ScanSet(Table):
             hor, ver = 'delta_az', 'delta_el'
         else:
             hor, ver = 'ra', 'dec'
+
         self.create_wcs(altaz)
 
         self['x'] = np.zeros_like(self[hor])
         self['y'] = np.zeros_like(self[ver])
         coords = np.degrees(self.get_coordinates(altaz=altaz))
         for f in range(len(self[hor][0, :])):
-            pixcrd = self.wcs.all_world2pix(coords[:, f], 0.5)
+            pixcrd = self.image_wcs.all_world2pix(coords[:, f], 0.5)
 
             self['x'][:, f] = pixcrd[:, 0] + 0.5
             self['y'][:, f] = pixcrd[:, 1] + 0.5
@@ -495,12 +614,11 @@ class ScanSet(Table):
 
         images = {}
 
-        xbins = np.linspace(0,
-                            self.meta['npix'][0],
-                            int(self.meta['npix'][0] + 1))
-        ybins = np.linspace(0,
-                            self.meta['npix'][1],
-                            int(self.meta['npix'][1] + 1))
+        bins = np.array([int(self.meta['npix'][0] + 1),
+                         int(self.meta['npix'][1] + 1)], dtype=np.long)
+        ranges = np.array([[0, self.meta['npix'][0]],
+                           [0, self.meta['npix'][1]]],
+                          dtype=np.long)
 
         for ch in self.chan_columns:
             if direction is None:
@@ -523,9 +641,6 @@ class ScanSet(Table):
 
             feed = get_channel_feed(ch)
 
-            if elevation is None:
-                elevation = np.mean(self['el'][:, feed])
-
             if '{}-filt'.format(ch) in self.keys():
                 good = self['{}-filt'.format(ch)]
             else:
@@ -536,11 +651,19 @@ class ScanSet(Table):
             elif direction == 1:
                 good = good & np.logical_not(self['direction'])
 
-            expomap, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                           self['y'][:, feed][good],
-                                           bins=[xbins, ybins])
+            x, y = self['x'][:, feed][good], self['y'][:, feed][good]
+            elevation_array = np.mean(self['el'][:, feed])
+            if elevation is None:
+                elevation = elevation_array
 
-            counts = np.array(self[ch][good])
+            if self.data_cube:
+                counts = np.array(self[ch + '_spec'][good])
+            else:
+                counts = np.array(self[ch][good])
+
+            image, image_sdev, expomap, img_outliers = \
+                calculate_image(np.array(x), np.array(y), np.array(counts),
+                                bins, ranges)
 
             if calibration is not None and calibrate_scans:
                 caltable, conversion_units = _load_calibration(calibration,
@@ -550,45 +673,19 @@ class ScanSet(Table):
 
                 Jy_over_counts, Jy_over_counts_err = conversion_units * \
                     caltable.Jy_over_counts(channel=ch, map_unit=map_unit,
-                                            elevation=self['el'][:, feed][good]
+                                            elevation=elevation_array
                                             )
-
-                counts = counts * u.ct * area_conversion * Jy_over_counts
-                counts = counts.to(final_unit).value
-
-            img, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                       self['y'][:, feed][good],
-                                       bins=[xbins, ybins],
-                                       weights=counts)
-
-            img_sq, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                          self['y'][:, feed][good],
-                                          bins=[xbins, ybins],
-                                          weights=counts ** 2)
-
-            img_outliers, _, _, _ = \
-                binned_statistic_2d(self['x'][:, feed][good],
-                                    self['y'][:, feed][good],
-                                    counts, statistic=outlier_score,
-                                    bins=[xbins, ybins])
-
-            good = expomap > 0
-            mean = img.copy()
-            mean[good] /= expomap[good]
-            # For Numpy vs FITS image conventions...
-            images[ch] = mean.T
-            img_sdev = img_sq
-            img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
-
-            img_sdev[good] = np.sqrt(img_sdev[good])
-            if calibration is not None and calibrate_scans:
                 cal_rel_err = \
                     np.mean(Jy_over_counts_err / Jy_over_counts).value
-                img_sdev += mean * cal_rel_err
 
-            images['{}-Sdev'.format(ch)] = img_sdev.T
-            images['{}-EXPO'.format(ch)] = expomap.T
-            images['{}-Outliers'.format(ch)] = img_outliers.T
+                image = image * u.ct * area_conversion * Jy_over_counts
+                image = image.to(final_unit).value
+                image_sdev += image * cal_rel_err
+
+            images[ch] = image
+            images['{}-Sdev'.format(ch)] = image_sdev
+            images['{}-EXPO'.format(ch)] = expomap
+            images['{}-Outliers'.format(ch)] = img_outliers
 
         if direction is None:
             self.images = images
@@ -1054,6 +1151,7 @@ class ScanSet(Table):
         if self.images_ver is not None:
             for key in self.images_ver.keys():
                 self.meta[IMG_VER_STR + key] = self.images_ver[key]
+        self.meta['data_cube'] = self.data_cube
 
     def read_images_from_meta(self):
         for key in self.meta.keys():
@@ -1234,7 +1332,11 @@ class ScanSet(Table):
                     log.info('FOM_{}'.format(k), moments_dict[k])
                     # header_mod['FOM_{}'.format(k)] = moments_dict[k]
 
-            hdu = fits.ImageHDU(images[ch], header=header_mod, name='IMG' + ch)
+            image = images[ch]
+            if self.data_cube and len(image.shape) == 3:
+                image = np.transpose(image, axes=(2, 1, 0))
+
+            hdu = fits.ImageHDU(image, header=header_mod, name='IMG' + ch)
 
             hdulist.append(hdu)
 
@@ -1289,39 +1391,32 @@ def main_imager(args=None):
     parser.add_argument("file", nargs='?',
                         help="Load intermediate scanset from this file",
                         default=None, type=str)
-
     parser.add_argument("--sample-config", action='store_true', default=False,
                         help='Produce sample config file')
-
     parser.add_argument("-c", "--config", type=str, default=None,
                         help='Config file')
-
+    parser.add_argument("-C", "--data-cube", default=False,
+                        action='store_true',
+                        help='Calculate and save data cube')
     parser.add_argument("--refilt", default=False,
                         action='store_true',
                         help='Re-run the scan filtering')
-
     parser.add_argument("--altaz", default=False,
                         action='store_true',
                         help='Do images in Az-El coordinates')
-
     parser.add_argument("--sub", default=False,
                         action='store_true',
                         help='Subtract the baseline from single scans')
-
     parser.add_argument("--interactive", default=False,
                         action='store_true',
                         help='Open the interactive display')
-
     parser.add_argument("--calibrate", type=str, default=None,
                         help='Calibration file')
-
     parser.add_argument("--nofilt", action='store_true', default=False,
                         help='Do not filter noisy channels')
-
     parser.add_argument("-g", "--global-fit", action='store_true',
                         default=False,
                         help='Perform global fitting of baseline')
-
     parser.add_argument("-e", "--exclude", nargs='+', default=None,
                         help='Exclude region from global fitting of baseline '
                              'and baseline subtraction. It can be specified '
@@ -1332,51 +1427,40 @@ def main_imager(args=None):
                              'subtraction only takes into account fk5 '
                              'coordinates and global fitting image coordinates'
                              '. This will change in the future.')
-
     parser.add_argument("--chans", type=str, default=None,
                         help=('Comma-separated channels to include in global '
                               'fitting (Feed0_RCP, Feed0_LCP, ...)'))
-
     parser.add_argument("-o", "--outfile", type=str, default=None,
                         help='Save intermediate scanset to this file.')
-
     parser.add_argument("-u", "--unit", type=str, default="Jy/beam",
                         help='Unit of the calibrated image. Jy/beam or '
                              'Jy/pixel')
-
     parser.add_argument("--destripe", action='store_true', default=False,
                         help='Destripe the image')
-
     parser.add_argument("--npix-tol", type=int, default=None,
                         help='Number of pixels with zero exposure to tolerate'
                              ' when destriping the image, or the full row or '
                              'column is discarded.'
                              ' Default None, meaning that the image will be'
                              ' destriped as a whole')
-
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Plot stuff and be verbose')
-
     parser.add_argument("--quick", action='store_true', default=False,
                         help='Calibrate after image creation, for speed '
                              '(bad when calibration depends on elevation)')
-
     parser.add_argument("--scrunch-channels", action='store_true',
                         default=False,
                         help='Sum all the images from the single channels into'
                              ' one.')
-
     parser.add_argument("--nosave", action='store_true',
                         default=False,
                         help='Do not save the hdf5 intermediate files when'
                              'loading subscans.')
-
     parser.add_argument("--bad-chans",
                         default="", type=str,
                         help='Channels to be discarded when scrunching, '
                              'separated by a comma (e.g. '
                              '--bad-chans Feed2_RCP,Feed3_RCP )')
-
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -1412,7 +1496,8 @@ def main_imager(args=None):
                           freqsplat=args.splat, nosub=not args.sub,
                           nofilt=args.nofilt, debug=args.debug,
                           avoid_regions=excluded_radec,
-                          nosave=args.nosave)
+                          nosave=args.nosave,
+                          data_cube=args.data_cube)
         infile = args.config
 
         if outfile is None:
@@ -1445,32 +1530,28 @@ def main_preprocess(args=None):
     parser.add_argument("files", nargs='*',
                         help="Single files to preprocess",
                         default=None, type=str)
-
     parser.add_argument("-c", "--config", type=str, default=None,
                         help='Config file')
-
+    parser.add_argument("-C", "--data-cube", default=False,
+                        action='store_true',
+                        help='Calculate and save data cube (or spectrum for'
+                             ' single files)')
     parser.add_argument("--sub", default=False,
                         action='store_true',
                         help='Subtract the baseline from single scans')
-
     parser.add_argument("--interactive", default=False,
                         action='store_true',
                         help='Open the interactive display for each scan')
-
     parser.add_argument("--nofilt", action='store_true', default=False,
                         help='Do not filter noisy channels')
-
     parser.add_argument("--debug", action='store_true', default=False,
                         help='Be verbose')
-
     parser.add_argument("--plot", action='store_true', default=False,
                         help='Plot stuff')
-
     parser.add_argument("--nosave", action='store_true',
                         default=False,
                         help='Do not save the hdf5 intermediate files when'
                              'loading subscans.')
-
     parser.add_argument("--splat", type=str, default=None,
                         help=("Spectral scans will be scrunched into a single "
                               "channel containing data in the given frequency "
@@ -1478,7 +1559,6 @@ def main_preprocess(args=None):
                               " bin. E.g. '0:1000' indicates 'from the first "
                               "bin of the spectrum up to 1000 MHz above'. ':' "
                               "or 'all' for all the channels."))
-
     parser.add_argument("-e", "--exclude", nargs='+', default=None,
                         help='Exclude region from global fitting of baseline '
                              'and baseline subtraction. It can be specified '
@@ -1509,12 +1589,13 @@ def main_preprocess(args=None):
                  plot=args.plot, interactive=args.interactive,
                  avoid_regions=excluded_radec,
                  config_file=args.config,
-                 nosave=args.nosave)
+                 nosave=args.nosave, save_spectrum=args.data_cube)
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
         ScanSet(args.config, norefilt=False, freqsplat=args.splat,
                 nosub=not args.sub, nofilt=args.nofilt, debug=args.debug,
                 plot=args.plot, interactive=args.interactive,
-                avoid_regions=excluded_radec, nosave=args.nosave)
+                avoid_regions=excluded_radec, nosave=args.nosave,
+                data_cube=args.data_cube)
     return 0
