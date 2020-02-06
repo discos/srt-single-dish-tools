@@ -321,7 +321,7 @@ class Test2_Scan(object):
         # Tolerance: +- 1 second of observation, or sample time, whichever is
         # larger
         sampletime = np.max([scan[ch].meta['sample_time'].value
-                             for ch in scan.chan_columns()])
+                             for ch in scan.chan_columns])
         sampletime = np.max([sampletime, 1]) * u.s
 
         ref_coords0 = SkyCoord(ra=scan['ra'][:, idx],

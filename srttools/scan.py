@@ -250,6 +250,51 @@ def pickle_or_not(results, filename, test_data, min_MB=50):
     return results
 
 
+def _get_baseline_and_stdref(spectral_var, binmin=None, binmax=None,
+                             freqmask=None, smoothing_window=10):
+
+    nbin = spectral_var.size
+
+    if binmin is None:
+        binmin = 0
+    if binmax is None:
+        binmax = nbin
+
+    if freqmask is None:
+        freqmask = np.ones(nbin, dtype=bool)
+    # Set up corrected spectral var
+
+    mod_spectral_var = spectral_var.copy()
+    mod_spectral_var[0:binmin] = spectral_var[binmin]
+    mod_spectral_var[binmax:] = spectral_var[binmax]
+
+    # Some statistical information on spectral var
+
+    # median_spectral_var = np.median(mod_spectral_var[freqmask])
+    stdref = ref_mad(mod_spectral_var[freqmask], 20)
+
+    # Calculate baseline of spectral var ---------------
+    # Empyrical formula, with no physical meaning
+
+    if binmax - binmin > 20:
+        smoothing_window_int = int(nbin * smoothing_window) // 2 * 2 + 1
+        smoothing_window_int = np.max([smoothing_window_int, 11])
+
+        baseline = medfilt(mod_spectral_var[binmin:binmax],
+                           smoothing_window_int)
+    else:
+        baseline = \
+            np.zeros_like(mod_spectral_var[binmin:binmax]) + \
+            np.median(mod_spectral_var[binmin:binmax])
+
+    baseline = \
+        np.concatenate((np.zeros(binmin) + baseline[0],
+                        baseline,
+                        np.zeros(nbin - binmax) + baseline[-1]
+                        ))
+    return baseline, stdref
+
+
 # @profile
 def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
                         smoothing_window, noise_threshold, good_mask=None,
@@ -279,10 +324,13 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
     results.df = df
     results.length = length
 
-    if dynspec_len < 10:
+    if dynspec_len < 20:
         warnings.warn("Very few data in the dataset. "
                       "Skipping spectral filtering.")
         return results
+
+    if nbin < 20:
+        log.info("Very few spectral bins. Not filtering out noisy channels.")
 
     spectral_var = \
         np.sqrt(np.sum((dynamical_spectrum - meanspec) ** 2,
@@ -290,36 +338,19 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
 
     varimg = np.sqrt((dynamical_spectrum - meanspec) ** 2) / meanspec
 
-    # Set up corrected spectral var
-
-    mod_spectral_var = spectral_var.copy()
-    mod_spectral_var[0:binmin] = spectral_var[binmin]
-    mod_spectral_var[binmax:] = spectral_var[binmax]
-
-    # Some statistical information on spectral var
-
-    # median_spectral_var = np.median(mod_spectral_var[freqmask])
-    stdref = ref_mad(mod_spectral_var[freqmask], 20)
-
-    # Calculate baseline of spectral var ---------------
-    # Empyrical formula, with no physical meaning
-
-    smoothing_window_int = int(nbin * smoothing_window) // 2 * 2 + 1
-    smoothing_window_int = np.max([smoothing_window_int, 11])
-    baseline = medfilt(mod_spectral_var[binmin:binmax],
-                       smoothing_window_int)
-
-    baseline = \
-        np.concatenate((np.zeros(binmin) + baseline[0],
-                        baseline,
-                        np.zeros(nbin - binmax) + baseline[-1]
-                        ))
+    baseline, stdref = _get_baseline_and_stdref(
+        spectral_var, binmin=binmin, binmax=binmax, freqmask=freqmask,
+        smoothing_window=smoothing_window)
 
     # Set threshold
     threshold_high = baseline + noise_threshold * stdref
-    mask = spectral_var < threshold_high
     threshold_low = baseline - noise_threshold * stdref
-    mask = mask & (spectral_var > threshold_low)
+
+    if nbin < 20:
+        mask = np.ones(nbin, dtype=bool)
+    else:
+        mask = spectral_var < threshold_high
+        mask = mask & (spectral_var > threshold_low)
 
     if not np.any(mask):
         warnings.warn("No good channels found. A problem with the data or "
@@ -554,7 +585,9 @@ def plot_spectrum_cleaning_results(
         diff_high = np.abs(thresh_high - baseline)
         minb = np.min(baseline[1:] - 2 * diff_low[1:])
         maxb = np.max(baseline[1:] + 2 * diff_high[1:])
-        ax_var.set_ylim([minb, maxb])
+
+        if minb != maxb:
+            ax_var.set_ylim([minb, maxb])
 
     # Plot light curves
 
@@ -700,6 +733,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
         dynamical_spectrum, freqsplat, bandwidth, smoothing_window,
         noise_threshold, length=length, good_mask=good_mask,
         filename=dummy_file)
+
     if spec_stats_ is None:
         return None
 
@@ -799,6 +833,7 @@ class Scan(Table):
         """
         if config_file is None:
             config_file = get_config_file()
+        self._chan_columns = None
 
         if isinstance(data, Table):
             super().__init__(data, **kwargs)
@@ -845,9 +880,11 @@ class Scan(Table):
             if not nosave:
                 self.save()
 
+    @property
     def chan_columns(self):
-        """List columns containing samples."""
-        return get_chan_columns(self)
+        if self._chan_columns is None:
+            self._chan_columns = get_chan_columns(self)
+        return self._chan_columns
 
     def get_info_string(self, ch):
         infostr = "Target: {}\n".format(self.meta['SOURCE'])
@@ -911,7 +948,7 @@ class Scan(Table):
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
             return
 
-        chans = self.chan_columns()
+        chans = self.chan_columns
         is_polarized = False
         mask = True
         for ic, ch in enumerate(chans):
@@ -986,7 +1023,7 @@ class Scan(Table):
         avoid_regions: [[r0_ra, r0_dec, r0_radius], [r1_ra, r1_dec, r1_radius]]
             Avoid these regions from the fit
         """
-        for ch in self.chan_columns():
+        for ch in self.chan_columns:
             if plot and HAS_MPL:
                 fig = plt.figure("Sub" + ch)
                 plt.plot(self['time'], self[ch] - np.min(self[ch]),
@@ -1049,7 +1086,7 @@ class Scan(Table):
 
     def interactive_filter(self, save=True, test=False):
         """Run the interactive filter."""
-        for ch in self.chan_columns():
+        for ch in self.chan_columns:
             # Temporary, waiting for AstroPy's metadata handling improvements
             feed = get_channel_feed(ch)
 

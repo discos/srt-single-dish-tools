@@ -182,7 +182,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         return False, None
 
     feeds = np.arange(scan['ra'].shape[1])
-    chans = scan.chan_columns()
+    chans = scan.chan_columns
 
     chan_nums = np.arange(len(chans))
     F, N = np.meshgrid(feeds, chan_nums)

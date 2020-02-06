@@ -30,7 +30,7 @@ from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, jit
 
-from .io import chan_re, get_channel_feed, detect_data_kind
+from .io import get_channel_feed, detect_data_kind, get_chan_columns
 from .fit import linear_fun
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
@@ -325,8 +325,7 @@ class ScanSet(Table):
     @property
     def chan_columns(self):
         if self._chan_columns is None:
-            self._chan_columns = np.array([i for i in self.columns
-                                           if chan_re.match(i)])
+            self._chan_columns = get_chan_columns(self)
         return self._chan_columns
 
     def analyze_coordinates(self, altaz=False):
