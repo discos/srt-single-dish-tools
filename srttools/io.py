@@ -606,13 +606,13 @@ def _read_data_fitszilla(lchdulist):
     try:
         for ic, ch in enumerate(chan_names):
             td = np.asarray(tempdata['ch{}'.format(chan_ids[ic])])
-            Ntemp = td.size
-            Ndata = data_table_data['time'].size
+            Ntemp = td.shape[0]
+            Ndata = data_table_data['time'].shape[0]
 
-            temp_func = interp1d(np.arange(Ntemp), td)
+            temp_func = interp1d(np.linspace(0, 1, Ntemp), td)
 
             data_table_data[ch + '-Temp'] = \
-                temp_func(np.arange(Ndata) * (Ntemp / Ndata))
+                temp_func(np.linspace(0, 1, Ndata))
 
     except Exception as e:
         warnings.warn("Could not read temperature information from file. "

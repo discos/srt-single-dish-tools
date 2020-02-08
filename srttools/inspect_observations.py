@@ -9,6 +9,7 @@ from astropy.table import Table, Column
 from astropy.time import Time
 from astropy import log
 from .io import read_data, chan_re
+from .scan import list_scans
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
 from .utils import standard_string
@@ -49,8 +50,7 @@ def inspect_directories(directories, only_after=None, only_before=None):
                  'MJD {}'.format(only_before))
 
     for d in directories:
-        fits_files = glob.glob(os.path.join(d, '*.fits'))
-
+        fits_files = list_scans('.', [d])
         for f in fits_files:
             if "summary.fits" in f:
                 continue
