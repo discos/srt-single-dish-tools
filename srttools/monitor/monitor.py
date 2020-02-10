@@ -27,6 +27,7 @@ except ImportError:
 # Set the matplotlib backend
 try:
     import matplotlib.pyplot as plt
+
     plt.switch_backend('Agg')
 except ImportError:
     pass
