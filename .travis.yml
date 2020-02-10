@@ -89,8 +89,7 @@ before_script:
     - set -v
 
 script:
-    - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_TORNADO == yes ]]; then unset DISPLAY; fi
-    - $MAIN_CMD $SETUP_CMD
+    - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_TORNADO == yes ]]; then unset DISPLAY; fi; $MAIN_CMD $SETUP_CMD
 after_script:
 
 after_success:
