@@ -12,7 +12,7 @@ from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
 from srttools.imager import main_preprocess
 
-from srttools.monitor.common import MAX_FEEDS, log
+from srttools.monitor.common import MAX_FEEDS, log, exit_function
 
 try:
     from watchdog.observers import Observer
@@ -204,7 +204,7 @@ class Monitor(object):
         except:
             log.exception(sys.exc_info()[1])
             exit_code = 1
-        os._exit(exit_code)
+        exit_function(exit_code)
 
     def _enqueue(self, infile):
         self._timers[infile].processing = True
