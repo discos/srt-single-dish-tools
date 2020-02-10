@@ -80,7 +80,7 @@ install:
     # install since this ensures Numpy does not get automatically upgraded.
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_NUMBA == yes ]]; then $CONDA_INSTALL numba; fi
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_WATCHDOG == yes ]]; then $PIP_INSTALL watchdog; fi
-    - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_TORNADO == yes ]]; then unset DISPLAY; $PIP_INSTALL tornado; fi
+    - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_TORNADO == yes ]]; then $PIP_INSTALL tornado; fi
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_PYREG == yes ]]; then $PIP_INSTALL pyregion; fi
     - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_STATSM == yes ]]; then $CONDA_INSTALL statsmodels; fi
     - if [[ $SETUP_CMD != egg_info ]]; then pip install .; fi
@@ -89,6 +89,7 @@ before_script:
     - set -v
 
 script:
+    - if [[ $SETUP_CMD != egg_info ]] && [[ $USE_TORNADO == yes ]]; then unset DISPLAY; fi
     - $MAIN_CMD $SETUP_CMD
 after_script:
 
