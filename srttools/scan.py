@@ -838,7 +838,8 @@ class Scan(Table):
 
             if (('backsub' not in self.meta.keys() or
                     not self.meta['backsub'])) and not nosub:
-                log.info('Subtracting the baseline')
+                log.debug(f'Subtracting the baseline from '
+                         f'{self.meta["filename"]}')
                 try:
                     self.baseline_subtract(avoid_regions=avoid_regions,
                                            plot=plot)

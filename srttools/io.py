@@ -615,9 +615,9 @@ def _read_data_fitszilla(lchdulist):
                 temp_func(np.linspace(0, 1, Ndata))
 
     except Exception as e:
-        warnings.warn("Could not read temperature information from file. "
-                      "This is usually a minor problem.\n"
-                 "Exception: {}".format(str(e)))
+        # warnings.warn("Could not read temperature information from file. "
+        #               "This is usually a minor problem.\n"
+        #          "Exception: {}".format(str(e)))
         for ic, ch in enumerate(chan_names):
             data_table_data[ch + '-Temp'] = \
                 np.zeros_like(data_table_data['time'])

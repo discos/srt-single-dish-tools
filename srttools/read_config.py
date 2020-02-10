@@ -144,6 +144,10 @@ def read_config(fname=None):
                                          config_output['datadir']))
 
     if config_output['productdir'] is not None and \
+            config_output['productdir'].lower() == 'none':
+        config_output['productdir'] = None
+
+    if config_output['productdir'] is not None and \
             not config_output['productdir'].startswith('/'):
         config_output['productdir'] = \
             os.path.abspath(os.path.join(os.path.split(fname)[0],
