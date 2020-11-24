@@ -9,6 +9,7 @@ import socket
 import asyncio
 import json
 import base64
+import numpy as np
 
 from srttools.read_config import read_config
 try:
@@ -390,11 +391,14 @@ class TestMonitor(object):
 
     @pytest.mark.skipif('HAS_DEPENDENCIES')
     def test_dependencies_missing(self):
-        with pytest.raises(ImportError) as exc:
+        with pytest.warns(UserWarning) as record:
             from srttools.monitor import Monitor
-        missing_watchdog = 'install watchdog' in str(exc.value)
-        missing_tornado  = 'install tornado'  in str(exc.value)
-        assert missing_watchdog or missing_tornado
+        at_least_one_warning = False
+        for string in ['watchdog', 'tornado']:
+            at_least_one_warning = at_least_one_warning or \
+                np.any([f'install {string}' in r.message.args[0]
+                        for r in record])
+        assert at_least_one_warning
 
 
     @classmethod

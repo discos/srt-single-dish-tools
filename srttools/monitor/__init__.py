@@ -1,11 +1,15 @@
 import time
 import os
+import warnings
 import signal
 import argparse
 import threading
 
-from srttools.monitor.monitor import Monitor
-from srttools.monitor.common import MAX_FEEDS
+try:
+    from srttools.monitor.monitor import Monitor
+    from srttools.monitor.common import MAX_FEEDS
+except Exception:
+    warnings.warn("Monitor cannot work")
 
 
 def main_monitor(args=None):

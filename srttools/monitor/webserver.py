@@ -6,10 +6,13 @@ import base64
 try:
     import tornado.web
     import tornado.websocket
+    from tornado.web import Application, RequestHandler
+    from tornado.websocket import WebSocketHandler, WebSocketClosedError
     from tornado.log import access_log
 except ImportError:
     warnings.warn('To use SDTmonitor, you need to install tornado: \n'
                   '\n   > pip install tornado')
+    RequestHandler = WebSocketHandler = object
 
 from srttools.monitor.common import MAX_FEEDS, log
 
@@ -143,7 +146,7 @@ def create_index_file(port, max_images=MAX_FEEDS*2):
         print(html_string, file=fobj)
 
 
-class WSHandler(tornado.websocket.WebSocketHandler):
+class WSHandler(WebSocketHandler):
     def initialize(self, connected_clients, images):
         self.connected_clients = connected_clients
         self.images = images
@@ -175,7 +178,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         }
         self.write_message(json.dumps(message))
 
-class HTTPHandler(tornado.web.RequestHandler):
+class HTTPHandler(RequestHandler):
     def get(self):
         # Answer the HTTP request with the index.html page
         self.write(open('index.html', 'r').read())
@@ -195,7 +198,7 @@ class WebServer(object):
 
         self.t = None
         self.started = False
-        application = tornado.web.Application([
+        application = Application([
             (r'/images', WSHandler, dict(connected_clients=self.connected_clients, images=self.images)),
             (r'/', HTTPHandler),
             (r'/index.html', HTTPHandler)
@@ -251,7 +254,7 @@ class WebServer(object):
         for client in clients:
             try:
                 self.ioloop.add_callback(client.send_image, index)
-            except tornado.websocket.WebSocketClosedError:
+            except WebSocketClosedError:
                 try:
                     self.connected_clients.remove()
                 except KeyError:

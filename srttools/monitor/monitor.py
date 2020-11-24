@@ -8,13 +8,21 @@ import threading
 import queue
 import multiprocessing as mp
 
+from srttools.read_config import read_config
+from srttools.scan import product_path_from_file_name
+from srttools.imager import main_preprocess
+
+from srttools.monitor.common import MAX_FEEDS, log
+
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
     from watchdog.events import PatternMatchingEventHandler, FileMovedEvent
+    from srttools.monitor.webserver import WebServer
 except ImportError:
     warnings.warn('To use SDTmonitor, you need to install watchdog: \n'
                   '\n   > pip install watchdog')
+    PatternMatchingEventHandler = object
 
 # Set the matplotlib backend
 try:
@@ -22,12 +30,6 @@ try:
     plt.switch_backend('Agg')
 except ImportError:
     pass
-
-from srttools.read_config import read_config
-from srttools.scan import product_path_from_file_name
-from srttools.imager import main_preprocess
-from srttools.monitor.common import MAX_FEEDS, log
-from srttools.monitor.webserver import WebServer
 
 
 def create_dummy_config(filename='monitor_config.ini', extension='png'):
