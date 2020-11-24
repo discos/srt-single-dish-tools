@@ -260,7 +260,9 @@ class Monitor(object):
         if not feed_idx:
             oldfiles = glob.glob('latest*.{}'.format(self._extension))
 
-        p.join()  # Wait for process completion
+        p.join(60)  # Wait a minute for process completion
+        if p.is_alive():  # Process timed out
+            p.terminate()
         if p.exitcode == 0:  # Completed successfully
             self._files.put((paths, oldfiles, prodpath))
             log.info('Completed file {}, pid {}'.format(infile, p.pid))
@@ -268,6 +270,8 @@ class Monitor(object):
             log.info('Aborted file {}, pid {}'.format(infile, p.pid))
         elif p.exitcode == 15:  # Forcefully terminated
             log.info('Forcefully terminated process {}, file {}'.format(p.pid, infile))
+        elif p.exitcode == None:
+            log.info('Process {} timed out, file {}'.format(p.pid, infile))
         else:  # Unexpected code
             log.info('Process {} exited with unexpected code {}'.format(p.pid, p.exitcode))
 
