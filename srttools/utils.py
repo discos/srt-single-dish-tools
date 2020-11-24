@@ -25,8 +25,8 @@ except ImportError:
     HAS_MAHO = False
 
 DEFAULT_MPL_BACKEND = None
-
-if os.environ.get('DISPLAY') and os.environ.get('DISPLAY') != '':
+on_CI = os.environ.get('CI') or os.environ.get('CONTINUOUS_INTEGRATION')
+if not on_CI and os.environ.get('DISPLAY') and os.environ.get('DISPLAY') != '':
     DEFAULT_MPL_BACKEND = 'TKAgg'
 else:
     DEFAULT_MPL_BACKEND = 'Agg'
