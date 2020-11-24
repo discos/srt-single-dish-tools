@@ -266,8 +266,11 @@ class Monitor(object):
 
         p.join(60)  # Wait a minute for process completion
         if p.is_alive():  # Process timed out
-            os.kill(p.pid, signal.SIGKILL)
-            p.join()
+            try:
+                os.kill(p.pid, signal.SIGKILL)
+                p.join()
+            except ProcessLookupError:
+                pass
         elif p.exitcode == 0:  # Completed successfully
             self._files.put((paths, oldfiles, prodpath))
             log.info('Completed file {}, pid {}'.format(infile, p.pid))
