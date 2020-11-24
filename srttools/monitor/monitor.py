@@ -1,4 +1,5 @@
 import time
+import signal
 import os
 import shutil
 import sys
@@ -180,8 +181,11 @@ class Monitor(object):
                     to_update.append(newfile)
                 if prodpath:
                     for dirname, _, _ in os.walk(prodpath, topdown=False):
-                        if not os.listdir(dirname):
-                            os.rmdir(dirname)
+                        try:
+                            if not os.listdir(dirname):
+                                os.rmdir(dirname)
+                        except OSError:
+                            pass
                 for image in to_update:
                     self._web_server.update(image)
             except queue.Empty:
@@ -262,16 +266,15 @@ class Monitor(object):
 
         p.join(60)  # Wait a minute for process completion
         if p.is_alive():  # Process timed out
-            p.terminate()
-        if p.exitcode == 0:  # Completed successfully
+            os.kill(p.pid, signal.SIGKILL)
+            p.join()
+        elif p.exitcode == 0:  # Completed successfully
             self._files.put((paths, oldfiles, prodpath))
             log.info('Completed file {}, pid {}'.format(infile, p.pid))
         elif p.exitcode == 1:  # Aborted
             log.info('Aborted file {}, pid {}'.format(infile, p.pid))
         elif p.exitcode == 15:  # Forcefully terminated
             log.info('Forcefully terminated process {}, file {}'.format(p.pid, infile))
-        elif p.exitcode == None:
-            log.info('Process {} timed out, file {}'.format(p.pid, infile))
         else:  # Unexpected code
             log.info('Process {} exited with unexpected code {}'.format(p.pid, p.exitcode))
 
