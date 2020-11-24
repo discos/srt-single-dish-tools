@@ -220,9 +220,9 @@ def on_or_off(subscan, feed):
             is_on = True
     else:
         is_on = subscan.meta['az_offset'] > 1e-4 * u.rad
-    log.info("Subscan {}, feed {}: ONOFF {}".format(
-        subscan.meta['SubScanID'],
-        feed, is_on))
+    # log.info("Subscan {}, feed {}: ONOFF {}".format(
+    #     subscan.meta['SubScanID'],
+    #     feed, is_on))
     return is_on
 
 
@@ -236,9 +236,9 @@ def cal_is_on(subscan):
         is_on = True
     elif 'flag_cal' in subscan.colnames and np.any(subscan['flag_cal'] == 1):
         is_on = subscan['flag_cal']
-    log.info("Subscan {}: CAL {}".format(
-        subscan.meta['SubScanID'],
-        is_on))
+    # log.info("Subscan {}: CAL {}".format(
+    #     subscan.meta['SubScanID'],
+    #     is_on))
     return is_on
 
 
@@ -293,7 +293,7 @@ def find_cycles(table, list_of_keys):
             cycle_counter += 1
         table['CYCLE'][i] = cycle_counter
         last = b
-    log.info(table)
+    # log.info(table)
     return table
 
 
@@ -507,9 +507,9 @@ class CLASSFITS_creator():
                 for ch in columns:
                     array = subscan[ch]
                     if average:
-                        array = Table(data=[[np.mean(array, axis=0)]],
-                                      meta=array.meta)
-
+                        meanarr = np.mean(array, axis=0)
+                        array = array[:1]
+                        array[0] = meanarr
                     data_matrix.extend(array)
 
                 if average:
