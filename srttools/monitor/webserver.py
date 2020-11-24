@@ -1,4 +1,5 @@
 import threading
+import warnings
 import asyncio
 import json
 import base64
@@ -7,8 +8,8 @@ try:
     import tornado.websocket
     from tornado.log import access_log
 except ImportError:
-    raise ImportError('To use SDTmonitor, you need to install tornado: \n'
-                          '\n   > pip install tornado')
+    warnings.warn('To use SDTmonitor, you need to install tornado: \n'
+                  '\n   > pip install tornado')
 
 from srttools.monitor.common import MAX_FEEDS, log
 
@@ -234,7 +235,7 @@ class WebServer(object):
         self.started = False
 
     def _load_image(self, image_file):
-        index = int(image_file.split('_')[1].split('.')[0]) 
+        index = int(image_file.split('_')[1].split('.')[0])
         try:
             image_string = base64.b64encode(open(image_file, 'rb').read())
             image_string = image_string.decode('utf-8')

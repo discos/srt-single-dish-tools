@@ -13,8 +13,8 @@ try:
     from watchdog.observers.polling import PollingObserver
     from watchdog.events import PatternMatchingEventHandler, FileMovedEvent
 except ImportError:
-    raise ImportError('To use SDTmonitor, you need to install watchdog: \n'
-                          '\n   > pip install watchdog')
+    warnings.warn('To use SDTmonitor, you need to install watchdog: \n'
+                  '\n   > pip install watchdog')
 
 # Set the matplotlib backend
 try:
@@ -82,7 +82,7 @@ class Monitor(object):
         # Save constructor parameters
         self._directories = directories
         if not config_file:
-            config_file = create_dummy_config()            
+            config_file = create_dummy_config()
         self._config_file = config_file
         self._workers = workers
         self._verbosity = verbosity
@@ -192,7 +192,7 @@ class Monitor(object):
                 if main_preprocess(pp_args):
                     exit_code = 1
         except KeyboardInterrupt:
-            exit_code = 15 
+            exit_code = 15
         except:
             log.exception(sys.exc_info()[1])
             exit_code = 1
