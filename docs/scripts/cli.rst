@@ -271,9 +271,7 @@ SDTmonitor
 
 .. code-block:: none
 
-    usage: SDTmonitor [-h] [-c CONFIG] [--test] [--nosave] [-p]
-                      [--http-server-port HTTP_SERVER_PORT] [-v] [-w WORKERS]
-                      [--timeout TIMEOUT]
+    usage: SDTmonitor [-h] [-c CONFIG] [--polling] [-p PORT] [-v] [-w WORKERS]
                       directories [directories ...]
 
     Run the SRT quicklook in a given directory.
@@ -284,17 +282,12 @@ SDTmonitor
     optional arguments:
       -h, --help            show this help message and exit
       -c CONFIG, --config CONFIG
-                            Config file
-      --test                Only to be used in tests!
-      --nosave              Do not save the hdf5 intermediate files
-      -p, --polling         Use a platform-independent, polling watchdog
-      --http-server-port HTTP_SERVER_PORT
-                            Share the results via HTTP server on given
-                            HTTP_SERVER_PORT
+                            Configuration file
+      --polling             Use a platform-independent, polling watchdog
+      -p PORT, --port PORT  The port on which the server will be listening
       -v, --verbosity       Set the verbosity level
       -w WORKERS, --workers WORKERS
                             The maximum number of worker processes to spawn
-      --timeout TIMEOUT     Set a timeout for the monitor
 
 
 SDTopacity

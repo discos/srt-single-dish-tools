@@ -265,10 +265,10 @@ class TestScanSet(object):
     def test_preprocess_invalid(self):
         with pytest.warns(UserWarning) as record:
             main_preprocess([self.config_file])
-        assert "is not in a known format" in record[0].message.args[0]
+        assert np.any(["is not in a known format"  in r.message.args[0] for r in record])
         with pytest.warns(UserWarning) as record:
             main_preprocess(['asdfasldkfjw'])
-        assert "does not exist" in record[0].message.args[0]
+        assert np.any(["does not exist"  in r.message.args[0] for r in record])
 
     def test_preprocess_config(self):
         main_preprocess(['-c', self.config_file])

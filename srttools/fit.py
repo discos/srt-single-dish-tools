@@ -134,7 +134,7 @@ def linear_fun(x, q, m):
     y : float or array
         The dependent variable
     """
-    return m * np.asarray(x, dtype=np.float) + q
+    return m * np.asarray(x, dtype=float) + q
 
 
 def linear_fit(x, y, start_pars, return_err=False):

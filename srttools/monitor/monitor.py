@@ -1,4 +1,5 @@
 import time
+import signal
 import os
 import shutil
 import sys
@@ -12,7 +13,7 @@ from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
 from srttools.imager import main_preprocess
 
-from srttools.monitor.common import MAX_FEEDS, log
+from srttools.monitor.common import MAX_FEEDS, log, exit_function
 
 try:
     from watchdog.observers import Observer
@@ -27,6 +28,7 @@ except ImportError:
 # Set the matplotlib backend
 try:
     import matplotlib.pyplot as plt
+
     plt.switch_backend('Agg')
 except ImportError:
     pass
@@ -40,6 +42,12 @@ def create_dummy_config(filename='monitor_config.ini', extension='png'):
 
 
 class MyEventHandler(PatternMatchingEventHandler):
+    ignore_patterns = [
+        '*/tmp/*',
+        '*/tempfits/*',
+        '*/*.fitstemp',
+        '*/summary.fits'
+    ]
     patterns = \
         ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 
@@ -173,8 +181,11 @@ class Monitor(object):
                     to_update.append(newfile)
                 if prodpath:
                     for dirname, _, _ in os.walk(prodpath, topdown=False):
-                        if not os.listdir(dirname):
-                            os.rmdir(dirname)
+                        try:
+                            if not os.listdir(dirname):
+                                os.rmdir(dirname)
+                        except OSError:
+                            pass
                 for image in to_update:
                     self._web_server.update(image)
             except queue.Empty:
@@ -198,7 +209,7 @@ class Monitor(object):
         except:
             log.exception(sys.exc_info()[1])
             exit_code = 1
-        sys.exit(exit_code)
+        exit_function(exit_code)
 
     def _enqueue(self, infile):
         self._timers[infile].processing = True
@@ -253,8 +264,14 @@ class Monitor(object):
         if not feed_idx:
             oldfiles = glob.glob('latest*.{}'.format(self._extension))
 
-        p.join()  # Wait for process completion
-        if p.exitcode == 0:  # Completed successfully
+        p.join(60)  # Wait a minute for process completion
+        if p.is_alive():  # Process timed out
+            try:
+                os.kill(p.pid, signal.SIGKILL)
+                p.join()
+            except ProcessLookupError:
+                pass
+        elif p.exitcode == 0:  # Completed successfully
             self._files.put((paths, oldfiles, prodpath))
             log.info('Completed file {}, pid {}'.format(infile, p.pid))
         elif p.exitcode == 1:  # Aborted
