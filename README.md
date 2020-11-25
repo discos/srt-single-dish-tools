@@ -1,6 +1,6 @@
 # SRT Single dish tools #
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/b0a94fd4ecd64c6791120dadaef8da3e)](https://www.codacy.com/app/matteo/srt-single-dish-tools?utm_source=github.com&utm_medium=referral&utm_content=matteobachetti/srt-single-dish-tools&utm_campaign=badger)
-[![Github Test badge](https://github.com/discos/srt-single-dish-tools/workflows/.github/workflows/ci_tests.yml/badge.svg?branch=master)](https://github.com/discos/srt-single-dish-tools)
+[![CI Tests](https://github.com/discos/srt-single-dish-tools/workflows/CI%20Tests/badge.svg))](https://github.com/discos/srt-single-dish-tools)
 [![codecov](https://img.shields.io/codecov/c/github/matteobachetti/srt-single-dish-tools/master.svg?maxAge=0)](https://codecov.io/gh/matteobachetti/srt-single-dish-tools)
 [![Powered by Astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
 [![Documentation Status](https://readthedocs.org/projects/srt-single-dish-tools/badge/?version=latest)](http://srt-single-dish-tools.readthedocs.io/en/latest/?badge=latest)
