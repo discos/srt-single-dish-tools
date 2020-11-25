@@ -18,8 +18,7 @@ and a set of command-line scripts to soften the learning curve for new users.
 The Python library is written following the modern coding standards
 documented in the Astropy Coding Guidelines. Automatic tests cover
 a significant fraction of the code, and are launched each time a commit
-is pushed to the `Github`_ repository.
-The Continuous Integration service `Travis CI`_ is used for that.
+is pushed to the `Github`_ repository, through Github Actions.
 The current version is 0.6-devXXX, indicating the development version towards 0.6.
 See below the tentative roadmap.
 
@@ -39,7 +38,6 @@ region.
    The first is able to produce images, the second is used to obtain quick
    flux measurements of point-like sources.
 
-.. _Travis CI: http://www.travis-ci.com
 .. _Github: https://github.com/matteobachetti/srt-single-dish-tools
 
 Tentative Roadmap
