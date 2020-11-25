@@ -1231,7 +1231,7 @@ class ScanSet(Table):
                 for k in moments_dict.keys():
                     if k == 'Description':
                         continue
-                    log.info('FOM_{}'.format(k), moments_dict[k])
+                    log.info('FOM_{}: {}'.format(k, moments_dict[k]))
                     # header_mod['FOM_{}'.format(k)] = moments_dict[k]
 
             hdu = fits.ImageHDU(images[ch], header=header_mod, name='IMG' + ch)

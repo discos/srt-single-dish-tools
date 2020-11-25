@@ -1,28 +1,34 @@
 import sys
 import re
 
-fname = sys.argv[1]
-file = open(fname)
-good_line = re.compile(r'^.*\&.*\\$')
 
-out_csv = ''
+def main():
+    fname = sys.argv[1]
+    file = open(fname)
+    good_line = re.compile(r'^.*\&.*\\$')
 
-delimiters = r'&', r'$\pm$'
-regexPattern = '|'.join(map(re.escape, delimiters))
+    out_csv = ''
 
-for l in file.readlines():
-    match = good_line.match(l.rstrip())
-#    print(l)
-    if not match:
-        continue
+    delimiters = r'&', r'$\pm$'
+    regexPattern = '|'.join(map(re.escape, delimiters))
 
-    values = l.rstrip().replace(r'\\', '').replace(' ', '')
+    for l in file.readlines():
+        match = good_line.match(l.rstrip())
+    #    print(l)
+        if not match:
+            continue
 
-    values = re.split(regexPattern, values)
+        values = l.rstrip().replace(r'\\', '').replace(' ', '')
 
-    out_csv += ','.join(values) + '\n'
+        values = re.split(regexPattern, values)
 
-file.close()
-file_out = open(fname.replace('tex', 'csv'), 'w')
-file_out.write(out_csv)
-file_out.close()
+        out_csv += ','.join(values) + '\n'
+
+    file.close()
+    file_out = open(fname.replace('tex', 'csv'), 'w')
+    file_out.write(out_csv)
+    file_out.close()
+
+
+if __name__ == '__main__':
+    main()

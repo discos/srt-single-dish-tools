@@ -1,25 +1,17 @@
 include README.rst
 include CHANGES.rst
-
-include ez_setup.py
-include ah_bootstrap.py
 include setup.cfg
+include LICENSE.rst
+include pyproject.toml
 
-recursive-include *.pyx *.c *.pxd
+recursive-include srttools *.pyx *.c *.pxd
 recursive-include docs *
 recursive-include licenses *
-recursive-include cextern *
 recursive-include scripts *
 recursive-include srttools/data *.ini
-
 
 prune build
 prune docs/_build
 prune docs/api
-
-recursive-include astropy_helpers *
-exclude astropy_helpers/.git
-exclude astropy_helpers/.gitignore
-recursive-exclude srttools/tests/data *
 
 global-exclude *.pyc *.o

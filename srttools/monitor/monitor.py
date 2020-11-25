@@ -8,13 +8,21 @@ import threading
 import queue
 import multiprocessing as mp
 
+from srttools.read_config import read_config
+from srttools.scan import product_path_from_file_name
+from srttools.imager import main_preprocess
+
+from srttools.monitor.common import MAX_FEEDS, log
+
 try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
     from watchdog.events import PatternMatchingEventHandler, FileMovedEvent
+    from srttools.monitor.webserver import WebServer
 except ImportError:
-    raise ImportError('To use SDTmonitor, you need to install watchdog: \n'
-                          '\n   > pip install watchdog')
+    warnings.warn('To use SDTmonitor, you need to install watchdog: \n'
+                  '\n   > pip install watchdog')
+    PatternMatchingEventHandler = object
 
 # Set the matplotlib backend
 try:
@@ -22,12 +30,6 @@ try:
     plt.switch_backend('Agg')
 except ImportError:
     pass
-
-from srttools.read_config import read_config
-from srttools.scan import product_path_from_file_name
-from srttools.imager import main_preprocess
-from srttools.monitor.common import MAX_FEEDS, log
-from srttools.monitor.webserver import WebServer
 
 
 def create_dummy_config(filename='monitor_config.ini', extension='png'):
@@ -82,7 +84,7 @@ class Monitor(object):
         # Save constructor parameters
         self._directories = directories
         if not config_file:
-            config_file = create_dummy_config()            
+            config_file = create_dummy_config()
         self._config_file = config_file
         self._workers = workers
         self._verbosity = verbosity
@@ -192,7 +194,7 @@ class Monitor(object):
                 if main_preprocess(pp_args):
                     exit_code = 1
         except KeyboardInterrupt:
-            exit_code = 15 
+            exit_code = 15
         except:
             log.exception(sys.exc_info()[1])
             exit_code = 1

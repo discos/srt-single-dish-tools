@@ -385,7 +385,7 @@ class SDFITS_creator():
                     ncol = len(columns)
 
                     data_matrix = \
-                        np.stack(zip(*[subscan[ch] for ch in columns]))
+                        np.stack(list(zip(*[subscan[ch] for ch in columns])))
                     shape = data_matrix[0].shape
 
                     array = subscan[columns[0]]
