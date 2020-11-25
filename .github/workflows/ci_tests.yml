@@ -59,7 +59,7 @@ jobs:
 
            - name: Test building of Sphinx docs
              os: ubuntu-latest
-             python: 3.x
+             python: 3.7
              toxenv: build_docs
 
     steps:
