@@ -80,7 +80,7 @@ jobs:
         tox -e ${{ matrix.toxenv }}
     # This is an example of how to upload coverage to codecov
     - name: Upload coverage to codecov
-      if: "endsWith(matrix.tox_env, '-cov')"
+      if: "endsWith(matrix.toxenv, '-cov')"
       uses: codecov/codecov-action@v1.0.15
       with:
         file: ./coverage.xml
