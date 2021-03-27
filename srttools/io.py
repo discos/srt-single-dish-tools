@@ -296,7 +296,7 @@ def get_coords_from_altaz_offset(obstimes, el, az, xoffs, yoffs, location,
     # According to line_profiler, coords.icrs is *by far* the longest
     # operation in this function, taking between 80 and 90% of the
     # execution time. Need to study a way to avoid this.
-    coords_deg = coords.transform_to(ICRS)
+    coords_deg = coords.transform_to(ICRS())
     ra = np.radians(coords_deg.ra)
     dec = np.radians(coords_deg.dec)
     return ra, dec
