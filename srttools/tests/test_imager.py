@@ -828,7 +828,7 @@ class TestScanSet(object):
         s = Scan(sname)
 
         info = {sname: copy.copy(self.stdinfo)}
-        info[sname]['zap'].xs = [np.float(s['dec'][0]), np.float(s['dec'][10])]
+        info[sname]['zap'].xs = [float(s['dec'][0]), float(s['dec'][10])]
         sid = scan_ids[sname]
         mask = scanset['Scan_id'] == sid
         before = scanset['Feed0_RCP-filt'][mask]

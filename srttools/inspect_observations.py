@@ -30,7 +30,7 @@ def inspect_directories(directories, only_after=None, only_before=None):
              "Time", "Frequency", "Bandwidth", "is_skydip"]
 
     dtype = ['S200', 'S200', 'S200', 'S200', 'S200',
-             np.double, np.float, np.float, bool]
+             np.double, float, float, bool]
 
     for n, d in zip(names, dtype):
         if n not in info.keys():

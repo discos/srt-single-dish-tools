@@ -201,7 +201,7 @@ class ScanSet(Table):
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     log.info("{} is flagged".format(s.meta['filename']))
                     continue
-                s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
+                s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=int)
 
                 ras = s['ra'][:, 0]
                 decs = s['dec'][:, 0]
@@ -1253,7 +1253,7 @@ def _excluded_regions_from_args(args_exclude):
                              "centerX0, centerY0, radius0, centerX1, "
                              "centerY1, radius1, ... (in X,Y coordinates)")
         excluded_xy = \
-            np.array([np.float(e)
+            np.array([float(e)
                       for e in args_exclude]).reshape((nexc // 3, 3))
         excluded_radec = None
     elif args_exclude is not None:
