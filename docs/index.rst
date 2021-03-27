@@ -129,7 +129,7 @@ Then:
 .. code-block:: console
 
     (py3) $ cd srt-single-dish-tools
-    (py3) $ python setup.py install
+    (py3) $ pip install .
 
 That's it. After installation has ended, you can verify that software is
 installed by executing:
@@ -148,7 +148,7 @@ To update the code, simply run ``git pull`` and reinstall:
 .. code-block:: console
 
     (py3) $ git pull
-    (py3) $ python setup.py install
+    (py3) $ pip install .
 
 
 Tutorials

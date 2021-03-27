@@ -8,7 +8,7 @@ SDTbulkchange
 
     usage: SDTbulkchange [-h] [-k KEY] [-v VALUE] [--apply-cal-mark] [--recursive]
                          [--debug]
-                         [files [files ...]]
+                         [files ...]
 
     Change all values of a given column or header keyword in fits files
 
@@ -65,7 +65,7 @@ SDTconvert
 .. code-block:: none
 
     usage: SDTconvert [-h] [-f FORMAT] [--test] [--detrend] [--save-locally]
-                      [files [files ...]]
+                      [files ...]
 
     Load a series of scans and convert them to variousformats
 
@@ -314,7 +314,7 @@ SDTparselog
 
 .. code-block:: none
 
-    usage: SDTparselog [-h] [--to-csv] [--list-calon] [files [files ...]]
+    usage: SDTparselog [-h] [--to-csv] [--list-calon] [files ...]
 
     Read ACS logs and return useful information
 
@@ -335,7 +335,7 @@ SDTpreprocess
     usage: SDTpreprocess [-h] [-c CONFIG] [--sub] [--interactive] [--nofilt]
                          [--debug] [--plot] [--nosave] [--splat SPLAT]
                          [-e EXCLUDE [EXCLUDE ...]]
-                         [files [files ...]]
+                         [files ...]
 
     Load a series of scans from a config file and preprocess them, or preprocess a
     single scan.
