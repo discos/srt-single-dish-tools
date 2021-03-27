@@ -828,7 +828,7 @@ class TestScanSet(object):
         s = Scan(sname)
 
         info = {sname: copy.copy(self.stdinfo)}
-        info[sname]['zap'].xs = [np.float(s['dec'][0]), np.float(s['dec'][10])]
+        info[sname]['zap'].xs = [float(s['dec'][0]), float(s['dec'][10])]
         sid = scan_ids[sname]
         mask = scanset['Scan_id'] == sid
         before = scanset['Feed0_RCP-filt'][mask]
@@ -929,14 +929,15 @@ class TestScanSet(object):
     def teardown_class(klass):
         """Clean up the mess."""
         with contextlib.suppress(FileNotFoundError):
-            if HAS_MPL:
-                os.unlink('img.png')
-                os.unlink('img_altaz.png')
-                os.unlink('img_scrunch.png')
-                os.unlink('delta_altaz.png')
-                os.unlink('altaz_with_src.png')
-                os.unlink('img_sdev.png')
-                os.unlink('img_scrunch_sdev.png')
+            img_names = ['img*.png', '*altaz*.png', 'Feed*.png', 'latest*.png']
+            imgs = []
+            for name in img_names:
+                new_imgs = glob.glob(name)
+                imgs += new_imgs
+
+            for img in imgs:
+                os.unlink(img)
+
             os.unlink('test.hdf5')
             os.unlink('test_scan_list.txt')
             os.unlink('bubu.hdf5')

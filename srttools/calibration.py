@@ -356,19 +356,19 @@ class CalibratorTable(Table):
                  "Skewness", "Kurtosis"]
 
         dtype = ['S200', 'S200', 'S200', 'S200',
-                 'S200', np.int, np.double,
-                 np.float, np.float,
-                 np.float, np.float,
-                 np.float, np.float,
-                 np.float, np.float, np.float,
-                 np.float, np.float,
-                 np.float, np.float,
-                 np.float, np.float,
-                 np.float, np.float,
-                 np.float, np.float,
-                 np.float, np.float,
-                 np.float, np.float,
-                 np.float, np.float]
+                 'S200', int, np.double,
+                 float, float,
+                 float, float,
+                 float, float,
+                 float, float, float,
+                 float, float,
+                 float, float,
+                 float, float,
+                 float, float,
+                 float, float,
+                 float, float,
+                 float, float,
+                 float, float]
 
         for n, d in zip(names, dtype):
             if n not in self.keys():

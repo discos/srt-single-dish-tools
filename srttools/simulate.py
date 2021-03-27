@@ -602,8 +602,8 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     if count_map is None:
         count_map = _default_map_shape
 
-    nbins_ra = np.int(np.rint(length_ra / speed / dt))
-    nbins_dec = np.int(np.rint(length_dec / speed / dt))
+    nbins_ra = int(np.rint(length_ra / speed / dt))
+    nbins_dec = int(np.rint(length_dec / speed / dt))
 
     times_ra = np.arange(nbins_ra) * dt
     times_dec = np.arange(nbins_dec) * dt

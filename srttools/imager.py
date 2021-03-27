@@ -73,7 +73,7 @@ def _load_calibration(calibration, map_unit):
 
 
 @jit(nopython=True)
-def outlier_score(x):
+def _outlier_score(x):
     """Give a score to data series, larger if higher chance of outliers.
 
     Inspired by https://stackoverflow.com/questions/22354094/
@@ -94,6 +94,17 @@ def outlier_score(x):
     diff = np.abs(x - median)
     return np.max(0.6745 * diff / ref_dev)
 
+
+def outlier_score(x):
+    """Give a score to data series, larger if higher chance of outliers.
+
+    Inspired by https://stackoverflow.com/questions/22354094/
+    pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
+    """
+    if len(x) == 0:
+        return 0
+
+    return _outlier_score(np.asarray(x))
 
 class ScanSet(Table):
     def __init__(self, data=None, norefilt=True, config_file=None,
@@ -200,7 +211,7 @@ class ScanSet(Table):
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     log.info("{} is flagged".format(s.meta['filename']))
                     continue
-                s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=np.long)
+                s['Scan_id'] = i_s + np.zeros(len(s['time']), dtype=int)
 
                 ras = s['ra'][:, 0]
                 decs = s['dec'][:, 0]
@@ -556,19 +567,19 @@ class ScanSet(Table):
                 counts = counts * u.ct * area_conversion * Jy_over_counts
                 counts = counts.to(final_unit).value
 
-            img, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                       self['y'][:, feed][good],
+            filtered_x = self['x'][:, feed][good]
+            filtered_y = self['y'][:, feed][good]
+
+            img, _, _ = np.histogram2d(filtered_x, filtered_y,
                                        bins=[xbins, ybins],
                                        weights=counts)
 
-            img_sq, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                          self['y'][:, feed][good],
+            img_sq, _, _ = np.histogram2d(filtered_x, filtered_y,
                                           bins=[xbins, ybins],
                                           weights=counts ** 2)
 
             img_outliers, _, _, _ = \
-                binned_statistic_2d(self['x'][:, feed][good],
-                                    self['y'][:, feed][good],
+                binned_statistic_2d(filtered_x, filtered_y,
                                     counts, statistic=outlier_score,
                                     bins=[xbins, ybins])
 
@@ -1252,7 +1263,7 @@ def _excluded_regions_from_args(args_exclude):
                              "centerX0, centerY0, radius0, centerX1, "
                              "centerY1, radius1, ... (in X,Y coordinates)")
         excluded_xy = \
-            np.array([np.float(e)
+            np.array([float(e)
                       for e in args_exclude]).reshape((nexc // 3, 3))
         excluded_radec = None
     elif args_exclude is not None:

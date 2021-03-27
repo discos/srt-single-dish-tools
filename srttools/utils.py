@@ -431,7 +431,7 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
     if use_log:
         im_to_analyze = ds9_like_log_scale(im_to_analyze, 1000)
 
-    radius_pix = np.int(np.min(im.shape) * radius)
+    radius_pix = int(np.min(im.shape) * radius)
     moments = zernike_moments(im_to_analyze, radius_pix, norder, cm=cm)
     count = 0
     moments_dict = {}
@@ -440,7 +440,7 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
 
     if HAS_MPL:
         fig = plt.figure('Zernike moments', figsize=(10, 10))
-        x, y = np.int(cm[0]), np.int(cm[1])
+        x, y = int(cm[0]), int(cm[1])
         shape = im_to_analyze.shape
         vmax = np.max(im_to_analyze)
 
@@ -535,7 +535,7 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
     if use_log:
         im_to_analyze = ds9_like_log_scale(im_to_analyze, 1000)
 
-    radius_pix = np.int(np.min(im.shape) * radius)
+    radius_pix = int(np.min(im.shape) * radius)
 
     moments_dict = {}
     description_string = \
@@ -562,7 +562,7 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
         hor_ax = plt.subplot(gs[0, 0], sharex=img_ax)
         ver_ax = plt.subplot(gs[1, 1], sharey=img_ax)
 
-        x, y = np.int(cm[0]), np.int(cm[1])
+        x, y = int(cm[0]), int(cm[1])
         img_ax.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[x, y],
                       origin='lower', cmap='magma')
 
