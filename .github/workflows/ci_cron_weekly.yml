@@ -10,6 +10,17 @@ on:
 jobs:
   # Testing links in documents is a good example of something to run on a schedule
   # to catch links that stop working for some reason.
+  ci_tests:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - name: Python 3.6 with minimal dependencies and coverage checking
+            os: ubuntu-latest
+            python: 3.6
+            toxenv: py36-test-cov
+
   doc_test:
     runs-on: ubuntu-latest
     steps:

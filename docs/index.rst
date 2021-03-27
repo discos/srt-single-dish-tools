@@ -72,7 +72,7 @@ Anaconda and virtual environment (recommended)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We strongly suggest to install the
-`Anaconda <https://www.continuum.io/downloads>`__ Python distribution.
+`Anaconda <https://www.anaconda.com/products/individual>`__ Python distribution.
 Once the installation has finished, you should have a working ``conda``
 command in your shell. First of all, create a new environment:
 
