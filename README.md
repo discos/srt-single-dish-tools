@@ -1,7 +1,6 @@
 # SRT Single dish tools #
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/b0a94fd4ecd64c6791120dadaef8da3e)](https://www.codacy.com/app/matteo/srt-single-dish-tools?utm_source=github.com&utm_medium=referral&utm_content=matteobachetti/srt-single-dish-tools&utm_campaign=badger)
 [![CI Tests](https://github.com/discos/srt-single-dish-tools/workflows/CI%20Tests/badge.svg)](https://github.com/discos/srt-single-dish-tools)
-[![codecov](https://img.shields.io/codecov/c/github/matteobachetti/srt-single-dish-tools/master.svg?maxAge=0)](https://codecov.io/gh/matteobachetti/srt-single-dish-tools)
+[![codecov](https://img.shields.io/codecov/c/github/discos/srt-single-dish-tools/master.svg?maxAge=0)](https://codecov.io/gh/discos/srt-single-dish-tools)
 [![Powered by Astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
 [![Documentation Status](https://readthedocs.org/projects/srt-single-dish-tools/badge/?version=latest)](http://srt-single-dish-tools.readthedocs.io/en/latest/?badge=latest)
 
@@ -67,13 +66,10 @@ See the file Contributing.md for more details
 
 ### If you use this code
 
-First of all... **This code is under development!**... so, it might well be that something does not work as expected. For any inquiries, bug reports, or suggestions, please use the [Issues](https://github.com/matteobachetti/srt-single-dish-tools/issues) page.
+First of all... **This code is under development!**... so, it might well be that something does not work as expected. For any inquiries, bug reports, or suggestions, please use the [Issues](https://github.com/discos/srt-single-dish-tools/issues) page.
 
 If you used this software package to reduce data for a publication, please write in the acknowledgements something along these lines:
 
-    This work makes use of the SRT Single Dish Tools developed by Matteo Bachetti.
+    This work makes use of the [SRT Single Dish Tools](https://github.com/discos/srt-single-dish-tools/) .
     
 We will submit it to the [Astrophysics Source Code Library](www.ascl.net) soon, and update the text accordingly.
-
-### Known issues
-+ There is a known bug in numpy 0.14 that affects Python 2.7 builds. Python 2.7 users please force numpy to 0.13.
