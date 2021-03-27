@@ -73,13 +73,12 @@ def _load_calibration(calibration, map_unit):
 
 
 @jit(nopython=True)
-def outlier_score(x):
+def _outlier_score(x):
     """Give a score to data series, larger if higher chance of outliers.
 
     Inspired by https://stackoverflow.com/questions/22354094/
     pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
     """
-    x = np.asarray(x)
     xdiff = np.diff(x)
     good = xdiff != 0
     if not np.any(good):
@@ -95,6 +94,17 @@ def outlier_score(x):
     diff = np.abs(x - median)
     return np.max(0.6745 * diff / ref_dev)
 
+
+def outlier_score(x):
+    """Give a score to data series, larger if higher chance of outliers.
+
+    Inspired by https://stackoverflow.com/questions/22354094/
+    pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
+    """
+    if len(x) == 0:
+        return 0
+
+    return _outlier_score(np.asarray(x))
 
 class ScanSet(Table):
     def __init__(self, data=None, norefilt=True, config_file=None,
@@ -557,19 +567,19 @@ class ScanSet(Table):
                 counts = counts * u.ct * area_conversion * Jy_over_counts
                 counts = counts.to(final_unit).value
 
-            img, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                       self['y'][:, feed][good],
+            filtered_x = self['x'][:, feed][good]
+            filtered_y = self['y'][:, feed][good]
+
+            img, _, _ = np.histogram2d(filtered_x, filtered_y,
                                        bins=[xbins, ybins],
                                        weights=counts)
 
-            img_sq, _, _ = np.histogram2d(self['x'][:, feed][good],
-                                          self['y'][:, feed][good],
+            img_sq, _, _ = np.histogram2d(filtered_x, filtered_y,
                                           bins=[xbins, ybins],
                                           weights=counts ** 2)
 
             img_outliers, _, _, _ = \
-                binned_statistic_2d(self['x'][:, feed][good],
-                                    self['y'][:, feed][good],
+                binned_statistic_2d(filtered_x, filtered_y,
                                     counts, statistic=outlier_score,
                                     bins=[xbins, ybins])
 
