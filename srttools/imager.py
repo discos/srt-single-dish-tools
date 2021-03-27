@@ -79,6 +79,7 @@ def outlier_score(x):
     Inspired by https://stackoverflow.com/questions/22354094/
     pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
     """
+    x = np.asarray(x)
     xdiff = np.diff(x)
     good = xdiff != 0
     if not np.any(good):
