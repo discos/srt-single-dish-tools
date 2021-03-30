@@ -12,4 +12,7 @@ try:
 except ImportError:
     pass
 
+import warnings
+warnings.filterwarnings("ignore", message=".*table path was not set via the path= argument")
+
 __all__ = []
