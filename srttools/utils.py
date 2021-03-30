@@ -663,6 +663,21 @@ def calculate_moments(y, imax=None, window_length=5):
     return moments
 
 
+def get_maxvar_and_direction_from_data(data):
+    if data is None:
+        return 1e32, ''
+    data = np.asarray(data)
+    if len(data.shape) == 2:
+        data = data[:, 0]
+
+    diff = data[-1] - data[0]
+    if diff > 0:
+        scan_direction = '>'
+    else:
+        scan_direction = '<'
+    return np.abs(diff), scan_direction
+
+
 def scantype(ra, dec, az=None, el=None):
     """Get if scan is along RA or Dec, and if forward or backward.
 
@@ -698,46 +713,25 @@ def scantype(ra, dec, az=None, el=None):
     >>> st[1] == 'RA>'
     True
     """
-    ra = np.asarray(ra)
-    dec = np.asarray(dec)
-    if el is not None:
-        el = np.asarray(el)
-        az = np.asarray(az)
-
-    ras, decs, azs, els = ra, dec, az, el
-
-    if len(ras.shape) > 1:
-        ras = ras[:, 0]
-        decs = decs[:, 0]
-        if els is not None:
-            els = els[:, 0]
-            azs = azs[:, 0]
-
-    ravar = np.abs(ras[-1] - ras[0])
-    decvar = np.abs(decs[-1] - decs[0])
-    if els is not None:
-        elvar = np.abs(els[-1] - els[0])
-        azvar = np.abs(azs[-1] - azs[0])
-    else:
-        elvar = azvar = np.mean([ravar, decvar])
+    ravar, radir = get_maxvar_and_direction_from_data(ra)
+    decvar, decdir = get_maxvar_and_direction_from_data(dec)
+    elvar, eldir = get_maxvar_and_direction_from_data(el)
+    azvar, azdir = get_maxvar_and_direction_from_data(az)
 
     direction = np.asarray([['RA', 'Dec'], ['Az', 'El']])
-    vararray = np.asarray([[ravar, decvar], [azvar, elvar]])
-    scanarray = np.asarray([ras, decs, azs, els])
+    scandirection = np.asarray([[radir, decdir], [azdir, eldir]])
 
+    vararray = np.asarray([[ravar, decvar], [azvar, elvar]])
     minshift = np.argmin(vararray[:, ::-1])
 
+    scanarray = [ra, dec, az, el]
+
     xvariab = direction.flatten()[minshift]
+    xscandir = scandirection.flatten()[minshift]
+
     x = scanarray[minshift]
 
-    if x[-1] > x[0]:
-        scan_direction = '>'
-    else:
-        scan_direction = '<'
-
-    scanarray_initial = np.asarray([ra, dec, az, el])
-
-    return scanarray_initial[minshift], xvariab + scan_direction
+    return x, xvariab + xscandir
 
 
 def minmax(array):
