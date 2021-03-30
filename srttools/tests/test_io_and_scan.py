@@ -356,7 +356,7 @@ class Test2_Scan(object):
         with contextlib.suppress(FileNotFoundError):
             os.unlink('scan.hdf5')
             for f in glob.glob(os.path.join(klass.datadir, 'spectrum',
-                                            '*.pdf')):
+                                            '*.jpg')):
                 os.unlink(f)
             for f in glob.glob(os.path.join(klass.datadir, 'spectrum',
                                             '*.hdf5')):

@@ -69,7 +69,7 @@ goodchans :
 
 [debugging]
 
-debug_file_format : pdf
+debug_file_format : jpg
 
     """
     with open(fname, 'w') as fobj:
@@ -124,7 +124,7 @@ def read_config(fname=None):
     config_output['filtering_factor'] = '0'
     config_output['noise_threshold'] = '5'
     config_output['smooth_window'] = '0.05'
-    config_output['debug_file_format'] = 'pdf'
+    config_output['debug_file_format'] = 'jpg'
 
     # --------------------------------------------------------------------
 
