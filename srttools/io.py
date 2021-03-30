@@ -666,9 +666,11 @@ def _read_data_fitszilla(lchdulist):
 
     # ----------- Read temperature data, if possible ----------------
     for ic, ch in enumerate(chan_names):
-        ch_string = f'ch{chan_ids[ic]}'
         data_table_data[ch + '-Temp'] = 0.
-        if not ch_string in tempdata:
+        if len(chan_ids) <= ic:
+            continue
+        ch_string = f'ch{chan_ids[ic]}'
+        if not ch_string in tempdata.colnames:
             continue
         td = np.asarray(tempdata[ch_string])
         data_table_data[ch + '-Temp'] = \
