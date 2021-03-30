@@ -489,7 +489,7 @@ def plot_spectrum_cleaning_results(
 
     if len(lc_corr) < 10:
         plot_all_spectra(allbins, dynamical_spectrum, outfile="out", label="",
-                         debug_file_format='pdf', dpi=100,
+                         debug_file_format=debug_file_format, dpi=100,
                          info_string="Empty info string", fig=fig)
         return cleaning_results
 
@@ -772,7 +772,7 @@ class Scan(Table):
     def __init__(self, data=None, config_file=None, norefilt=True,
                  interactive=False, nosave=False, debug=False, plot=False,
                  freqsplat=None, nofilt=False, nosub=False, avoid_regions=None,
-                 save_spectrum=False, **kwargs):
+                 save_spectrum=False, debug_file_format=None, **kwargs):
         """Load a Scan object
 
         Parameters
@@ -826,6 +826,8 @@ class Scan(Table):
                 self.meta['filename'] = os.path.abspath(data)
             self.meta['config_file'] = config_file
             self.meta.update(read_config(self.meta['config_file']))
+            if debug_file_format is not None:
+                self.meta['debug_file_format'] = debug_file_format
 
             self.check_order()
 
