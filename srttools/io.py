@@ -384,6 +384,68 @@ def get_value_with_units(fitsext, keyword, default=""):
     else:
         return value * unit
 
+
+def adjust_temperature_size_rough(temp, comparison_array):
+    """Adjust the size of the temperature array.
+
+    Examples
+    --------
+    >>> temp = [1, 2, 3, 4]
+    >>> adjust_temperature_size_rough(temp, [5, 6, 7])
+    array([1, 2, 3])
+    >>> adjust_temperature_size_rough(temp, [5, 6, 7, 5, 4])
+    array([1, 2, 3, 4, 4])
+    >>> adjust_temperature_size_rough(temp, [5, 6])
+    array([2, 3])
+    >>> adjust_temperature_size_rough(temp, [5, 6, 7, 5, 4, 6])
+    array([1, 1, 2, 3, 4, 4])
+    """
+    import copy
+    temp = np.asarray(temp)
+    comparison_array = np.asarray(comparison_array)
+
+    temp_save = copy.deepcopy(temp)
+
+    sizediff = temp.size - comparison_array.size
+    if sizediff > 0:
+        temp = temp[sizediff // 2: sizediff // 2 + comparison_array.size]
+    elif sizediff < 0:
+        # make it positive
+        sizediff = -sizediff
+        temp = np.zeros_like(comparison_array)
+        temp[sizediff // 2: sizediff // 2 + temp_save.size] = temp_save
+        temp[:sizediff // 2] = temp_save[0]
+        temp[sizediff // 2 + temp_save.size - 1:] = temp_save[-1]
+
+    return temp
+
+
+def adjust_temperature_size(temp, comparison_array):
+    """Adjust the size of the temperature array.
+
+    Examples
+    --------
+    >>> temp = [1, 2, 3, 4]
+    >>> np.allclose(adjust_temperature_size(temp, [5, 6]), [1.0, 4.0])
+    True
+    >>> temp = [1, 2, 3, 4]
+    >>> np.allclose(adjust_temperature_size(temp, [5, 6, 4, 5]), temp)
+    True
+    """
+    temp = np.asarray(temp)
+    comparison_array = np.asarray(comparison_array)
+
+    Ntemp = temp.size
+    Ndata = comparison_array.size
+    if Ntemp == Ndata:
+        return temp
+
+    temp_func = interp1d(np.linspace(0, 1, Ntemp), temp)
+
+    newtemp = temp_func(np.linspace(0, 1, Ndata))
+    return newtemp
+
+
 # from memory_profiler import profile
 # @profile
 def _read_data_fitszilla(lchdulist):
@@ -603,24 +665,14 @@ def _read_data_fitszilla(lchdulist):
                 data_table_data['ch{}'.format(chan_ids[ic])]
 
     # ----------- Read temperature data, if possible ----------------
-    try:
-        for ic, ch in enumerate(chan_names):
-            td = np.asarray(tempdata['ch{}'.format(chan_ids[ic])])
-            Ntemp = td.shape[0]
-            Ndata = data_table_data['time'].shape[0]
-
-            temp_func = interp1d(np.linspace(0, 1, Ntemp), td)
-
-            data_table_data[ch + '-Temp'] = \
-                temp_func(np.linspace(0, 1, Ndata))
-
-    except Exception as e:
-        # warnings.warn("Could not read temperature information from file. "
-        #               "This is usually a minor problem.\n"
-        #          "Exception: {}".format(str(e)))
-        for ic, ch in enumerate(chan_names):
-            data_table_data[ch + '-Temp'] = \
-                np.zeros_like(data_table_data['time'])
+    for ic, ch in enumerate(chan_names):
+        ch_string = f'ch{chan_ids[ic]}'
+        data_table_data[ch + '-Temp'] = 0.
+        if not ch_string in tempdata:
+            continue
+        td = np.asarray(tempdata[ch_string])
+        data_table_data[ch + '-Temp'] = \
+            adjust_temperature_size(td, data_table_data[ch + '-Temp'])
 
     info_to_retrieve = \
         ['time', 'derot_angle', 'weather', 'par_angle', 'flag_track',
