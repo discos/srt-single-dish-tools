@@ -12,7 +12,8 @@ try:
 except ImportError:
     pass
 
-import warnings
-warnings.filterwarnings("ignore", message=".*table path was not set via the path= argument")
+# import warnings
+# import numpy as np
+# warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
 
 __all__ = []
