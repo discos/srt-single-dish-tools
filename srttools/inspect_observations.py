@@ -233,7 +233,7 @@ def dump_config_files(info, group_by_entries=None, options=None):
 
                 if len(skydata) > 0:
                     config.set("analysis", "skydip_directories",
-                               "\n" + "\n".join(caldata))
+                               "\n" + "\n".join(skydata))
 
                 if options is not None:
                     for k in options.keys():
