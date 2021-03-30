@@ -435,8 +435,8 @@ def adjust_temperature_size(temp, comparison_array):
     temp = np.asarray(temp)
     comparison_array = np.asarray(comparison_array)
 
-    Ntemp = temp.size
-    Ndata = comparison_array.size
+    Ntemp = temp.shape[0]
+    Ndata = comparison_array.shape[0]
     if Ntemp == Ndata:
         return temp
 
@@ -580,6 +580,18 @@ def _read_data_fitszilla(lchdulist):
         data_table_data.rename_column('spectrum', 'ch0')
         sections = np.array([0, 0])
 
+    unsupported_temperature = False
+    if len(tempdata[tempdata.colnames[0]].shape) == 2:
+        try:
+            tempdata_new = Table()
+            for i, (feed, ifnum) in enumerate(zip(feeds, IFs)):
+                tempdata_new[f'ch{i}'] = tempdata[f'ch{feed}'][:, ifnum]
+            tempdata = tempdata_new
+        except Exception:  # pragma: no cover
+            warnings.warn("Temperature format not supported", UserWarning)
+            unsupported_temperature = True
+            pass
+
     existing_columns = [chn for chn in data_table_data.colnames
                         if chn.startswith('ch')]
     if existing_columns == []:
@@ -667,11 +679,15 @@ def _read_data_fitszilla(lchdulist):
     # ----------- Read temperature data, if possible ----------------
     for ic, ch in enumerate(chan_names):
         data_table_data[ch + '-Temp'] = 0.
+        if unsupported_temperature:
+            continue
+
         if len(chan_ids) <= ic:
             continue
         ch_string = f'ch{chan_ids[ic]}'
         if not ch_string in tempdata.colnames:
             continue
+
         td = np.asarray(tempdata[ch_string])
         data_table_data[ch + '-Temp'] = \
             adjust_temperature_size(td, data_table_data[ch + '-Temp'])
