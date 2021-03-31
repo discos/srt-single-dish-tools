@@ -34,7 +34,7 @@ SDTcal
 .. code-block:: none
 
     usage: SDTcal [-h] [--sample-config] [--nofilt] [-c CONFIG] [--splat SPLAT]
-                  [-o OUTPUT] [--show] [--check]
+                  [-o OUTPUT] [--snr-min SNR_MIN] [--show] [--check]
                   [file]
 
     Load a series of cross scans from a config file and use them as calibrators.
@@ -55,6 +55,8 @@ SDTcal
                             1000 MHz above'. ':' or 'all' for all the channels.
       -o OUTPUT, --output OUTPUT
                             Output file containing the calibration
+      --snr-min SNR_MIN     Minimum SNR for calibrator measurements to be
+                            considered valid
       --show                Show calibration summary
       --check               Check consistency of calibration
 

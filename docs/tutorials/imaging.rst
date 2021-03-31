@@ -343,7 +343,10 @@ of the sources.
 
 .. code-block:: console
 
-    (py3) $ SDTcal -c CCB_ROACH_Src1_Obs0.ini--splat <freqmin>:<freqmax> -o calibration.hdf5
+    (py3) $ SDTcal -c CCB_ROACH_Src1_Obs0.ini --splat <freqmin>:<freqmax> -o calibration.hdf5
+
+Sometimes, calibrator observations yield bad measurements. The ``--snr-min`` option puts a lower limit to the significance of calibration measurements. Finer filtering can be made loading the ``calibration.hdf5`` file into a ``CalibratorTable`` or ``astropy.Table`` object, and filtering the bad calibratonr measurements by hand.
+Diagnostics on the calibrator fitting can be found in the data subdirectories (inside directories whose names end in ``_scandir``), and that can also help eliminating bad measurements.
 
 Finally, call ``SDTimage`` with the ``--calibrate`` option, e.g.
 

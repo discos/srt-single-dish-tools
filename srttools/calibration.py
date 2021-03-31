@@ -1125,7 +1125,8 @@ def main_cal(args=None):
                         help='Output file containing the calibration')
 
     parser.add_argument("--snr-min", type=float, default=10,
-                        help='Minimum SNR of calibrator measurements')
+                        help='Minimum SNR for calibrator measurements '
+                             'to be considered valid')
 
     parser.add_argument("--show", action='store_true', default=False,
                         help='Show calibration summary')
