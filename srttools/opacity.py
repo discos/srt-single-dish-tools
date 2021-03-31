@@ -3,6 +3,7 @@ from astropy.io import fits
 import numpy as np
 from scipy.optimize import curve_fit
 from .utils import HAS_MPL
+from .io import adjust_temperature_size
 from astropy import log
 
 if HAS_MPL:
@@ -67,6 +68,7 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
     results = {'time': time}
     for ch in ['Ch0', 'Ch1']:
         temp = tempdata[ch]
+        temp = adjust_temperature_size(temp, airmass)
         if plot and HAS_MPL:
             fig = plt.figure(ch)
             plt.scatter(airmass, temp, c='k')
@@ -87,7 +89,7 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
                            bounds=([tatm - epsilon, -np.inf, -np.inf],
                                    [tatm + epsilon, np.inf, np.inf]))
 
-        log.info('The opacity for channel {} is {}'.format(ch, par[1]))
+        log.info(f'{file}: The opacity for channel {ch} is {par[1]}')
         if plot and HAS_MPL:
             plt.plot(airmass, exptau(airmass, *par), color='r', zorder=10)
             plt.xlabel('Airmass')

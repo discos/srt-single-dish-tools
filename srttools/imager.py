@@ -39,6 +39,12 @@ from .global_fit import fit_full_image
 from .interactive_filter import create_empty_info
 
 try:
+    from tqdm import tqdm as show_progress
+except ImportError:
+    def show_progress(a, **kwargs):
+        return a
+
+try:
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
     HAS_MPL = True
@@ -323,8 +329,7 @@ class ScanSet(Table):
     def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
         """Load the scans in the list one by ones."""
         nscan = len(scan_list)
-        for i, f in enumerate(scan_list):
-            print("{}/{}".format(i + 1, nscan), end="\r")
+        for i, f in enumerate(show_progress(scan_list)):
             try:
                 s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
                          nofilt=nofilt, **kwargs)

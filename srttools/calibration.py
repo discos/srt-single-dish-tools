@@ -300,7 +300,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1.set_ylabel("Residual (cts)")
 
             ax0.legend()
-            ax1.legend()
+
             plt.savefig(os.path.join(outdir,
                                      "Feed{}_chan{}.png".format(feed,
                                                                 nch)))
@@ -321,7 +321,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax0.set_ylabel("Counts")
             ax1.set_ylabel("Residual (cts)")
 
-            plt.legend()
+            ax0.legend()
             plt.savefig(os.path.join(outdir,
                                      "Feed{}_chan{}_temp.png".format(feed,
                                                                      nch)))
