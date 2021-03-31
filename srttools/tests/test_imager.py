@@ -211,7 +211,7 @@ class TestScanSet(object):
             excluded_xy, excluded_radec = None, None
 
         klass.scanset = ScanSet(klass.config_file, nosub=False,
-                                norefilt=False,
+                                norefilt=False, plot=True,
                                 debug=True, avoid_regions=excluded_radec)
         klass.scanset.write('test.hdf5', overwrite=True)
 

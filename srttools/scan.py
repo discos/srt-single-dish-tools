@@ -345,7 +345,7 @@ def _get_spectrum_stats(dynamical_spectrum, freqsplat, bandwidth,
 
 def plot_light_curve(
         lc, length, outfile="out", label="",
-        debug_file_format='pdf', dpi=100, info_string="Empty info string"):
+        debug_file_format='png', dpi=100, info_string="Empty info string"):
     times = \
         length * np.arange(lc.size) / lc.size
     fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
@@ -361,7 +361,7 @@ def plot_light_curve(
 
 
 def plot_all_spectra(allbins, dynamical_spectrum, outfile="out", label="",
-        debug_file_format='pdf', dpi=100,
+        debug_file_format='png', dpi=100,
         info_string="Empty info string", fig=None):
 
     if fig is None:
@@ -424,7 +424,7 @@ def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
 
 def plot_spectrum_cleaning_results(
         cleaning_res_file, spec_stats_file, dynamical_spectrum,
-        outfile="out", label="", debug_file_format='pdf', dpi=100,
+        outfile="out", label="", debug_file_format='png', dpi=100,
         info_string="Empty info string"):
     # Now, PLOT IT ALL --------------------------------
     # Prepare subplots
@@ -605,7 +605,7 @@ def clean_scan_using_variability(dynamical_spectrum, length, bandwidth,
                                  noise_threshold=5., debug=True, plot=True,
                                  nofilt=False, outfile="out", label="",
                                  smoothing_window=0.05,
-                                 debug_file_format='pdf',
+                                 debug_file_format='png',
                                  info_string="Empty info string", dpi=100):
     """Clean a spectroscopic scan using the difference of channel variability.
 
