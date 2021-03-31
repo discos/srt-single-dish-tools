@@ -246,7 +246,8 @@ class TestScanSet(object):
     def test_preprocess_single_files(self):
         files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
 
-        main_preprocess(files[:2] + ['--debug', '-c', self.config_file])
+        main_preprocess(files[:2] + ['--debug', '-c', self.config_file,
+                                     '--plot'])
         for file in files[:2]:
             # I used debug_file_format : png in the config
             if HAS_MPL:
