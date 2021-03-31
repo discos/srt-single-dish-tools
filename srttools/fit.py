@@ -576,7 +576,7 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     approx_m = (np.median(y[-20:]) - np.median(y[:20])) / \
                (np.mean(x[-20:]) - np.mean(x[:20]))
 
-    base = models.Linear1D(slope=approx_m, intercept=np.min(y),
+    base = models.Linear1D(slope=approx_m, intercept=np.median(y[:20]),
                            name='Baseline')
 
     xrange = np.max(x) - np.min(x)
@@ -602,7 +602,6 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     fit = fitting.LevMarLSQFitter()
 
     mod_out = fit(mod_init, x, y)
-
     return mod_out, fit.fit_info
 
 
