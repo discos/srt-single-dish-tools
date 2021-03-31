@@ -218,6 +218,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         x, scan_type = scantype(ras, decs)
         model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
 
+        std = np.std(np.diff(y)) / np.sqrt(2)
+
         try:
             uncert = fit_info['param_cov'].diagonal() ** 0.5
         except Exception:
@@ -269,7 +271,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         calculated_flux, calculated_flux_err = 0, 0
 
         new_row = [scandir, sname, scan_type, source, channel, feed,
-                   time, frequency, bandwidth, counts, counts_err,
+                   time, frequency, bandwidth, std, counts, counts_err,
                    fit_width, width_err,
                    flux_density, flux_density_err, el, az,
                    source_temperature,
@@ -311,8 +313,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1 = plt.subplot(gs[1], sharex=ax0)
 
             ax0.plot(x, temperature, label="Data")
-            ax0.plot(x, temperature_model['Bell'](x), label="Fit")
-            ax1.plot(x, temperature - temperature_model['Bell'](x))
+            ax0.plot(x, temperature_model(x), label="Fit")
+            ax1.plot(x, temperature - temperature_model(x))
 
             ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt",
                         ls="--")
@@ -341,7 +343,7 @@ class CalibratorTable(Table):
         self.calibration = {}
         names = ["Dir", "File", "Scan Type", "Source",
                  "Chan", "Feed", "Time",
-                 "Frequency", "Bandwidth",
+                 "Frequency", "Bandwidth", "Data Std",
                  "Counts", "Counts Err",
                  "Width", "Width Err",
                  "Flux", "Flux Err",
@@ -357,7 +359,7 @@ class CalibratorTable(Table):
 
         dtype = ['S200', 'S200', 'S200', 'S200',
                  'S200', int, np.double,
-                 float, float,
+                 float, float, float,
                  float, float,
                  float, float,
                  float, float, float,
@@ -1122,6 +1124,10 @@ def main_cal(args=None):
     parser.add_argument("-o", "--output", type=str, default=None,
                         help='Output file containing the calibration')
 
+    parser.add_argument("--snr-min", type=float, default=10,
+                        help='Minimum SNR for calibrator measurements '
+                             'to be considered valid')
+
     parser.add_argument("--show", action='store_true', default=False,
                         help='Show calibration summary')
 
@@ -1157,9 +1163,23 @@ def main_cal(args=None):
     outfile = args.output
     if outfile is None:
         outfile = args.config.replace(".ini", "_cal.hdf5")
-    caltable = CalibratorTable()
-    caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt,
-                        plot=args.show)
+    outfile_unfilt = args.config.replace(".ini", "_cal_unfilt.hdf5")
+    if not os.path.exists(outfile_unfilt):
+        caltable = CalibratorTable()
+        caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt,
+                            plot=args.show)
+        caltable.write(outfile_unfilt)
+    else:
+        log.info(f"Loading unfiltered calibration table from {outfile_unfilt} "
+                 f"(delete to reprocess)")
+        caltable = CalibratorTable.read(outfile_unfilt)
+
+    snr = caltable['Counts'] / caltable['Data Std']
+    N = len(caltable)
+    good = snr > args.snr_min
+    caltable = caltable[good]
+    log.info(f"{len(caltable)} good calibrator observations found above "
+             f"SNR={args.snr_min} (of {N})")
     caltable.update()
 
     if args.check:
