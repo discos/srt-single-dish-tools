@@ -109,7 +109,7 @@ pixel_size : 0.8
 
 [debugging]
 
-debug_file_format : eps
+debug_file_format : png
 
 """
     if prefix is None:
@@ -248,9 +248,9 @@ class TestScanSet(object):
 
         main_preprocess(files[:2] + ['--debug', '-c', self.config_file])
         for file in files[:2]:
-            # I used debug_file_format : eps in the config
+            # I used debug_file_format : png in the config
             if HAS_MPL:
-                f = os.path.basename(file).replace('.fits', '_0.eps')
+                f = os.path.basename(file).replace('.fits', '_0.png')
 
                 assert os.path.exists(os.path.join(self.prodir_ra, f))
 
@@ -286,16 +286,16 @@ class TestScanSet(object):
             assert scanset.meta[k] == self.config[k]
 
     def test_raonly(self):
-        scanset = ScanSet(self.raonly)
+        scanset = ScanSet(self.raonly, plot=False)
         assert np.all(scanset['direction'])
 
     def test_deconly(self):
-        scanset = ScanSet(self.deconly)
+        scanset = ScanSet(self.deconly, plot=False)
         assert not np.any(scanset['direction'])
 
     def test_multiple_tables(self):
         # scanset_all = ScanSet('test.hdf5')
-        scanset = ScanSet([self.raonly, self.deconly])
+        scanset = ScanSet([self.raonly, self.deconly], plot=False)
         assert len(scanset.scan_list) == 122
 
     def test_wrong_file_name_raises(self):
@@ -345,12 +345,12 @@ class TestScanSet(object):
         imgsel.on_key(fake_event)
 
     def test_use_command_line(self):
-        main_imager(('test.hdf5 -u Jy/beam ' +
+        main_imager(('test.hdf5 -u Jy/beam --noplot ' +
                      '--calibrate {}'.format(self.calfile) +
                      ' -o bubu.hdf5 --debug --scrunch-channels').split(' '))
 
     def test_use_command_line_config(self):
-        main_imager(['-c', self.config_file])
+        main_imager(['-c', self.config_file, '--noplot'])
 
     def test_meta_saved_and_loaded_correctly(self):
         scanset = ScanSet('test.hdf5')
@@ -848,7 +848,7 @@ class TestScanSet(object):
     def test_imager_global_fit_invalid(self):
         '''Test image production.'''
         with pytest.raises(ValueError) as excinfo:
-            main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
+            main_imager('test.hdf5 -g -e 10 10 2 1 --noplot'.split(' '))
             assert "Exclusion region has to be specified as " in str(excinfo.value)
 
     def test_imager_global_fit_valid(self):
@@ -861,7 +861,7 @@ class TestScanSet(object):
         nx, ny = images['Feed0_RCP'].shape
         excluded = [[nx//2, ny//2, nx//4]]
 
-        main_imager('test.hdf5 -g '
+        main_imager('test.hdf5 -g --noplot '
                     '-e {} {} {}'.format(*(excluded[0])).split(' '))
 
     @pytest.mark.skipif('not HAS_PYREGION')
@@ -875,7 +875,7 @@ class TestScanSet(object):
         with open('region.reg', 'w') as fobj:
             print(regstr, file=fobj)
 
-        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        main_imager('test.hdf5 -g --noplot --exclude region.reg'.split())
         os.unlink('region.reg')
 
     @pytest.mark.skipif('not HAS_PYREGION')
@@ -904,7 +904,7 @@ class TestScanSet(object):
         regstr = 'physical;circle(30,30,1)'
         with open('region.reg', 'w') as fobj:
             print(regstr, file=fobj)
-        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        main_imager('test.hdf5 -g --noplot --exclude region.reg'.split())
         assert 'Only regions in fk5' in caplog.text
         os.unlink('region.reg')
 
@@ -914,7 +914,7 @@ class TestScanSet(object):
         regstr = 'image;line(100,100,200,200)'
         with open('region.reg', 'w') as fobj:
             print(regstr, file=fobj)
-        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        main_imager('test.hdf5 -g --noplot --exclude region.reg'.split())
         assert 'Only circular regions' in caplog.text
         os.unlink('region.reg')
 

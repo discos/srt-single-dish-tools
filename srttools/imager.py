@@ -114,7 +114,8 @@ def outlier_score(x):
 
 class ScanSet(Table):
     def __init__(self, data=None, norefilt=True, config_file=None,
-                 freqsplat=None, nofilt=False, nosub=False, **kwargs):
+                 freqsplat=None, nofilt=False, nosub=False, plot=False,
+                 **kwargs):
         """Class obtained by a set of scans.
 
         Once the scans are loaded, this class contains all functionality that
@@ -212,7 +213,7 @@ class ScanSet(Table):
 
             for i_s, s in self.load_scans(scan_list,
                                           freqsplat=freqsplat, nofilt=nofilt,
-                                          nosub=nosub, **kwargs):
+                                          nosub=nosub, plot=plot, **kwargs):
 
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     log.info("{} is flagged".format(s.meta['filename']))
@@ -1387,6 +1388,11 @@ def main_imager(args=None):
                         help='Do not save the hdf5 intermediate files when'
                              'loading subscans.')
 
+    parser.add_argument("--noplot", action='store_true',
+                        default=False,
+                        help='Do not produce diagnostic plots for data '
+                             'processing')
+
     parser.add_argument("--bad-chans",
                         default="", type=str,
                         help='Channels to be discarded when scrunching, '
@@ -1417,7 +1423,8 @@ def main_imager(args=None):
     excluded_xy, excluded_radec = _excluded_regions_from_args(args.exclude)
 
     if args.file is not None:
-        scanset = ScanSet(args.file, config_file=args.config)
+        scanset = ScanSet(args.file, config_file=args.config,
+                          plot=not args.noplot)
         infile = args.file
         if outfile is None:
             outfile = infile
@@ -1428,7 +1435,7 @@ def main_imager(args=None):
                           freqsplat=args.splat, nosub=not args.sub,
                           nofilt=args.nofilt, debug=args.debug,
                           avoid_regions=excluded_radec,
-                          nosave=args.nosave)
+                          nosave=args.nosave, plot=not args.noplot)
         infile = args.config
 
         if outfile is None:

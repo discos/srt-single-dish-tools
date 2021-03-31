@@ -833,7 +833,8 @@ class Scan(Table):
 
             self.clean_and_splat(freqsplat=freqsplat, nofilt=nofilt,
                                  noise_threshold=self.meta['noise_threshold'],
-                                 debug=debug, save_spectrum=save_spectrum)
+                                 debug=debug, save_spectrum=save_spectrum,
+                                 plot=plot)
 
             if interactive:
                 self.interactive_filter()
