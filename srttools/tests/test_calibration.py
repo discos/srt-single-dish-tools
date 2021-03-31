@@ -266,6 +266,8 @@ class TestCalibration(object):
         main_cal(('-c ' + self.config_file + ' --check --show').split(" "))
         assert os.path.exists(self.config_file.replace(".ini", "_cal.hdf5"))
         assert os.path.exists("calibration_summary.png")
+        # Reload unfiltered cal
+        main_cal(('-c ' + self.config_file).split(" "))
 
     def test_sdtcal_with_sample_config(self):
         if os.path.exists('sample_config_file.ini'):
