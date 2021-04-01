@@ -174,8 +174,12 @@ class ScanSet(Table):
                 d['Scan_id'] += max_scan_id
 
                 max_scan_id += len(d.scan_list)
-            data = vstack(alldata)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', MergeConflictWarning)
+                data = vstack(alldata)
             data.scan_list = scan_list
+            data.config_file = config_file
+
         elif isinstance(data, six.string_types) and data.endswith('hdf5'):
             data = super().read(data)
 
@@ -227,11 +231,15 @@ class ScanSet(Table):
                 decvar = np.max(decs) - np.min(decs)
                 s['direction'] = np.array(ravar > decvar, dtype=bool)
 
-                del s.meta['filename']
-                del s.meta['calibrator_directories']
-                if 'skydip_directories' in s.meta:
-                    del s.meta['skydip_directories']
-                del s.meta['list_of_directories']
+                # Remove conflicting keys
+                for key in ['filename', 'calibrator_directories',
+                            'skydip_directories', 'list_of_directories',
+                            'mean_dec', 'mean_ra', 'max_dec', 'max_ra',
+                            'min_dec', 'min_ra', 'dec_offset', 'ra_offset',
+                            'RightAscension Offset', 'Declination Offset']:
+                    if key in s.meta:
+                        s.meta.pop(key)
+
                 tables.append(s)
 
             try:
@@ -260,7 +268,6 @@ class ScanSet(Table):
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
         self.current = None
-        self.get_opacity()
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
@@ -317,7 +324,7 @@ class ScanSet(Table):
             if 'summary.fits' in s:
                 continue
             try:
-                results = calculate_opacity(s)
+                results = calculate_opacity(s, plot=False)
                 self.opacities[results['time']] = np.mean([results['Ch0'],
                                                            results['Ch1']])
             except KeyError as e:

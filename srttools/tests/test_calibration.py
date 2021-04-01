@@ -33,14 +33,6 @@ def logger():
 np.random.seed(124137)
 
 
-def source_scan_func(x):
-    return 52 * _2d_gauss(x, 0, sigma=2.5 / 60)
-
-
-def cal2_scan_func(x):
-    return 132.1 * _2d_gauss(x, 0, sigma=2.5 / 60)
-
-
 class TestCalibration(object):
     @classmethod
     def setup_class(klass):
@@ -66,26 +58,6 @@ class TestCalibration(object):
         klass.caldir3 = os.path.join(klass.simdir, 'calibration_bad')
         klass.crossdir = os.path.join(klass.simdir, 'crossscans')
 
-        if not os.path.exists(klass.caldir):
-            log.info('Fake calibrators: DummyCal, 1 Jy.')
-            mkdir_p(klass.caldir)
-            sim_crossscans(5, klass.caldir)
-        if not os.path.exists(klass.caldir2):
-            log.info('Fake calibrators: DummyCal2, 1.321 Jy.')
-            mkdir_p(klass.caldir2)
-            sim_crossscans(5, klass.caldir2, srcname='DummyCal2',
-                           scan_func=cal2_scan_func)
-        if not os.path.exists(klass.caldir3):
-            log.info('Fake calibrators: DummyCal2, wrong flux 0.52 Jy.')
-            mkdir_p(klass.caldir3)
-            sim_crossscans(1, klass.caldir3, srcname='DummyCal2',
-                           scan_func=source_scan_func)
-        if not os.path.exists(klass.crossdir):
-            log.info('Fake cross scans: DummySrc, 0.52 Jy.')
-            mkdir_p(klass.crossdir)
-            sim_crossscans(5, klass.crossdir, srcname='DummySrc',
-                           scan_func=source_scan_func)
-
         klass.scan_list = \
             list_scans(klass.caldir, ['./']) + \
             list_scans(klass.caldir2, ['./']) + \
@@ -93,7 +65,7 @@ class TestCalibration(object):
 
         klass.scan_list.sort()
         caltable = CalibratorTable()
-        caltable.from_scans(klass.scan_list)
+        caltable.from_scans(klass.scan_list, debug=False)
         caltable.update()
 
         klass.calfile = os.path.join(klass.curdir, 'test_calibration.hdf5')
@@ -131,7 +103,7 @@ class TestCalibration(object):
 
     def test_check_class(self):
         caltable = CalibratorTable()
-        caltable.from_scans(self.scan_list)
+        caltable.from_scans(list_scans(self.caldir, ['./']), debug=True)
         with pytest.warns(UserWarning):
             caltable.check_up_to_date()
 

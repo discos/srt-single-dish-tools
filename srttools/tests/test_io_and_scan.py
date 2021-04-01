@@ -263,7 +263,7 @@ class Test2_Scan(object):
     def test_scan_loading(self, fname):
         '''Test that data are read.'''
 
-        Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
+        Scan(os.path.join(self.datadir, 'spectrum', fname), debug=False)
         assert os.path.exists(os.path.join(self.config['productdir'],
                                            'spectrum',
                                            fname.replace('.fits', '') + '.hdf5'))
@@ -272,7 +272,7 @@ class Test2_Scan(object):
         '''Test that data are read.'''
         fname = 'srt_data_roach_polar.fits0'
         with pytest.warns(UserWarning) as record:
-            Scan(os.path.join(self.datadir, 'spectrum', fname), debug=True)
+            Scan(os.path.join(self.datadir, 'spectrum', fname))
         assert np.any(
             ["No good channels found. A problem with the " in r.message.args[0]
              for r in record])
@@ -283,7 +283,7 @@ class Test2_Scan(object):
     def test_scan_baseline_unknown(self):
         '''Test that data are read.'''
 
-        scan = Scan(self.fname, debug=True)
+        scan = Scan(self.fname)
         scan.write('scan.hdf5', overwrite=True)
         with pytest.raises(ValueError):
             scan.baseline_subtract('asdfgh', plot=True)
@@ -291,7 +291,7 @@ class Test2_Scan(object):
     def test_scan_write_other_than_hdf5_raises(self):
         '''Test that data are read.'''
 
-        scan = Scan(self.fname, debug=True)
+        scan = Scan(self.fname)
         with pytest.raises(TypeError):
             scan.write('scan.fits', overwrite=True)
         with pytest.raises(TypeError):
@@ -302,7 +302,7 @@ class Test2_Scan(object):
     def test_scan_clean_and_splat(self):
         '''Test that data are read.'''
 
-        scan = Scan(self.fname, debug=True)
+        scan = Scan(self.fname)
         scan.meta['filtering_factor'] = 0.7
         with pytest.warns(UserWarning) as record:
             scan.clean_and_splat()

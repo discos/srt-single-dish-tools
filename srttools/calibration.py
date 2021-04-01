@@ -168,7 +168,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
     try:
         # For now, use nosave. HDF5 doesn't store meta, essential for
         # this
-        scan = Scan(scan_path, norefilt=True, nosave=True, **kwargs)
+        scan = Scan(scan_path, norefilt=True, nosave=True, plot=plot, **kwargs)
     except KeyError as e:
         log.warning(
             "Missing key. Bad file? {}: {}".format(sname, str(e))

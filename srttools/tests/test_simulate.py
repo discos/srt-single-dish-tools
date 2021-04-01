@@ -54,7 +54,7 @@ class TestSimulate(object):
     def test_sim_map_empty_messy(self):
         """Test the simulation of an empty map."""
         simulate_map(width_ra=2, width_dec=2., outdir=self.emptydir,
-                     baseline='messy', nbin=100)
+                     baseline='messy', nbin=100, debug=True)
 
     def test_sim_map_empty_slope(self):
         """Test the simulation of an empty map."""

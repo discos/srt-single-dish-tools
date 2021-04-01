@@ -845,7 +845,7 @@ class Scan(Table):
                          f'{self.meta["filename"]}')
                 try:
                     self.baseline_subtract(avoid_regions=avoid_regions,
-                                           plot=plot)
+                                           plot=debug)
                 except Exception as e:
                     log.error("Baseline subtraction failed: {str(e)}")
 
