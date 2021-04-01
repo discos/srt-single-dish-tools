@@ -53,11 +53,11 @@ class Test1_Scan(object):
             os.path.abspath(
                 os.path.join(klass.datadir,
                              'nodding_xarcos'))
-        klass.outdir = os.path.join('sim')
-        klass.emptydir = os.path.join('sim', 'test_sdfits')
+        klass.outdir = os.path.join(klass.datadir, 'sim')
+        klass.emptydir = os.path.join(klass.outdir, 'test_sdfits')
 
-        klass.pswdir_legacy = os.path.join('sim', 'test_psw_legacy')
-        klass.pswdir = os.path.join('sim', 'test_psw')
+        klass.pswdir_legacy = os.path.join(klass.outdir, 'test_psw_legacy')
+        klass.pswdir = os.path.join(klass.outdir, 'test_psw')
         # for d in [klass.emptydir, klass.pswdir, klass.pswdir_legacy]:
         #     mkdir_p(d)
         # sim_position_switching(klass.pswdir, nbin=1024)

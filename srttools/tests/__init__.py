@@ -202,3 +202,8 @@ if not os.path.exists(simdir):
     except Exception as e:
         warnings.warn("Download failed. Simulating dataset")
         prepare_simulated_data(simdir)
+
+assert os.path.exists(simdir)
+assert os.path.exists(os.path.join(simdir, 'test_config_sim.ini'))
+assert os.path.exists(os.path.join(simdir, 'test_config_sim_small.ini'))
+assert os.path.exists(os.path.join(simdir, 'test_psw'))
