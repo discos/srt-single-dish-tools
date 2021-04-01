@@ -2,9 +2,29 @@
 """
 This packages contains affiliated package tests.
 """
+import os
+import time
+import tempfile
+import warnings
+import urllib
+
+
+def download_test_data(datadir):
+    from zipfile import ZipFile
+    from astropy import log
+
+    url = 'https://github.com/discos/srttools_test_data/blob/main/data/sim.zip?raw=true'
+    log.info(f"Downloading test data from {url}")
+    zipfname = 'sim.zip'
+    cwd = os.getcwd()
+    os.chdir(datadir)
+    urllib.request.urlretrieve(url, 'sim.zip')
+    log.info("Done")
+    with ZipFile('sim.zip', 'r') as zipObj:
+        zipObj.extractall()
+
 
 def print_garbage(prefix):
-    import tempfile
     string = ""
     for _ in range(5):
         garbage = '    ' + \
@@ -86,9 +106,11 @@ def cal2_scan_func(x):
 def prepare_simulated_data(simdir):
     from astropy import log
     from srttools.simulate import sim_crossscans, simulate_map
+    from srttools.simulate import sim_position_switching
     from srttools.io import mkdir_p
     import numpy as np
     np.random.seed(1241347)
+    t0 = time.time()
 
     # ************* Create calibrators *******************
     caldir = os.path.join(simdir, 'calibration')
@@ -157,11 +179,27 @@ def prepare_simulated_data(simdir):
     sim_config_file(config_file, add_garbage=True,
                     prefix="./", label='_small')
 
-import os
+    emptydir = os.path.join('sim', 'test_sdfits')
+
+    # ************* Create data to convert *******************
+
+    pswdir_legacy = os.path.join('sim', 'test_psw_legacy')
+    pswdir = os.path.join('sim', 'test_psw')
+    for d in [emptydir, pswdir, pswdir_legacy]:
+        mkdir_p(d)
+    sim_position_switching(pswdir, nbin=1024)
+    sim_position_switching(pswdir_legacy, nbin=1024,
+                           legacy_cal_format=True)
+    simulate_map(width_ra=2, width_dec=2., outdir=emptydir)
+    log.info(f"Dataset simulated in {time.time() - t0:.2f}s")
 
 curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, 'data')
 simdir = os.path.join(datadir, 'sim')
 
 if not os.path.exists(simdir):
-    prepare_simulated_data(simdir)
+    try:
+        download_test_data(datadir)
+    except Exception as e:
+        warnings.warn("Download failed. Simulating dataset")
+        prepare_simulated_data(simdir)

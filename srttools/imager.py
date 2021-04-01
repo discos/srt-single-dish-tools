@@ -115,6 +115,7 @@ def outlier_score(x):
 class ScanSet(Table):
     def __init__(self, data=None, norefilt=True, config_file=None,
                  freqsplat=None, nofilt=False, nosub=False, plot=False,
+                 debug=False,
                  **kwargs):
         """Class obtained by a set of scans.
 
@@ -215,7 +216,7 @@ class ScanSet(Table):
 
             tables = []
 
-            for i_s, s in self.load_scans(scan_list,
+            for i_s, s in self.load_scans(scan_list, debug=debug,
                                           freqsplat=freqsplat, nofilt=nofilt,
                                           nosub=nosub, plot=plot, **kwargs):
 
@@ -334,13 +335,14 @@ class ScanSet(Table):
                     )
                 )
 
-    def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
+    def load_scans(self, scan_list, freqsplat=None, nofilt=False, debug=False,
+                   **kwargs):
         """Load the scans in the list one by ones."""
         nscan = len(scan_list)
         for i, f in enumerate(show_progress(scan_list)):
             try:
-                s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
-                         nofilt=nofilt, **kwargs)
+                s = Scan(f, norefilt=self.norefilt, debug=debug,
+                         freqsplat=freqsplat, nofilt=nofilt, **kwargs)
                 yield i, s
             except KeyError as e:
                 log.warning(

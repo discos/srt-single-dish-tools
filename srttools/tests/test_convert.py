@@ -8,9 +8,9 @@ import subprocess as sp
 import shutil
 import glob
 from astropy.io import fits
-from srttools.io import locations, mkdir_p
-from srttools.simulate import simulate_map, sim_position_switching, \
-    DEFAULT_CAL_OFFSET, DEFAULT_PEAK_COUNTS, DEFAULT_CAL_TEMP
+from srttools.io import locations
+from srttools.simulate import DEFAULT_CAL_OFFSET, DEFAULT_PEAK_COUNTS, \
+    DEFAULT_CAL_TEMP
 from astropy.utils.exceptions import AstropyWarning
 
 
@@ -58,12 +58,12 @@ class Test1_Scan(object):
 
         klass.pswdir_legacy = os.path.join('sim', 'test_psw_legacy')
         klass.pswdir = os.path.join('sim', 'test_psw')
-        for d in [klass.emptydir, klass.pswdir, klass.pswdir_legacy]:
-            mkdir_p(d)
-        sim_position_switching(klass.pswdir, nbin=1024)
-        sim_position_switching(klass.pswdir_legacy, nbin=1024,
-                               legacy_cal_format=True)
-        simulate_map(width_ra=2, width_dec=2., outdir=klass.emptydir)
+        # for d in [klass.emptydir, klass.pswdir, klass.pswdir_legacy]:
+        #     mkdir_p(d)
+        # sim_position_switching(klass.pswdir, nbin=1024)
+        # sim_position_switching(klass.pswdir_legacy, nbin=1024,
+        #                        legacy_cal_format=True)
+        # simulate_map(width_ra=2, width_dec=2., outdir=klass.emptydir)
 
     def test_converter_basic(self):
         convert_to_complete_fitszilla(self.fname, 'converted')
