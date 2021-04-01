@@ -15,13 +15,13 @@ def download_test_data(datadir):
 
     url = 'https://github.com/discos/srttools_test_data/blob/main/data/sim.zip?raw=true'
     log.info(f"Downloading test data from {url}")
-    zipfname = 'sim.zip'
     cwd = os.getcwd()
     os.chdir(datadir)
     urllib.request.urlretrieve(url, 'sim.zip')
     log.info("Done")
     with ZipFile('sim.zip', 'r') as zipObj:
         zipObj.extractall()
+    os.chdir(cwd)
 
 
 def print_garbage(prefix):
@@ -179,12 +179,11 @@ def prepare_simulated_data(simdir):
     sim_config_file(config_file, add_garbage=True,
                     prefix="./", label='_small')
 
-    emptydir = os.path.join('sim', 'test_sdfits')
-
     # ************* Create data to convert *******************
 
-    pswdir_legacy = os.path.join('sim', 'test_psw_legacy')
-    pswdir = os.path.join('sim', 'test_psw')
+    emptydir = os.path.join(simdir, 'test_sdfits')
+    pswdir_legacy = os.path.join(simdir, 'test_psw_legacy')
+    pswdir = os.path.join(simdir, 'test_psw')
     for d in [emptydir, pswdir, pswdir_legacy]:
         mkdir_p(d)
     sim_position_switching(pswdir, nbin=1024)
