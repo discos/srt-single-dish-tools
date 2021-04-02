@@ -50,8 +50,6 @@ class TestCalibration(object):
 
         klass.config = read_config(klass.config_file)
         klass.simdir = klass.caldir = os.path.join(klass.datadir, 'sim')
-        if os.getenv('CI') and os.path.exists(klass.simdir):
-            shutil.rmtree(klass.simdir)
 
         klass.caldir = os.path.join(klass.simdir, 'calibration')
         klass.caldir2 = os.path.join(klass.simdir, 'calibration2')
