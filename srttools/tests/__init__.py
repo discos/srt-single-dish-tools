@@ -6,21 +6,38 @@ import os
 import time
 import tempfile
 import warnings
-import urllib
+# import urllib
 from astropy import log
+from astropy.utils.data import download_file
+from contextlib import contextmanager
+
+
+@contextmanager
+def cwd(path):
+    oldpwd=os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(oldpwd)
 
 
 def download_test_data(datadir):
     from zipfile import ZipFile
+    import os, ssl
+    if (not os.environ.get('PYTHONHTTPSVERIFY', '') and
+            getattr(ssl, '_create_unverified_context', None)):
+        ssl._create_default_https_context = ssl._create_unverified_context
     url = 'https://github.com/discos/srttools_test_data/blob/main/data/sim.zip?raw=true'
-    log.info(f"Downloading test data from {url}")
-    cwd = os.getcwd()
-    os.chdir(datadir)
-    urllib.request.urlretrieve(url, 'sim.zip')
-    log.info("Done")
-    with ZipFile('sim.zip', 'r') as zipObj:
-        zipObj.extractall()
-    os.chdir(cwd)
+    with cwd(datadir):
+        # urllib.request.urlretrieve(url, 'sim.zip')
+        log.info(f"Downloading test data from {url}")
+        data = download_file(url)
+        os.rename(data, 'sim.zip')
+        log.info("Unzipping")
+        with ZipFile('sim.zip', 'r') as zipObj:
+            zipObj.extractall()
+        log.info("Done")
 
 
 def print_garbage(prefix):
@@ -198,6 +215,7 @@ simdir = os.path.join(datadir, 'sim')
 pswdir_probe = os.path.join(simdir, 'test_psw')
 config_probe = os.path.join(simdir, 'test_config_sim.ini')
 if not os.path.exists(pswdir_probe):
+    download_test_data(datadir)
     try:
         download_test_data(datadir)
     except Exception as e:

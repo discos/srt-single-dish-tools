@@ -76,8 +76,11 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install tox codecov
     - name: Test with tox
-      run: |
-        tox -e ${{ matrix.toxenv }}
+      if: "startsWith(matrix.toxenv, 'py')"
+      run: tox -e ${{ matrix.toxenv }} -- -svv
+    - name: Doc Test with tox
+      if: "endsWith(matrix.toxenv, 'docs')"
+      run: tox -e ${{ matrix.toxenv }}
     # This is an example of how to upload coverage to codecov
     - name: Upload coverage to codecov
       if: "endsWith(matrix.toxenv, '-cov')"
