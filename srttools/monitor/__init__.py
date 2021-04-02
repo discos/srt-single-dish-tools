@@ -13,7 +13,7 @@ except Exception:
 
 
 def main_monitor(args=None):
-    description = ('Run the SRT quicklook in a given directory.')
+    description = "Run the SRT quicklook in a given directory."
     parser = argparse.ArgumentParser(description=description)
 
     min_proc = 1
@@ -27,69 +27,89 @@ def main_monitor(args=None):
             else:
                 raise ValueError
         except (ValueError, TypeError):
-            raise argparse.ArgumentTypeError("Choose a number of processes between {} and {}.".format(min_proc, max_proc))
+            raise argparse.ArgumentTypeError(
+                "Choose a number of processes between {} and {}.".format(
+                    min_proc, max_proc
+                )
+            )
 
     def config_file(filename):
         if not filename:
-            return ''
+            return ""
         elif os.path.isfile(filename):
             return filename
         else:
-            raise argparse.ArgumentTypeError("Provided configuration file '{}' does not exist!".format(filename))
+            raise argparse.ArgumentTypeError(
+                "Provided configuration file '{}' does not exist!".format(
+                    filename
+                )
+            )
 
     def port_available(port):
         try:
             port = int(port)
         except ValueError:
-            raise argparse.ArgumentTypeError("Argument `port` should be an integer!")
+            raise argparse.ArgumentTypeError(
+                "Argument `port` should be an integer!"
+            )
         import socket
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(('localhost', port)) == 0:
-                raise argparse.ArgumentTypeError('Port {} is already being used, choose a different one!'.format(port))
+            if s.connect_ex(("localhost", port)) == 0:
+                raise argparse.ArgumentTypeError(
+                    "Port {} is already being used, choose a different one!".format(
+                        port
+                    )
+                )
         return port
 
     parser.add_argument(
         "directories",
         help="Directories to monitor",
         default=None,
-        nargs='+',
-        type=str
+        nargs="+",
+        type=str,
     )
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         help="Configuration file",
-        default='',
-        type=config_file
+        default="",
+        type=config_file,
     )
     parser.add_argument(
         "--polling",
         help="Use a platform-independent, polling watchdog",
-        action='store_true',
-        default=False
+        action="store_true",
+        default=False,
     )
     parser.add_argument(
-        "-p", "--port",
+        "-p",
+        "--port",
         help="The port on which the server will be listening",
         type=int,
-        default=8080
+        default=8080,
     )
     parser.add_argument(
-        "-v", "--verbosity",
-        action='count',
+        "-v",
+        "--verbosity",
+        action="count",
         default=0,
-        help='Set the verbosity level'
+        help="Set the verbosity level",
     )
     parser.add_argument(
-        "-w", "--workers",
+        "-w",
+        "--workers",
         type=workers_count,
         default=1,
-        help='The maximum number of worker processes to spawn'
+        help="The maximum number of worker processes to spawn",
     )
     args = parser.parse_args(args)
 
     # This block is required to translate a SIGTERM into a KeyboardInterrupt, in order to handle the process as a service
     def sigterm_received(signum, frame):
         os.kill(os.getpid(), signal.SIGINT)
+
     if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGTERM, sigterm_received)
 
@@ -101,7 +121,7 @@ def main_monitor(args=None):
             workers=args.workers,
             verbosity=args.verbosity,
             polling=args.polling,
-            port=args.port
+            port=args.port,
         )
         monitor.start()
 

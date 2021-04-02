@@ -1,7 +1,8 @@
-
 import numpy as np
+
 try:
     import matplotlib.pyplot as plt
+
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
@@ -92,6 +93,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     """
     from scipy.ndimage import gaussian_filter, gaussian_filter1d
     from collections.abc import Iterable
+
     if img.shape[0] * img.shape[0] > 100:
         rms = mad(img.flatten())
     else:
@@ -101,7 +103,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     bad = img - median > clip_sigma * rms
     img[bad] = clip_sigma * rms
     bad = median - img > clip_sigma * rms
-    img[bad] = - clip_sigma * rms
+    img[bad] = -clip_sigma * rms
 
     if smooth_window == 0:
         pass
@@ -109,13 +111,21 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     elif isinstance(smooth_window, Iterable):
         img = gaussian_filter(img, np.array(smooth_window) / 5)
     else:
-        img = gaussian_filter1d(img, smooth_window / 5,
-                                axis=np.logical_not(direction))
+        img = gaussian_filter1d(
+            img, smooth_window / 5, axis=np.logical_not(direction)
+        )
     return img
 
 
-def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=10,
-                   expo_hor=None, expo_ver=None, window_shape='hanning'):
+def basket_weaving(
+    img_hor,
+    img_ver,
+    clip_sigma=3,
+    niter_max=10,
+    expo_hor=None,
+    expo_ver=None,
+    window_shape="hanning",
+):
     """Basket-Weaving algorithm from Mueller et al. 1707.05573v6."""
     it = 1
     if expo_hor is None:
@@ -132,14 +142,16 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=10,
             break
 
         diff = img_hor - img_ver
-        diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                               smooth_window=(0., window))
+        diff = clip_and_smooth(
+            diff, clip_sigma=clip_sigma, smooth_window=(0.0, window)
+        )
 
         img_hor = img_hor - diff
 
         diff = img_ver - img_hor
-        diff = clip_and_smooth(diff, clip_sigma=clip_sigma,
-                               smooth_window=(window, 0.))
+        diff = clip_and_smooth(
+            diff, clip_sigma=clip_sigma, smooth_window=(window, 0.0)
+        )
 
         img_ver = img_ver - diff
         it += 1
@@ -152,51 +164,61 @@ def basket_weaving(img_hor, img_ver, clip_sigma=3, niter_max=10,
     return img_final
 
 
-def destripe_wrapper(image_hor, image_ver, alg='basket-weaving',
-                     niter=10, expo_hor=None, expo_ver=None,
-                     npix_tol=None, clip_sigma=3, label="img"):
+def destripe_wrapper(
+    image_hor,
+    image_ver,
+    alg="basket-weaving",
+    niter=10,
+    expo_hor=None,
+    expo_ver=None,
+    npix_tol=None,
+    clip_sigma=3,
+    label="img",
+):
     if expo_hor is None or expo_ver is None:
         image_mean = (image_hor + image_ver) / 2
         expo_hor = expo_ver = np.ones_like(image_mean)
         masked_image, mask = mask_zeros(image_mean, npix_tol=npix_tol)
     else:
-        image_mean = \
-            (image_hor*expo_hor + image_ver*expo_ver) / (expo_hor + expo_ver)
-        masked_image, mask = mask_zeros(image_mean, expo_hor + expo_ver,
-                                        npix_tol=npix_tol)
+        image_mean = (image_hor * expo_hor + image_ver * expo_ver) / (
+            expo_hor + expo_ver
+        )
+        masked_image, mask = mask_zeros(
+            image_mean, expo_hor + expo_ver, npix_tol=npix_tol
+        )
 
     if HAS_MPL:
         fig = plt.figure()
         plt.imshow(image_hor[mask].reshape(masked_image.shape))
-        plt.savefig(label + '_hor.png')
+        plt.savefig(label + "_hor.png")
         plt.imshow(image_ver[mask].reshape(masked_image.shape))
-        plt.savefig(label + '_ver.png')
+        plt.savefig(label + "_ver.png")
         diff_img = image_ver[mask] - image_hor[mask]
         plt.imshow(diff_img.reshape(masked_image.shape))
-        plt.savefig(label + '_diff.png')
+        plt.savefig(label + "_diff.png")
         plt.close(fig)
 
         fig = plt.figure()
         plt.imshow(expo_hor[mask].reshape(masked_image.shape))
-        plt.savefig(label + '_expoh.png')
+        plt.savefig(label + "_expoh.png")
         plt.imshow(expo_ver[mask].reshape(masked_image.shape))
-        plt.savefig(label + '_expov.png')
+        plt.savefig(label + "_expov.png")
         plt.imshow(image_mean[mask].reshape(masked_image.shape))
-        plt.savefig(label + '_initial.png')
+        plt.savefig(label + "_initial.png")
         plt.close(fig)
 
-    image_mean[mask] = \
-        basket_weaving(image_hor[mask].reshape(masked_image.shape),
-                       image_ver[mask].reshape(masked_image.shape),
-                       niter_max=niter,
-                       expo_hor=expo_hor[mask].reshape(masked_image.shape),
-                       expo_ver=expo_ver[mask].reshape(masked_image.shape),
-                       clip_sigma=clip_sigma
-                       ).flatten()
+    image_mean[mask] = basket_weaving(
+        image_hor[mask].reshape(masked_image.shape),
+        image_ver[mask].reshape(masked_image.shape),
+        niter_max=niter,
+        expo_hor=expo_hor[mask].reshape(masked_image.shape),
+        expo_ver=expo_ver[mask].reshape(masked_image.shape),
+        clip_sigma=clip_sigma,
+    ).flatten()
 
     if HAS_MPL:
         plt.imshow(image_mean[mask].reshape(masked_image.shape))
-        plt.savefig(label + '_destr.png')
+        plt.savefig(label + "_destr.png")
 
-    if alg == 'basket-weaving':
+    if alg == "basket-weaving":
         return image_mean

@@ -2,7 +2,6 @@
 Random utilities
 """
 
-import sys
 import shutil
 import os
 import time
@@ -19,19 +18,21 @@ import scipy.stats
 
 try:
     from mahotas.features import zernike_moments
+
     HAS_MAHO = True
 except ImportError:
     HAS_MAHO = False
 
 DEFAULT_MPL_BACKEND = None
-on_CI = os.environ.get('CI') or os.environ.get('CONTINUOUS_INTEGRATION')
-if not on_CI and os.environ.get('DISPLAY') and os.environ.get('DISPLAY') != '':
-    DEFAULT_MPL_BACKEND = 'TKAgg'
+on_CI = os.environ.get("CI") or os.environ.get("CONTINUOUS_INTEGRATION")
+if not on_CI and os.environ.get("DISPLAY") and os.environ.get("DISPLAY") != "":
+    DEFAULT_MPL_BACKEND = "TKAgg"
 else:
-    DEFAULT_MPL_BACKEND = 'Agg'
+    DEFAULT_MPL_BACKEND = "Agg"
 
 try:
     import matplotlib
+
     matplotlib.use(DEFAULT_MPL_BACKEND)
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
@@ -41,18 +42,12 @@ try:
 except ImportError:
     HAS_MPL = False
 
-try:
-    import statsmodels.api as sm
-
-    HAS_STATSM = True
-except ImportError:
-    HAS_STATSM = False
-
 
 def _generic_dummy_decorator(*args, **kwargs):
     if len(args) == 1 and len(kwargs) == 0 and callable(args[0]):
         return args[0]
     else:
+
         def decorator(func):
             def decorated(*args, **kwargs):
                 return func(*args, **kwargs)
@@ -64,6 +59,7 @@ def _generic_dummy_decorator(*args, **kwargs):
 
 try:
     from numba import jit, vectorize
+
     HAS_NUMBA = True
 except ImportError:
     warnings.warn("Numba not installed. Faking it")
@@ -72,22 +68,37 @@ except ImportError:
     HAS_NUMBA = False
 
 
-__all__ = ["mad", "standard_string", "standard_byte", "compare_strings",
-           "tqdm", "jit", "vectorize", 'interpolate_invalid_points_image',
-           'get_center_of_mass', 'calculate_zernike_moments',
-           'calculate_beam_fom', 'ds9_like_log_scale']
+__all__ = [
+    "mad",
+    "standard_string",
+    "standard_byte",
+    "compare_strings",
+    "tqdm",
+    "jit",
+    "vectorize",
+    "interpolate_invalid_points_image",
+    "get_center_of_mass",
+    "calculate_zernike_moments",
+    "calculate_beam_fom",
+    "ds9_like_log_scale",
+]
 
 
 try:
     from tqdm import tqdm
 except ImportError:
+
     def tqdm(x):
         return x
 
 
 try:
     from statsmodels.robust import mad as mad  # pylint: disable=unused-import
+
+    HAS_STATSM = True
 except ImportError:
+    HAS_STATSM = False
+
     def mad(data, c=0.6745, axis=None):
         """Straight from statsmodels's source code, adapted"""
         data = np.asarray(data)
@@ -137,12 +148,12 @@ def standard_string(s):
 
     # for Python 3
     # This indexing should work for both lists of strings, and strings
-    if hasattr(s, 'decode'):
+    if hasattr(s, "decode"):
         s = s.decode()  # or  s = str(s)[2:-1]
     # Try to see if it's a numpy array
-    elif hasattr(s, 'dtype') and s.dtype.char == 'S':
+    elif hasattr(s, "dtype") and s.dtype.char == "S":
         if s.size > 1:
-            s = np.array(s, dtype='U')
+            s = np.array(s, dtype="U")
     return s
 
 
@@ -156,11 +167,11 @@ def standard_byte(s):
     >>> standard_byte(np.array([u'a'])[0]) == b'a'
     True
     """
-    if hasattr(s, 'encode'):
+    if hasattr(s, "encode"):
         s = s.encode()
-    elif hasattr(s, 'dtype') and s.dtype.char == 'U':
+    elif hasattr(s, "dtype") and s.dtype.char == "U":
         if s.size > 1:
-            s = np.array(s, dtype='S')
+            s = np.array(s, dtype="S")
     return s
 
 
@@ -231,8 +242,7 @@ def compare_anything(value1, value2):
     if not isinstance(value1, value2.__class__):
         return False
 
-    if not isinstance(value1, Iterable) or \
-            isinstance(value1, str):
+    if not isinstance(value1, Iterable) or isinstance(value1, str):
         return value1 == value2
     elif not isinstance(value1, dict):
         for i, j in zip(value1, value2):
@@ -243,10 +253,8 @@ def compare_anything(value1, value2):
         items2 = value2.items()
         if len(list(items1)) != len(list(items2)):
             return False
-        value1_sort = \
-            OrderedDict(sorted(items1))
-        value2_sort = \
-            OrderedDict(sorted(items2))
+        value1_sort = OrderedDict(sorted(items1))
+        value2_sort = OrderedDict(sorted(items2))
         for i, j in zip(value1_sort.items(), value2_sort.items()):
             if not compare_anything(i, j):
                 return False
@@ -255,7 +263,7 @@ def compare_anything(value1, value2):
 
 
 def interpolate_invalid_points_image(array, zeros_are_invalid=False):
-    '''Interpolates invalid points in an image.
+    """Interpolates invalid points in an image.
 
     Examples
     --------
@@ -267,8 +275,9 @@ def interpolate_invalid_points_image(array, zeros_are_invalid=False):
     >>> img[1, 1] = 0
     >>> np.all(interpolate_invalid_points_image(img, True) == np.ones((3, 3)))
     True
-    '''
+    """
     from scipy import interpolate
+
     if zeros_are_invalid:
         # 0/0 gives nan
         array = array / array * array
@@ -283,9 +292,9 @@ def interpolate_invalid_points_image(array, zeros_are_invalid=False):
     y1 = yy[~array.mask]
     newarr = array[~array.mask]
 
-    GD1 = interpolate.griddata((x1, y1), newarr.ravel(),
-                               (xx, yy),
-                               method='cubic', fill_value=0)
+    GD1 = interpolate.griddata(
+        (x1, y1), newarr.ravel(), (xx, yy), method="cubic", fill_value=0
+    )
     return GD1
 
 
@@ -348,9 +357,10 @@ def get_center_of_mass(im, radius=1, approx=None):
     True
     """
     import scipy.ndimage
+
     if approx is None:
         approx = np.array(im.shape) // 2
-    elif approx == 'max':
+    elif approx == "max":
         approx = np.unravel_index(im.argmax(), im.shape)
 
     npix = int(radius * min(im.shape))
@@ -359,14 +369,22 @@ def get_center_of_mass(im, radius=1, approx=None):
     good_x = slice(xmin, xmax)
     good_y = slice(ymin, ymax)
     cm = np.asarray(
-        scipy.ndimage.measurements.center_of_mass(im[good_x, good_y]))
+        scipy.ndimage.measurements.center_of_mass(im[good_x, good_y])
+    )
     cm[0] += xmin
     cm[1] += ymin
     return cm
 
 
-def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
-                              label=None, use_log=False, show_plot=False):
+def calculate_zernike_moments(
+    im,
+    cm=None,
+    radius=0.3,
+    norder=8,
+    label=None,
+    use_log=False,
+    show_plot=False,
+):
     """Calculate the Zernike moments of the image.
 
     These moments are useful to single out asymmetries in the image:
@@ -409,13 +427,18 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
     if np.all(np.isnan(im)):
         return None
     im_to_analyze = im.copy()
-    im_to_analyze = interpolate_invalid_points_image(im_to_analyze,
-                                                     zeros_are_invalid=True)
+    im_to_analyze = interpolate_invalid_points_image(
+        im_to_analyze, zeros_are_invalid=True
+    )
 
     if cm is None or np.any(np.isnan(cm)):
-        cm = get_center_of_mass(im_to_analyze, radius, approx='max')
-    if (cm[0] >= im_to_analyze.shape[0]) or (cm[1] >= im_to_analyze.shape[1]) \
-            or (cm[0] < 1) or (cm[1] < 1):
+        cm = get_center_of_mass(im_to_analyze, radius, approx="max")
+    if (
+        (cm[0] >= im_to_analyze.shape[0])
+        or (cm[1] >= im_to_analyze.shape[1])
+        or (cm[0] < 1)
+        or (cm[1] < 1)
+    ):
         cm = np.array(im_to_analyze.shape) // 2
 
     if use_log:
@@ -425,11 +448,12 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
     moments = zernike_moments(im_to_analyze, radius_pix, norder, cm=cm)
     count = 0
     moments_dict = {}
-    description_string = \
-        'Zernike moments (cm: {}, radius: {}):\n'.format(cm, radius_pix)
+    description_string = "Zernike moments (cm: {}, radius: {}):\n".format(
+        cm, radius_pix
+    )
 
     if HAS_MPL:
-        fig = plt.figure('Zernike moments', figsize=(10, 10))
+        fig = plt.figure("Zernike moments", figsize=(10, 10))
         x, y = int(cm[0]), int(cm[1])
         shape = im_to_analyze.shape
         vmax = np.max(im_to_analyze)
@@ -437,47 +461,53 @@ def calculate_zernike_moments(im, cm=None, radius=0.3, norder=8,
         if (x < shape[0]) & (y < shape[1]):
             vmax = im_to_analyze[x, y]
 
-        plt.imshow(im_to_analyze, vmin=0, vmax=vmax,
-                   origin='lower', cmap='magma')
-        circle = plt.Circle((y, x), radius_pix, color='r', fill=False)
+        plt.imshow(
+            im_to_analyze, vmin=0, vmax=vmax, origin="lower", cmap="magma"
+        )
+        circle = plt.Circle((y, x), radius_pix, color="r", fill=False)
         plt.gca().add_patch(circle)
         plt.colorbar()
 
     for i in range(norder + 1):
-        description_string += str(i) + ': '
+        description_string += str(i) + ": "
         moments_dict[i] = {}
         for j in range(i + 1):
             if (i - j) % 2 == 0:
-                description_string += "{}/{} {:.1e} ".format(i, j,
-                                                             moments[count])
+                description_string += "{}/{} {:.1e} ".format(
+                    i, j, moments[count]
+                )
                 moments_dict[i][j] = moments[count]
                 count += 1
-        description_string += '\n'
+        description_string += "\n"
 
     if HAS_MPL:
-        plt.text(0.05, 0.95, description_string,
-                 horizontalalignment='left',
-                 verticalalignment='top',
-                 transform=plt.gca().transAxes,
-                 color='white')
+        plt.text(
+            0.05,
+            0.95,
+            description_string,
+            horizontalalignment="left",
+            verticalalignment="top",
+            transform=plt.gca().transAxes,
+            color="white",
+        )
 
         if label is None:
             label = str(np.random.randint(0, 100000))
-        plt.savefig('Zernike_debug_' + label +
-                    '.png')
+        plt.savefig("Zernike_debug_" + label + ".png")
         if show_plot:
             plt.show()
         plt.close(fig)
 
     log.debug(description_string)
 
-    moments_dict['Description'] = description_string
+    moments_dict["Description"] = description_string
 
     return moments_dict
 
 
-def calculate_beam_fom(im, cm=None, radius=0.3,
-                       label=None, use_log=False, show_plot=False):
+def calculate_beam_fom(
+    im, cm=None, radius=0.3, label=None, use_log=False, show_plot=False
+):
     """Calculate various figures of merit (FOMs) in an image.
 
     These FOMs are useful to single out asymmetries in a beam shape:
@@ -514,12 +544,17 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
     if np.all(np.isnan(im)):
         return None
     im_to_analyze = im.copy()
-    im_to_analyze = interpolate_invalid_points_image(im_to_analyze,
-                                                     zeros_are_invalid=True)
+    im_to_analyze = interpolate_invalid_points_image(
+        im_to_analyze, zeros_are_invalid=True
+    )
     if cm is None:
-        cm = get_center_of_mass(im_to_analyze, radius, approx='max')
-    if (cm[0] >= im_to_analyze.shape[0]) or (cm[1] >= im_to_analyze.shape[1]) \
-            or (cm[0] < 1) or (cm[1] < 1):
+        cm = get_center_of_mass(im_to_analyze, radius, approx="max")
+    if (
+        (cm[0] >= im_to_analyze.shape[0])
+        or (cm[1] >= im_to_analyze.shape[1])
+        or (cm[0] < 1)
+        or (cm[1] < 1)
+    ):
         cm = np.array(im_to_analyze.shape) // 2
 
     if use_log:
@@ -528,8 +563,9 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
     radius_pix = int(np.min(im.shape) * radius)
 
     moments_dict = {}
-    description_string = \
-        'Figures of Merit (cm: {}, radius: {}):\n'.format(cm, radius_pix)
+    description_string = "Figures of Merit (cm: {}, radius: {}):\n".format(
+        cm, radius_pix
+    )
 
     img_max = np.unravel_index(im.argmax(), im.shape)
     npix = int(radius * min(im.shape))
@@ -545,25 +581,31 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
     x_pixels = np.arange(ymax - ymin) + ymin
 
     if HAS_MPL:
-        fig = plt.figure('FOM', figsize=(10, 10))
-        gs = GridSpec(2, 2, height_ratios=(1, 3), width_ratios=(3, 1),
-                      hspace=0)
+        fig = plt.figure("FOM", figsize=(10, 10))
+        gs = GridSpec(
+            2, 2, height_ratios=(1, 3), width_ratios=(3, 1), hspace=0
+        )
         img_ax = plt.subplot(gs[1, 0])
         hor_ax = plt.subplot(gs[0, 0], sharex=img_ax)
         ver_ax = plt.subplot(gs[1, 1], sharey=img_ax)
 
         x, y = int(cm[0]), int(cm[1])
-        img_ax.imshow(im_to_analyze, vmin=0, vmax=im_to_analyze[x, y],
-                      origin='lower', cmap='magma')
+        img_ax.imshow(
+            im_to_analyze,
+            vmin=0,
+            vmax=im_to_analyze[x, y],
+            origin="lower",
+            cmap="magma",
+        )
 
-        img_ax.axvline(cm[1], color='white')
-        img_ax.axhline(cm[0], color='white')
+        img_ax.axvline(cm[1], color="white")
+        img_ax.axhline(cm[0], color="white")
 
         ver_ax.plot(y_slice - np.max(y_slice) + 1, y_pixels)
 
         hor_ax.plot(x_pixels, x_slice - np.max(x_slice) + 1)
 
-        circle = plt.Circle(cm, radius_pix, color='r', fill=False)
+        circle = plt.Circle(cm, radius_pix, color="r", fill=False)
         plt.gca().add_patch(circle)
         img_ax.set_xlim([0, im_to_analyze.shape[1] - 1])
         img_ax.set_ylim([0, im_to_analyze.shape[0] - 1])
@@ -571,35 +613,40 @@ def calculate_beam_fom(im, cm=None, radius=0.3,
     xmoments = calculate_moments(x_slice)
     ymoments = calculate_moments(y_slice)
 
-    description_string += 'Skewness : \n'
-    description_string += 'X: {}\n'.format(xmoments['skewness'])
-    description_string += 'Y: {}\n'.format(ymoments['skewness'])
-    description_string += 'Kurtosis : \n'
-    description_string += 'X: {}\n'.format(xmoments['kurtosis'])
-    description_string += 'Y: {}\n'.format(ymoments['kurtosis'])
+    description_string += "Skewness : \n"
+    description_string += "X: {}\n".format(xmoments["skewness"])
+    description_string += "Y: {}\n".format(ymoments["skewness"])
+    description_string += "Kurtosis : \n"
+    description_string += "X: {}\n".format(xmoments["kurtosis"])
+    description_string += "Y: {}\n".format(ymoments["kurtosis"])
 
-    moments_dict["XSK"] = xmoments['skewness']
-    moments_dict["YSK"] = ymoments['skewness']
-    moments_dict["XKU"] = xmoments['kurtosis']
-    moments_dict["YKU"] = ymoments['kurtosis']
+    moments_dict["XSK"] = xmoments["skewness"]
+    moments_dict["YSK"] = ymoments["skewness"]
+    moments_dict["XKU"] = xmoments["kurtosis"]
+    moments_dict["YKU"] = ymoments["kurtosis"]
 
     if HAS_MPL:
-        img_ax.text(0.05, 0.95, description_string,
-                    horizontalalignment='left',
-                    verticalalignment='top',
-                    transform=img_ax.transAxes,
-                    color='white', zorder=10)
+        img_ax.text(
+            0.05,
+            0.95,
+            description_string,
+            horizontalalignment="left",
+            verticalalignment="top",
+            transform=img_ax.transAxes,
+            color="white",
+            zorder=10,
+        )
 
         if label is None:
             label = str(np.random.randint(0, 100000))
-        plt.savefig('FOM_debug_' + label + '.png')
+        plt.savefig("FOM_debug_" + label + ".png")
         if show_plot:
             plt.show()
         plt.close(fig)
 
     log.debug(description_string)
 
-    moments_dict['Description'] = description_string
+    moments_dict["Description"] = description_string
 
     return moments_dict
 
@@ -646,25 +693,25 @@ def calculate_moments(y, imax=None, window_length=5):
     yk -= yk.min()
     yk = np.round(yk / np.sum(yk), decimals=7)
 
-    xslice_dist = scipy.stats.rv_discrete(name='custm', values=(xk, yk))
+    xslice_dist = scipy.stats.rv_discrete(name="custm", values=(xk, yk))
     moments = {}
-    moments['skewness'] = xslice_dist.stats(moments='s')
-    moments['kurtosis'] = xslice_dist.stats(moments='k')
+    moments["skewness"] = xslice_dist.stats(moments="s")
+    moments["kurtosis"] = xslice_dist.stats(moments="k")
     return moments
 
 
 def get_maxvar_and_direction_from_data(data):
     if data is None:
-        return 1e32, ''
+        return 1e32, ""
     data = np.asarray(data)
     if len(data.shape) == 2:
         data = data[:, 0]
 
     diff = data[-1] - data[0]
     if diff > 0:
-        scan_direction = '>'
+        scan_direction = ">"
     else:
-        scan_direction = '<'
+        scan_direction = "<"
     return np.abs(diff), scan_direction
 
 
@@ -708,7 +755,7 @@ def scantype(ra, dec, az=None, el=None):
     elvar, eldir = get_maxvar_and_direction_from_data(el)
     azvar, azdir = get_maxvar_and_direction_from_data(az)
 
-    direction = np.asarray([['RA', 'Dec'], ['Az', 'El']])
+    direction = np.asarray([["RA", "Dec"], ["Az", "El"]])
     scandirection = np.asarray([[radir, decdir], [azdir, eldir]])
 
     vararray = np.asarray([[ravar, decvar], [azvar, elvar]])
@@ -759,7 +806,7 @@ def get_mH2O(TMP, U):
     eps0 = mw / md
     k1 = 77.60
     k2 = 70.4
-    k3 = 3.739E5
+    k3 = 3.739e5
 
     TMP = TMP - 273.15
     H = (np.log10(U) - 2.0) / 0.4343 + (17.62 * TMP) / (243.12 + TMP)
@@ -769,11 +816,11 @@ def get_mH2O(TMP, U):
     TMP = TMP + 273.15
 
     Tm = 0.673 * TMP + 83.0
-    C = 1E6 * mw / (k2 - k1 * eps0 + k3 / Tm) / RS
+    C = 1e6 * mw / (k2 - k1 * eps0 + k3 / Tm) / RS
     e0 = np.exp(1.81 + 17.27 * DPT / (DPT + 237.5))
     ZWDS = 0.002277 * (0.005 + 1255 / TMP) * e0
 
-    return ZWDS * C * 100.
+    return ZWDS * C * 100.0
 
 
 def look_for_files_or_bust(files, timeout):
@@ -794,6 +841,7 @@ def look_for_files_or_bust(files, timeout):
     number_of_seconds = 0
     while current_time - t0 < timeout:
         import numpy as np
+
         all_exist = np.zeros(len(files), dtype=bool)
         for i, fname in enumerate(files):
             all_exist[i] = os.path.exists(fname)
@@ -805,8 +853,12 @@ def look_for_files_or_bust(files, timeout):
             log.info("Not all files were found. Keep going...")
 
     else:
-        missing_files = [fname for exists, fname in zip(all_exist, files)
-                         if not exists]
+        missing_files = [
+            fname for exists, fname in zip(all_exist, files) if not exists
+        ]
 
-        raise FileNotFoundError(("One or more of the expected files"
-                                 " were not found: {}").format(missing_files))
+        raise FileNotFoundError(
+            ("One or more of the expected files" " were not found: {}").format(
+                missing_files
+            )
+        )

@@ -1,4 +1,3 @@
-
 from astropy.io import fits
 import numpy as np
 from scipy.optimize import curve_fit
@@ -48,30 +47,30 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
         the time in the middle of the observation.
     """
     with fits.open(file) as hdulist:
-        data = hdulist['DATA TABLE'].data
-        tempdata = hdulist['ANTENNA TEMP TABLE'].data
-        rfdata = hdulist['RF INPUTS'].data
+        data = hdulist["DATA TABLE"].data
+        tempdata = hdulist["ANTENNA TEMP TABLE"].data
+        rfdata = hdulist["RF INPUTS"].data
 
-    time = np.mean(data['Time'])
+    time = np.mean(data["Time"])
 
-    freq = (rfdata['frequency'] + rfdata['bandwidth'] / 2)[0]
+    freq = (rfdata["frequency"] + rfdata["bandwidth"] / 2)[0]
 
-    elevation = data['el']
+    elevation = data["el"]
     airmass = 1 / np.sin(elevation)
     if tatm is None:
-        airtemp = np.median(data['weather'][:, 1])
+        airtemp = np.median(data["weather"][:, 1])
         tatm = 0.683 * (airtemp + 273.15) + 78
 
     el30 = np.argmin(np.abs(elevation - np.radians(30)))
     el90 = np.argmin(np.abs(elevation - np.radians(90)))
 
-    results = {'time': time}
-    for ch in ['Ch0', 'Ch1']:
+    results = {"time": time}
+    for ch in ["Ch0", "Ch1"]:
         temp = tempdata[ch]
         temp = adjust_temperature_size(temp, airmass)
         if plot and HAS_MPL:
             fig = plt.figure(ch)
-            plt.scatter(airmass, temp, c='k')
+            plt.scatter(airmass, temp, c="k")
 
         if tau0 is None:
             t90 = temp[el90]
@@ -83,19 +82,26 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
 
         init_par = [tatm, tau0, t0]
 
-        epsilon = 1.e-5
-        par, _ = curve_fit(exptau, airmass, temp, p0=init_par,
-                           maxfev=10000000,
-                           bounds=([tatm - epsilon, -np.inf, -np.inf],
-                                   [tatm + epsilon, np.inf, np.inf]))
+        epsilon = 1.0e-5
+        par, _ = curve_fit(
+            exptau,
+            airmass,
+            temp,
+            p0=init_par,
+            maxfev=10000000,
+            bounds=(
+                [tatm - epsilon, -np.inf, -np.inf],
+                [tatm + epsilon, np.inf, np.inf],
+            ),
+        )
 
-        log.info(f'{file}: The opacity for channel {ch} is {par[1]}')
+        log.info(f"{file}: The opacity for channel {ch} is {par[1]}")
         if plot and HAS_MPL:
-            plt.plot(airmass, exptau(airmass, *par), color='r', zorder=10)
-            plt.xlabel('Airmass')
-            plt.ylabel('T (K)')
-            plt.title('T_atm: {:.2f}; tau: {:.4f}; t0: {:.2f}'.format(*par))
-            plt.savefig(file.replace('.fits', '_fit_{}.png'.format(ch)))
+            plt.plot(airmass, exptau(airmass, *par), color="r", zorder=10)
+            plt.xlabel("Airmass")
+            plt.ylabel("T (K)")
+            plt.title("T_atm: {:.2f}; tau: {:.4f}; t0: {:.2f}".format(*par))
+            plt.savefig(file.replace(".fits", "_fit_{}.png".format(ch)))
             plt.close(fig)
 
         results[ch] = par[1]
@@ -106,22 +112,32 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
 def main_opacity(args=None):
     import argparse
 
-    description = ('Calculate opacity from a skydip scan and plot the fit '
-                   'results')
+    description = (
+        "Calculate opacity from a skydip scan and plot the fit " "results"
+    )
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("files", nargs='+',
-                        help="File to inspect",
-                        default=None, type=str)
+    parser.add_argument(
+        "files", nargs="+", help="File to inspect", default=None, type=str
+    )
 
-    parser.add_argument("--tatm", type=float, default=None,
-                        help='Atmospheric temperature')
+    parser.add_argument(
+        "--tatm", type=float, default=None, help="Atmospheric temperature"
+    )
 
-    parser.add_argument("--tau0", type=float, default=None,
-                        help='Initial value for tau (to be fit)')
+    parser.add_argument(
+        "--tau0",
+        type=float,
+        default=None,
+        help="Initial value for tau (to be fit)",
+    )
 
-    parser.add_argument("--t0", type=float, default=None,
-                        help='Initial value for Tsys (to be fitted)')
+    parser.add_argument(
+        "--t0",
+        type=float,
+        default=None,
+        help="Initial value for Tsys (to be fitted)",
+    )
 
     args = parser.parse_args(args)
 

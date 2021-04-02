@@ -17,14 +17,25 @@ from scipy.interpolate import interp1d
 from .utils import force_move_file
 
 
-__all__ = ["mkdir_p", "detect_data_kind", "correct_offsets", "observing_angle",
-           "get_rest_angle", "print_obs_info_fitszilla", "read_data_fitszilla",
-           "read_data", "root_name", "get_chan_columns"]
+__all__ = [
+    "mkdir_p",
+    "detect_data_kind",
+    "correct_offsets",
+    "observing_angle",
+    "get_rest_angle",
+    "print_obs_info_fitszilla",
+    "read_data_fitszilla",
+    "read_data",
+    "root_name",
+    "get_chan_columns",
+]
 
 
-chan_re = re.compile(r'^Ch([0-9]+)$'
-                     r'|^Feed([0-9]+)_([a-zA-Z]+)$'
-                     r'|^Feed([0-9]+)_([a-zA-Z]+)_([0-9]+)$')
+chan_re = re.compile(
+    r"^Ch([0-9]+)$"
+    r"|^Feed([0-9]+)_([a-zA-Z]+)$"
+    r"|^Feed([0-9]+)_([a-zA-Z]+)_([0-9]+)$"
+)
 
 
 # 'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
@@ -33,12 +44,13 @@ chan_re = re.compile(r'^Ch([0-9]+)$'
 #                                   Angle("39:29:34.93742", u.deg),
 #                                   600 * u.meter) # not precise enough
 
-locations = {'srt': EarthLocation(4865182.7660, 791922.6890, 4035137.1740,
-                                  unit=u.m),
-             'medicina': EarthLocation(Angle("11:38:49", u.deg),
-                                       Angle("44:31:15", u.deg),
-                                       25 * u.meter),
-             'greenwich': EarthLocation(lat=51.477*u.deg, lon=0*u.deg)}
+locations = {
+    "srt": EarthLocation(4865182.7660, 791922.6890, 4035137.1740, unit=u.m),
+    "medicina": EarthLocation(
+        Angle("11:38:49", u.deg), Angle("44:31:15", u.deg), 25 * u.meter
+    ),
+    "greenwich": EarthLocation(lat=51.477 * u.deg, lon=0 * u.deg),
+}
 
 
 def interpret_chan_name(chan_name):
@@ -113,7 +125,7 @@ def classify_chan_columns(chans):
         if baseband is None:
             baseband = 1
         if polar is None:
-            polar = 'N'
+            polar = "N"
         if feed not in combinations:
             combinations[feed] = {}
 
@@ -126,12 +138,11 @@ def classify_chan_columns(chans):
 
 
 def get_chan_columns(table):
-    return np.array([i for i in table.columns
-                     if chan_re.match(i)])
+    return np.array([i for i in table.columns if chan_re.match(i)])
 
 
 def get_channel_feed(ch):
-    if re.search('Feed?', ch):
+    if re.search("Feed?", ch):
         return int(ch[4])
 
 
@@ -149,6 +160,7 @@ def mkdir_p(path):
     http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
     """
     import errno
+
     try:
         os.makedirs(path)
     except OSError as exc:  # Python >2.5
@@ -160,17 +172,17 @@ def mkdir_p(path):
 
 def _check_derotator(derot_angle):
     # Check that derotator angle is outside any plausible value
-    if np.any(np.abs(derot_angle) > 2*360):
+    if np.any(np.abs(derot_angle) > 2 * 360):
         return False
     return True
 
 
 def detect_data_kind(fname):
     """Placeholder for function that recognizes data format."""
-    if fname.endswith('.hdf5'):
-        return 'hdf5'
-    elif 'fits' in fname:
-        return 'fitszilla'
+    if fname.endswith(".hdf5"):
+        return "hdf5"
+    elif "fits" in fname:
+        return "fitszilla"
     else:
         warnings.warn("File {} is not in a known format".format(fname))
         return None
@@ -191,7 +203,7 @@ def correct_offsets(obs_angle, xoffset, yoffset):
     True
 
     """
-    sep = np.sqrt(xoffset**2. + yoffset**2.)
+    sep = np.sqrt(xoffset ** 2.0 + yoffset ** 2.0)
 
     new_xoff = sep * np.cos(obs_angle)
     new_yoff = sep * np.sin(obs_angle)
@@ -218,9 +230,9 @@ def observing_angle(rest_angle, derot_angle):
     >>> observing_angle(0, 2 * np.pi).to(u.rad).value
     0.0
     """
-    if not hasattr(rest_angle, 'unit'):
+    if not hasattr(rest_angle, "unit"):
         rest_angle *= u.rad
-    if not hasattr(derot_angle, 'unit'):
+    if not hasattr(derot_angle, "unit"):
         derot_angle *= u.rad
     return rest_angle + (2 * np.pi * u.rad - derot_angle)
 
@@ -258,28 +270,30 @@ def get_rest_angle(xoffsets, yoffsets):
     True
     """
     if len(xoffsets) <= 2:
-        return np.array([0]*len(xoffsets))
+        return np.array([0] * len(xoffsets))
     xoffsets = np.asarray(xoffsets)
     yoffsets = np.asarray(yoffsets)
     n_lat_feeds = len(xoffsets) - 1
     rest_angle_default = _rest_angle_default(n_lat_feeds) * 2 * np.pi * u.rad
-    w_0 = np.where((xoffsets[1:] > 0) & (yoffsets[1:] == 0.))[0][0]
-    return np.concatenate(([0],
-                           np.roll(rest_angle_default.to(u.rad).value,
-                                   w_0))) * u.rad
+    w_0 = np.where((xoffsets[1:] > 0) & (yoffsets[1:] == 0.0))[0][0]
+    return (
+        np.concatenate(([0], np.roll(rest_angle_default.to(u.rad).value, w_0)))
+        * u.rad
+    )
 
 
 def infer_skydip_from_elevation(elevation, azimuth=None):
     if azimuth is None:
         azimuth = np.array([0, 0])
 
-    el_condition = np.max(elevation) - np.min(elevation) > np.pi / 3.
-    az_condition = np.max(azimuth) - np.min(azimuth) < 0.1 / 180. * np.pi
+    el_condition = np.max(elevation) - np.min(elevation) > np.pi / 3.0
+    az_condition = np.max(azimuth) - np.min(azimuth) < 0.1 / 180.0 * np.pi
     return az_condition & el_condition
 
 
-def get_coords_from_altaz_offset(obstimes, el, az, xoffs, yoffs, location,
-                                 inplace=False):
+def get_coords_from_altaz_offset(
+    obstimes, el, az, xoffs, yoffs, location, inplace=False
+):
     """"""
     # Calculate observing angle
     if not inplace:
@@ -289,8 +303,9 @@ def get_coords_from_altaz_offset(obstimes, el, az, xoffs, yoffs, location,
     el += yoffs.to(u.rad).value
     az += xoffs.to(u.rad).value / np.cos(el)
 
-    coords = AltAz(az=Angle(az), alt=Angle(el), location=location,
-                   obstime=obstimes)
+    coords = AltAz(
+        az=Angle(az), alt=Angle(el), location=location, obstime=obstimes
+    )
 
     # According to line_profiler, coords.icrs is *by far* the longest
     # operation in this function, taking between 80 and 90% of the
@@ -307,26 +322,30 @@ def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
     if not inplace:
         new_table = copy.deepcopy(new_table)
 
-    for i in range(0, new_table['el'].shape[1]):
-        obs_angle = observing_angle(rest_angles[i], new_table['derot_angle'])
+    for i in range(0, new_table["el"].shape[1]):
+        obs_angle = observing_angle(rest_angles[i], new_table["derot_angle"])
 
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
-        if np.abs(xoffsets[i]) < np.radians(0.001 / 60.) * u.rad and \
-                np.abs(yoffsets[i]) < np.radians(0.001 / 60.) * u.rad:
+        if (
+            np.abs(xoffsets[i]) < np.radians(0.001 / 60.0) * u.rad
+            and np.abs(yoffsets[i]) < np.radians(0.001 / 60.0) * u.rad
+        ):
             continue
         xoffs, yoffs = correct_offsets(obs_angle, xoffsets[i], yoffsets[i])
-        obstimes = Time(new_table['time'] * u.day, format='mjd', scale='utc')
+        obstimes = Time(new_table["time"] * u.day, format="mjd", scale="utc")
 
-        location = locations[new_table.meta['site']]
-        ra, dec = \
-            get_coords_from_altaz_offset(obstimes,
-                                         new_table['el'][:, i],
-                                         new_table['az'][:, i],
-                                         xoffs, yoffs,
-                                         location=location,
-                                         inplace=inplace)
-        new_table['ra'][:, i] = ra
-        new_table['dec'][:, i] = dec
+        location = locations[new_table.meta["site"]]
+        ra, dec = get_coords_from_altaz_offset(
+            obstimes,
+            new_table["el"][:, i],
+            new_table["az"][:, i],
+            xoffs,
+            yoffs,
+            location=location,
+            inplace=inplace,
+        )
+        new_table["ra"][:, i] = ra
+        new_table["dec"][:, i] = dec
 
     return new_table
 
@@ -334,28 +353,35 @@ def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
 def print_obs_info_fitszilla(fname):
     """Placeholder for function that prints out oberving information."""
     with fits.open(fname, memmap=False) as lchdulist:
-        section_table_data = lchdulist['SECTION TABLE'].data
-        sample_rates = get_value_with_units(section_table_data, 'sampleRate')
+        section_table_data = lchdulist["SECTION TABLE"].data
+        sample_rates = get_value_with_units(section_table_data, "sampleRate")
 
-        print('Sample rates:', sample_rates)
+        print("Sample rates:", sample_rates)
 
-        rf_input_data = lchdulist['RF INPUTS'].data
-        print('Feeds          :', get_value_with_units(rf_input_data, 'feed'))
-        print('IFs            :',
-              get_value_with_units(rf_input_data, 'ifChain'))
-        print('Polarizations  :',
-              get_value_with_units(rf_input_data, 'polarization'))
-        print('Frequencies    :',
-              get_value_with_units(rf_input_data, 'frequency'))
-        print('Bandwidths     :',
-              get_value_with_units(rf_input_data, 'bandWidth'))
+        rf_input_data = lchdulist["RF INPUTS"].data
+        print("Feeds          :", get_value_with_units(rf_input_data, "feed"))
+        print(
+            "IFs            :", get_value_with_units(rf_input_data, "ifChain")
+        )
+        print(
+            "Polarizations  :",
+            get_value_with_units(rf_input_data, "polarization"),
+        )
+        print(
+            "Frequencies    :",
+            get_value_with_units(rf_input_data, "frequency"),
+        )
+        print(
+            "Bandwidths     :",
+            get_value_with_units(rf_input_data, "bandWidth"),
+        )
 
 
 def _chan_name(f, p, c=None):
     if c is not None:
-        return 'Feed{}_{}_{}'.format(f, p, c)
+        return "Feed{}_{}_{}".format(f, p, c)
     else:
-        return 'Feed{}_{}'.format(f, p)
+        return "Feed{}_{}".format(f, p)
 
 
 def read_data_fitszilla(fname):
@@ -400,6 +426,7 @@ def adjust_temperature_size_rough(temp, comparison_array):
     array([1, 1, 2, 3, 4, 4])
     """
     import copy
+
     temp = np.asarray(temp)
     comparison_array = np.asarray(comparison_array)
 
@@ -413,7 +440,7 @@ def adjust_temperature_size_rough(temp, comparison_array):
         sizediff = -sizediff
         temp = np.zeros_like(comparison_array)
         temp[sizediff // 2: sizediff // 2 + temp_save.size] = temp_save
-        temp[:sizediff // 2] = temp_save[0]
+        temp[: sizediff // 2] = temp_save[0]
         temp[sizediff // 2 + temp_save.size - 1:] = temp_save[-1]
 
     return temp
@@ -449,87 +476,87 @@ def adjust_temperature_size(temp, comparison_array):
 # @profile
 def _read_data_fitszilla(lchdulist):
     """Open a fitszilla FITS file and read all relevant information."""
-    is_new_fitszilla = np.any(['coord' in i.name.lower() for i in lchdulist])
+    is_new_fitszilla = np.any(["coord" in i.name.lower() for i in lchdulist])
 
     # ----------- Extract generic observation information ------------------
     headerdict = dict(lchdulist[0].header.items())
-    source = lchdulist[0].header['SOURCE']
-    site = lchdulist[0].header['ANTENNA'].lower()
-    receiver = lchdulist[0].header['RECEIVER CODE']
+    source = lchdulist[0].header["SOURCE"]
+    site = lchdulist[0].header["ANTENNA"].lower()
+    receiver = lchdulist[0].header["RECEIVER CODE"]
 
-    ra = lchdulist[0].header['RIGHTASCENSION'] * u.rad
-    dec = lchdulist[0].header['DECLINATION'] * u.rad
+    ra = lchdulist[0].header["RIGHTASCENSION"] * u.rad
+    dec = lchdulist[0].header["DECLINATION"] * u.rad
     ra_offset = dec_offset = az_offset = el_offset = 0 * u.rad
-    if 'RightAscension Offset' in lchdulist[0].header:
-        ra_offset = \
-            lchdulist[0].header['RightAscension Offset'] * u.rad
-    if 'Declination Offset' in lchdulist[0].header:
-        dec_offset = lchdulist[0].header['Declination Offset'] * u.rad
-    if 'Azimuth Offset' in lchdulist[0].header:
-        az_offset = lchdulist[0].header['Azimuth Offset'] * u.rad
-    if 'Elevation Offset' in lchdulist[0].header:
-        el_offset = lchdulist[0].header['Elevation Offset'] * u.rad
+    if "RightAscension Offset" in lchdulist[0].header:
+        ra_offset = lchdulist[0].header["RightAscension Offset"] * u.rad
+    if "Declination Offset" in lchdulist[0].header:
+        dec_offset = lchdulist[0].header["Declination Offset"] * u.rad
+    if "Azimuth Offset" in lchdulist[0].header:
+        az_offset = lchdulist[0].header["Azimuth Offset"] * u.rad
+    if "Elevation Offset" in lchdulist[0].header:
+        el_offset = lchdulist[0].header["Elevation Offset"] * u.rad
 
     # ----------- Read the list of channel ids ------------------
-    section_table_data = lchdulist['SECTION TABLE'].data
-    chan_ids = get_value_with_units(section_table_data, 'id')
-    nbin_per_chan = get_value_with_units(section_table_data, 'bins')
-    sample_rate = get_value_with_units(section_table_data, 'sampleRate')
+    section_table_data = lchdulist["SECTION TABLE"].data
+    chan_ids = get_value_with_units(section_table_data, "id")
+    nbin_per_chan = get_value_with_units(section_table_data, "bins")
+    sample_rate = get_value_with_units(section_table_data, "sampleRate")
     try:
-        bw_section = \
-            get_value_with_units(section_table_data, 'bandWidth')
-        fr_section = \
-            get_value_with_units(section_table_data, 'frequency')
+        bw_section = get_value_with_units(section_table_data, "bandWidth")
+        fr_section = get_value_with_units(section_table_data, "frequency")
     except KeyError:
         bw_section = None
         fr_section = None
-    integration_time = lchdulist['SECTION TABLE'].header['Integration'] * u.ms
+    integration_time = lchdulist["SECTION TABLE"].header["Integration"] * u.ms
     if len(list(set(nbin_per_chan))) > 1:
-        raise ValueError('Only datasets with the same nbin per channel are '
-                         'supported at the moment')
+        raise ValueError(
+            "Only datasets with the same nbin per channel are "
+            "supported at the moment"
+        )
     nbin_per_chan = list(set(nbin_per_chan))[0]
-    types = get_value_with_units(section_table_data, 'type')
-    if 'stokes' in types:
+    types = get_value_with_units(section_table_data, "type")
+    if "stokes" in types:
         is_polarized = True
     else:
         is_polarized = False
 
     # Check. If backend is not specified, use Total Power
     try:
-        backend = lchdulist[0].header['BACKEND NAME']
+        backend = lchdulist[0].header["BACKEND NAME"]
     except Exception:
-        if 'stokes' in types:
+        if "stokes" in types:
             if nbin_per_chan == 2048:
-                backend = 'XARCOS'
+                backend = "XARCOS"
             else:
-                backend = 'SARDARA'
-        elif 'spectra' in types:
-            backend = 'SARDARA'
+                backend = "SARDARA"
+        elif "spectra" in types:
+            backend = "SARDARA"
         else:
-            backend = 'TP'
+            backend = "TP"
 
     # ----------- Read the list of RF inputs, feeds, polarization, etc. --
-    rf_input_data = lchdulist['RF INPUTS'].data
-    feeds = get_value_with_units(rf_input_data, 'feed')
-    IFs = get_value_with_units(rf_input_data, 'ifChain')
-    polarizations = get_value_with_units(rf_input_data, 'polarization')
-    sections = get_value_with_units(rf_input_data, 'section')
-    frequencies_rf = get_value_with_units(rf_input_data, 'frequency')
-    bandwidths_rf = get_value_with_units(rf_input_data, 'bandWidth')
-    local_oscillator = get_value_with_units(rf_input_data, 'localOscillator')
+    rf_input_data = lchdulist["RF INPUTS"].data
+    feeds = get_value_with_units(rf_input_data, "feed")
+    IFs = get_value_with_units(rf_input_data, "ifChain")
+    polarizations = get_value_with_units(rf_input_data, "polarization")
+    sections = get_value_with_units(rf_input_data, "section")
+    frequencies_rf = get_value_with_units(rf_input_data, "frequency")
+    bandwidths_rf = get_value_with_units(rf_input_data, "bandWidth")
+    local_oscillator = get_value_with_units(rf_input_data, "localOscillator")
     try:
-        cal_mark_temp = get_value_with_units(rf_input_data, 'calibrationMark')
+        cal_mark_temp = get_value_with_units(rf_input_data, "calibrationMark")
     except KeyError:
         # Old, stupid typo
-        cal_mark_temp = get_value_with_units(rf_input_data, 'calibratonMark')
+        cal_mark_temp = get_value_with_units(rf_input_data, "calibratonMark")
 
     if bw_section is not None:
         bandwidths_section = [bw_section[i] for i in sections]
         frequencies_section = [fr_section[i] for i in sections]
-        frequencies_section = [f + l for (f, l) in zip(frequencies_section,
-                                                       local_oscillator)]
+        frequencies_section = [
+            f + l for (f, l) in zip(frequencies_section, local_oscillator)
+        ]
 
-    if backend == 'TP' or bw_section is None:
+    if backend == "TP" or bw_section is None:
         frequencies, bandwidths = frequencies_rf, bandwidths_rf
     else:
         frequencies, bandwidths = frequencies_section, bandwidths_section
@@ -538,32 +565,32 @@ def _read_data_fitszilla(lchdulist):
     combination_idx = np.arange(len(combinations))
 
     # Solve stupid problem with old CCB data
-    if receiver.lower() == 'ccb':
+    if receiver.lower() == "ccb":
         feeds[:] = 0
 
     if len(set(combinations)) > 1:
-        chan_names = [_chan_name(f, p, c)
-                      for f, p, c in zip(feeds, polarizations,
-                                         combination_idx)]
+        chan_names = [
+            _chan_name(f, p, c)
+            for f, p, c in zip(feeds, polarizations, combination_idx)
+        ]
     else:
-        chan_names = [_chan_name(f, p)
-                      for f, p in zip(feeds, polarizations)]
+        chan_names = [_chan_name(f, p) for f, p in zip(feeds, polarizations)]
 
     # ----- Read the offsets of different feeds (nonzero only if multifeed)--
-    feed_input_data = lchdulist['FEED TABLE'].data
+    feed_input_data = lchdulist["FEED TABLE"].data
     # Add management of historical offsets.
     # Note that we need to add the units by hand in this case.
-    xoffsets = get_value_with_units(feed_input_data, 'xOffset', default='rad')
-    yoffsets = get_value_with_units(feed_input_data, 'yOffset', default='rad')
+    xoffsets = get_value_with_units(feed_input_data, "xOffset", default="rad")
+    yoffsets = get_value_with_units(feed_input_data, "yOffset", default="rad")
 
-    relpowers = get_value_with_units(feed_input_data, 'relativePower')
+    relpowers = get_value_with_units(feed_input_data, "relativePower")
 
     # -------------- Read data!-----------------------------------------
-    datahdu = lchdulist['DATA TABLE']
+    datahdu = lchdulist["DATA TABLE"]
     # N.B.: there is an increase in memory usage here. This is just because
     # data are being read from the file at this point, not before.
     data_table_data = Table(datahdu.data)
-    tempdata = Table(lchdulist['ANTENNA TEMP TABLE'].data)
+    tempdata = Table(lchdulist["ANTENNA TEMP TABLE"].data)
 
     for col in data_table_data.colnames:
         if col == col.lower():
@@ -574,9 +601,9 @@ def _read_data_fitszilla(lchdulist):
             continue
         tempdata.rename_column(col, col.lower())
 
-    is_old_spectrum = 'SPECTRUM' in list(datahdu.header.values())
+    is_old_spectrum = "SPECTRUM" in list(datahdu.header.values())
     if is_old_spectrum:
-        data_table_data.rename_column('spectrum', 'ch0')
+        data_table_data.rename_column("spectrum", "ch0")
         sections = np.array([0, 0])
 
     unsupported_temperature = False
@@ -584,17 +611,18 @@ def _read_data_fitszilla(lchdulist):
         try:
             tempdata_new = Table()
             for i, (feed, ifnum) in enumerate(zip(feeds, IFs)):
-                tempdata_new[f'ch{i}'] = tempdata[f'ch{feed}'][:, ifnum]
+                tempdata_new[f"ch{i}"] = tempdata[f"ch{feed}"][:, ifnum]
             tempdata = tempdata_new
         except Exception:  # pragma: no cover
             warnings.warn("Temperature format not supported", UserWarning)
             unsupported_temperature = True
             pass
 
-    existing_columns = [chn for chn in data_table_data.colnames
-                        if chn.startswith('ch')]
+    existing_columns = [
+        chn for chn in data_table_data.colnames if chn.startswith("ch")
+    ]
     if existing_columns == []:
-        raise ValueError('Invalid data')
+        raise ValueError("Invalid data")
 
     is_spectrum = nbin_per_chan > 1
 
@@ -603,7 +631,7 @@ def _read_data_fitszilla(lchdulist):
     good = np.ones(len(feeds), dtype=bool)
 
     for i, s in enumerate(sections):
-        section_name = 'ch{}'.format(s)
+        section_name = "ch{}".format(s)
         if section_name not in existing_columns:
             good[i] = False
     allfeeds = feeds
@@ -623,29 +651,34 @@ def _read_data_fitszilla(lchdulist):
         if nbin_per_chan == nbins:
             IFs = np.zeros_like(IFs)
 
-        if nbin_per_chan * nchan * 2 == nbins \
-                and not is_polarized:
-            warnings.warn('Data appear to contain polarization information '
-                          'but are classified as simple, not stokes, in the '
-                          'Section table.')
+        if nbin_per_chan * nchan * 2 == nbins and not is_polarized:
+            warnings.warn(
+                "Data appear to contain polarization information "
+                "but are classified as simple, not stokes, in the "
+                "Section table."
+            )
             is_polarized = True
 
-        if nbin_per_chan != nbins and nbin_per_chan * nchan != nbins and \
-                nbin_per_chan * nchan * 2 != nbins and not is_polarized:
-            raise ValueError('Something wrong with channel subdivision: '
-                             '{} bins/channel, {} channels, '
-                             '{} total bins'.format(nbin_per_chan, nchan,
-                                                    nbins))
+        if (
+            nbin_per_chan != nbins
+            and nbin_per_chan * nchan != nbins
+            and nbin_per_chan * nchan * 2 != nbins
+            and not is_polarized
+        ):
+            raise ValueError(
+                "Something wrong with channel subdivision: "
+                "{} bins/channel, {} channels, "
+                "{} total bins".format(nbin_per_chan, nchan, nbins)
+            )
 
         for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
             c = s
             if is_single_channel:
                 c = None
-            section_name = 'ch{}'.format(s)
+            section_name = "ch{}".format(s)
             ch = _chan_name(f, p, c)
             start, end = ic * nbin_per_chan, (ic + 1) * nbin_per_chan
-            data_table_data[ch] = \
-                data_table_data[section_name][:, start:end]
+            data_table_data[ch] = data_table_data[section_name][:, start:end]
 
         if is_polarized:
             # for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
@@ -655,90 +688,94 @@ def _read_data_fitszilla(lchdulist):
                 if is_single_channel:
                     c = None
 
-                section_name = 'ch{}'.format(s)
-                qname, uname = _chan_name(f, 'Q', c), _chan_name(f, 'U', c)
+                section_name = "ch{}".format(s)
+                qname, uname = _chan_name(f, "Q", c), _chan_name(f, "U", c)
                 qstart, qend = 2 * nbin_per_chan, 3 * nbin_per_chan
                 ustart, uend = 3 * nbin_per_chan, 4 * nbin_per_chan
-                data_table_data[qname] = \
-                    data_table_data[section_name][:, qstart:qend]
-                data_table_data[uname] = \
-                    data_table_data[section_name][:, ustart:uend]
+                data_table_data[qname] = data_table_data[section_name][
+                    :, qstart:qend
+                ]
+                data_table_data[uname] = data_table_data[section_name][
+                    :, ustart:uend
+                ]
 
                 chan_names += [qname, uname]
 
         for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
-            section_name = 'ch{}'.format(s)
+            section_name = "ch{}".format(s)
             if section_name in data_table_data.colnames:
                 data_table_data.remove_column(section_name)
     else:
         for ic, ch in enumerate(chan_names):
-            data_table_data[ch] = \
-                data_table_data['ch{}'.format(chan_ids[ic])]
+            data_table_data[ch] = data_table_data["ch{}".format(chan_ids[ic])]
 
     # ----------- Read temperature data, if possible ----------------
     for ic, ch in enumerate(chan_names):
-        data_table_data[ch + '-Temp'] = 0.
+        data_table_data[ch + "-Temp"] = 0.0
         if unsupported_temperature:
             continue
 
         if len(chan_ids) <= ic:
             continue
-        ch_string = f'ch{chan_ids[ic]}'
-        if not ch_string in tempdata.colnames:
+        ch_string = f"ch{chan_ids[ic]}"
+        if ch_string not in tempdata.colnames:
             continue
 
         td = np.asarray(tempdata[ch_string])
-        data_table_data[ch + '-Temp'] = \
-            adjust_temperature_size(td, data_table_data[ch + '-Temp'])
+        data_table_data[ch + "-Temp"] = adjust_temperature_size(
+            td, data_table_data[ch + "-Temp"]
+        )
 
-    info_to_retrieve = \
-        ['time', 'derot_angle', 'weather', 'par_angle', 'flag_track',
-         'flag_cal'] + \
-            [ch + '-Temp' for ch in chan_names]
+    info_to_retrieve = [
+        "time",
+        "derot_angle",
+        "weather",
+        "par_angle",
+        "flag_track",
+        "flag_cal",
+    ] + [ch + "-Temp" for ch in chan_names]
 
     new_table = Table()
 
     new_table.meta.update(headerdict)
-    new_table.meta['SOURCE'] = source
-    new_table.meta['site'] = site
-    new_table.meta['backend'] = backend
-    new_table.meta['receiver'] = receiver
-    new_table.meta['RA'] = ra
-    new_table.meta['Dec'] = dec
-    new_table.meta['channels'] = nbin_per_chan
-    new_table.meta['VLSR'] = new_table.meta['VLSR'] * u.Unit("km/s")
+    new_table.meta["SOURCE"] = source
+    new_table.meta["site"] = site
+    new_table.meta["backend"] = backend
+    new_table.meta["receiver"] = receiver
+    new_table.meta["RA"] = ra
+    new_table.meta["Dec"] = dec
+    new_table.meta["channels"] = nbin_per_chan
+    new_table.meta["VLSR"] = new_table.meta["VLSR"] * u.Unit("km/s")
 
-    for i, off in zip("ra,dec,el,az".split(','),
-                      [ra_offset, dec_offset, el_offset, az_offset]):
+    for i, off in zip(
+        "ra,dec,el,az".split(","),
+        [ra_offset, dec_offset, el_offset, az_offset],
+    ):
         new_table.meta[i + "_offset"] = off
 
     for info in info_to_retrieve:
         new_table[info] = data_table_data[info]
 
-    if not _check_derotator(new_table['derot_angle']):
-        log.debug('Derotator angle looks weird. Setting to 0')
-        new_table['derot_angle'][:] = 0
+    if not _check_derotator(new_table["derot_angle"]):
+        log.debug("Derotator angle looks weird. Setting to 0")
+        new_table["derot_angle"][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)
     Nfeeds = np.max(allfeeds) + 1
-    new_table['ra'] = \
-        np.tile(data_table_data['raj2000'],
-                (Nfeeds, 1)).transpose()
-    new_table['dec'] = \
-        np.tile(data_table_data['decj2000'],
-                (Nfeeds, 1)).transpose()
-    new_table['el'] = \
-        np.tile(data_table_data['el'],
-                (Nfeeds, 1)).transpose()
-    new_table['az'] = \
-        np.tile(data_table_data['az'],
-                (Nfeeds, 1)).transpose()
+    new_table["ra"] = np.tile(
+        data_table_data["raj2000"], (Nfeeds, 1)
+    ).transpose()
+    new_table["dec"] = np.tile(
+        data_table_data["decj2000"], (Nfeeds, 1)
+    ).transpose()
+    new_table["el"] = np.tile(data_table_data["el"], (Nfeeds, 1)).transpose()
+    new_table["az"] = np.tile(data_table_data["az"], (Nfeeds, 1)).transpose()
 
-    new_table.meta['is_skydip'] = \
-        infer_skydip_from_elevation(data_table_data['el'],
-                                    data_table_data['az'])
+    new_table.meta["is_skydip"] = infer_skydip_from_elevation(
+        data_table_data["el"], data_table_data["az"]
+    )
 
-    for info in ['ra', 'dec', 'az', 'el', 'derot_angle']:
+    for info in ["ra", "dec", "az", "el", "derot_angle"]:
         new_table[info].unit = u.radian
 
     if not is_new_fitszilla:
@@ -746,18 +783,18 @@ def _read_data_fitszilla(lchdulist):
     else:
         for i in range(len(xoffsets)):
             try:
-                ext = lchdulist['Coord{}'.format(i)]
+                ext = lchdulist["Coord{}".format(i)]
                 extdata = ext.data
-                ra, dec = extdata['raj2000'], extdata['decj2000']
-                el, az = extdata['el'], extdata['az']
+                ra, dec = extdata["raj2000"], extdata["decj2000"]
+                el, az = extdata["el"], extdata["az"]
             except KeyError:
-                ra, dec = new_table['ra'][:, 0], new_table['dec'][:, 0]
-                el, az = new_table['el'][:, 0], new_table['az'][:, 0]
+                ra, dec = new_table["ra"][:, 0], new_table["dec"][:, 0]
+                el, az = new_table["el"][:, 0], new_table["az"][:, 0]
 
-            new_table['ra'][:, i] = ra
-            new_table['dec'][:, i] = dec
-            new_table['el'][:, i] = el
-            new_table['az'][:, i] = az
+            new_table["ra"][:, i] = ra
+            new_table["dec"][:, i] = dec
+            new_table["el"][:, i] = el
+            new_table["az"][:, i] = az
 
     lchdulist.close()
 
@@ -780,33 +817,35 @@ def _read_data_fitszilla(lchdulist):
         if bandwidths[ic] < 0:
             frequencies[ic] -= bandwidths[ic]
             bandwidths[ic] *= -1
-            for i in range(
-                    data_table_data[chan_name].shape[0]):
-                data_table_data[chan_name][f, :] = \
-                    data_table_data[chan_name][f, ::-1]
+            for i in range(data_table_data[chan_name].shape[0]):
+                data_table_data[chan_name][f, :] = data_table_data[chan_name][
+                    f, ::-1
+                ]
 
-        new_table[chan_name] = \
+        new_table[chan_name] = (
             data_table_data[chan_name] * relpowers[feeds[ic]]
+        )
 
-        new_table[chan_name + '-filt'] = \
-            np.ones(len(data_table_data[chan_name]), dtype=bool)
+        new_table[chan_name + "-filt"] = np.ones(
+            len(data_table_data[chan_name]), dtype=bool
+        )
         data_table_data.remove_column(chan_name)
 
-        newmeta = \
-            {'polarization': polarizations[ic],
-             'feed': int(f),
-             'IF': int(ic),
-             'frequency': fr.to("MHz"),
-             'bandwidth': b.to("MHz"),
-             'sample_rate': sample_rate[s],
-             'sample_time': (1 / (sample_rate[s].to(u.Hz))).to('s'),
-             'local_oscillator': lo.to("MHz"),
-             'cal_mark_temp': cal.to("K"),
-             'integration_time': integration_time.to('s'),
-             'xoffset': xoffsets[f].to(u.rad),
-             'yoffset': yoffsets[f].to(u.rad),
-             'relpower': float(relpowers[f])
-             }
+        newmeta = {
+            "polarization": polarizations[ic],
+            "feed": int(f),
+            "IF": int(ic),
+            "frequency": fr.to("MHz"),
+            "bandwidth": b.to("MHz"),
+            "sample_rate": sample_rate[s],
+            "sample_time": (1 / (sample_rate[s].to(u.Hz))).to("s"),
+            "local_oscillator": lo.to("MHz"),
+            "cal_mark_temp": cal.to("K"),
+            "integration_time": integration_time.to("s"),
+            "xoffset": xoffsets[f].to(u.rad),
+            "yoffset": yoffsets[f].to(u.rad),
+            "relpower": float(relpowers[f]),
+        }
         new_table[chan_name].meta.update(headerdict)
         new_table[chan_name].meta.update(new_table.meta)
         new_table[chan_name].meta.update(newmeta)
@@ -817,37 +856,37 @@ def _read_data_fitszilla(lchdulist):
             c = s
             if is_single_channel:
                 c = None
-            for stokes_par in 'QU':
+            for stokes_par in "QU":
                 chan_name = _chan_name(feed, stokes_par, c)
                 try:
-                    new_table[chan_name] = \
-                        data_table_data[chan_name]
+                    new_table[chan_name] = data_table_data[chan_name]
                 except KeyError:
                     continue
-                sample_time = (1 / (sample_rate[s].to(u.Hz)))
+                sample_time = 1 / (sample_rate[s].to(u.Hz))
 
-                newmeta = \
-                    {'polarization': stokes_par,
-                     'feed': int(feed),
-                     'IF': -1,
-                     # There are two IFs for each section
-                     'frequency': frequencies[2 * s].to("MHz"),
-                     'bandwidth': bandwidths[2 * s].to("MHz"),
-                     'sample_rate': sample_rate[s],
-                     'sample_time': sample_time.to('s'),
-                     'local_oscillator': local_oscillator[2 * s].to("MHz"),
-                     'cal_mark_temp': cal_mark_temp[2 * s].to("K"),
-                     'integration_time': integration_time.to('s'),
-                     'xoffset': xoffsets[feed].to(u.rad),
-                     'yoffset': yoffsets[feed].to(u.rad),
-                     'relpower': 1.
-                     }
+                newmeta = {
+                    "polarization": stokes_par,
+                    "feed": int(feed),
+                    "IF": -1,
+                    # There are two IFs for each section
+                    "frequency": frequencies[2 * s].to("MHz"),
+                    "bandwidth": bandwidths[2 * s].to("MHz"),
+                    "sample_rate": sample_rate[s],
+                    "sample_time": sample_time.to("s"),
+                    "local_oscillator": local_oscillator[2 * s].to("MHz"),
+                    "cal_mark_temp": cal_mark_temp[2 * s].to("K"),
+                    "integration_time": integration_time.to("s"),
+                    "xoffset": xoffsets[feed].to(u.rad),
+                    "yoffset": yoffsets[feed].to(u.rad),
+                    "relpower": 1.0,
+                }
                 new_table[chan_name].meta.update(headerdict)
                 new_table[chan_name].meta.update(new_table.meta)
                 new_table[chan_name].meta.update(newmeta)
 
-                new_table[chan_name + '-filt'] = \
-                    np.ones(len(data_table_data[chan_name]), dtype=bool)
+                new_table[chan_name + "-filt"] = np.ones(
+                    len(data_table_data[chan_name]), dtype=bool
+                )
                 data_table_data.remove_column(chan_name)
 
     return new_table
@@ -856,9 +895,9 @@ def _read_data_fitszilla(lchdulist):
 def read_data(fname):
     """Read the data, whatever the format, and return them."""
     kind = detect_data_kind(fname)
-    if kind == 'fitszilla':
+    if kind == "fitszilla":
         return read_data_fitszilla(fname)
-    elif kind == 'hdf5':
+    elif kind == "hdf5":
         return Table.read(fname)
     else:
         return None
@@ -867,7 +906,7 @@ def read_data(fname):
 def root_name(fname):
     """Return the file name without extension."""
     fn, ext = os.path.splitext(fname)
-    if 'fits' in ext and not ext.endswith('fits'):
+    if "fits" in ext and not ext.endswith("fits"):
         fn += ext.replace("fits", "").replace(".", "")
     return fn
 
@@ -904,16 +943,16 @@ def label_from_chan_name(ch):
     """
     _, polar, _ = interpret_chan_name(ch)
 
-    if polar.startswith('L'):
-        return 'LL'
-    elif polar.startswith('R'):
-        return 'RR'
-    elif polar.startswith('Q'):
-        return 'LR'
-    elif polar.startswith('U'):
-        return 'RL'
+    if polar.startswith("L"):
+        return "LL"
+    elif polar.startswith("R"):
+        return "RR"
+    elif polar.startswith("Q"):
+        return "LR"
+    elif polar.startswith("U"):
+        return "RL"
     else:
-        raise ValueError('Unrecognized polarization')
+        raise ValueError("Unrecognized polarization")
 
 
 def bulk_change(file, path, value):
@@ -932,41 +971,65 @@ def bulk_change(file, path, value):
     """
 
     with fits.open(file, memmap=False) as hdul:
-        ext, attr, key = path.split(',')
+        ext, attr, key = path.split(",")
         ext = _try_type(ext, int)
 
         data = getattr(hdul[ext], attr)
         data[key] = value
         setattr(hdul[ext], attr, data)
 
-        hdul.writeto('tmp.fits', overwrite=True)
-    force_move_file('tmp.fits', file)
+        hdul.writeto("tmp.fits", overwrite=True)
+    force_move_file("tmp.fits", file)
 
 
 def main_bulk_change(args=None):
     """Preprocess the data."""
     import argparse
 
-    description = ('Change all values of a given column or header keyword in '
-                   'fits files')
+    description = (
+        "Change all values of a given column or header keyword in "
+        "fits files"
+    )
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("files", nargs='*',
-                        help="Single files to preprocess",
-                        default=None, type=str)
-    parser.add_argument("-k", "--key", type=str, default=None,
-                        help='Path to key or data column. E.g. '
-                             '"EXT,header,KEY" to change key KEY in the header'
-                             'in extension EXT; EXT,data,COL to change column'
-                             'COL in the data of extension EXT')
-    parser.add_argument("-v", "--value", default=None, type=str,
-                        help='Value to be written')
-    parser.add_argument("--apply-cal-mark", action='store_true', default=False,
-                        help='Short for -k "DATA TABLE,data,flag_cal" -v 1')
-    parser.add_argument("--recursive", action='store_true', default=False,
-                        help='Look for file in up to two subdirectories')
-    parser.add_argument("--debug", action='store_true', default=False,
-                        help='Plot stuff and be verbose')
+    parser.add_argument(
+        "files",
+        nargs="*",
+        help="Single files to preprocess",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "-k",
+        "--key",
+        type=str,
+        default=None,
+        help="Path to key or data column. E.g. "
+        '"EXT,header,KEY" to change key KEY in the header'
+        "in extension EXT; EXT,data,COL to change column"
+        "COL in the data of extension EXT",
+    )
+    parser.add_argument(
+        "-v", "--value", default=None, type=str, help="Value to be written"
+    )
+    parser.add_argument(
+        "--apply-cal-mark",
+        action="store_true",
+        default=False,
+        help='Short for -k "DATA TABLE,data,flag_cal" -v 1',
+    )
+    parser.add_argument(
+        "--recursive",
+        action="store_true",
+        default=False,
+        help="Look for file in up to two subdirectories",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Plot stuff and be verbose",
+    )
 
     args = parser.parse_args(args)
 
@@ -975,24 +1038,28 @@ def main_bulk_change(args=None):
         args.value = 1
 
     if args.key is None:
-        raise ValueError('What should I do? Please specify either key and '
-                         'value, or apply-cal-mark')
+        raise ValueError(
+            "What should I do? Please specify either key and "
+            "value, or apply-cal-mark"
+        )
 
     fnames = []
     for fname in args.files:
         if args.recursive:
             if not fname == os.path.basename(fname):
-                raise ValueError('Options recursive requires a file name, not '
-                                 'a full path: {}'.format(fname))
+                raise ValueError(
+                    "Options recursive requires a file name, not "
+                    "a full path: {}".format(fname)
+                )
 
-            fs = glob.glob(os.path.join('**', fname), recursive=True)
+            fs = glob.glob(os.path.join("**", fname), recursive=True)
 
             fnames.extend(fs)
         else:
             fnames.append(fname)
 
     for fname in fnames:
-        print('Updating', fname, '...', end='')
+        print("Updating", fname, "...", end="")
 
         bulk_change(fname, args.key, args.value)
-        print(fname, ' Done.')
+        print(fname, " Done.")

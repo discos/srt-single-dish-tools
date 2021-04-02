@@ -6,14 +6,24 @@ import numpy as np
 import traceback
 import warnings
 from collections.abc import Iterable
-import copy
 from .utils import mad, HAS_MPL
 
 
-__all__ = ["contiguous_regions", "ref_std", "ref_mad", "linear_fun",
-           "linear_fit", "offset", "offset_fit", "baseline_rough",
-           "purge_outliers", "baseline_als", "fit_baseline_plus_bell",
-           "total_variance", "align"]
+__all__ = [
+    "contiguous_regions",
+    "ref_std",
+    "ref_mad",
+    "linear_fun",
+    "linear_fit",
+    "offset",
+    "offset_fit",
+    "baseline_rough",
+    "purge_outliers",
+    "baseline_als",
+    "fit_baseline_plus_bell",
+    "total_variance",
+    "align",
+]
 
 
 def contiguous_regions(condition):
@@ -40,7 +50,7 @@ def contiguous_regions(condition):
     """  # NOQA
     # Find the indicies of changes in "condition"
     diff = np.logical_xor(condition[1:], condition[:-1])
-    idx, = diff.nonzero()
+    (idx,) = diff.nonzero()
     # We need to start things after the change in "condition". Therefore,
     # we'll shift the index by 1 to the right.
     idx += 1
@@ -152,8 +162,7 @@ def linear_fit(x, y, start_pars, return_err=False):
     par : [q, m], floats
         Fitted intercept and slope of the linear function
     """
-    par, _ = curve_fit(linear_fun, x, y, start_pars,
-                       maxfev=6000)
+    par, _ = curve_fit(linear_fun, x, y, start_pars, maxfev=6000)
     if return_err:
         warnings.warn("return_err not implemented yet in linear_fit")
         return par, None
@@ -181,8 +190,7 @@ def offset_fit(x, y, offset_start=0, return_err=False):
     offset : float
         Fitted offset
     """
-    par, _ = curve_fit(offset, x, y, [offset_start],
-                       maxfev=6000)
+    par, _ = curve_fit(offset, x, y, [offset_start], maxfev=6000)
     if return_err:
         warnings.warn("return_err not implemented yet in offset_fit")
         return par[0], None
@@ -219,10 +227,11 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
     N = len(y)
     if start_pars is None:
         if N > 40:
-            m0 = (np.median(y[-20:]) - np.median(y[:20])) / \
-                       (np.mean(x[-20:]) - np.mean(x[:20]))
+            m0 = (np.median(y[-20:]) - np.median(y[:20])) / (
+                np.mean(x[-20:]) - np.mean(x[:20])
+            )
         else:
-            m0 = (y[-1] - y[0])/(x[-1] - x[0])
+            m0 = (y[-1] - y[0]) / (x[-1] - x[0])
 
         q0 = min(y)
         start_pars = [q0, m0]
@@ -288,8 +297,9 @@ def outlier_from_median_filt(y, window_size, down=True, up=True):
     return outliers
 
 
-def purge_outliers(y, window_size=5, up=True, down=True, mask=None,
-                   plot=False):
+def purge_outliers(
+    y, window_size=5, up=True, down=True, mask=None, plot=False
+):
     """Remove obvious outliers.
 
     Attention: This is known to throw false positives on bona fide, very strong
@@ -314,9 +324,7 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None,
 
     Noutliers = len(local_outliers[local_outliers])
     if Noutliers > 0:
-        warnings.warn("Found {} outliers".format(
-            Noutliers),
-                      UserWarning)
+        warnings.warn("Found {} outliers".format(Noutliers), UserWarning)
 
     outliers = np.logical_or(local_outliers, bad_mask)
     if not np.any(outliers):
@@ -332,17 +340,18 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None,
             previous = y[b[0] - 1]
             next_bin = y[b[1]]
             dx = b[1] - b[0]
-            y[b[0]:b[1]] = \
-                (next_bin - previous)/(dx + 1) * \
-                np.arange(1, b[1] - b[0] + 1) + previous
+            y[b[0]: b[1]] = (next_bin - previous) / (dx + 1) * np.arange(
+                1, b[1] - b[0] + 1
+            ) + previous
 
     if plot and HAS_MPL:
         import matplotlib.pyplot as plt
+
         fig = plt.figure()
         plt.plot(ysave, label="Input data")
         plt.plot(y, zorder=3, label="Filtered data")
         plt.plot(medfilt(ysave, window_size), zorder=6, lw=1, label="Medfilt")
-        plt.savefig("Bubu_" + str(np.random.randint(0, 10000000)) + '.png')
+        plt.savefig("Bubu_" + str(np.random.randint(0, 10000000)) + ".png")
         plt.legend()
         plt.close(fig)
 
@@ -384,14 +393,15 @@ def _als(y, lam, p, niter=30):
         Fitted baseline.
     """
     from scipy import sparse
+
     L = len(y)
     D = sparse.csc_matrix(np.diff(np.eye(L), 2))
     w = np.ones(L)
     for _ in range(niter):
         W = sparse.spdiags(w, 0, L, L)
         Z = W + lam * D.dot(D.transpose())
-        z = sparse.linalg.spsolve(Z, w*y)
-        w = p * (y > z) + (1-p) * (y < z)
+        z = sparse.linalg.spsolve(Z, w * y)
+        w = p * (y > z) + (1 - p) * (y < z)
     return z
 
 
@@ -438,18 +448,23 @@ def baseline_als(x, y, **kwargs):
         Fitted baseline. Only returned if return_baseline is True
     """
     from scipy.interpolate import interp1d
+
     if y.size < 300:
         return _baseline_als(x, y, **kwargs)
 
-    _ = kwargs.pop('outlier_purging', False)
-    return_baseline = kwargs.pop('return_baseline', False)
+    _ = kwargs.pop("outlier_purging", False)
+    return_baseline = kwargs.pop("return_baseline", False)
 
     y_medf = medfilt(y, 31)
 
-    els = np.array(
-        np.rint(np.linspace(0, y.size - 1, 31)), dtype=int)
-    y_sub, base = _baseline_als(x[els], y_medf[els], outlier_purging=False,
-                                return_baseline=True, **kwargs)
+    els = np.array(np.rint(np.linspace(0, y.size - 1, 31)), dtype=int)
+    y_sub, base = _baseline_als(
+        x[els],
+        y_medf[els],
+        outlier_purging=False,
+        return_baseline=True,
+        **kwargs
+    )
 
     func = interp1d(x[els], base)
     baseline = func(x)
@@ -459,9 +474,17 @@ def baseline_als(x, y, **kwargs):
         return y - baseline
 
 
-def _baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
-                  offset_correction=True, mask=None,
-                  outlier_purging=True):
+def _baseline_als(
+    x,
+    y,
+    lam=None,
+    p=None,
+    niter=40,
+    return_baseline=False,
+    offset_correction=True,
+    mask=None,
+    outlier_purging=True,
+):
 
     if not isinstance(outlier_purging, Iterable):
         outlier_purging = (outlier_purging, outlier_purging)
@@ -483,9 +506,9 @@ def _baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
     approx_baseline = approx_m * np.arange(N) + approx_q
     y = y - approx_baseline
 
-    y_mod = purge_outliers(y, up=outlier_purging[0],
-                           down=outlier_purging[1],
-                           mask=mask)
+    y_mod = purge_outliers(
+        y, up=outlier_purging[0], down=outlier_purging[1], mask=mask
+    )
 
     z = _als(y_mod, lam, p, niter=niter)
 
@@ -509,8 +532,9 @@ def _baseline_als(x, y, lam=None, p=None, niter=40, return_baseline=False,
         return y - z - offset
 
 
-def detrend_spectroscopic_data(x, spectrum, kind='als', mask=None,
-                               outlier_purging=True):
+def detrend_spectroscopic_data(
+    x, spectrum, kind="als", mask=None, outlier_purging=True
+):
     """Take the baseline off the spectroscopic data.
 
     Examples
@@ -523,15 +547,18 @@ def detrend_spectroscopic_data(x, spectrum, kind='als', mask=None,
     True
     """
     y = np.sum(spectrum, axis=1)
-    if kind == 'als':
-        y_sub, baseline = baseline_als(x, y, return_baseline=True,
-                                       outlier_purging=outlier_purging,
-                                       mask=mask)
-    elif kind == 'rough':
-        y_sub, baseline = baseline_rough(x, y, return_baseline=True,
-                                         mask=mask)
+    if kind == "als":
+        y_sub, baseline = baseline_als(
+            x,
+            y,
+            return_baseline=True,
+            outlier_purging=outlier_purging,
+            mask=mask,
+        )
+    elif kind == "rough":
+        y_sub, baseline = baseline_rough(x, y, return_baseline=True, mask=mask)
     else:
-        warnings.warn('Baseline kind unknown')
+        warnings.warn("Baseline kind unknown")
         return spectrum, np.ones_like(spectrum)
 
     if len(spectrum.shape) == 1:
@@ -546,7 +573,7 @@ def detrend_spectroscopic_data(x, spectrum, kind='als', mask=None,
     return spectrum - tiled_baseline, tiled_baseline
 
 
-def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
+def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
     """Fit a function composed of a linear baseline plus a bell function.
 
     Parameters
@@ -570,29 +597,33 @@ def fit_baseline_plus_bell(x, y, ye=None, kind='gauss'):
     fit_info : dict
         Fit info from the Astropy fitting routine.
     """
-    if kind not in ['gauss', 'lorentz']:
-        raise ValueError('kind has to be one of: gauss, lorentz')
+    if kind not in ["gauss", "lorentz"]:
+        raise ValueError("kind has to be one of: gauss, lorentz")
     from astropy.modeling import models, fitting
 
-    approx_m = (np.median(y[-20:]) - np.median(y[:20])) / \
-               (np.mean(x[-20:]) - np.mean(x[:20]))
+    approx_m = (np.median(y[-20:]) - np.median(y[:20])) / (
+        np.mean(x[-20:]) - np.mean(x[:20])
+    )
 
-    base = models.Linear1D(slope=approx_m, intercept=np.median(y[:20]),
-                           name='Baseline')
+    base = models.Linear1D(
+        slope=approx_m, intercept=np.median(y[:20]), name="Baseline"
+    )
 
     xrange = np.max(x) - np.min(x)
     yrange = np.max(y) - np.min(y)
 
-    if kind == 'gauss':
-        bell = models.Gaussian1D(mean=np.mean(x), stddev=xrange / 20,
-                                 amplitude=yrange, name='Bell')
+    if kind == "gauss":
+        bell = models.Gaussian1D(
+            mean=np.mean(x), stddev=xrange / 20, amplitude=yrange, name="Bell"
+        )
         bell.amplitude.bounds = (0, None)
         bell.mean.bounds = (None, None)
         bell.stddev.bounds = (0, None)
         # max_name = 'mean'
-    elif kind == 'lorentz':
-        bell = models.Lorentz1D(x_0=np.mean(x), fwhm=xrange / 20,
-                                amplitude=yrange, name='Bell')
+    elif kind == "lorentz":
+        bell = models.Lorentz1D(
+            x_0=np.mean(x), fwhm=xrange / 20, amplitude=yrange, name="Bell"
+        )
         bell.amplitude.bounds = (0, None)
         bell.x_0.bounds = (None, None)
         bell.fwhm.bounds = (0, None)
@@ -627,7 +658,7 @@ def total_variance(xs, ys, params):
         The total variance of the baseline-subtracted scans.
     """
     params = np.array(params).flatten()
-    qs = params[:len(xs) - 1]
+    qs = params[: len(xs) - 1]
     ms = params[len(xs) - 1:]
 
     x = xs[0].copy()
@@ -646,8 +677,12 @@ def total_variance(xs, ys, params):
 
     xints = np.linspace(x_range[0], x_range[1], int(len(x) / 20))
 
-    values = np.array([np.var(y[(x >= xints[k]) & (x < xints[k+1])])
-                      for k in range(len(xints[:-1]))])
+    values = np.array(
+        [
+            np.var(y[(x >= xints[k]) & (x < xints[k + 1])])
+            for k in range(len(xints[:-1]))
+        ]
+    )
     good = values == values
     value = np.mean(values[good])
 
@@ -681,16 +716,18 @@ def align(xs, ys):
     qs = np.zeros(len(xs) - 1)
     ms = np.zeros(len(xs) - 1)
 
-    result = minimize(_objective_function, [qs, ms], args=[xs, ys],
-                      options={'disp': True})
+    result = minimize(
+        _objective_function, [qs, ms], args=[xs, ys], options={"disp": True}
+    )
 
-    qs = result.x[:len(xs) - 1]
+    qs = result.x[: len(xs) - 1]
     ms = np.zeros(len(xs) - 1)
 
-    result = minimize(_objective_function, [qs, ms], args=[xs, ys],
-                      options={'disp': True})
+    result = minimize(
+        _objective_function, [qs, ms], args=[xs, ys], options={"disp": True}
+    )
 
-    qs = result.x[:len(xs) - 1]
+    qs = result.x[: len(xs) - 1]
     ms = result.x[len(xs) - 1:]
 
     return qs, ms
