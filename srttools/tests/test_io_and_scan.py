@@ -263,7 +263,7 @@ class Test2_Scan(object):
     def test_scan_loading(self, fname):
         '''Test that data are read.'''
 
-        Scan(os.path.join(self.datadir, 'spectrum', fname), debug=False)
+        Scan(os.path.join(self.datadir, 'spectrum', fname), plot=True)
         assert os.path.exists(os.path.join(self.config['productdir'],
                                            'spectrum',
                                            fname.replace('.fits', '') + '.hdf5'))
