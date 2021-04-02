@@ -117,10 +117,10 @@ class TestFit(object):
         with pytest.warns(UserWarning) as record:
             series2 = purge_outliers(series, plot=True)
         assert np.any(["Found 1 outliers"  in r.message.args[0] for r in record])
-        assert np.all(series2[:10] == series[:10])
-        assert np.all(series2[11:] == series[11:])
-        np.testing.assert_almost_equal(series2[10],
-                                       (series[9] + series[11]) / 2)
+        assert np.all(series2[:15] == series[:15])
+        assert np.all(series2[16:] == series[16:])
+        np.testing.assert_almost_equal(series2[15],
+                                       (series[14] + series[16]) / 2)
 
     def test_fit_baseline_plus_bell(self):
         """Test that the fit procedure works."""

@@ -344,7 +344,6 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None,
         plt.plot(medfilt(ysave, window_size), zorder=6, lw=1, label="Medfilt")
         plt.savefig("Bubu_" + str(np.random.randint(0, 10000000)) + '.png')
         plt.legend()
-        plt.show()
         plt.close(fig)
 
     return y
