@@ -3,6 +3,7 @@
 This packages contains affiliated package tests.
 """
 import os
+import shutil
 import time
 import tempfile
 import warnings
@@ -33,7 +34,7 @@ def download_test_data(datadir):
         # urllib.request.urlretrieve(url, 'sim.zip')
         log.info(f"Downloading test data from {url}")
         data = download_file(url)
-        os.rename(data, 'sim.zip')
+        shutil.copyfile(data, 'sim.zip')
         log.info("Unzipping")
         with ZipFile('sim.zip', 'r') as zipObj:
             zipObj.extractall()
@@ -215,11 +216,10 @@ simdir = os.path.join(datadir, 'sim')
 pswdir_probe = os.path.join(simdir, 'test_psw')
 config_probe = os.path.join(simdir, 'test_config_sim.ini')
 if not os.path.exists(pswdir_probe):
-    download_test_data(datadir)
     try:
         download_test_data(datadir)
     except Exception as e:
-        warnings.warn("Download failed. Simulating dataset")
+        log.info("Download failed. Simulating dataset")
         prepare_simulated_data(simdir)
 else:
     log.info("Test data already downloaded")
