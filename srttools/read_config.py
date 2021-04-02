@@ -6,6 +6,7 @@ import glob
 import warnings
 import numpy as np
 import astropy.units as u
+
 # For Python 2 and 3 compatibility
 try:
     import configparser
@@ -20,7 +21,7 @@ SRT_tools_config_file = None
 SRT_tools_config = None
 
 
-def sample_config_file(fname='sample_config_file.ini'):
+def sample_config_file(fname="sample_config_file.ini"):
     """Create a sample config file, to be modified by hand."""
     string = """
 [local]
@@ -72,7 +73,7 @@ goodchans :
 debug_file_format : jpg
 
     """
-    with open(fname, 'w') as fobj:
+    with open(fname, "w") as fobj:
         print(string, file=fobj)
     return fname
 
@@ -111,102 +112,115 @@ def read_config(fname=None):
 
     # ---------- Set default values --------------------------------------
 
-    config_output['projection'] = 'ARC'
-    config_output['interpolation'] = 'linear'
-    config_output['workdir'] = os.path.abspath(os.curdir) + '/'
-    config_output['datadir'] = os.path.abspath(os.curdir) + '/'
-    config_output['productdir'] = None
-    config_output['list_of_directories'] = '*'
-    config_output['calibrator_directories'] = []
-    config_output['skydip_directories'] = []
-    config_output['pixel_size'] = '1'
-    config_output['goodchans'] = None
-    config_output['filtering_factor'] = '0'
-    config_output['noise_threshold'] = '5'
-    config_output['smooth_window'] = '0.05'
-    config_output['debug_file_format'] = 'jpg'
+    config_output["projection"] = "ARC"
+    config_output["interpolation"] = "linear"
+    config_output["workdir"] = os.path.abspath(os.curdir) + "/"
+    config_output["datadir"] = os.path.abspath(os.curdir) + "/"
+    config_output["productdir"] = None
+    config_output["list_of_directories"] = "*"
+    config_output["calibrator_directories"] = []
+    config_output["skydip_directories"] = []
+    config_output["pixel_size"] = "1"
+    config_output["goodchans"] = None
+    config_output["filtering_factor"] = "0"
+    config_output["noise_threshold"] = "5"
+    config_output["smooth_window"] = "0.05"
+    config_output["debug_file_format"] = "jpg"
 
     # --------------------------------------------------------------------
 
     # Read local information
 
-    local_params = dict(Config.items('local'))
+    local_params = dict(Config.items("local"))
 
     config_output.update(local_params)
-    if not config_output['workdir'].startswith('/'):
-        config_output['workdir'] = \
-            os.path.abspath(os.path.join(os.path.split(fname)[0],
-                                         config_output['workdir']))
+    if not config_output["workdir"].startswith("/"):
+        config_output["workdir"] = os.path.abspath(
+            os.path.join(os.path.split(fname)[0], config_output["workdir"])
+        )
 
-    if not config_output['datadir'].startswith('/'):
-        config_output['datadir'] = \
-            os.path.abspath(os.path.join(os.path.split(fname)[0],
-                                         config_output['datadir']))
+    if not config_output["datadir"].startswith("/"):
+        config_output["datadir"] = os.path.abspath(
+            os.path.join(os.path.split(fname)[0], config_output["datadir"])
+        )
 
-    if config_output['productdir'] is not None and \
-            config_output['productdir'].lower() == 'none':
-        config_output['productdir'] = None
+    if (
+        config_output["productdir"] is not None
+        and config_output["productdir"].lower() == "none"
+    ):
+        config_output["productdir"] = None
 
-    if config_output['productdir'] is not None and \
-            not config_output['productdir'].startswith('/'):
-        config_output['productdir'] = \
-            os.path.abspath(os.path.join(os.path.split(fname)[0],
-                                         config_output['productdir']))
+    if config_output["productdir"] is not None and not config_output[
+        "productdir"
+    ].startswith("/"):
+        config_output["productdir"] = os.path.abspath(
+            os.path.join(os.path.split(fname)[0], config_output["productdir"])
+        )
 
     try:
         # Read analysis information
-        debugging_params = dict(Config.items('debugging'))
+        debugging_params = dict(Config.items("debugging"))
 
         config_output.update(debugging_params)
     except configparser.NoSectionError:
         pass
 
     # Read analysis information
-    analysis_params = dict(Config.items('analysis'))
+    analysis_params = dict(Config.items("analysis"))
 
     config_output.update(analysis_params)
 
     try:
-        config_output['list_of_directories'] = \
-            [s for s in analysis_params['list_of_directories'].splitlines()
-             if s.strip()]  # This last instruction eliminates blank lines
+        config_output["list_of_directories"] = [
+            s
+            for s in analysis_params["list_of_directories"].splitlines()
+            if s.strip()
+        ]  # This last instruction eliminates blank lines
     except Exception:
         warnings.warn("Invalid list_of_directories in config file")
 
     try:
-        config_output['calibrator_directories'] = \
-            [s for s in analysis_params['calibrator_directories'].splitlines()
-             if s.strip()]  # This last instruction eliminates blank lines
+        config_output["calibrator_directories"] = [
+            s
+            for s in analysis_params["calibrator_directories"].splitlines()
+            if s.strip()
+        ]  # This last instruction eliminates blank lines
     except Exception:
         warnings.warn("Invalid calibrator_directories in config file")
 
     try:
-        config_output['skydip_directories'] = \
-            [s for s in analysis_params['skydip_directories'].splitlines()
-             if s.strip()]  # This last instruction eliminates blank lines
+        config_output["skydip_directories"] = [
+            s
+            for s in analysis_params["skydip_directories"].splitlines()
+            if s.strip()
+        ]  # This last instruction eliminates blank lines
     except Exception:
         warnings.warn("Invalid skydip_directories in config file")
 
     # If the list of directories is not specified, or if a '*' symbol is used,
     # use glob in the datadir to determine the list
 
-    if config_output['list_of_directories'] in ([], ['*'], '*'):
-        config_output['list_of_directories'] = \
-            [os.path.split(f)[1]  # return name without path
-             for f in glob.glob(os.path.join(config_output['datadir'], '*'))
-             if os.path.isdir(f)]  # only if it's a directory
+    if config_output["list_of_directories"] in ([], ["*"], "*"):
+        config_output["list_of_directories"] = [
+            os.path.split(f)[1]  # return name without path
+            for f in glob.glob(os.path.join(config_output["datadir"], "*"))
+            if os.path.isdir(f)
+        ]  # only if it's a directory
 
-    config_output['pixel_size'] = \
-        float(np.radians(float(config_output['pixel_size']) / 60)) * u.rad
+    config_output["pixel_size"] = (
+        float(np.radians(float(config_output["pixel_size"]) / 60)) * u.rad
+    )
 
-    if config_output['goodchans'] is not None:
-        config_output['goodchans'] = \
-            [int(n) for n in config_output['goodchans']]
+    if config_output["goodchans"] is not None:
+        config_output["goodchans"] = [
+            int(n) for n in config_output["goodchans"]
+        ]
 
-    config_output['noise_threshold'] = float(config_output['noise_threshold'])
-    config_output['smooth_window'] = float(config_output['smooth_window'])
-    config_output['filtering_factor'] = \
-        float(config_output['filtering_factor'])
+    config_output["noise_threshold"] = float(config_output["noise_threshold"])
+    config_output["smooth_window"] = float(config_output["smooth_window"])
+    config_output["filtering_factor"] = float(
+        config_output["filtering_factor"]
+    )
 
     SRT_tools_config = config_output
     return config_output

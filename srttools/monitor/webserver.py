@@ -3,6 +3,7 @@ import warnings
 import asyncio
 import json
 import base64
+
 try:
     import tornado.web
     import tornado.websocket
@@ -10,15 +11,18 @@ try:
     from tornado.websocket import WebSocketHandler, WebSocketClosedError
     from tornado.log import access_log
 except ImportError:
-    warnings.warn('To use SDTmonitor, you need to install tornado: \n'
-                  '\n   > pip install tornado')
+    warnings.warn(
+        "To use SDTmonitor, you need to install tornado: \n"
+        "\n   > pip install tornado"
+    )
     RequestHandler = WebSocketHandler = object
 
 from srttools.monitor.common import MAX_FEEDS, log
 
 
-def create_index_file(port, max_images=MAX_FEEDS*2):
-    html_string = '''
+def create_index_file(port, max_images=MAX_FEEDS * 2):
+    html_string = (
+        """
 <!DOCTYPE html>
 <html>
     <head>
@@ -95,7 +99,9 @@ def create_index_file(port, max_images=MAX_FEEDS*2):
                         destination = document.location.href.split(":")[1]
                     }
 
-                    var ws = new WebSocket("ws:" + destination + ":''' + str(port) + '''/images");
+                    var ws = new WebSocket("ws:" + destination + ":"""
+        + str(port)
+        + """/images");
 
                     ws.onopen = function()
                     {
@@ -141,8 +147,9 @@ def create_index_file(port, max_images=MAX_FEEDS*2):
             }
         </script>
     </body>
-</html>'''
-    with open('index.html', 'w') as fobj:
+</html>"""
+    )
+    with open("index.html", "w") as fobj:
         print(html_string, file=fobj)
 
 
@@ -157,7 +164,7 @@ class WSHandler(WebSocketHandler):
         return True
 
     def open(self):
-        log.info('Got connection from {}'.format(self.request.remote_ip))
+        log.info("Got connection from {}".format(self.request.remote_ip))
         self.connected_clients.add(self)
         # Send all the images to new clients
         keys = self.images.keys()
@@ -171,10 +178,7 @@ class WSHandler(WebSocketHandler):
         pass
 
     def send_image(self, index):
-        message = {
-            'index': index,
-            'image': self.images[index]
-        }
+        message = {"index": index, "image": self.images[index]}
         try:
             self.write_message(json.dumps(message))
         except tornado.websocket.WebSocketClosedError:
@@ -183,13 +187,13 @@ class WSHandler(WebSocketHandler):
     def _close(self):
         if self in self.connected_clients:
             self.connected_clients.remove(self)
-            log.info('Client {} disconnected'.format(self.request.remote_ip))
+            log.info("Client {} disconnected".format(self.request.remote_ip))
 
 
 class HTTPHandler(RequestHandler):
     def get(self):
         # Answer the HTTP request with the index.html page
-        self.write(open('index.html', 'r').read())
+        self.write(open("index.html", "r").read())
 
 
 class WebServer(object):
@@ -200,26 +204,40 @@ class WebServer(object):
         # Load the current images
         self.images = {}
         for index in range(MAX_FEEDS * 2):
-            self._load_image('latest_{}.{}'.format(index, extension))
+            self._load_image("latest_{}.{}".format(index, extension))
 
         self.connected_clients = set()
 
         self.t = None
         self.started = False
-        application = Application([
-            (r'/images', WSHandler, dict(connected_clients=self.connected_clients, images=self.images)),
-            (r'/', HTTPHandler),
-            (r'/index.html', HTTPHandler)
-        ])
+        application = Application(
+            [
+                (
+                    r"/images",
+                    WSHandler,
+                    dict(
+                        connected_clients=self.connected_clients,
+                        images=self.images,
+                    ),
+                ),
+                (r"/", HTTPHandler),
+                (r"/index.html", HTTPHandler),
+            ]
+        )
         # Disable default log function, we use custom ones
         def log_function(_):
             pass
+
         application.log_request = log_function
         self.web_server = tornado.httpserver.HTTPServer(application)
         try:
             self.web_server.listen(self.port)
         except OSError:
-            raise OSError('Port {} is already being used, choose a different one!'.format(self.port))
+            raise OSError(
+                "Port {} is already being used, choose a different one!".format(
+                    self.port
+                )
+            )
 
     def start(self):
         self._asyncioloop = None
@@ -246,12 +264,12 @@ class WebServer(object):
         self.started = False
 
     def _load_image(self, image_file):
-        index = int(image_file.split('_')[1].split('.')[0])
+        index = int(image_file.split("_")[1].split(".")[0])
         try:
-            image_string = base64.b64encode(open(image_file, 'rb').read())
-            image_string = image_string.decode('utf-8')
+            image_string = base64.b64encode(open(image_file, "rb").read())
+            image_string = image_string.decode("utf-8")
         except IOError:
-            image_string = ''
+            image_string = ""
         self.images[index] = image_string
         return index, image_string
 
@@ -261,4 +279,3 @@ class WebServer(object):
         clients = self.connected_clients
         for client in clients:
             self.ioloop.add_callback(client.send_image, index)
-

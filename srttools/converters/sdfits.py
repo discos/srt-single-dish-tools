@@ -1,4 +1,3 @@
-
 from astropy.io import fits
 from astropy.time import Time
 from astropy.io.fits.column import _parse_tdim
@@ -6,8 +5,14 @@ import astropy.units as u
 import astropy.constants as c
 import os
 import numpy as np
-from srttools.io import mkdir_p, locations, read_data_fitszilla, \
-    get_chan_columns, classify_chan_columns, interpret_chan_name
+from srttools.io import (
+    mkdir_p,
+    locations,
+    read_data_fitszilla,
+    get_chan_columns,
+    classify_chan_columns,
+    interpret_chan_name,
+)
 import glob
 
 
@@ -187,7 +192,7 @@ TUNIT39 = 'deg     '           / units of field
 
 
 def get_data_description_from_model_header(data_format=None):
-    header = fits.Header.fromstring(model_header, sep='\n')
+    header = fits.Header.fromstring(model_header, sep="\n")
     num = []
     list_ttype = []
     list_tform = []
@@ -195,15 +200,15 @@ def get_data_description_from_model_header(data_format=None):
     list_tdim = []
     headerdict = dict(header)
     for k in header:
-        if not k.startswith('TTYPE'):
+        if not k.startswith("TTYPE"):
             continue
-        n = k.replace('TTYPE', '')
+        n = k.replace("TTYPE", "")
         unit = ""
-        if 'TUNIT' + n in headerdict:
-            unit = header['TUNIT' + n]
-        tform = header['TFORM' + n]
+        if "TUNIT" + n in headerdict:
+            unit = header["TUNIT" + n]
+        tform = header["TFORM" + n]
         tdim = "0"
-        if header[k] in ['DATA', 'FLAGGED'] and data_format is not None:
+        if header[k] in ["DATA", "FLAGGED"] and data_format is not None:
             tform = "{}D".format(np.product(data_format))
             tdim = str(data_format)
         num.append(int(n))
@@ -246,36 +251,49 @@ def get_model_HDUlist(data_format, length=1, **kwargs):
     """Produce a model CLASS-compatible HDUlist."""
     cols = []
 
-    list_ttype, list_tform, list_tunit, list_tdim = \
-        get_data_description_from_model_header(data_format)
+    (
+        list_ttype,
+        list_tform,
+        list_tunit,
+        list_tdim,
+    ) = get_data_description_from_model_header(data_format)
 
-    for ttype, tform, tunit, dim in \
-            zip(list_ttype, list_tform, list_tunit, list_tdim):
+    for ttype, tform, tunit, dim in zip(
+        list_ttype, list_tform, list_tunit, list_tdim
+    ):
         newdim, array = _get_empty_array(length, dim)
 
         if newdim != ():
-            newcol = fits.Column(name=ttype, format=tform, unit=tunit,
-                                 dim=newdim, array=array)
+            newcol = fits.Column(
+                name=ttype, format=tform, unit=tunit, dim=newdim, array=array
+            )
         else:
-            newcol = fits.Column(name=ttype, format=tform, unit=tunit,
-                                 array=array)
+            newcol = fits.Column(
+                name=ttype, format=tform, unit=tunit, array=array
+            )
         cols.append(newcol)
 
     coldefs = fits.ColDefs(cols)
 
     hdu = fits.BinTableHDU.from_columns(
-        coldefs, header=fits.Header.fromstring(model_header, sep='\n'),
-        name='SINGLE DISH', **kwargs)
+        coldefs,
+        header=fits.Header.fromstring(model_header, sep="\n"),
+        name="SINGLE DISH",
+        **kwargs
+    )
 
     primary_hdu = fits.PrimaryHDU(
-        header=fits.Header.fromstring(model_primary_header, sep='\n'))
+        header=fits.Header.fromstring(model_primary_header, sep="\n")
+    )
     return fits.HDUList([primary_hdu, hdu])
 
 
-class SDFITS_creator():
+class SDFITS_creator:
     """SDFITS converter"""
-    def __init__(self, dirname, scandir=None, average=True, use_calon=False,
-                 test=False):
+
+    def __init__(
+        self, dirname, scandir=None, average=True, use_calon=False, test=False
+    ):
         """Initialization.
 
         Initialization is easy. If scandir is given, the conversion is
@@ -337,155 +355,175 @@ class SDFITS_creator():
         -------
         tables
         """
-        scandir = scandir.rstrip('/')
-        fname = os.path.join(scandir, 'summary.fits')
+        scandir = scandir.rstrip("/")
+        fname = os.path.join(scandir, "summary.fits")
         self.fill_in_summary(fname)
-        for fname in sorted(glob.glob(os.path.join(scandir, '*.fits'))):
-            if 'summary' in fname:
+        for fname in sorted(glob.glob(os.path.join(scandir, "*.fits"))):
+            if "summary" in fname:
                 continue
             subscan = read_data_fitszilla(fname)
-            location = locations[subscan.meta['site']]
-            times = Time(subscan['time'] * u.day, format='mjd', scale='utc',
-                         location=location)
-            date_col = [t.strftime('%d/%m/%y') for t in times.to_datetime()]
+            location = locations[subscan.meta["site"]]
+            times = Time(
+                subscan["time"] * u.day,
+                format="mjd",
+                scale="utc",
+                location=location,
+            )
+            date_col = [t.strftime("%d/%m/%y") for t in times.to_datetime()]
 
             # Different from CLASS converter - here we take seconds from the
             # First day (when data span multiple dats)
             ut_col = (times.mjd - np.floor(times.mjd[0])) * 86400
 
             allcolumns = get_chan_columns(subscan)
-            channels = \
-                [subscan[ch].meta['channels'] for ch in allcolumns]
+            channels = [subscan[ch].meta["channels"] for ch in allcolumns]
             if not len(set(channels)) == 1:
-                raise ValueError("Only files with the same number of spectral "
-                                 "bins in each channel are supported. Please "
-                                 "report")
+                raise ValueError(
+                    "Only files with the same number of spectral "
+                    "bins in each channel are supported. Please "
+                    "report"
+                )
             classif = classify_chan_columns(allcolumns)
             feeds = list(classif.keys())
 
             for f in feeds:
-                azimuth = subscan['az'][:, f].to(u.deg).value
-                elevation = subscan['el'][:, f].to(u.deg).value
-                crval3 = subscan['ra'][:, f].to(u.deg).value
-                crval4 = subscan['dec'][:, f].to(u.deg).value
+                azimuth = subscan["az"][:, f].to(u.deg).value
+                elevation = subscan["el"][:, f].to(u.deg).value
+                crval3 = subscan["ra"][:, f].to(u.deg).value
+                crval4 = subscan["dec"][:, f].to(u.deg).value
 
-                columns_allbase = [a for a in allcolumns
-                                   if a.startswith('Feed{}'.format(f))]
+                columns_allbase = [
+                    a for a in allcolumns if a.startswith("Feed{}".format(f))
+                ]
 
-                basebands = \
-                    [interpret_chan_name(ch)[2] for ch in columns_allbase]
+                basebands = [
+                    interpret_chan_name(ch)[2] for ch in columns_allbase
+                ]
 
                 for baseband in basebands:
                     if baseband is None:
                         baseband = 0
                         columns = columns_allbase
                     else:
-                        columns = [ch for ch in columns_allbase if
-                                   ch.endswith('{}'.format(baseband))]
+                        columns = [
+                            ch
+                            for ch in columns_allbase
+                            if ch.endswith("{}".format(baseband))
+                        ]
                     ncol = len(columns)
 
-                    data_matrix = \
-                        np.stack(list(zip(*[subscan[ch] for ch in columns])))
+                    data_matrix = np.stack(
+                        list(zip(*[subscan[ch] for ch in columns]))
+                    )
                     shape = data_matrix[0].shape
 
                     array = subscan[columns[0]]
-                    newhdu = \
-                        get_model_HDUlist(data_format=shape,
-                                          length=len(array))
+                    newhdu = get_model_HDUlist(
+                        data_format=shape, length=len(array)
+                    )
 
                     data = newhdu[1].data
 
-                    nbin = subscan.meta['channels']
+                    nbin = subscan.meta["channels"]
 
-                    bandwidth = array.meta['bandwidth']
-                    restfreq_label = 'RESTFREQ{}'.format(baseband + 1)
+                    bandwidth = array.meta["bandwidth"]
+                    restfreq_label = "RESTFREQ{}".format(baseband + 1)
                     if restfreq_label not in self.summary:
-                        restfreq_label = 'RESTFREQ1'
+                        restfreq_label = "RESTFREQ1"
                     restfreq = self.summary[restfreq_label] * u.MHz
                     #
                     # data['RESTFREQ'] = restfreq.to(u.Hz).value
-                    data['EXPOSURE'] = \
-                        array.meta['integration_time'].value
-                    data['TIME'] = ut_col
+                    data["EXPOSURE"] = array.meta["integration_time"].value
+                    data["TIME"] = ut_col
 
-                    data['TSYS'] = 1
-                    df = (bandwidth / nbin).to('Hz')
-                    data['CDELT1'] = df
-                    deltav = - df / restfreq * c.c
+                    data["TSYS"] = 1
+                    df = (bandwidth / nbin).to("Hz")
+                    data["CDELT1"] = df
+                    deltav = -df / restfreq * c.c
 
-                    data['FREQRES'] = df.to('Hz').value
+                    data["FREQRES"] = df.to("Hz").value
 
-                    data['TDIM23'] = str(data_matrix[0].shape)
-                    data['TDIM25'] = str(data_matrix[0].shape)
+                    data["TDIM23"] = str(data_matrix[0].shape)
+                    data["TDIM25"] = str(data_matrix[0].shape)
 
-                    data['DATA'] = data_matrix
+                    data["DATA"] = data_matrix
 
-                    data['OBJECT'] = subscan.meta['SOURCE']
-                    data['AZIMUTH'] = azimuth
-                    data['ELEVATIO'] = elevation
-                    data['CRPIX1'] = nbin // 2 + 1
-                    data['CRVAL1'] = \
-                        array.meta['frequency'] + array.meta['bandwidth'] / 2
-                    data['CRVAL3'] = crval3
-                    data['CRVAL4'] = crval4
+                    data["OBJECT"] = subscan.meta["SOURCE"]
+                    data["AZIMUTH"] = azimuth
+                    data["ELEVATIO"] = elevation
+                    data["CRPIX1"] = nbin // 2 + 1
+                    data["CRVAL1"] = (
+                        array.meta["frequency"] + array.meta["bandwidth"] / 2
+                    )
+                    data["CRVAL3"] = crval3
+                    data["CRVAL4"] = crval4
 
-                    data['PARANGLE'] = subscan['par_angle']
-                    data['FOCUSROT'] = subscan['derot_angle']
-                    data['CRVAL4'] = crval4
-                    weather = subscan['weather']
+                    data["PARANGLE"] = subscan["par_angle"]
+                    data["FOCUSROT"] = subscan["derot_angle"]
+                    data["CRVAL4"] = crval4
+                    weather = subscan["weather"]
                     data["HUMIDITY"] = weather[:, 0]
                     data["TAMBIENT"] = weather[:, 1]
                     data["PRESSURE"] = weather[:, 2]
                     data["BEAM"] = f
-                    data['DATE-OBS'] = date_col[0]
-                    data['OBJ-RA'] = subscan['ra'][:, f].to(u.deg).value
-                    data['OBJ-DEC'] = subscan['dec'][:, f].to(u.deg).value
-                    data['RESTFRQ'] = restfreq.to(u.Hz).value
-                    data['BANDWID'] = array.meta['bandwidth'].to(u.Hz).value
-                    data['OBSMODE'] = subscan.meta['SubScanType']
+                    data["DATE-OBS"] = date_col[0]
+                    data["OBJ-RA"] = subscan["ra"][:, f].to(u.deg).value
+                    data["OBJ-DEC"] = subscan["dec"][:, f].to(u.deg).value
+                    data["RESTFRQ"] = restfreq.to(u.Hz).value
+                    data["BANDWID"] = array.meta["bandwidth"].to(u.Hz).value
+                    data["OBSMODE"] = subscan.meta["SubScanType"]
 
                     header = newhdu[1].header
-                    header['TELESCOP'] = subscan.meta['site']
-                    header['OBSERVER'] = subscan.meta['OBSERVER']
-                    header['OBSGEO-X'] = \
-                        locations[subscan.meta['site']].x.to('m').value
-                    header['OBSGEO-Y'] = \
-                        locations[subscan.meta['site']].y.to('m').value
-                    header['OBSGEO-Z'] = \
-                        locations[subscan.meta['site']].z.to('m').value
+                    header["TELESCOP"] = subscan.meta["site"]
+                    header["OBSERVER"] = subscan.meta["OBSERVER"]
+                    header["OBSGEO-X"] = (
+                        locations[subscan.meta["site"]].x.to("m").value
+                    )
+                    header["OBSGEO-Y"] = (
+                        locations[subscan.meta["site"]].y.to("m").value
+                    )
+                    header["OBSGEO-Z"] = (
+                        locations[subscan.meta["site"]].z.to("m").value
+                    )
 
-                    header['CTYPE1'] = "FREQ"
-                    header['CRVAL'] = 0
-                    header['CRVAL3'] = \
-                        np.mean(subscan['ra'][:, f].to(u.deg).value)
-                    header['CRVAL4'] = \
-                        np.mean(subscan['dec'][:, f].to(u.deg).value)
-                    header['LINE'] = subscan.meta['SOURCE']
-                    header['DATE-OBS'] = date_col[0]
+                    header["CTYPE1"] = "FREQ"
+                    header["CRVAL"] = 0
+                    header["CRVAL3"] = np.mean(
+                        subscan["ra"][:, f].to(u.deg).value
+                    )
+                    header["CRVAL4"] = np.mean(
+                        subscan["dec"][:, f].to(u.deg).value
+                    )
+                    header["LINE"] = subscan.meta["SOURCE"]
+                    header["DATE-OBS"] = date_col[0]
 
-                    header['DATE-RED'] = \
-                        Time.now().to_datetime().strftime('%d/%m/%y')
-                    header['LINE'] = \
-                        "FEED{}-{:3.3f}-MHz".format(f,
-                                                    bandwidth.to('MHz').value)
-                    header['CDELT1'] = df.to('Hz').value
-                    header['CDELT3'] = \
+                    header["DATE-RED"] = (
+                        Time.now().to_datetime().strftime("%d/%m/%y")
+                    )
+                    header["LINE"] = "FEED{}-{:3.3f}-MHz".format(
+                        f, bandwidth.to("MHz").value
+                    )
+                    header["CDELT1"] = df.to("Hz").value
+                    header["CDELT3"] = (
                         subscan.meta["ra_offset"].to(u.deg).value
-                    header['CDELT4'] = \
+                    )
+                    header["CDELT4"] = (
                         subscan.meta["dec_offset"].to(u.deg).value
-                    header['RESTFREQ'] = restfreq.to(u.Hz).value
-                    header['MAXIS1'] = channels[0]
+                    )
+                    header["RESTFREQ"] = restfreq.to(u.Hz).value
+                    header["MAXIS1"] = channels[0]
 
-                    filekey = \
-                        os.path.basename(scandir) + \
-                            '_all_feed{}_bband{}'.format(f, baseband)
+                    filekey = os.path.basename(
+                        scandir
+                    ) + "_all_feed{}_bband{}".format(f, baseband)
 
                     if filekey in list(self.tables.keys()):
                         hdul = self.tables[filekey]
                         nrows1, nrows2 = len(hdul[1].data), len(data)
                         nrows = nrows1 + nrows2
-                        newhdu = fits.BinTableHDU.from_columns(hdul[1].columns,
-                                                               nrows=nrows)
+                        newhdu = fits.BinTableHDU.from_columns(
+                            hdul[1].columns, nrows=nrows
+                        )
                         for col in hdul[1].columns:
                             name = col.name
                             newhdu.data[name][:nrows1] = hdul[1].data[name]
@@ -499,5 +537,5 @@ class SDFITS_creator():
     def write_tables_to_disk(self):
         """Write all HDU lists produced until now in separate FITS files."""
         for (filekey, table) in self.tables.items():
-            outfile = os.path.join(self.dirname, '{}.fits'.format(filekey))
+            outfile = os.path.join(self.dirname, "{}.fits".format(filekey))
             table.writeto(outfile, overwrite=True)

@@ -3,7 +3,8 @@
 # Packages may add whatever they like to this file, but
 # should keep this content at the top.
 # ----------------------------------------------------------------------------
-from ._astropy_init import *   # noqa
+from ._astropy_init import *  # noqa
+
 # ----------------------------------------------------------------------------
 try:
     import faulthandler
@@ -14,6 +15,7 @@ except ImportError:
 
 import warnings
 import numpy as np
+
 # warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
 # warnings.filterwarnings("error", ".*")
 warnings.filterwarnings("once", category=UserWarning)

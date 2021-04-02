@@ -1,7 +1,6 @@
 """Functions to simulate scans and maps."""
 
 
-
 import numpy as np
 import numpy.random as ra
 import os
@@ -15,8 +14,10 @@ from .utils import tqdm, jit
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astropy import log
+
 try:
     import matplotlib.pyplot as plt
+
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
@@ -108,6 +109,7 @@ def _standard_source_spectrum(counts, nbin, bw=1000, sigma=1):
     def spec_func(f):
         f = f - bw / 2
         return np.exp(-(f ** 2) / (2 * sigma ** 2))
+
     return _apply_spectrum_to_data(spec_func, counts, nbin, bw)
 
 
@@ -116,13 +118,14 @@ def _standard_bkg_spectrum(counts, nbin, bw=1000):
         sp = 1 + 0.1 * np.sin(2 * np.pi * 5 / bw * f) * (1 - f / bw)
         sp -= 0.5 * f / bw
         return sp
+
     return _apply_spectrum_to_data(spec_func, counts, nbin, bw)
 
 
 def create_summary(filename, key_dict=None):
     if key_dict is None:
         key_dict = {}
-    header = fits.Header.fromstring(summary_header, sep='\n')
+    header = fits.Header.fromstring(summary_header, sep="\n")
     for key, value in key_dict.items():
         header[key] = value
 
@@ -133,7 +136,7 @@ def create_summary(filename, key_dict=None):
 
 
 def _is_number(x):
-    """"Test if a string or other is a number
+    """ "Test if a string or other is a number
 
     Examples
     --------
@@ -166,9 +169,9 @@ def _default_flat_shape(x):
 
 
 @jit(nopython=True)
-def _2d_gauss(x, y, sigma=2.5 / 60.):
+def _2d_gauss(x, y, sigma=2.5 / 60.0):
     """A Gaussian beam"""
-    return np.exp(-(x ** 2 + y ** 2) / (2 * sigma**2))
+    return np.exp(-(x ** 2 + y ** 2) / (2 * sigma ** 2))
 
 
 @jit(nopython=True)
@@ -176,12 +179,18 @@ def calibrator_scan_func(x):
     return DEFAULT_PEAK_COUNTS * _2d_gauss(x, 0, sigma=2.5 / 60)
 
 
-def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
-                   srcname='DummyCal', channel_ratio=0.8, baseline="flat",
-                   nbin=1):
+def sim_crossscans(
+    ncross,
+    caldir,
+    scan_func=calibrator_scan_func,
+    srcname="DummyCal",
+    channel_ratio=0.8,
+    baseline="flat",
+    nbin=1,
+):
     src_ra = 185
     src_dec = 75
-    speed = 2.  # arcmin/s
+    speed = 2.0  # arcmin/s
     dt = 0.04
     dtheta = speed * dt
     length = 4 / dtheta
@@ -189,14 +198,26 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
     timedelta = 0
 
     for i in tqdm(range(ncross)):
-        times, ras, scan0 = \
-            simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
-                          noise_amplitude=0.2, center=0,
-                          baseline=baseline, nbin=nbin)
-        _, _, scan1 = \
-            simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
-                          noise_amplitude=0.2, center=0,
-                          baseline=baseline, nbin=nbin)
+        times, ras, scan0 = simulate_scan(
+            dt=dt,
+            length=length,
+            speed=speed,
+            shape=scan_func,
+            noise_amplitude=0.2,
+            center=0,
+            baseline=baseline,
+            nbin=nbin,
+        )
+        _, _, scan1 = simulate_scan(
+            dt=dt,
+            length=length,
+            speed=speed,
+            shape=scan_func,
+            noise_amplitude=0.2,
+            center=0,
+            baseline=baseline,
+            nbin=nbin,
+        )
 
         ras = ras / np.cos(np.radians(src_dec)) + src_ra
         if i % 2 != 0:
@@ -204,38 +225,66 @@ def sim_crossscans(ncross, caldir, scan_func=calibrator_scan_func,
 
         decs = np.zeros_like(ras) + src_dec
 
-        save_scan(times + timedelta, ras, decs,
-                  {'Ch0': scan0, 'Ch1': scan1 * channel_ratio},
-                  filename=os.path.join(caldir, '{}_Ra.fits'.format(i)),
-                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio))
+        save_scan(
+            times + timedelta,
+            ras,
+            decs,
+            {"Ch0": scan0, "Ch1": scan1 * channel_ratio},
+            filename=os.path.join(caldir, "{}_Ra.fits".format(i)),
+            src_ra=src_ra,
+            src_dec=src_dec,
+            srcname=srcname,
+            counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio),
+        )
         timedelta += times[-1] + 1
 
-        times, decs, scan0 = \
-            simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
-                          noise_amplitude=0.2, center=src_dec,
-                          baseline=baseline, nbin=nbin)
-        _, _, scan1 = \
-            simulate_scan(dt=dt, length=length, speed=speed, shape=scan_func,
-                          noise_amplitude=0.2, center=src_dec,
-                          baseline=baseline, nbin=nbin)
+        times, decs, scan0 = simulate_scan(
+            dt=dt,
+            length=length,
+            speed=speed,
+            shape=scan_func,
+            noise_amplitude=0.2,
+            center=src_dec,
+            baseline=baseline,
+            nbin=nbin,
+        )
+        _, _, scan1 = simulate_scan(
+            dt=dt,
+            length=length,
+            speed=speed,
+            shape=scan_func,
+            noise_amplitude=0.2,
+            center=src_dec,
+            baseline=baseline,
+            nbin=nbin,
+        )
 
         if i % 2 != 0:
             decs = decs[::-1]
 
         ras = np.zeros_like(decs) + src_ra
 
-        save_scan(times + timedelta, ras, decs,
-                  {'Ch0': scan0, 'Ch1': scan1 * channel_ratio},
-                  filename=os.path.join(caldir, '{}_Dec.fits'.format(i)),
-                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio))
+        save_scan(
+            times + timedelta,
+            ras,
+            decs,
+            {"Ch0": scan0, "Ch1": scan1 * channel_ratio},
+            filename=os.path.join(caldir, "{}_Dec.fits".format(i)),
+            src_ra=src_ra,
+            src_dec=src_dec,
+            srcname=srcname,
+            counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio),
+        )
         timedelta += times[-1] + 1
 
-    create_summary(os.path.join(caldir, 'summary.fits'),
-                   {'RightAscension': np.radians(src_ra),
-                    'Declination': np.radians(src_dec),
-                    'Object': srcname})
+    create_summary(
+        os.path.join(caldir, "summary.fits"),
+        {
+            "RightAscension": np.radians(src_ra),
+            "Declination": np.radians(src_dec),
+            "Object": srcname,
+        },
+    )
 
 
 def _default_map_shape(x, y):
@@ -257,9 +306,14 @@ def _default_map_shape(x, y):
     return DEFAULT_PEAK_COUNTS + np.zeros_like(y) * np.zeros_like(x)
 
 
-def sim_position_switching(caldir, srcname='Dummy', nbin=1,
-                           offset=np.radians(3), strategy=None,
-                           legacy_cal_format=False):
+def sim_position_switching(
+    caldir,
+    srcname="Dummy",
+    nbin=1,
+    offset=np.radians(3),
+    strategy=None,
+    legacy_cal_format=False,
+):
     dt = 0.04
     src_ra = 185
     src_dec = 75
@@ -268,69 +322,123 @@ def sim_position_switching(caldir, srcname='Dummy', nbin=1,
 
     last_time = 0
     for n_on in range(strategy[0]):
-        times, ras, on = \
-            simulate_scan(dt=dt, length=0, speed=1, baseline=(0, 10, 0),
-                          noise_amplitude=0.2, center=src_dec, nbin=nbin)
+        times, ras, on = simulate_scan(
+            dt=dt,
+            length=0,
+            speed=1,
+            baseline=(0, 10, 0),
+            noise_amplitude=0.2,
+            center=src_dec,
+            nbin=nbin,
+        )
 
         times += last_time
         last_time = times[0]
         decs = np.zeros_like(ras) + src_dec
-        save_scan(times, ras, decs,
-                  {'Ch0': on, 'Ch1': on},
-                  filename=os.path.join(caldir, 'ON_{}.fits'.format(n_on)),
-                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
-                  other_keywords={'SIGNAL': 'SIGNAL'})
-
+        save_scan(
+            times,
+            ras,
+            decs,
+            {"Ch0": on, "Ch1": on},
+            filename=os.path.join(caldir, "ON_{}.fits".format(n_on)),
+            src_ra=src_ra,
+            src_dec=src_dec,
+            srcname=srcname,
+            counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
+            other_keywords={"SIGNAL": "SIGNAL"},
+        )
 
     for n_off in range(strategy[1]):
-        times, _, off = \
-            simulate_scan(dt=dt, length=0, speed=1, baseline=(0, 10, 0),
-                          shape=lambda x: 0,
-                          noise_amplitude=0.2, center=src_dec, nbin=nbin)
+        times, _, off = simulate_scan(
+            dt=dt,
+            length=0,
+            speed=1,
+            baseline=(0, 10, 0),
+            shape=lambda x: 0,
+            noise_amplitude=0.2,
+            center=src_dec,
+            nbin=nbin,
+        )
 
         times += last_time
         last_time = times[0]
-        save_scan(times, ras + offset, decs, {'Ch0': off, 'Ch1': off},
-                  filename=os.path.join(caldir, 'OFF_{}.fits'.format(n_off)),
-                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
-                  other_keywords={'RightAscension Offset': offset,
-                                  'SIGNAL': 'REFERENCE'})
+        save_scan(
+            times,
+            ras + offset,
+            decs,
+            {"Ch0": off, "Ch1": off},
+            filename=os.path.join(caldir, "OFF_{}.fits".format(n_off)),
+            src_ra=src_ra,
+            src_dec=src_dec,
+            srcname=srcname,
+            counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
+            other_keywords={
+                "RightAscension Offset": offset,
+                "SIGNAL": "REFERENCE",
+            },
+        )
 
     for n_cal in range(strategy[2]):
-        times, _, cal = \
-            simulate_scan(dt=dt, length=0, speed=1, baseline=(0, 10, 0),
-                          shape=lambda x: 0,
-                          noise_amplitude=0.2, center=src_dec, nbin=nbin,
-                          calon=True)
+        times, _, cal = simulate_scan(
+            dt=dt,
+            length=0,
+            speed=1,
+            baseline=(0, 10, 0),
+            shape=lambda x: 0,
+            noise_amplitude=0.2,
+            center=src_dec,
+            nbin=nbin,
+            calon=True,
+        )
 
         times += last_time
         last_time = times[0]
-        other_keywords_cal = {'RightAscension Offset': offset,
-                              'SIGNAL': 'REFCAL'}
+        other_keywords_cal = {
+            "RightAscension Offset": offset,
+            "SIGNAL": "REFCAL",
+        }
         other_columns = {}
         if legacy_cal_format:
-            other_columns = {'flag_cal': 1}
-            other_keywords_cal['SIGNAL'] = 'REFERENCE'
+            other_columns = {"flag_cal": 1}
+            other_keywords_cal["SIGNAL"] = "REFERENCE"
 
-        save_scan(times, ras + offset, decs, {'Ch0': cal, 'Ch1': cal},
-                  filename=os.path.join(caldir, 'CAL_{}.fits'.format(n_cal)),
-                  src_ra=src_ra, src_dec=src_dec, srcname=srcname,
-                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
-                  other_keywords=other_keywords_cal,
-                  other_columns=other_columns)
+        save_scan(
+            times,
+            ras + offset,
+            decs,
+            {"Ch0": cal, "Ch1": cal},
+            filename=os.path.join(caldir, "CAL_{}.fits".format(n_cal)),
+            src_ra=src_ra,
+            src_dec=src_dec,
+            srcname=srcname,
+            counts_to_K=(COUNTS_TO_K, COUNTS_TO_K),
+            other_keywords=other_keywords_cal,
+            other_columns=other_columns,
+        )
 
-    create_summary(os.path.join(caldir, 'summary.fits'),
-                   {'RightAscension': np.radians(src_ra),
-                    'Declination': np.radians(src_dec),
-                    'Object': srcname})
+    create_summary(
+        os.path.join(caldir, "summary.fits"),
+        {
+            "RightAscension": np.radians(src_ra),
+            "Declination": np.radians(src_dec),
+            "Object": srcname,
+        },
+    )
     return caldir
 
 
-def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
-                  noise_amplitude=1., center=0., baseline="flat",
-                  nbin=1, calon=False, nsamples=None):
+def simulate_scan(
+    dt=0.04,
+    length=120.0,
+    speed=4.0,
+    shape=None,
+    noise_amplitude=1.0,
+    center=0.0,
+    baseline="flat",
+    nbin=1,
+    calon=False,
+    nsamples=None,
+):
     """Simulate a scan.
 
     Parameters
@@ -381,9 +489,20 @@ def simulate_scan(dt=0.04, length=120., speed=4., shape=None,
     return times, position + center, scan_shape
 
 
-def save_scan(times, ra, dec, channels, filename='out.fits',
-              other_columns=None, other_keywords=None, scan_type=None,
-              src_ra=None, src_dec=None, srcname='Dummy', counts_to_K=COUNTS_TO_K):
+def save_scan(
+    times,
+    ra,
+    dec,
+    channels,
+    filename="out.fits",
+    other_columns=None,
+    other_keywords=None,
+    scan_type=None,
+    src_ra=None,
+    src_dec=None,
+    srcname="Dummy",
+    counts_to_K=COUNTS_TO_K,
+):
     """Save a simulated scan in fitszilla format.
 
     Parameters
@@ -417,45 +536,49 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
     if not isinstance(counts_to_K, Iterable):
         counts_to_K = counts_to_K * np.ones(len(list(channels.keys())))
     # If it's a list, make it into a dict
-    if not hasattr(counts_to_K, 'keys'):
-        counts_to_K = dict([(ch, counts_to_K[i])
-                            for i, ch in enumerate(channels.keys())])
+    if not hasattr(counts_to_K, "keys"):
+        counts_to_K = dict(
+            [(ch, counts_to_K[i]) for i, ch in enumerate(channels.keys())]
+        )
 
     curdir = os.path.abspath(os.path.dirname(__file__))
-    template = os.path.abspath(os.path.join(curdir, 'data',
-                                            'scan_template.fits'))
+    template = os.path.abspath(
+        os.path.join(curdir, "data", "scan_template.fits")
+    )
     lchdulist = fits.open(template)
-    datahdu = lchdulist['DATA TABLE']
-    temphdu = lchdulist['ANTENNA TEMP TABLE']
-    secthdu = lchdulist['SECTION TABLE']
-    rfinput = lchdulist['RF INPUTS']
+    datahdu = lchdulist["DATA TABLE"]
+    temphdu = lchdulist["ANTENNA TEMP TABLE"]
+    secthdu = lchdulist["SECTION TABLE"]
+    rfinput = lchdulist["RF INPUTS"]
 
-    lchdulist[0].header['SOURCE'] = "Dummy"
-    lchdulist[0].header['ANTENNA'] = "SRT"
-    lchdulist[0].header['HIERARCH RightAscension'] = np.radians(src_ra)
-    lchdulist[0].header['HIERARCH Declination'] = np.radians(src_dec)
+    lchdulist[0].header["SOURCE"] = "Dummy"
+    lchdulist[0].header["ANTENNA"] = "SRT"
+    lchdulist[0].header["HIERARCH RightAscension"] = np.radians(src_ra)
+    lchdulist[0].header["HIERARCH Declination"] = np.radians(src_dec)
 
     if scan_type is not None:
-        lchdulist[0].header['HIERARCH SubScanType'] = scan_type
+        lchdulist[0].header["HIERARCH SubScanType"] = scan_type
 
     for key in other_keywords.keys():
         lchdulist[0].header[key] = other_keywords[key]
 
     data_table_data = Table(datahdu.data)
-    data_table_data.remove_column('Ch0')
-    data_table_data.remove_column('Ch1')
+    data_table_data.remove_column("Ch0")
+    data_table_data.remove_column("Ch1")
 
-    obstimes = Time((times / 86400 + 57000) * u.day, format='mjd', scale='utc')
+    obstimes = Time((times / 86400 + 57000) * u.day, format="mjd", scale="utc")
 
-    coords = SkyCoord(ra, dec, unit=u.degree, location=locations['srt'],
-                      obstime=obstimes)
+    coords = SkyCoord(
+        ra, dec, unit=u.degree, location=locations["srt"], obstime=obstimes
+    )
 
     altaz = coords.altaz
     el = altaz.alt.rad
     az = altaz.az.rad
-    newtable = Table(names=['time', 'raj2000', 'decj2000', "el", "az"],
-                     data=[obstimes.value, np.radians(ra), np.radians(dec),
-                           el, az])
+    newtable = Table(
+        names=["time", "raj2000", "decj2000", "el", "az"],
+        data=[obstimes.value, np.radians(ra), np.radians(dec), el, az],
+    )
 
     for ch in channels.keys():
         newtable[ch] = channels[ch]
@@ -483,15 +606,15 @@ def save_scan(times, ra, dec, channels, filename='out.fits',
 
     temphdu.data = thdu.data
 
-    shape = channels['Ch0'].shape
+    shape = channels["Ch0"].shape
 
     if len(shape) == 2:
-        secthdu.data['bins'] = shape[1]
+        secthdu.data["bins"] = shape[1]
 
     # Sic
-    rfinput.data['calibratonMark'] = DEFAULT_CAL_TEMP
+    rfinput.data["calibratonMark"] = DEFAULT_CAL_TEMP
 
-    lchdulist[0].header['SOURCE'] = srcname
+    lchdulist[0].header["SOURCE"] = srcname
     lchdulist.writeto(filename, overwrite=True)
     lchdulist.close()
 
@@ -542,35 +665,50 @@ def _create_baseline(x, baseline_kind="flat"):
         mmin, mmax = 0, 0
         qmin, qmax = 0, 0
         stochastic_amp = float(baseline_kind)
-    elif isinstance(baseline_kind, Iterable) and not \
-            isinstance(baseline_kind, str):
+    elif isinstance(baseline_kind, Iterable) and not isinstance(
+        baseline_kind, str
+    ):
         m = _single_value_as_tuple(baseline_kind[0], nvals=2)
         q = _single_value_as_tuple(baseline_kind[1], nvals=2)
         mmin, mmax = m[0], m[1]
         qmin, qmax = q[0], q[1]
         stochastic_amp = float(baseline_kind[2])
     else:
-        raise ValueError("baseline has to be 'flat', 'slope', 'messy' or a "
-                         "number")
+        raise ValueError(
+            "baseline has to be 'flat', 'slope', 'messy' or a " "number"
+        )
 
     n = len(x)
     m = ra.uniform(mmin, mmax)
     q = ra.uniform(qmin, qmax)
     signs = np.random.choice([-1, 1], n)
 
-    stochastic = \
-        np.cumsum(signs) * stochastic_amp / np.sqrt(n)
+    stochastic = np.cumsum(signs) * stochastic_amp / np.sqrt(n)
 
     baseline = m * x + q
 
     return baseline + stochastic
 
 
-def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
-                 spacing=0.5, count_map=None, noise_amplitude=1.,
-                 width_ra=None, width_dec=None, outdir='sim/',
-                 baseline="flat", mean_ra=180, mean_dec=70,
-                 srcname='Dummy', channel_ratio=1, nbin=1, debug=False):
+def simulate_map(
+    dt=0.04,
+    length_ra=120.0,
+    length_dec=120.0,
+    speed=4.0,
+    spacing=0.5,
+    count_map=None,
+    noise_amplitude=1.0,
+    width_ra=None,
+    width_dec=None,
+    outdir="sim/",
+    baseline="flat",
+    mean_ra=180,
+    mean_dec=70,
+    srcname="Dummy",
+    channel_ratio=1,
+    nbin=1,
+    debug=False,
+):
 
     """Simulate a map.
 
@@ -620,10 +758,12 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     times_ra = np.arange(nbins_ra) * dt
     times_dec = np.arange(nbins_dec) * dt
 
-    ra_array = np.arange(-nbins_ra / 2,
-                         nbins_ra / 2) / nbins_ra * length_ra / 60
-    dec_array = np.arange(-nbins_dec / 2,
-                          nbins_dec / 2) / nbins_dec * length_dec / 60
+    ra_array = (
+        np.arange(-nbins_ra / 2, nbins_ra / 2) / nbins_ra * length_ra / 60
+    )
+    dec_array = (
+        np.arange(-nbins_dec / 2, nbins_dec / 2) / nbins_dec * length_dec / 60
+    )
     # In degrees!
     if width_dec is None:
         width_dec = length_dec
@@ -633,39 +773,54 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     if HAS_MPL and debug:
         fig = plt.figure()
 
-    delta_decs = np.arange(-width_dec/2, width_dec/2 + spacing, spacing)/60
+    delta_decs = (
+        np.arange(-width_dec / 2, width_dec / 2 + spacing, spacing) / 60
+    )
     log.info("Simulating dec scans...")
     for i_d, delta_dec in enumerate(tqdm(delta_decs)):
 
         start_dec = mean_dec + delta_dec
 
-        counts_clean = \
-            _standard_source_spectrum(count_map(ra_array, delta_dec),
-                                      nbin=nbin)
+        counts_clean = _standard_source_spectrum(
+            count_map(ra_array, delta_dec), nbin=nbin
+        )
 
-        baseline0 = \
-            _standard_bkg_spectrum(_create_baseline(ra_array, baseline),
-                                   nbin=nbin)
-        baseline1 = \
-            _standard_bkg_spectrum(_create_baseline(ra_array, baseline),
-                                   nbin=nbin)
+        baseline0 = _standard_bkg_spectrum(
+            _create_baseline(ra_array, baseline), nbin=nbin
+        )
+        baseline1 = _standard_bkg_spectrum(
+            _create_baseline(ra_array, baseline), nbin=nbin
+        )
 
-        counts0 = counts_clean + \
-            ra.normal(0, noise_amplitude, counts_clean.shape) + baseline0
-        counts1 = counts_clean + \
-            ra.normal(0, noise_amplitude, counts_clean.shape) + baseline1
+        counts0 = (
+            counts_clean
+            + ra.normal(0, noise_amplitude, counts_clean.shape)
+            + baseline0
+        )
+        counts1 = (
+            counts_clean
+            + ra.normal(0, noise_amplitude, counts_clean.shape)
+            + baseline1
+        )
 
         actual_ra = mean_ra + ra_array / np.cos(np.radians(start_dec))
 
         if i_d % 2 != 0:
             actual_ra = actual_ra[::-1]
-        fname = os.path.join(outdir_ra, 'Ra{}.fits'.format(i_d))
-        other_keywords = {'HIERARCH Declination Offset': delta_dec}
-        save_scan(times_ra, actual_ra, np.zeros_like(actual_ra) + start_dec,
-                  {'Ch0': counts0, 'Ch1': counts1 * channel_ratio},
-                  filename=fname, other_keywords=other_keywords,
-                  src_ra=mean_ra, src_dec=mean_dec, srcname=srcname,
-                  counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio))
+        fname = os.path.join(outdir_ra, "Ra{}.fits".format(i_d))
+        other_keywords = {"HIERARCH Declination Offset": delta_dec}
+        save_scan(
+            times_ra,
+            actual_ra,
+            np.zeros_like(actual_ra) + start_dec,
+            {"Ch0": counts0, "Ch1": counts1 * channel_ratio},
+            filename=fname,
+            other_keywords=other_keywords,
+            src_ra=mean_ra,
+            src_dec=mean_dec,
+            srcname=srcname,
+            counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio),
+        )
         if HAS_MPL and debug:
             plt.plot(ra_array, counts0)
             plt.plot(ra_array, counts1)
@@ -675,38 +830,48 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         plt.close(fig)
 
         fig = plt.figure()
-    delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing,
-                          spacing) / 60
+    delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing, spacing) / 60
     log.info("Simulating RA scans...")
     # RA scans
     for i_r, delta_ra in enumerate(tqdm(delta_ras)):
         start_ra = delta_ra / np.cos(np.radians(mean_dec)) + mean_ra
 
-        counts_clean = \
-            _standard_source_spectrum(count_map(delta_ra, dec_array),
-                                      nbin=nbin)
+        counts_clean = _standard_source_spectrum(
+            count_map(delta_ra, dec_array), nbin=nbin
+        )
 
-        baseline0 = \
-            _standard_bkg_spectrum(_create_baseline(dec_array, baseline),
-                                   nbin=nbin)
-        baseline1 = \
-            _standard_bkg_spectrum(_create_baseline(dec_array, baseline),
-                                   nbin=nbin)
+        baseline0 = _standard_bkg_spectrum(
+            _create_baseline(dec_array, baseline), nbin=nbin
+        )
+        baseline1 = _standard_bkg_spectrum(
+            _create_baseline(dec_array, baseline), nbin=nbin
+        )
 
-        counts0 = counts_clean + \
-            ra.normal(0, noise_amplitude, counts_clean.shape) + baseline0
-        counts1 = counts_clean + \
-            ra.normal(0, noise_amplitude, counts_clean.shape) + baseline1
+        counts0 = (
+            counts_clean
+            + ra.normal(0, noise_amplitude, counts_clean.shape)
+            + baseline0
+        )
+        counts1 = (
+            counts_clean
+            + ra.normal(0, noise_amplitude, counts_clean.shape)
+            + baseline1
+        )
 
         if i_r % 2 != 0:
             dec_array = dec_array[::-1]
-        other_keywords = {'RightAscension Offset': delta_ra}
-        save_scan(times_dec, np.zeros_like(dec_array) + start_ra,
-                  dec_array + mean_dec,
-                  {'Ch0': counts0, 'Ch1': counts1 * channel_ratio},
-                  other_keywords=other_keywords,
-                  filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
-                  src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
+        other_keywords = {"RightAscension Offset": delta_ra}
+        save_scan(
+            times_dec,
+            np.zeros_like(dec_array) + start_ra,
+            dec_array + mean_dec,
+            {"Ch0": counts0, "Ch1": counts1 * channel_ratio},
+            other_keywords=other_keywords,
+            filename=os.path.join(outdir_dec, "Dec{}.fits".format(i_r)),
+            src_ra=mean_ra,
+            src_dec=mean_dec,
+            srcname=srcname,
+        )
 
         if HAS_MPL and debug:
             plt.plot(dec_array, counts0)
@@ -717,16 +882,24 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         plt.close(fig)
 
     log.info("Creating summary...")
-    create_summary(os.path.join(outdir_ra, 'summary.fits'),
-                   {'RightAscension': np.radians(mean_ra),
-                    'Declination': np.radians(mean_dec),
-                    'Object': srcname})
+    create_summary(
+        os.path.join(outdir_ra, "summary.fits"),
+        {
+            "RightAscension": np.radians(mean_ra),
+            "Declination": np.radians(mean_dec),
+            "Object": srcname,
+        },
+    )
     if outdir_ra == outdir_dec:
         return outdir_ra, outdir_ra
-    create_summary(os.path.join(outdir_dec, 'summary.fits'),
-                   {'RightAscension': np.radians(mean_ra),
-                    'Declination': np.radians(mean_dec),
-                    'Object': srcname})
+    create_summary(
+        os.path.join(outdir_dec, "summary.fits"),
+        {
+            "RightAscension": np.radians(mean_ra),
+            "Declination": np.radians(mean_dec),
+            "Object": srcname,
+        },
+    )
     return outdir_ra, outdir_dec
 
 
@@ -734,89 +907,163 @@ def main_simulate(args=None):
     """Preprocess the data."""
     import argparse
 
-    description = ('Simulate a single scan or a map with a point source.')
+    description = "Simulate a single scan or a map with a point source."
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument('-s', "--source-flux", type=float, default=1,
-                        help='Source flux in Jy')
+    parser.add_argument(
+        "-s", "--source-flux", type=float, default=1, help="Source flux in Jy"
+    )
 
-    parser.add_argument('-n', "--noise-amplitude", type=float, default=1,
-                        help='White noise amplitude')
+    parser.add_argument(
+        "-n",
+        "--noise-amplitude",
+        type=float,
+        default=1,
+        help="White noise amplitude",
+    )
 
-    parser.add_argument('-b', "--baseline", type=str, default='flat',
-                        help='Baseline kind: "flat", "slope" (linearly '
-                             'increasing/decreasing), "messy" '
-                             '(random walk) or a number (which gives an '
-                             'amplitude to the random-walk baseline, that '
-                             'would be 20 for "messy")')
+    parser.add_argument(
+        "-b",
+        "--baseline",
+        type=str,
+        default="flat",
+        help='Baseline kind: "flat", "slope" (linearly '
+        'increasing/decreasing), "messy" '
+        "(random walk) or a number (which gives an "
+        "amplitude to the random-walk baseline, that "
+        'would be 20 for "messy")',
+    )
 
-    parser.add_argument('-g', '--geometry', nargs=4, type=float,
-                        default=[120, 120, 120, 120],
-                        help='Geometry specification: length_ra, length_dec, '
-                             'width_ra, width_dec, in arcmins. A square map of'
-                             ' 2 degrees would be specified as 120 120 120 '
-                             '120. A cross-like map, 2x2 degrees wide but only'
-                             ' along 1-degree stripes, is specified as 120 120'
-                             ' 60 60')
+    parser.add_argument(
+        "-g",
+        "--geometry",
+        nargs=4,
+        type=float,
+        default=[120, 120, 120, 120],
+        help="Geometry specification: length_ra, length_dec, "
+        "width_ra, width_dec, in arcmins. A square map of"
+        " 2 degrees would be specified as 120 120 120 "
+        "120. A cross-like map, 2x2 degrees wide but only"
+        " along 1-degree stripes, is specified as 120 120"
+        " 60 60",
+    )
 
-    parser.add_argument('--beam-width', type=float, default=2.5,
-                        help='Gaussian beam width in arcminutes')
+    parser.add_argument(
+        "--beam-width",
+        type=float,
+        default=2.5,
+        help="Gaussian beam width in arcminutes",
+    )
 
-    parser.add_argument('--spacing', type=float, default=0.5,
-                        help='Spacing between scans in arcminutes '
-                             '(default 0.5)')
+    parser.add_argument(
+        "--spacing",
+        type=float,
+        default=0.5,
+        help="Spacing between scans in arcminutes " "(default 0.5)",
+    )
 
-    parser.add_argument('-o', "--outdir-root", type=str, default='sim',
-                        help='Output directory root. Here, source and '
-                             'calibrator scans/maps will be saved in '
-                             'outdir/gauss_ra, outdir/gauss_dec, '
-                             'outdir/calibrator1, outdir/calibrator2, where '
-                             'outdir is the outdir root')
+    parser.add_argument(
+        "-o",
+        "--outdir-root",
+        type=str,
+        default="sim",
+        help="Output directory root. Here, source and "
+        "calibrator scans/maps will be saved in "
+        "outdir/gauss_ra, outdir/gauss_dec, "
+        "outdir/calibrator1, outdir/calibrator2, where "
+        "outdir is the outdir root",
+    )
 
-    parser.add_argument("--scan-speed", type=float, default=4.,
-                        help='Scan speed in arcminutes/second')
+    parser.add_argument(
+        "--scan-speed",
+        type=float,
+        default=4.0,
+        help="Scan speed in arcminutes/second",
+    )
 
-    parser.add_argument("--integration-time", type=float, default=0.04,
-                        help='Integration time in seconds')
+    parser.add_argument(
+        "--integration-time",
+        type=float,
+        default=0.04,
+        help="Integration time in seconds",
+    )
 
-    parser.add_argument("--spectral-bins", type=int, default=1,
-                        help='Simulate a spectrum with this number of bins')
+    parser.add_argument(
+        "--spectral-bins",
+        type=int,
+        default=1,
+        help="Simulate a spectrum with this number of bins",
+    )
 
-    parser.add_argument("--no-cal", action='store_true', default=False,
-                        help="Don't simulate calibrators")
+    parser.add_argument(
+        "--no-cal",
+        action="store_true",
+        default=False,
+        help="Don't simulate calibrators",
+    )
 
-    parser.add_argument("--debug", action='store_true', default=False,
-                        help='Plot stuff and be verbose')
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Plot stuff and be verbose",
+    )
 
     args = parser.parse_args(args)
 
     def local_gauss_src_func(x, y):
-        return args.source_flux * DEFAULT_PEAK_COUNTS * \
-               _2d_gauss(x, y, sigma=args.beam_width/60)
+        return (
+            args.source_flux
+            * DEFAULT_PEAK_COUNTS
+            * _2d_gauss(x, y, sigma=args.beam_width / 60)
+        )
 
     def calibrator_scan_func(x):
-        return DEFAULT_PEAK_COUNTS * _2d_gauss(x, 0, sigma=args.beam_width/60)
+        return DEFAULT_PEAK_COUNTS * _2d_gauss(
+            x, 0, sigma=args.beam_width / 60
+        )
 
     if not args.no_cal:
-        cal1 = os.path.join(args.outdir_root, 'calibrator1')
+        cal1 = os.path.join(args.outdir_root, "calibrator1")
         mkdir_p(cal1)
-        sim_crossscans(5, cal1, scan_func=calibrator_scan_func,
-                       channel_ratio=0.9, baseline=args.baseline,
-                       nbin=args.spectral_bins)
-        cal2 = os.path.join(args.outdir_root, 'calibrator2')
+        sim_crossscans(
+            5,
+            cal1,
+            scan_func=calibrator_scan_func,
+            channel_ratio=0.9,
+            baseline=args.baseline,
+            nbin=args.spectral_bins,
+        )
+        cal2 = os.path.join(args.outdir_root, "calibrator2")
         mkdir_p(cal2)
-        sim_crossscans(5, cal2, scan_func=calibrator_scan_func,
-                       srcname='DummyCal2', channel_ratio=0.9,
-                       baseline=args.baseline,
-                       nbin=args.spectral_bins)
+        sim_crossscans(
+            5,
+            cal2,
+            scan_func=calibrator_scan_func,
+            srcname="DummyCal2",
+            channel_ratio=0.9,
+            baseline=args.baseline,
+            nbin=args.spectral_bins,
+        )
 
-    simulate_map(dt=args.integration_time, length_ra=args.geometry[0],
-                 length_dec=args.geometry[1], speed=args.scan_speed,
-                 spacing=args.spacing, noise_amplitude=args.noise_amplitude,
-                 width_ra=args.geometry[2], width_dec=args.geometry[3],
-                 outdir=(os.path.join(args.outdir_root, 'gauss_ra'),
-                         os.path.join(args.outdir_root, 'gauss_dec')),
-                 baseline=args.baseline, mean_ra=180, mean_dec=70,
-                 srcname='Dummy', channel_ratio=0.9,
-                 count_map=local_gauss_src_func,
-                 nbin=args.spectral_bins)
+    simulate_map(
+        dt=args.integration_time,
+        length_ra=args.geometry[0],
+        length_dec=args.geometry[1],
+        speed=args.scan_speed,
+        spacing=args.spacing,
+        noise_amplitude=args.noise_amplitude,
+        width_ra=args.geometry[2],
+        width_dec=args.geometry[3],
+        outdir=(
+            os.path.join(args.outdir_root, "gauss_ra"),
+            os.path.join(args.outdir_root, "gauss_dec"),
+        ),
+        baseline=args.baseline,
+        mean_ra=180,
+        mean_dec=70,
+        srcname="Dummy",
+        channel_ratio=0.9,
+        count_map=local_gauss_src_func,
+        nbin=args.spectral_bins,
+    )

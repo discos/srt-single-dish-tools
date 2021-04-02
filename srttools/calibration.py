@@ -33,6 +33,7 @@ from .utils import HAS_STATSM, calculate_moments, scantype
 try:
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
+
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
@@ -47,17 +48,21 @@ def _constant(x, p):
     return p
 
 
-FLUX_QUANTITIES = {"Jy/beam": "Flux",
-                   "Jy/pixel": "Flux Integral",
-                   "Jy/sr": "Flux Integral"}
+FLUX_QUANTITIES = {
+    "Jy/beam": "Flux",
+    "Jy/pixel": "Flux Integral",
+    "Jy/sr": "Flux Integral",
+}
 
 
 def _get_flux_quantity(map_unit):
     try:
         return FLUX_QUANTITIES[map_unit]
     except Exception:
-        raise ValueError("Incorrect map_unit for flux conversion. Use one "
-                         "of {}".format(list(FLUX_QUANTITIES.keys())))
+        raise ValueError(
+            "Incorrect map_unit for flux conversion. Use one "
+            "of {}".format(list(FLUX_QUANTITIES.keys()))
+        )
 
 
 def read_calibrator_config():
@@ -94,10 +99,10 @@ def read_calibrator_config():
     >>> 'coeffs' in calibs['DummyCal']['CoeffTable']
     True
     """
-    flux_re = re.compile(r'^Flux')
+    flux_re = re.compile(r"^Flux")
     curdir = os.path.dirname(__file__)
-    calibdir = os.path.join(curdir, 'data', 'calibrators')
-    calibrator_file_list = glob.glob(os.path.join(calibdir, '*.ini'))
+    calibdir = os.path.join(curdir, "data", "calibrators")
+    calibrator_file_list = glob.glob(os.path.join(calibdir, "*.ini"))
 
     configs = {}
     for cfile in calibrator_file_list:
@@ -105,28 +110,35 @@ def read_calibrator_config():
         cparser.read(cfile)
 
         log.info(f"Reading {cfile}")
-        if 'CoeffTable' not in list(cparser.sections()):
-            configs[cparser.get("Info", "Name")] = {"Kind": "FreqList",
-                                                    "Frequencies": [],
-                                                    "Bandwidths": [],
-                                                    "Fluxes": [],
-                                                    "Flux Errors": []}
+        if "CoeffTable" not in list(cparser.sections()):
+            configs[cparser.get("Info", "Name")] = {
+                "Kind": "FreqList",
+                "Frequencies": [],
+                "Bandwidths": [],
+                "Fluxes": [],
+                "Flux Errors": [],
+            }
 
             for section in cparser.sections():
                 if not flux_re.match(section):
                     continue
                 configs[cparser.get("Info", "Name")]["Frequencies"].append(
-                    float(cparser.get(section, "freq")))
+                    float(cparser.get(section, "freq"))
+                )
                 configs[cparser.get("Info", "Name")]["Bandwidths"].append(
-                    float(cparser.get(section, "bwidth")))
+                    float(cparser.get(section, "bwidth"))
+                )
                 configs[cparser.get("Info", "Name")]["Fluxes"].append(
-                    float(cparser.get(section, "flux")))
+                    float(cparser.get(section, "flux"))
+                )
                 configs[cparser.get("Info", "Name")]["Flux Errors"].append(
-                    float(cparser.get(section, "eflux")))
+                    float(cparser.get(section, "eflux"))
+                )
         else:
-            configs[cparser.get("Info", "Name")] = \
-                {"CoeffTable": dict(cparser.items("CoeffTable")),
-                 "Kind": "CoeffTable"}
+            configs[cparser.get("Info", "Name")] = {
+                "CoeffTable": dict(cparser.items("CoeffTable")),
+                "Kind": "CoeffTable",
+            }
     return configs
 
 
@@ -152,8 +164,7 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
     # find closest value among frequencies
     if conf["Kind"] == "FreqList":
         idx = (np.abs(np.array(conf["Frequencies"]) - frequency)).argmin()
-        return conf["Fluxes"][idx], \
-            conf["Flux Errors"][idx]
+        return conf["Fluxes"][idx], conf["Flux Errors"][idx]
     elif conf["Kind"] == "CoeffTable":
         return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
@@ -170,18 +181,14 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         # this
         scan = Scan(scan_path, norefilt=True, nosave=True, plot=plot, **kwargs)
     except KeyError as e:
-        log.warning(
-            "Missing key. Bad file? {}: {}".format(sname, str(e))
-        )
+        log.warning("Missing key. Bad file? {}: {}".format(sname, str(e)))
         return False, None
     except Exception as e:
-        log.warning(
-            "Error while processing {}: {}".format(sname, str(e))
-        )
+        log.warning("Error while processing {}: {}".format(sname, str(e)))
         log.warning(traceback.format_exc())
         return False, None
 
-    feeds = np.arange(scan['ra'].shape[1])
+    feeds = np.arange(scan["ra"].shape[1])
     chans = scan.chan_columns()
 
     chan_nums = np.arange(len(chans))
@@ -192,52 +199,53 @@ def _treat_scan(scan_path, plot=False, **kwargs):
     for feed, nch in zip(F, N):
         channel = chans[nch]
 
-        ras = np.degrees(scan['ra'][:, feed])
-        decs = np.degrees(scan['dec'][:, feed])
-        els = np.degrees(scan['el'][:, feed])
-        azs = np.degrees(scan['az'][:, feed])
-        time = np.mean(scan['time'][:])
+        ras = np.degrees(scan["ra"][:, feed])
+        decs = np.degrees(scan["dec"][:, feed])
+        els = np.degrees(scan["el"][:, feed])
+        azs = np.degrees(scan["az"][:, feed])
+        time = np.mean(scan["time"][:])
         el = np.mean(els)
         az = np.mean(azs)
-        source = scan.meta['SOURCE']
-        pnt_ra = np.degrees(scan.meta['RA'])
-        pnt_dec = np.degrees(scan.meta['Dec'])
-        frequency = scan[channel].meta['frequency']
-        bandwidth = scan[channel].meta['bandwidth']
-        temperature = scan[channel + '-Temp']
+        source = scan.meta["SOURCE"]
+        pnt_ra = np.degrees(scan.meta["RA"])
+        pnt_dec = np.degrees(scan.meta["Dec"])
+        frequency = scan[channel].meta["frequency"]
+        bandwidth = scan[channel].meta["bandwidth"]
+        temperature = scan[channel + "-Temp"]
 
         y = scan[channel]
 
         # Fit for gain curves
         x, _ = scantype(ras, decs, els, azs)
-        temperature_model, _ = \
-            fit_baseline_plus_bell(x, temperature, kind='gauss')
-        source_temperature = temperature_model['Bell'].amplitude.value
+        temperature_model, _ = fit_baseline_plus_bell(
+            x, temperature, kind="gauss"
+        )
+        source_temperature = temperature_model["Bell"].amplitude.value
 
         # Fit RA and/or Dec
         x, scan_type = scantype(ras, decs)
-        model, fit_info = fit_baseline_plus_bell(x, y, kind='gauss')
+        model, fit_info = fit_baseline_plus_bell(x, y, kind="gauss")
 
         std = np.std(np.diff(y)) / np.sqrt(2)
 
         try:
-            uncert = fit_info['param_cov'].diagonal() ** 0.5
+            uncert = fit_info["param_cov"].diagonal() ** 0.5
         except Exception:
-            message = fit_info['message']
+            message = fit_info["message"]
             warnings.warn(
-                "Fit failed in scan {s}: {m}".format(s=sname,
-                                                     m=message))
+                "Fit failed in scan {s}: {m}".format(s=sname, m=message)
+            )
             continue
-        bell = model['Bell']
-        baseline = model['Baseline']
+        bell = model["Bell"]
+        baseline = model["Baseline"]
         # pars = model.parameters
         pnames = model.param_names
         counts = model.amplitude_1.value
 
         backsub = y - baseline(x)
         moments = calculate_moments(backsub)
-        skewness = moments['skewness']
-        kurtosis = moments['kurtosis']
+        skewness = moments["skewness"]
+        kurtosis = moments["kurtosis"]
 
         if scan_type.startswith("RA"):
             fit_ra = bell.mean.value
@@ -246,7 +254,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ra_err = fit_ra * u.degree - pnt_ra
             dec_err = None
             fit_mean = fit_ra
-            fit_label = 'RA'
+            fit_label = "RA"
             pnt = pnt_ra
         elif scan_type.startswith("Dec"):
             fit_ra = None
@@ -255,7 +263,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             dec_err = fit_dec * u.degree - pnt_dec
             ra_err = None
             fit_mean = fit_dec
-            fit_label = 'Dec'
+            fit_label = "Dec"
             pnt = pnt_dec
         else:
             raise ValueError("Unknown scan type")
@@ -270,16 +278,41 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         flux_over_counts, flux_over_counts_err = 0, 0
         calculated_flux, calculated_flux_err = 0, 0
 
-        new_row = [scandir, sname, scan_type, source, channel, feed,
-                   time, frequency, bandwidth, std, counts, counts_err,
-                   fit_width, width_err,
-                   flux_density, flux_density_err, el, az,
-                   source_temperature,
-                   flux_over_counts, flux_over_counts_err,
-                   flux_over_counts, flux_over_counts_err,
-                   calculated_flux, calculated_flux_err,
-                   pnt_ra, pnt_dec, fit_ra, fit_dec, ra_err,
-                   dec_err, skewness, kurtosis]
+        new_row = [
+            scandir,
+            sname,
+            scan_type,
+            source,
+            channel,
+            feed,
+            time,
+            frequency,
+            bandwidth,
+            std,
+            counts,
+            counts_err,
+            fit_width,
+            width_err,
+            flux_density,
+            flux_density_err,
+            el,
+            az,
+            source_temperature,
+            flux_over_counts,
+            flux_over_counts_err,
+            flux_over_counts,
+            flux_over_counts_err,
+            calculated_flux,
+            calculated_flux_err,
+            pnt_ra,
+            pnt_dec,
+            fit_ra,
+            fit_dec,
+            ra_err,
+            dec_err,
+            skewness,
+            kurtosis,
+        ]
         rows.append(new_row)
 
         if plot and HAS_MPL:
@@ -289,13 +322,15 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1 = plt.subplot(gs[1], sharex=ax0)
 
             ax0.plot(x, y, label="Data")
-            ax0.plot(x, bell(x),
-                     label="Fit: Amp: {}, Wid: {}".format(counts, fit_width))
+            ax0.plot(
+                x,
+                bell(x),
+                label="Fit: Amp: {}, Wid: {}".format(counts, fit_width),
+            )
             ax1.plot(x, y - bell(x))
 
             ax0.axvline(fit_mean, label=fit_label + " Fit", ls="-")
-            ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt",
-                        ls="--")
+            ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt", ls="--")
             ax0.set_xlim([min(x), max(x)])
             ax1.set_xlabel(fit_label)
             ax0.set_ylabel("Counts")
@@ -303,9 +338,9 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
             ax0.legend()
 
-            plt.savefig(os.path.join(outdir,
-                                     "Feed{}_chan{}.png".format(feed,
-                                                                nch)))
+            plt.savefig(
+                os.path.join(outdir, "Feed{}_chan{}.png".format(feed, nch))
+            )
             plt.close(fig)
             fig = plt.figure("Fit information - temperature")
             gs = GridSpec(2, 1, height_ratios=(3, 1))
@@ -316,17 +351,18 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax0.plot(x, temperature_model(x), label="Fit")
             ax1.plot(x, temperature - temperature_model(x))
 
-            ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt",
-                        ls="--")
+            ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt", ls="--")
             ax0.set_xlim([min(x), max(x)])
             ax1.set_xlabel(fit_label)
             ax0.set_ylabel("Counts")
             ax1.set_ylabel("Residual (cts)")
 
             ax0.legend()
-            plt.savefig(os.path.join(outdir,
-                                     "Feed{}_chan{}_temp.png".format(feed,
-                                                                     nch)))
+            plt.savefig(
+                os.path.join(
+                    outdir, "Feed{}_chan{}_temp.png".format(feed, nch)
+                )
+            )
             plt.close(fig)
 
     return True, rows
@@ -341,43 +377,91 @@ class CalibratorTable(Table):
         self.calibration_coeffs = {}
         self.calibration_uncerts = {}
         self.calibration = {}
-        names = ["Dir", "File", "Scan Type", "Source",
-                 "Chan", "Feed", "Time",
-                 "Frequency", "Bandwidth", "Data Std",
-                 "Counts", "Counts Err",
-                 "Width", "Width Err",
-                 "Flux", "Flux Err",
-                 "Elevation", "Azimuth",
-                 "Source_temperature",
-                 "Flux/Counts", "Flux/Counts Err",
-                 "Flux Integral/Counts", "Flux Integral/Counts Err",
-                 "Calculated Flux", "Calculated Flux Err",
-                 "RA", "Dec",
-                 "Fit RA", "Fit Dec",
-                 "RA err", "Dec err",
-                 "Skewness", "Kurtosis"]
+        names = [
+            "Dir",
+            "File",
+            "Scan Type",
+            "Source",
+            "Chan",
+            "Feed",
+            "Time",
+            "Frequency",
+            "Bandwidth",
+            "Data Std",
+            "Counts",
+            "Counts Err",
+            "Width",
+            "Width Err",
+            "Flux",
+            "Flux Err",
+            "Elevation",
+            "Azimuth",
+            "Source_temperature",
+            "Flux/Counts",
+            "Flux/Counts Err",
+            "Flux Integral/Counts",
+            "Flux Integral/Counts Err",
+            "Calculated Flux",
+            "Calculated Flux Err",
+            "RA",
+            "Dec",
+            "Fit RA",
+            "Fit Dec",
+            "RA err",
+            "Dec err",
+            "Skewness",
+            "Kurtosis",
+        ]
 
-        dtype = ['S200', 'S200', 'S200', 'S200',
-                 'S200', int, np.double,
-                 float, float, float,
-                 float, float,
-                 float, float,
-                 float, float, float,
-                 float, float,
-                 float, float,
-                 float, float,
-                 float, float,
-                 float, float,
-                 float, float,
-                 float, float,
-                 float, float]
+        dtype = [
+            "S200",
+            "S200",
+            "S200",
+            "S200",
+            "S200",
+            int,
+            np.double,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+        ]
 
         for n, d in zip(names, dtype):
             if n not in self.keys():
                 self.add_column(Column(name=n, dtype=d))
 
-    def from_scans(self, scan_list=None, debug=False, freqsplat=None,
-                   config_file=None, nofilt=False, plot=False):
+    def from_scans(
+        self,
+        scan_list=None,
+        debug=False,
+        freqsplat=None,
+        config_file=None,
+        nofilt=False,
+        plot=False,
+    ):
         """Load source table from a list of scans.
 
         For each scan, a fit is performed. Since we are assuming point-like
@@ -422,20 +506,19 @@ class CalibratorTable(Table):
             if config_file is None:
                 config_file = get_config_file()
             config = read_config(config_file)
-            scan_list = \
-                list_scans(config['datadir'],
-                           config['list_of_directories']) + \
-                list_scans(config['datadir'],
-                           config['calibrator_directories'])
+            scan_list = list_scans(
+                config["datadir"], config["list_of_directories"]
+            ) + list_scans(config["datadir"], config["calibrator_directories"])
             scan_list.sort()
         nscan = len(scan_list)
 
         out_retval = False
         for i_s, s in enumerate(scan_list):
-            log.info('{}/{}: Loading {}'.format(i_s + 1, nscan, s))
+            log.info("{}/{}: Loading {}".format(i_s + 1, nscan, s))
 
-            retval, rows = _treat_scan(s, plot=plot, debug=debug,
-                                       freqsplat=freqsplat, nofilt=nofilt)
+            retval, rows = _treat_scan(
+                s, plot=plot, debug=debug, freqsplat=freqsplat, nofilt=nofilt
+            )
 
             if retval:
                 out_retval = True
@@ -447,9 +530,8 @@ class CalibratorTable(Table):
 
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
-        if fname.endswith('.hdf5'):
-            super(CalibratorTable, self).write(fname, *args,
-                    **kwargs)
+        if fname.endswith(".hdf5"):
+            super(CalibratorTable, self).write(fname, *args, **kwargs)
         else:
             super(CalibratorTable, self).write(fname, *args, **kwargs)
 
@@ -504,15 +586,16 @@ class CalibratorTable(Table):
         if not self.check_not_empty():
             return
 
-        for it, t in enumerate(self['Time']):
-            source = self['Source'][it]
-            frequency = self['Frequency'][it] / 1000
-            bandwidth = self['Bandwidth'][it] / 1000
-            flux, eflux = \
-                _get_calibrator_flux(source, frequency, bandwidth, time=t)
+        for it, t in enumerate(self["Time"]):
+            source = self["Source"][it]
+            frequency = self["Frequency"][it] / 1000
+            bandwidth = self["Bandwidth"][it] / 1000
+            flux, eflux = _get_calibrator_flux(
+                source, frequency, bandwidth, time=t
+            )
 
-            self['Flux'][it] = flux
-            self['Flux Err'][it] = eflux
+            self["Flux"][it] = flux
+            self["Flux Err"][it] = eflux
 
     def calibrate(self):
         """Calculate the calibration constants.
@@ -540,12 +623,12 @@ class CalibratorTable(Table):
         if not self.check_not_empty():
             return
 
-        flux = self['Flux'] * u.Jy
-        eflux = self['Flux Err'] * u.Jy
-        counts = self['Counts'] * u.ct
-        ecounts = self['Counts Err'] * u.ct
-        width = np.radians(self['Width']) * u.radian
-        ewidth = np.radians(self['Width Err']) * u.radian
+        flux = self["Flux"] * u.Jy
+        eflux = self["Flux Err"] * u.Jy
+        counts = self["Counts"] * u.ct
+        ecounts = self["Counts Err"] * u.ct
+        width = np.radians(self["Width"]) * u.radian
+        ewidth = np.radians(self["Width Err"]) * u.radian
 
         # Volume in a beam: For a 2-d Gaussian with amplitude A and sigmas sx
         # and sy, this is 2 pi A sx sy.
@@ -553,23 +636,24 @@ class CalibratorTable(Table):
         etotal = 2 * np.pi * ecounts * width ** 2
 
         flux_integral_over_counts = flux / total
-        flux_integral_over_counts_err = \
-            (etotal / total + eflux / flux +
-             2 * ewidth / width) * flux_integral_over_counts
+        flux_integral_over_counts_err = (
+            etotal / total + eflux / flux + 2 * ewidth / width
+        ) * flux_integral_over_counts
 
         flux_over_counts = flux / counts
-        flux_over_counts_err = \
-            (ecounts / counts + eflux / flux) * flux_over_counts
+        flux_over_counts_err = (
+            ecounts / counts + eflux / flux
+        ) * flux_over_counts
 
-        self['Flux/Counts'][:] = \
-            flux_over_counts.to(u.Jy / u.ct).value
-        self['Flux/Counts Err'][:] = \
-            flux_over_counts_err.to(u.Jy / u.ct).value
+        self["Flux/Counts"][:] = flux_over_counts.to(u.Jy / u.ct).value
+        self["Flux/Counts Err"][:] = flux_over_counts_err.to(u.Jy / u.ct).value
 
-        self['Flux Integral/Counts'][:] = \
-            flux_integral_over_counts.to(u.Jy / u.ct / u.steradian).value
-        self['Flux Integral/Counts Err'][:] = \
-            flux_integral_over_counts_err.to(u.Jy / u.ct / u.steradian).value
+        self["Flux Integral/Counts"][:] = flux_integral_over_counts.to(
+            u.Jy / u.ct / u.steradian
+        ).value
+        self["Flux Integral/Counts Err"][:] = flux_integral_over_counts_err.to(
+            u.Jy / u.ct / u.steradian
+        ).value
 
     def compute_conversion_function(self, map_unit="Jy/beam", good_mask=None):
         """Compute the conversion between Jy and counts.
@@ -588,19 +672,18 @@ class CalibratorTable(Table):
         if not HAS_STATSM:
             channels = list(set(self["Chan"]))
             for channel in channels:
-                fc, fce = self.Jy_over_counts_rough(channel=channel,
-                                                    map_unit=map_unit,
-                                                    good_mask=None)
+                fc, fce = self.Jy_over_counts_rough(
+                    channel=channel, map_unit=map_unit, good_mask=None
+                )
                 self.calibration_coeffs[channel] = [fc, 0, 0]
-                self.calibration_uncerts[channel] = \
-                    [fce, 0, 0]
+                self.calibration_uncerts[channel] = [fce, 0, 0]
                 self.calibration[channel] = None
             return
         else:
             import statsmodels.api as sm
 
         if good_mask is None:
-            good_mask = self['Flux'] > 0
+            good_mask = self["Flux"] > 0
 
         flux_quantity = _get_flux_quantity(map_unit)
 
@@ -629,16 +712,18 @@ class CalibratorTable(Table):
             X = np.column_stack((np.ones(len(x_to_fit)), x_to_fit))
             # X = np.c_[np.ones(len(x_to_fit)), X]
             # X = sm.add_constant(X)
-            model = sm.RLM(y_to_fit, X, missing='drop')
+            model = sm.RLM(y_to_fit, X, missing="drop")
             results = model.fit()
 
             self.calibration_coeffs[channel] = results.params
-            self.calibration_uncerts[channel] = \
-                results.cov_params().diagonal()**0.5
+            self.calibration_uncerts[channel] = (
+                results.cov_params().diagonal() ** 0.5
+            )
             self.calibration[channel] = results
 
-    def Jy_over_counts(self, channel=None, elevation=None,
-                       map_unit="Jy/beam", good_mask=None):
+    def Jy_over_counts(
+        self, channel=None, elevation=None, map_unit="Jy/beam", good_mask=None
+    ):
         """Compute the Jy/Counts conversion corresponding to a given map unit.
 
         Parameters
@@ -666,7 +751,7 @@ class CalibratorTable(Table):
             rough = True
 
         if good_mask is None:
-            good_mask = self['Flux'] > 0
+            good_mask = self["Flux"] > 0
 
         flux_quantity = _get_flux_quantity(map_unit)
 
@@ -675,31 +760,34 @@ class CalibratorTable(Table):
 
         if elevation is None or rough is True or channel is None:
             elevation = np.array(elevation)
-            fc, fce = self.Jy_over_counts_rough(channel=channel,
-                                                map_unit=map_unit,
-                                                good_mask=good_mask)
+            fc, fce = self.Jy_over_counts_rough(
+                channel=channel, map_unit=map_unit, good_mask=good_mask
+            )
             if elevation.size > 1:
                 fc = np.zeros_like(elevation) + fc
                 fce = np.zeros_like(elevation) + fce
             return fc, fce
 
-        X = np.column_stack((np.ones(np.array(elevation).size),
-                             np.array(elevation)))
+        X = np.column_stack(
+            (np.ones(np.array(elevation).size), np.array(elevation))
+        )
 
         fc = self.calibration[channel].predict(X)
 
         goodch = self["Chan"] == channel
         good = good_mask & goodch
-        fce = np.sqrt(np.mean(
-            self[flux_quantity + "/Counts Err"][good]**2)) + np.zeros_like(fc)
+        fce = np.sqrt(
+            np.mean(self[flux_quantity + "/Counts Err"][good] ** 2)
+        ) + np.zeros_like(fc)
 
         if len(fc) == 1:
             fc, fce = fc[0], fce[0]
 
         return fc, fce
 
-    def Jy_over_counts_rough(self, channel=None, map_unit="Jy/beam",
-                             good_mask=None):
+    def Jy_over_counts_rough(
+        self, channel=None, map_unit="Jy/beam", good_mask=None
+    ):
         """Get the conversion from counts to Jy.
 
         Other parameters
@@ -726,11 +814,11 @@ class CalibratorTable(Table):
         flux_quantity = _get_flux_quantity(map_unit)
 
         if good_mask is None:
-            good_mask = self['Flux'] > 0
+            good_mask = self["Flux"] > 0
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:
-            good_chans = self['Chan'] == channel
+            good_chans = self["Chan"] == channel
 
         good_chans = good_chans & good_mask
 
@@ -748,7 +836,7 @@ class CalibratorTable(Table):
         ye_to_fit = np.array(f_c_ratio_err[good])
 
         p = [np.median(y_to_fit)]
-        pcov = np.array([[np.median(ye_to_fit)**2]])
+        pcov = np.array([[np.median(ye_to_fit) ** 2]])
         first = True
         print(x_to_fit, y_to_fit, ye_to_fit)
         while 1:
@@ -771,16 +859,18 @@ class CalibratorTable(Table):
             y_to_fit = y_to_fit[good]
             ye_to_fit = ye_to_fit[good]
 
-            p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit,
-                                p0=p)
+            p, pcov = curve_fit(
+                _constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p
+            )
             first = False
         fc = p[0]
         fce = np.sqrt(pcov[0, 0])
 
         return fc, fce
 
-    def calculate_src_flux(self, channel=None,
-                           map_unit="Jy/beam", source=None):
+    def calculate_src_flux(
+        self, channel=None, map_unit="Jy/beam", source=None
+    ):
         """Calculate source flux and error, pointing by pointing.
 
         Uses the conversion factors calculated from the tabulated fluxes for
@@ -806,43 +896,47 @@ class CalibratorTable(Table):
             Uncertainties corresponding to mean_flux
         """
         if source is None:
-            good_source = np.ones_like(self['Flux'], dtype=bool)
+            good_source = np.ones_like(self["Flux"], dtype=bool)
         else:
-            good_source = self['Source'] == source
+            good_source = self["Source"] == source
 
         non_source = np.logical_not(good_source)
 
         if channel is None:
-            channels = [s for s in set(self['Chan'])]
+            channels = [s for s in set(self["Chan"])]
         else:
             channels = [channel]
 
         mean_flux = []
         mean_flux_err = []
         for channel in channels:
-            good_chan = self['Chan'] == channel
+            good_chan = self["Chan"] == channel
             good = good_source & good_chan
-            elevation = np.radians(self['Elevation'][good])
-            fc, fce = self.Jy_over_counts(channel=channel, elevation=elevation,
-                                          map_unit=map_unit,
-                                          good_mask=non_source)
+            elevation = np.radians(self["Elevation"][good])
+            fc, fce = self.Jy_over_counts(
+                channel=channel,
+                elevation=elevation,
+                map_unit=map_unit,
+                good_mask=non_source,
+            )
 
-            calculated_flux = copy.deepcopy(self['Calculated Flux'])
-            calculated_flux_err = copy.deepcopy(self['Calculated Flux Err'])
-            counts = np.array(self['Counts'])
-            counts_err = np.array(self['Counts Err'])
+            calculated_flux = copy.deepcopy(self["Calculated Flux"])
+            calculated_flux_err = copy.deepcopy(self["Calculated Flux Err"])
+            counts = np.array(self["Counts"])
+            counts_err = np.array(self["Counts Err"])
 
             calculated_flux[good] = counts[good] * fc
-            calculated_flux_err[good] = \
-                (counts_err[good] / counts[good] + fce / fc) * \
-                calculated_flux[good]
+            calculated_flux_err[good] = (
+                counts_err[good] / counts[good] + fce / fc
+            ) * calculated_flux[good]
 
-            self['Calculated Flux'][:] = calculated_flux
-            self['Calculated Flux Err'][:] = calculated_flux_err
+            self["Calculated Flux"][:] = calculated_flux
+            self["Calculated Flux Err"][:] = calculated_flux_err
 
             mean_flux.append(np.mean(calculated_flux[good]))
             mean_flux_err.append(
-                np.sqrt(np.mean(calculated_flux_err[good] ** 2)))
+                np.sqrt(np.mean(calculated_flux_err[good] ** 2))
+            )
 
         return mean_flux, mean_flux_err
 
@@ -859,29 +953,37 @@ class CalibratorTable(Table):
             True if, for all calibrators, the tabulated and calculated values
             of the flux are consistent. False otherwise.
         """
-        is_cal = (~np.isnan(self['Flux']))&(self['Flux'] > 0)
-        calibrators = list(set(self['Source'][is_cal]))
+        is_cal = (~np.isnan(self["Flux"])) & (self["Flux"] > 0)
+        calibrators = list(set(self["Source"][is_cal]))
         for cal in calibrators:
             self.calculate_src_flux(channel=channel, source=cal)
 
         if channel is None:
-            good_chan = np.ones_like(self['Chan'], dtype=bool)
+            good_chan = np.ones_like(self["Chan"], dtype=bool)
         else:
-            good_chan = self['Chan'] == channel
+            good_chan = self["Chan"] == channel
 
-        calc_fluxes = self['Calculated Flux'][is_cal & good_chan]
-        biblio_fluxes = self['Flux'][is_cal & good_chan]
-        names = self['Source'][is_cal & good_chan]
-        times = self['Time'][is_cal & good_chan]
+        calc_fluxes = self["Calculated Flux"][is_cal & good_chan]
+        biblio_fluxes = self["Flux"][is_cal & good_chan]
+        names = self["Source"][is_cal & good_chan]
+        times = self["Time"][is_cal & good_chan]
 
-        consistent = \
+        consistent = (
             np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
+        )
 
-        for n, t, b, c, cons, in zip(
-                names, times, biblio_fluxes, calc_fluxes, consistent):
+        for (
+            n,
+            t,
+            b,
+            c,
+            cons,
+        ) in zip(names, times, biblio_fluxes, calc_fluxes, consistent):
             if not cons:
-                warnings.warn("{}, MJD {}: Expected {}, "
-                              "measured {}".format(n, t, b, c))
+                warnings.warn(
+                    "{}, MJD {}: Expected {}, "
+                    "measured {}".format(n, t, b, c)
+                )
 
         return consistent
 
@@ -892,15 +994,15 @@ class CalibratorTable(Table):
         """
         goodch = np.ones(len(self), dtype=bool)
         if channel is not None:
-            goodch = self['Chan'] == channel
-        allwidths = self[goodch]['Width']
-        allwidth_errs = self[goodch]['Width Err']
+            goodch = self["Chan"] == channel
+        allwidths = self[goodch]["Width"]
+        allwidth_errs = self[goodch]["Width Err"]
         good = (allwidth_errs > 0) & (allwidth_errs == allwidth_errs)
         allwidths = allwidths[good]
         allwidth_errs = allwidth_errs[good]
 
         # Weighted mean
-        width = np.sum(allwidths/allwidth_errs) / np.sum(1/allwidth_errs)
+        width = np.sum(allwidths / allwidth_errs) / np.sum(1 / allwidth_errs)
 
         width_err = np.sqrt(np.sum(allwidth_errs ** 2))
         return np.radians(width), np.radians(width_err)
@@ -913,9 +1015,19 @@ class CalibratorTable(Table):
         cf = 1 / fc
         return cf, fce / fc * cf
 
-    def plot_two_columns(self, xcol, ycol, xerrcol=None, yerrcol=None, ax=None,
-                         channel=None,
-                         xfactor=1, yfactor=1, color=None, test=False):
+    def plot_two_columns(
+        self,
+        xcol,
+        ycol,
+        xerrcol=None,
+        yerrcol=None,
+        ax=None,
+        channel=None,
+        xfactor=1,
+        yfactor=1,
+        color=None,
+        test=False,
+    ):
         """Plot the data corresponding to two given columns."""
         showit = False
         if ax is None:
@@ -927,7 +1039,7 @@ class CalibratorTable(Table):
         mask = np.ones_like(good)
         label = ""
         if channel is not None:
-            mask = self['Chan'] == channel
+            mask = self["Chan"] == channel
             label = "_{}".format(channel)
 
         good = good & mask
@@ -945,15 +1057,18 @@ class CalibratorTable(Table):
             yerr_to_plot = yerr_to_plot[order]
 
         if xerrcol is not None or yerrcol is not None:
-            ax.errorbar(x_to_plot, y_to_plot,
-                        xerr=xerr_to_plot,
-                        yerr=yerr_to_plot,
-                        label=ycol + label,
-                        fmt="none", color=color,
-                        ecolor=color)
+            ax.errorbar(
+                x_to_plot,
+                y_to_plot,
+                xerr=xerr_to_plot,
+                yerr=yerr_to_plot,
+                label=ycol + label,
+                fmt="none",
+                color=color,
+                ecolor=color,
+            )
         else:
-            ax.scatter(x_to_plot, y_to_plot, label=ycol + label,
-                       color=color)
+            ax.scatter(x_to_plot, y_to_plot, label=ycol + label, color=color)
 
         if showit and not test:
             plt.show()
@@ -963,6 +1078,7 @@ class CalibratorTable(Table):
         """Show a summary of the calibration."""
 
         from matplotlib import cm
+
         # TODO: this is meant to become interactive. I will make different
         # panels linked to each other.
 
@@ -974,53 +1090,85 @@ class CalibratorTable(Table):
         ax10 = plt.subplot(gs[1, 0], sharex=ax00)
         ax11 = plt.subplot(gs[1, 1], sharex=ax01, sharey=ax10)
 
-        channels = list(set(self['Chan']))
+        channels = list(set(self["Chan"]))
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
         for ic, channel in enumerate(channels):
             # Ugly workaround for python 2-3 compatibility
             channel_str = channel
 
             color = colors[ic]
-            self.plot_two_columns('Elevation', "Flux/Counts",
-                                  yerrcol="Flux/Counts Err", ax=ax00,
-                                  channel=channel, color=color)
+            self.plot_two_columns(
+                "Elevation",
+                "Flux/Counts",
+                yerrcol="Flux/Counts Err",
+                ax=ax00,
+                channel=channel,
+                color=color,
+            )
 
-            elevations = np.arange(np.min(self['Elevation']),
-                                   np.max(self['Elevation']), 0.001)
-            jy_over_cts, jy_over_cts_err = \
-                self.Jy_over_counts(channel_str, np.radians(elevations))
+            elevations = np.arange(
+                np.min(self["Elevation"]), np.max(self["Elevation"]), 0.001
+            )
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(
+                channel_str, np.radians(elevations)
+            )
             ax00.plot(elevations, jy_over_cts, color=color)
             ax00.plot(elevations, jy_over_cts + jy_over_cts_err, color=color)
             ax00.plot(elevations, jy_over_cts - jy_over_cts_err, color=color)
-            self.plot_two_columns('Elevation', "RA err", ax=ax10,
-                                  channel=channel,
-                                  yfactor=60, color=color)
-            self.plot_two_columns('Elevation', "Dec err", ax=ax10,
-                                  channel=channel,
-                                  yfactor=60, color=color)
-            self.plot_two_columns('Azimuth', "Flux/Counts",
-                                  yerrcol="Flux/Counts Err", ax=ax01,
-                                  channel=channel, color=color)
+            self.plot_two_columns(
+                "Elevation",
+                "RA err",
+                ax=ax10,
+                channel=channel,
+                yfactor=60,
+                color=color,
+            )
+            self.plot_two_columns(
+                "Elevation",
+                "Dec err",
+                ax=ax10,
+                channel=channel,
+                yfactor=60,
+                color=color,
+            )
+            self.plot_two_columns(
+                "Azimuth",
+                "Flux/Counts",
+                yerrcol="Flux/Counts Err",
+                ax=ax01,
+                channel=channel,
+                color=color,
+            )
 
-            jy_over_cts, jy_over_cts_err = \
-                self.Jy_over_counts(channel_str,
-                                    np.radians(np.mean(elevations)))
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(
+                channel_str, np.radians(np.mean(elevations))
+            )
 
             ax01.axhline(jy_over_cts, color=color)
             ax01.axhline(jy_over_cts + jy_over_cts_err, color=color)
             ax01.axhline(jy_over_cts - jy_over_cts_err, color=color)
-            self.plot_two_columns('Azimuth', "RA err", ax=ax11,
-                                  channel=channel,
-                                  yfactor=60, color=color)
-            self.plot_two_columns('Azimuth', "Dec err", ax=ax11,
-                                  channel=channel,
-                                  yfactor=60, color=color)
+            self.plot_two_columns(
+                "Azimuth",
+                "RA err",
+                ax=ax11,
+                channel=channel,
+                yfactor=60,
+                color=color,
+            )
+            self.plot_two_columns(
+                "Azimuth",
+                "Dec err",
+                ax=ax11,
+                channel=channel,
+                yfactor=60,
+                color=color,
+            )
 
         for i in np.arange(-1, 1, 0.1):
             # Arcmin errors
             ax10.axhline(i, ls="--", color="gray")
             ax11.axhline(i, ls="--", color="gray")
-#            ax11.text(1, i, "{}".format())
+        #            ax11.text(1, i, "{}".format())
         ax00.legend()
         ax01.legend()
         ax10.legend()
@@ -1058,11 +1206,11 @@ def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
 
     fs = np.linspace(f0, f1, 21)
     df = np.diff(fs)[0]
-    fmean = (fs[:-1] + fs[1:])/2
+    fmean = (fs[:-1] + fs[1:]) / 2
 
     logf = np.log10(fmean)
-    logS = a0 + a1 * logf + a2 * logf**2 + a3 * logf**3
-    elogS = a0e + a1e * logf + a2e * logf**2 + a3e * logf**3
+    logS = a0 + a1 * logf + a2 * logf ** 2 + a3 * logf ** 3
+    elogS = a0e + a1e * logf + a2e * logf ** 2 + a3e * logf ** 3
 
     S = 10 ** logS
     eS = S * elogS
@@ -1077,16 +1225,17 @@ def _calc_flux_from_coeffs(conf, frequency, bandwidth=1, time=0):
     Uses Perley & Butler ApJS 204, 19 (2013).
     """
     import io
+
     coefftable = conf["CoeffTable"]["coeffs"]
     fobj = io.BytesIO(standard_byte(coefftable))
-    table = Table.read(fobj, format='ascii.csv')
+    table = Table.read(fobj, format="ascii.csv")
 
     idx = np.argmin(np.abs(np.longdouble(table["time"]) - time))
 
-    a0, a0e = table['a0', 'a0e'][idx]
-    a1, a1e = table['a1', 'a1e'][idx]
-    a2, a2e = table['a2', 'a2e'][idx]
-    a3, a3e = table['a3', 'a3e'][idx]
+    a0, a0e = table["a0", "a0e"][idx]
+    a1, a1e = table["a1", "a1e"][idx]
+    a2, a2e = table["a2", "a2e"][idx]
+    a3, a3e = table["a3", "a3e"][idx]
     coeffs = np.array([a0, a1, a2, a3], dtype=float)
 
     ecoeffs = np.array([a0e, a1e, a2e, a3e], dtype=float)
@@ -1098,41 +1247,80 @@ def main_cal(args=None):
     """Main function."""
     import argparse
 
-    description = ('Load a series of cross scans from a config file '
-                   'and use them as calibrators.')
+    description = (
+        "Load a series of cross scans from a config file "
+        "and use them as calibrators."
+    )
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("file", nargs='?', help="Input calibration file",
-                        default=None, type=str)
-    parser.add_argument("--sample-config", action='store_true', default=False,
-                        help='Produce sample config file')
+    parser.add_argument(
+        "file",
+        nargs="?",
+        help="Input calibration file",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "--sample-config",
+        action="store_true",
+        default=False,
+        help="Produce sample config file",
+    )
 
-    parser.add_argument("--nofilt", action='store_true', default=False,
-                        help='Do not filter noisy channels')
+    parser.add_argument(
+        "--nofilt",
+        action="store_true",
+        default=False,
+        help="Do not filter noisy channels",
+    )
 
-    parser.add_argument("-c", "--config", type=str, default=None,
-                        help='Config file')
+    parser.add_argument(
+        "-c", "--config", type=str, default=None, help="Config file"
+    )
 
-    parser.add_argument("--splat", type=str, default=None,
-                        help=("Spectral scans will be scrunched into a single "
-                              "channel containing data in the given frequency "
-                              "range, starting from the frequency of the first"
-                              " bin. E.g. '0:1000' indicates 'from the first "
-                              "bin of the spectrum up to 1000 MHz above'. ':' "
-                              "or 'all' for all the channels."))
+    parser.add_argument(
+        "--splat",
+        type=str,
+        default=None,
+        help=(
+            "Spectral scans will be scrunched into a single "
+            "channel containing data in the given frequency "
+            "range, starting from the frequency of the first"
+            " bin. E.g. '0:1000' indicates 'from the first "
+            "bin of the spectrum up to 1000 MHz above'. ':' "
+            "or 'all' for all the channels."
+        ),
+    )
 
-    parser.add_argument("-o", "--output", type=str, default=None,
-                        help='Output file containing the calibration')
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=None,
+        help="Output file containing the calibration",
+    )
 
-    parser.add_argument("--snr-min", type=float, default=10,
-                        help='Minimum SNR for calibrator measurements '
-                             'to be considered valid')
+    parser.add_argument(
+        "--snr-min",
+        type=float,
+        default=10,
+        help="Minimum SNR for calibrator measurements "
+        "to be considered valid",
+    )
 
-    parser.add_argument("--show", action='store_true', default=False,
-                        help='Show calibration summary')
+    parser.add_argument(
+        "--show",
+        action="store_true",
+        default=False,
+        help="Show calibration summary",
+    )
 
-    parser.add_argument("--check", action='store_true', default=False,
-                        help='Check consistency of calibration')
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        default=False,
+        help="Check consistency of calibration",
+    )
 
     args = parser.parse_args(args)
 
@@ -1150,13 +1338,11 @@ def main_cal(args=None):
 
     config = read_config(args.config)
 
-    calibrator_dirs = config['calibrator_directories']
+    calibrator_dirs = config["calibrator_directories"]
     if calibrator_dirs is None or not calibrator_dirs:
         raise ValueError("No calibrators specified in config file")
 
-    scan_list = \
-        list_scans(config['datadir'],
-                   config['calibrator_directories'])
+    scan_list = list_scans(config["datadir"], config["calibrator_directories"])
 
     scan_list.sort()
 
@@ -1166,63 +1352,101 @@ def main_cal(args=None):
     outfile_unfilt = args.config.replace(".ini", "_cal_unfilt.hdf5")
     if not os.path.exists(outfile_unfilt):
         caltable = CalibratorTable()
-        caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt,
-                            plot=args.show)
+        caltable.from_scans(
+            scan_list, freqsplat=args.splat, nofilt=args.nofilt, plot=args.show
+        )
         caltable.write(outfile_unfilt)
     else:
-        log.info(f"Loading unfiltered calibration table from {outfile_unfilt} "
-                 f"(delete to reprocess)")
+        log.info(
+            f"Loading unfiltered calibration table from {outfile_unfilt} "
+            f"(delete to reprocess)"
+        )
         caltable = CalibratorTable.read(outfile_unfilt)
 
-    snr = caltable['Counts'] / caltable['Data Std']
+    snr = caltable["Counts"] / caltable["Data Std"]
     N = len(caltable)
     good = snr > args.snr_min
     caltable = caltable[good]
-    log.info(f"{len(caltable)} good calibrator observations found above "
-             f"SNR={args.snr_min} (of {N})")
+    log.info(
+        f"{len(caltable)} good calibrator observations found above "
+        f"SNR={args.snr_min} (of {N})"
+    )
     caltable.update()
 
     if args.check:
-        for chan in list(set(caltable['Chan'])):
+        for chan in list(set(caltable["Chan"])):
             caltable.check_consistency(chan)
     if args.show:
         caltable.show()
 
     caltable.write(outfile, overwrite=True)
-    caltable.write(outfile.replace('.hdf5', '.csv'), overwrite=True)
+    caltable.write(outfile.replace(".hdf5", ".csv"), overwrite=True)
 
 
 def main_lcurve(args=None):
     """Main function."""
     import argparse
 
-    description = ('Load a series of cross scans from a config file '
-                   'and obtain a calibrated curve.')
+    description = (
+        "Load a series of cross scans from a config file "
+        "and obtain a calibrated curve."
+    )
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("file", nargs='?', help="Input calibration file",
-                        default=None, type=str)
-    parser.add_argument("-s", "--source", nargs='+', type=str, default=None,
-                        help='Source or list of sources')
-    parser.add_argument("--sample-config", action='store_true', default=False,
-                        help='Produce sample config file')
+    parser.add_argument(
+        "file",
+        nargs="?",
+        help="Input calibration file",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "-s",
+        "--source",
+        nargs="+",
+        type=str,
+        default=None,
+        help="Source or list of sources",
+    )
+    parser.add_argument(
+        "--sample-config",
+        action="store_true",
+        default=False,
+        help="Produce sample config file",
+    )
 
-    parser.add_argument("--nofilt", action='store_true', default=False,
-                        help='Do not filter noisy channels')
+    parser.add_argument(
+        "--nofilt",
+        action="store_true",
+        default=False,
+        help="Do not filter noisy channels",
+    )
 
-    parser.add_argument("-c", "--config", type=str, default=None,
-                        help='Config file')
+    parser.add_argument(
+        "-c", "--config", type=str, default=None, help="Config file"
+    )
 
-    parser.add_argument("--splat", type=str, default=None,
-                        help=("Spectral scans will be scrunched into a single "
-                              "channel containing data in the given frequency "
-                              "range, starting from the frequency of the first"
-                              " bin. E.g. '0:1000' indicates 'from the first "
-                              "bin of the spectrum up to 1000 MHz above'. ':' "
-                              "or 'all' for all the channels."))
+    parser.add_argument(
+        "--splat",
+        type=str,
+        default=None,
+        help=(
+            "Spectral scans will be scrunched into a single "
+            "channel containing data in the given frequency "
+            "range, starting from the frequency of the first"
+            " bin. E.g. '0:1000' indicates 'from the first "
+            "bin of the spectrum up to 1000 MHz above'. ':' "
+            "or 'all' for all the channels."
+        ),
+    )
 
-    parser.add_argument("-o", "--output", type=str, default=None,
-                        help='Output file containing the calibration')
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=None,
+        help="Output file containing the calibration",
+    )
 
     args = parser.parse_args(args)
 
@@ -1248,15 +1472,15 @@ def main_lcurve(args=None):
 
     sources = args.source
     if args.source is None:
-        sources = [s for s in set(caltable['Source'])]
+        sources = [s for s in set(caltable["Source"])]
 
     for s in sources:
         caltable.calculate_src_flux(source=s)
-        good = caltable['Source'] == s
+        good = caltable["Source"] == s
         lctable = Table()
         lctable.add_column(Column(name="Time", dtype=float))
-        lctable['Time'] = caltable['Time'][good]
-        lctable['Flux'] = caltable['Calculated Flux'][good]
-        lctable['Flux Err'] = caltable['Calculated Flux Err'][good]
-        lctable['Chan'] = caltable['Chan'][good]
-        lctable.write(s.replace(' ', '_') + '.csv', overwrite=True)
+        lctable["Time"] = caltable["Time"][good]
+        lctable["Flux"] = caltable["Calculated Flux"][good]
+        lctable["Flux Err"] = caltable["Calculated Flux Err"][good]
+        lctable["Chan"] = caltable["Chan"][good]
+        lctable.write(s.replace(" ", "_") + ".csv", overwrite=True)

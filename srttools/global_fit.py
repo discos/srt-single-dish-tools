@@ -1,10 +1,10 @@
 """Functions to clean images by fitting linear trends to the initial scans."""
 
 
-
 try:
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
+
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
@@ -17,7 +17,7 @@ import numpy as np
 __all__ = ["fit_full_image", "display_intermediate"]
 
 
-@vectorize('(float64(float64,float64,float64,float64))', nopython=True)
+@vectorize("(float64(float64,float64,float64,float64))", nopython=True)
 def _align_fast(x, scan, m, q):
     """Align ``scan`` to a linear function."""
     return scan - x * m - q
@@ -48,12 +48,13 @@ def _calculate_image(x, y, counts, bx, by, nsamp):
     global EXPOMAP
 
     if EXPOMAP is None:
-        EXPOMAP, xedges, yedges = histogram2d(x, y, bins=(bx, by),
-                                              weights=nsamp)
+        EXPOMAP, xedges, yedges = histogram2d(
+            x, y, bins=(bx, by), weights=nsamp
+        )
 
-    histograms, xedges, yedges = \
-        histogram2d(x, y, bins=(bx, by),
-                    weights=[counts * nsamp, (counts) ** 2 * nsamp])
+    histograms, xedges, yedges = histogram2d(
+        x, y, bins=(bx, by), weights=[counts * nsamp, (counts) ** 2 * nsamp]
+    )
 
     img, img_var = histograms
     X, Y = _get_coords(xedges, yedges)
@@ -107,8 +108,9 @@ def _save_iteration(par):
     iteration = next(ITERATION_COUNT)
     print(iteration, end="\r")
     if iteration % 2 == 0:
-        _save_intermediate("out_iter_{}_{:03d}.txt".format(CURR_CHANNEL,
-                                                           iteration), par)
+        _save_intermediate(
+            "out_iter_{}_{:03d}.txt".format(CURR_CHANNEL, iteration), par
+        )
 
 
 def _obj_fun(par, data, data_idx, excluded, bx, by):
@@ -133,10 +135,11 @@ def _obj_fun(par, data, data_idx, excluded, bx, by):
     newd_t, _, newd_x, newd_y, newd_c, newd_e = data
 
     newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
-    X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by,
-                                          newd_e)
+    X, Y, img, img_var = _calculate_image(
+        newd_x, newd_y, newd_c_new, bx, by, newd_e
+    )
 
-    good = img != 0.
+    good = img != 0.0
     if excluded is not None:
         for e in excluded:
             centerx, centery, radius = e
@@ -177,9 +180,12 @@ def _resample_scans(data):
         t_filt = t[good]
         t_filt -= t_filt[0]
 
-        hists, _, _ = \
-            histogram2d(x_filt, y_filt, bins=(bx, by),
-                        weights=[np.ones(n), t_filt, x_filt, y_filt, c_filt])
+        hists, _, _ = histogram2d(
+            x_filt,
+            y_filt,
+            bins=(bx, by),
+            weights=[np.ones(n), t_filt, x_filt, y_filt, c_filt],
+        )
         expo, time, X, Y, counts = hists
         good = expo > 0
 
@@ -245,24 +251,25 @@ def fit_full_image(scanset, chan="Feed0_RCP", feed=0, excluded=None, par=None):
         from each scan to produce the cleanest image background.
     """
     from scipy.optimize import minimize
+
     global EXPOMAP, XBUFFER, YBUFFER, ITERATION_COUNT, CURR_CHANNEL
     CURR_CHANNEL = chan
     EXPOMAP = None
     XBUFFER = None
     YBUFFER = None
 
-    X = np.array(scanset['x'][:, feed], dtype=np.float64)
-    Y = np.array(scanset['y'][:, feed], dtype=np.float64)
+    X = np.array(scanset["x"][:, feed], dtype=np.float64)
+    Y = np.array(scanset["y"][:, feed], dtype=np.float64)
     counts = np.array(scanset[chan], dtype=np.float64)
 
     count_range = np.max(counts) - np.min(counts)
 
     counts /= count_range
 
-    times = np.array(scanset['time'], dtype=np.float64)
+    times = np.array(scanset["time"], dtype=np.float64)
     times -= times[0]
 
-    idxs = np.array(scanset['Scan_id'], dtype=int)
+    idxs = np.array(scanset["Scan_id"], dtype=int)
 
     if par is None:
         par = np.zeros(len(list(set(idxs))) * 2)
@@ -279,8 +286,13 @@ def fit_full_image(scanset, chan="Feed0_RCP", feed=0, excluded=None, par=None):
         times[good] = filt_t
         par[i_p * 2 + 1] = counts[good][0]
 
-    data_to_fit = [np.array(times, dtype=np.float64), idxs, X, Y,
-                   np.array(counts, dtype=np.float64)]
+    data_to_fit = [
+        np.array(times, dtype=np.float64),
+        idxs,
+        X,
+        Y,
+        np.array(counts, dtype=np.float64),
+    ]
 
     data, bx, by = _resample_scans(data_to_fit)
 
@@ -288,11 +300,16 @@ def fit_full_image(scanset, chan="Feed0_RCP", feed=0, excluded=None, par=None):
 
     data_idx_resamp = _get_data_idx(par, i)
 
-    def _callback(x): return _save_iteration(x * count_range)
+    def _callback(x):
+        return _save_iteration(x * count_range)
 
-    res = minimize(_obj_fun, par,
-                   args=(data, data_idx_resamp, excluded, bx, by),
-                   method="SLSQP", callback=_callback)
+    res = minimize(
+        _obj_fun,
+        par,
+        args=(data, data_idx_resamp, excluded, bx, by),
+        method="SLSQP",
+        callback=_callback,
+    )
 
     new_counts = _align_all(times, counts, data_idx, res.x)
 
@@ -300,8 +317,9 @@ def fit_full_image(scanset, chan="Feed0_RCP", feed=0, excluded=None, par=None):
     return new_counts * count_range
 
 
-def display_intermediate(scanset, chan="Feed0_RCP", feed=0, excluded=None,
-                         parfile=None, factor=1):
+def display_intermediate(
+    scanset, chan="Feed0_RCP", feed=0, excluded=None, parfile=None, factor=1
+):
     """Display the intermediate steps of global_fitting.
 
     Parameters
@@ -323,15 +341,15 @@ def display_intermediate(scanset, chan="Feed0_RCP", feed=0, excluded=None,
 
     """
     if not HAS_MPL:
-        raise ImportError('display_intermediate: matplotlib is not installed')
-    X = np.array(scanset['x'][:, feed], dtype=np.float64)
-    Y = np.array(scanset['y'][:, feed], dtype=np.float64)
+        raise ImportError("display_intermediate: matplotlib is not installed")
+    X = np.array(scanset["x"][:, feed], dtype=np.float64)
+    Y = np.array(scanset["y"][:, feed], dtype=np.float64)
     counts = np.array(scanset[chan], dtype=np.float64) * factor
 
-    times = np.array(scanset['time'], dtype=np.float64)
+    times = np.array(scanset["time"], dtype=np.float64)
     times -= times[0]
 
-    idxs = np.array(scanset['Scan_id'], dtype=int)
+    idxs = np.array(scanset["Scan_id"], dtype=int)
 
     par = _get_saved_pars(parfile)
 
@@ -344,8 +362,9 @@ def display_intermediate(scanset, chan="Feed0_RCP", feed=0, excluded=None,
     data_idx = _get_data_idx(par, newd_i)
 
     newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
-    X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by,
-                                          newd_e)
+    X, Y, img, img_var = _calculate_image(
+        newd_x, newd_y, newd_c_new, bx, by, newd_e
+    )
 
     good = np.ones_like(img, dtype=bool)
     if excluded is not None:

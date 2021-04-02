@@ -58,7 +58,6 @@ The conversion is performed as follows:
 """
 
 
-
 from astropy.io import fits
 from astropy.table import Table, vstack
 from astropy.time import Time
@@ -66,8 +65,14 @@ import astropy.units as u
 import astropy.constants as c
 import os
 import numpy as np
-from srttools.io import mkdir_p, locations, read_data_fitszilla, \
-    get_chan_columns, classify_chan_columns, interpret_chan_name
+from srttools.io import (
+    mkdir_p,
+    locations,
+    read_data_fitszilla,
+    get_chan_columns,
+    classify_chan_columns,
+    interpret_chan_name,
+)
 import glob
 from ..utils import get_mH2O
 from ..io import label_from_chan_name
@@ -134,37 +139,104 @@ EPOCH   =  2.0000000000000E+03         / Epoch of coordinates.
 DATE-RED= '15/07/97'                   / Date of reduction.
 """
 
-LIST_TTYPE = \
-    ["MJD",
-     "MAXIS1", "SCAN", "TELESCOP", "TSYS",
-     "IMAGFREQ", "DELTAV", "TAU-ATM", "MH2O",
-     "TOUTSIDE", "PRESSURE", "CRVAL2", "CRVAL3",
-     "ELEVATIO", "AZIMUTH", "DATE-OBS", "UT",
-     "LST", "OBSTIME", "CRPIX1", "RESTFREQ",
-     "OBJECT", "VELOCITY", "CDELT1", "CDELT2",
-     "CDELT3", "LINE", "SIGNAL", "CAL_IS_ON",
-     "CALTEMP"]
+LIST_TTYPE = [
+    "MJD",
+    "MAXIS1",
+    "SCAN",
+    "TELESCOP",
+    "TSYS",
+    "IMAGFREQ",
+    "DELTAV",
+    "TAU-ATM",
+    "MH2O",
+    "TOUTSIDE",
+    "PRESSURE",
+    "CRVAL2",
+    "CRVAL3",
+    "ELEVATIO",
+    "AZIMUTH",
+    "DATE-OBS",
+    "UT",
+    "LST",
+    "OBSTIME",
+    "CRPIX1",
+    "RESTFREQ",
+    "OBJECT",
+    "VELOCITY",
+    "CDELT1",
+    "CDELT2",
+    "CDELT3",
+    "LINE",
+    "SIGNAL",
+    "CAL_IS_ON",
+    "CALTEMP",
+]
 
-LIST_TFORM = \
-    ["1D",
-     "1J", "1J", "12A", "1E",
-     "1E", "1E", "1E", "1E",
-     "1E", "1E", "1E", "1E",
-     "1E", "1E", "23A ", "1D",
-     "1D", "1E", "1E", "1D",
-     "12A", "1E", "1E", "1D",
-     "1D", "12A", "1J", "1J",
-     "1D"]
+LIST_TFORM = [
+    "1D",
+    "1J",
+    "1J",
+    "12A",
+    "1E",
+    "1E",
+    "1E",
+    "1E",
+    "1E",
+    "1E",
+    "1E",
+    "1E",
+    "1E",
+    "1E",
+    "1E",
+    "23A ",
+    "1D",
+    "1D",
+    "1E",
+    "1E",
+    "1D",
+    "12A",
+    "1E",
+    "1E",
+    "1D",
+    "1D",
+    "12A",
+    "1J",
+    "1J",
+    "1D",
+]
 
-LIST_TUNIT = \
-    ["d",
-     " ", "", "", "K",
-     "Hz", "m.s-1", "neper", "mm",
-     "K", "hPa", "deg", "deg",
-     "deg", "deg", "", "s",
-     "s", "s", "", "Hz",
-     "", "m.s-1", "Hz", "deg",
-     "deg", "",  "", "", "K"]
+LIST_TUNIT = [
+    "d",
+    " ",
+    "",
+    "",
+    "K",
+    "Hz",
+    "m.s-1",
+    "neper",
+    "mm",
+    "K",
+    "hPa",
+    "deg",
+    "deg",
+    "deg",
+    "deg",
+    "",
+    "s",
+    "s",
+    "s",
+    "",
+    "Hz",
+    "",
+    "m.s-1",
+    "Hz",
+    "deg",
+    "deg",
+    "",
+    "",
+    "",
+    "K",
+]
 
 
 def get_model_HDUlist(additional_columns=None, **kwargs):
@@ -182,16 +254,21 @@ def get_model_HDUlist(additional_columns=None, **kwargs):
         coldefs += fits.ColDefs(additional_columns)
 
     hdu = fits.BinTableHDU.from_columns(
-        coldefs, header=fits.Header.fromstring(model_header, sep='\n'),
-        name='MATRIX', **kwargs)
+        coldefs,
+        header=fits.Header.fromstring(model_header, sep="\n"),
+        name="MATRIX",
+        **kwargs
+    )
 
     primary_hdu = fits.PrimaryHDU(
-        header=fits.Header.fromstring(model_primary_header, sep='\n'))
+        header=fits.Header.fromstring(model_primary_header, sep="\n")
+    )
     return fits.HDUList([primary_hdu, hdu])
 
 
-def create_variable_length_column(values, max_length=2048, name="SPECTRUM",
-                                  unit="K"):
+def create_variable_length_column(
+    values, max_length=2048, name="SPECTRUM", unit="K"
+):
     """If we want to use variable length arrays, this is what we should do.
 
     Examples
@@ -201,25 +278,28 @@ def create_variable_length_column(values, max_length=2048, name="SPECTRUM",
     True
     """
     format_str = "PJ({})".format(max_length)
-    column = fits.Column(array=values, name=name, unit=unit,
-                         format=format_str)
+    column = fits.Column(array=values, name=name, unit=unit, format=format_str)
     return column
 
 
 def on_or_off(subscan, feed):
     """Try to infer if a given subscan is ON or OFF."""
     is_on = False
-    if 'SIGNAL' in subscan.meta and \
-            subscan.meta['SIGNAL'] in ['SIGNAL', 'REFERENCE',
-                                       'SIGCAL', 'REFSIG', 'REFCAL']:
-        signal = subscan.meta['SIGNAL']
+    if "SIGNAL" in subscan.meta and subscan.meta["SIGNAL"] in [
+        "SIGNAL",
+        "REFERENCE",
+        "SIGCAL",
+        "REFSIG",
+        "REFCAL",
+    ]:
+        signal = subscan.meta["SIGNAL"]
         # In nodding, feed 0 has
-        if signal in ['SIGNAL', 'SIGCAL', 'REFSIG'] and feed == 0:
+        if signal in ["SIGNAL", "SIGCAL", "REFSIG"] and feed == 0:
             is_on = True
-        elif signal in ['REFERENCE', 'REFCAL'] and feed != 0:
+        elif signal in ["REFERENCE", "REFCAL"] and feed != 0:
             is_on = True
     else:
-        is_on = subscan.meta['az_offset'] > 1e-4 * u.rad
+        is_on = subscan.meta["az_offset"] > 1e-4 * u.rad
     # log.info("Subscan {}, feed {}: ONOFF {}".format(
     #     subscan.meta['SubScanID'],
     #     feed, is_on))
@@ -229,13 +309,16 @@ def on_or_off(subscan, feed):
 def cal_is_on(subscan):
     """Is the calibration mark on? Try to understand."""
     is_on = False
-    if 'SIGNAL' in subscan.meta and \
-            subscan.meta['SIGNAL'] in ['REFSIG', 'SIGCAL', 'REFCAL']:
+    if "SIGNAL" in subscan.meta and subscan.meta["SIGNAL"] in [
+        "REFSIG",
+        "SIGCAL",
+        "REFCAL",
+    ]:
         is_on = True
-    elif 'SUBSTYPE' in subscan.meta and subscan.meta['SUBSTYPE'] == 'CAL':
+    elif "SUBSTYPE" in subscan.meta and subscan.meta["SUBSTYPE"] == "CAL":
         is_on = True
-    elif 'flag_cal' in subscan.colnames and np.any(subscan['flag_cal'] == 1):
-        is_on = subscan['flag_cal']
+    elif "flag_cal" in subscan.colnames and np.any(subscan["flag_cal"] == 1):
+        is_on = subscan["flag_cal"]
     # log.info("Subscan {}: CAL {}".format(
     #     subscan.meta['SubScanID'],
     #     is_on))
@@ -279,19 +362,19 @@ def find_cycles(table, list_of_keys):
     True
     """
     binary_values = 10 ** np.arange(len(list_of_keys), dtype=int)
-    table['BINARY_COL'] = np.zeros(len(table), dtype=int)
+    table["BINARY_COL"] = np.zeros(len(table), dtype=int)
     for i, k in enumerate(list_of_keys):
-        good = (table[k] == 1)
-        table['BINARY_COL'][good] += binary_values[i]
+        good = table[k] == 1
+        table["BINARY_COL"][good] += binary_values[i]
 
-    table['CYCLE'] = np.zeros(len(table), dtype=int)
+    table["CYCLE"] = np.zeros(len(table), dtype=int)
     cycle_counter = -1
-    start_value = table['BINARY_COL'][0]
+    start_value = table["BINARY_COL"][0]
     last = -1
-    for i, b in enumerate(table['BINARY_COL']):
+    for i, b in enumerate(table["BINARY_COL"]):
         if b == start_value and b != last:
             cycle_counter += 1
-        table['CYCLE'][i] = cycle_counter
+        table["CYCLE"][i] = cycle_counter
         last = b
     # log.info(table)
     return table
@@ -330,8 +413,8 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
     """
     calibration_factor = 1
     unit = ""
-    cal_on = table['CAL_IS_ON'] == 1
-    onsource = table['SIGNAL'] == 1
+    cal_on = table["CAL_IS_ON"] == 1
+    onsource = table["SIGNAL"] == 1
     on_data = table[~cal_on & onsource]
     off_data = table[~cal_on & ~onsource]
     calon_data = table[cal_on & onsource]
@@ -339,15 +422,15 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
 
     newtable = Table(on_data)
 
-    on = on_data['SPECTRUM']
-    off = np.mean(off_data['SPECTRUM'], axis=0)
+    on = on_data["SPECTRUM"]
+    off = np.mean(off_data["SPECTRUM"], axis=0)
     calon = caloff = None
 
     if len(calon_data) > 0 and use_calon:
-        calon = np.mean(calon_data['SPECTRUM'], axis=0)
+        calon = np.mean(calon_data["SPECTRUM"], axis=0)
 
     if len(caloff_data) > 0:
-        caloff = np.mean(caloff_data['SPECTRUM'], axis=0)
+        caloff = np.mean(caloff_data["SPECTRUM"], axis=0)
 
     off_ref = off
     on_ref = on[0]
@@ -360,7 +443,7 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
         signal[i] = (o - off_ref) / off_ref
 
     if apply_cal:
-        cal_mark_temp = on_data['CALTEMP']
+        cal_mark_temp = on_data["CALTEMP"]
         oncal = offcal = np.zeros_like(caloff)
         if caloff is not None:
             offcal = (caloff - off_ref) / off_ref
@@ -380,18 +463,20 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
             return None, ""
 
     if not isinstance(calibration_factor, Iterable):
-        calibration_factor *= np.ones(newtable['SPECTRUM'].shape[0])
+        calibration_factor *= np.ones(newtable["SPECTRUM"].shape[0])
 
     for i, calf in enumerate(calibration_factor):
-        newtable['SPECTRUM'][i, :] = signal[i, :] * calf
+        newtable["SPECTRUM"][i, :] = signal[i, :] * calf
 
     return newtable, unit
 
 
-class CLASSFITS_creator():
+class CLASSFITS_creator:
     """CLASS-compatible FITS creator obhject."""
-    def __init__(self, dirname, scandir=None, average=True, use_calon=False,
-                 test=False):
+
+    def __init__(
+        self, dirname, scandir=None, average=True, use_calon=False, test=False
+    ):
         """Initialization.
 
         Initialization is easy. If scandir is given, the conversion is
@@ -454,29 +539,35 @@ class CLASSFITS_creator():
         -------
         tables
         """
-        scandir = scandir.rstrip('/')
-        fname = os.path.join(scandir, 'summary.fits')
+        scandir = scandir.rstrip("/")
+        fname = os.path.join(scandir, "summary.fits")
         self.fill_in_summary(fname)
-        for fname in sorted(glob.glob(os.path.join(scandir, '*.fits'))):
-            if 'summary' in fname:
+        for fname in sorted(glob.glob(os.path.join(scandir, "*.fits"))):
+            if "summary" in fname:
                 continue
             log.info(fname)
             subscan = read_data_fitszilla(fname)
-            location = locations[subscan.meta['site']]
-            times = Time(subscan['time'] * u.day, format='mjd', scale='utc',
-                         location=location)
-            date_col = [t.strftime('%d/%m/%y') for t in times.to_datetime()]
-            mjd_col = subscan['time']
+            location = locations[subscan.meta["site"]]
+            times = Time(
+                subscan["time"] * u.day,
+                format="mjd",
+                scale="utc",
+                location=location,
+            )
+            date_col = [t.strftime("%d/%m/%y") for t in times.to_datetime()]
+            mjd_col = subscan["time"]
             ut_col = (times.mjd - np.floor(times.mjd)) * 86400
 
-            lsts = times.sidereal_time('apparent',
-                                       locations[subscan.meta['site']].lon
-                                       )
+            lsts = times.sidereal_time(
+                "apparent", locations[subscan.meta["site"]].lon
+            )
             lsts_col = lsts.value * u.hr
 
-            mH2O = [get_mH2O(weather[1] + 273.15, weather[0])
-                    for weather in subscan['weather']]
-            lsts = lsts_col.to('s').value
+            mH2O = [
+                get_mH2O(weather[1] + 273.15, weather[0])
+                for weather in subscan["weather"]
+            ]
+            lsts = lsts_col.to("s").value
             if average:
                 date_col = date_col[0]
                 ut_col = ut_col[0]
@@ -485,23 +576,25 @@ class CLASSFITS_creator():
                 mjd_col = mjd_col[0]
 
             allcolumns = get_chan_columns(subscan)
-            channels = \
-                [subscan[ch].meta['channels'] for ch in allcolumns]
+            channels = [subscan[ch].meta["channels"] for ch in allcolumns]
             if not len(set(channels)) == 1:
-                raise ValueError("Only files with the same number of spectral "
-                                 "bins in each channel are supported. Please "
-                                 "report")
+                raise ValueError(
+                    "Only files with the same number of spectral "
+                    "bins in each channel are supported. Please "
+                    "report"
+                )
             classif = classify_chan_columns(allcolumns)
             feeds = list(classif.keys())
 
             for i, f in enumerate(feeds):
-                azimuth = subscan['az'][:, f].to(u.deg).value
-                elevation = subscan['el'][:, f].to(u.deg).value
-                crval2 = subscan['ra'][:, f].to(u.deg).value
-                crval3 = subscan['dec'][:, f].to(u.deg).value
+                azimuth = subscan["az"][:, f].to(u.deg).value
+                elevation = subscan["el"][:, f].to(u.deg).value
+                crval2 = subscan["ra"][:, f].to(u.deg).value
+                crval3 = subscan["dec"][:, f].to(u.deg).value
 
-                columns = [a for a in allcolumns
-                           if a.startswith('Feed{}'.format(f))]
+                columns = [
+                    a for a in allcolumns if a.startswith("Feed{}".format(f))
+                ]
 
                 data_matrix = []
                 for ch in columns:
@@ -518,9 +611,12 @@ class CLASSFITS_creator():
                     crval2 = np.mean(crval2)
                     crval3 = np.mean(crval3)
 
-                newcol = fits.Column(array=data_matrix, name="SPECTRUM",
-                                     unit="K",
-                                     format="{}D".format(channels[0]))
+                newcol = fits.Column(
+                    array=data_matrix,
+                    name="SPECTRUM",
+                    unit="K",
+                    format="{}D".format(channels[0]),
+                )
 
                 newhdu = get_model_HDUlist(additional_columns=[newcol])
 
@@ -531,99 +627,114 @@ class CLASSFITS_creator():
                 for ch in columns:
                     feed, polar, baseband = interpret_chan_name(ch)
                     if feed != f:
-                        warnings.warn("Problem interpreting chan name: {} "
-                                      "instead of {}".format(feed, f))
+                        warnings.warn(
+                            "Problem interpreting chan name: {} "
+                            "instead of {}".format(feed, f)
+                        )
                     if baseband is None:
                         baseband = 1
                     array = subscan[ch]
                     if average:
                         length = len(array)
-                        array = Table(data=[[np.mean(array, axis=0)]],
-                                      meta=array.meta)
-                        array.meta['integration_time'] *= length
+                        array = Table(
+                            data=[[np.mean(array, axis=0)]], meta=array.meta
+                        )
+                        array.meta["integration_time"] *= length
 
                     length = len(array)
                     id1 = id0 + length
-                    nbin = array.meta['channels']
+                    nbin = array.meta["channels"]
 
-                    bandwidth = array.meta['bandwidth']
-                    restfreq_label = 'RESTFREQ{}'.format(baseband + 1)
+                    bandwidth = array.meta["bandwidth"]
+                    restfreq_label = "RESTFREQ{}".format(baseband + 1)
                     if restfreq_label not in self.summary:
-                        restfreq_label = 'RESTFREQ1'
+                        restfreq_label = "RESTFREQ1"
                     restfreq = self.summary[restfreq_label] * u.MHz
-                    data['MJD'][id0:id1] = mjd_col
-                    data['RESTFREQ'][id0:id1] = restfreq.to(u.Hz).value
-                    data['OBSTIME'][id0:id1] = \
-                        array.meta['integration_time'].value
-                    data['VELOCITY'][id0:id1] = \
-                        subscan.meta['VLSR'].to("m/s").value
-                    data['DATE-OBS'][id0:id1] = date_col
-                    data['UT'][id0:id1] = ut_col
-                    data['MH2O'][id0:id1] = mH2O
+                    data["MJD"][id0:id1] = mjd_col
+                    data["RESTFREQ"][id0:id1] = restfreq.to(u.Hz).value
+                    data["OBSTIME"][id0:id1] = array.meta[
+                        "integration_time"
+                    ].value
+                    data["VELOCITY"][id0:id1] = (
+                        subscan.meta["VLSR"].to("m/s").value
+                    )
+                    data["DATE-OBS"][id0:id1] = date_col
+                    data["UT"][id0:id1] = ut_col
+                    data["MH2O"][id0:id1] = mH2O
 
-                    data['SIGNAL'][id0:id1] = on_or_off(subscan, f)
+                    data["SIGNAL"][id0:id1] = on_or_off(subscan, f)
                     is_on = cal_is_on(subscan)
                     if isinstance(is_on, Iterable) and average:
                         if len(list(set(is_on))) != 1:
-                            raise ValueError('flag_cal is inconsistent '
-                                             'in {}'.format(fname))
+                            raise ValueError(
+                                "flag_cal is inconsistent "
+                                "in {}".format(fname)
+                            )
                         is_on = is_on[0]
-                    data['CAL_IS_ON'][id0:id1] = is_on
-                    data['CALTEMP'][id0:id1] = \
-                        array.meta['cal_mark_temp'].to('K').value
-                    label = 'SRT-{}-{}-{}'.format(subscan.meta['receiver'][0],
-                                                  subscan.meta['backend'][:3],
-                                                  label_from_chan_name(ch))
-                    data['TELESCOP'][id0:id1] = label
-                    data['TSYS'][id0:id1] = 1
-                    df = (bandwidth / nbin).to('Hz')
-                    data['CDELT1'][id0:id1] = df
-                    data['CDELT2'][id0:id1] = \
+                    data["CAL_IS_ON"][id0:id1] = is_on
+                    data["CALTEMP"][id0:id1] = (
+                        array.meta["cal_mark_temp"].to("K").value
+                    )
+                    label = "SRT-{}-{}-{}".format(
+                        subscan.meta["receiver"][0],
+                        subscan.meta["backend"][:3],
+                        label_from_chan_name(ch),
+                    )
+                    data["TELESCOP"][id0:id1] = label
+                    data["TSYS"][id0:id1] = 1
+                    df = (bandwidth / nbin).to("Hz")
+                    data["CDELT1"][id0:id1] = df
+                    data["CDELT2"][id0:id1] = (
                         subscan.meta["ra_offset"].to(u.deg).value
-                    data['CDELT3'][id0:id1] = \
+                    )
+                    data["CDELT3"][id0:id1] = (
                         subscan.meta["dec_offset"].to(u.deg).value
-                    deltav = - df / restfreq * c.c
-                    data['DELTAV'][id0:id1] = deltav.to('m/s').value
-                    data['LINE'][id0:id1] = \
-                        "F{}-{:3.3f}-MHz".format(f, bandwidth.to('MHz').value)
+                    )
+                    deltav = -df / restfreq * c.c
+                    data["DELTAV"][id0:id1] = deltav.to("m/s").value
+                    data["LINE"][id0:id1] = "F{}-{:3.3f}-MHz".format(
+                        f, bandwidth.to("MHz").value
+                    )
 
-                    data['OBJECT'][id0:id1] = subscan.meta['SOURCE']
-                    data['AZIMUTH'][id0:id1] = azimuth
-                    data['ELEVATIO'][id0:id1] = elevation
-                    data['CRPIX1'][id0:id1] = nbin // 2 + 1
-                    data['CRVAL2'][id0:id1] = crval2
-                    data['CRVAL3'][id0:id1] = crval3
-                    data['LST'][id0:id1] = lsts
-                    data['MAXIS1'][id0:id1] = array.meta['channels']
+                    data["OBJECT"][id0:id1] = subscan.meta["SOURCE"]
+                    data["AZIMUTH"][id0:id1] = azimuth
+                    data["ELEVATIO"][id0:id1] = elevation
+                    data["CRPIX1"][id0:id1] = nbin // 2 + 1
+                    data["CRVAL2"][id0:id1] = crval2
+                    data["CRVAL3"][id0:id1] = crval3
+                    data["LST"][id0:id1] = lsts
+                    data["MAXIS1"][id0:id1] = array.meta["channels"]
                     id0 = id1
 
                 header = newhdu[1].header
-                header['CTYPE1'] = "FREQ"
-                header['CRVAL'] = 0
+                header["CTYPE1"] = "FREQ"
+                header["CRVAL"] = 0
 
-                header['CRVAL2'] = np.degrees(subscan.meta['RightAscension'])
-                header['CRVAL3'] = np.degrees(subscan.meta['Declination'])
+                header["CRVAL2"] = np.degrees(subscan.meta["RightAscension"])
+                header["CRVAL3"] = np.degrees(subscan.meta["Declination"])
 
-                header['LINE'] = subscan.meta['SOURCE']
-                header['OBJECT'] = subscan.meta['SOURCE']
-                header['SOURCE'] = subscan.meta['SOURCE']
-                header['DATE-RED'] = \
-                    Time.now().to_datetime().strftime('%d/%m/%y')
-                header['LINE'] = \
-                    "FEED{}-{:3.3f}-MHz".format(f,
-                                                bandwidth.to('MHz').value)
-                header['CDELT1'] = df.to('Hz').value
-                header['RESTFREQ'] = restfreq.to(u.Hz).value
-                header['MAXIS1'] = channels[0]
+                header["LINE"] = subscan.meta["SOURCE"]
+                header["OBJECT"] = subscan.meta["SOURCE"]
+                header["SOURCE"] = subscan.meta["SOURCE"]
+                header["DATE-RED"] = (
+                    Time.now().to_datetime().strftime("%d/%m/%y")
+                )
+                header["LINE"] = "FEED{}-{:3.3f}-MHz".format(
+                    f, bandwidth.to("MHz").value
+                )
+                header["CDELT1"] = df.to("Hz").value
+                header["RESTFREQ"] = restfreq.to(u.Hz).value
+                header["MAXIS1"] = channels[0]
 
-                filekey = os.path.basename(scandir) + '_all_feed{}'.format(f)
+                filekey = os.path.basename(scandir) + "_all_feed{}".format(f)
 
                 if filekey in list(self.tables.keys()):
                     hdul = self.tables[filekey]
                     nrows1, nrows2 = len(hdul[1].data), len(data)
                     nrows = nrows1 + nrows2
-                    newhdu = fits.BinTableHDU.from_columns(hdul[1].columns,
-                                                           nrows=nrows)
+                    newhdu = fits.BinTableHDU.from_columns(
+                        hdul[1].columns, nrows=nrows
+                    )
                     for col in hdul[1].columns:
                         name = col.name
                         newhdu.data[name][:nrows1] = hdul[1].data[name]
@@ -664,45 +775,48 @@ class CLASSFITS_creator():
 
                 table = Table(new_hdul[1].data)
 
-                table.sort(['MJD', 'TELESCOP', 'LINE'])
+                table.sort(["MJD", "TELESCOP", "LINE"])
 
-                out_grouped = table.group_by(['TELESCOP', 'LINE'])
+                out_grouped = table.group_by(["TELESCOP", "LINE"])
                 new_rows = 0
                 astropy_table_from_results = None
 
                 apply_cal = caltype == "cal"
 
-                for _, out_group in zip(out_grouped.groups.keys,
-                                        out_grouped.groups):
-                    out_group = find_cycles(out_group, ['SIGNAL', 'CAL_IS_ON'])
+                for _, out_group in zip(
+                    out_grouped.groups.keys, out_grouped.groups
+                ):
+                    out_group = find_cycles(out_group, ["SIGNAL", "CAL_IS_ON"])
 
-                    grouped = out_group.group_by(['CYCLE'])
+                    grouped = out_group.group_by(["CYCLE"])
 
                     for _, group in zip(grouped.groups.keys, grouped.groups):
                         # group = vstack([group, group])
-                        results, _ = \
-                            normalize_on_off_cal(group, smooth=False,
-                                                 apply_cal=apply_cal,
-                                                 use_calon=use_calon)
+                        results, _ = normalize_on_off_cal(
+                            group,
+                            smooth=False,
+                            apply_cal=apply_cal,
+                            use_calon=use_calon,
+                        )
                         if results is None:
                             break
                         if astropy_table_from_results is None:
                             astropy_table_from_results = results
                         else:
-                            astropy_table_from_results = \
-                                vstack((astropy_table_from_results, results))
+                            astropy_table_from_results = vstack(
+                                (astropy_table_from_results, results)
+                            )
                         new_rows += 1
                 if astropy_table_from_results is None:
                     continue
 
-                astropy_table_from_results.remove_column('CYCLE')
-                astropy_table_from_results.remove_column('SIGNAL')
-                astropy_table_from_results.remove_column('CAL_IS_ON')
-                astropy_table_from_results.remove_column('BINARY_COL')
-                astropy_table_from_results.remove_column('MJD')
+                astropy_table_from_results.remove_column("CYCLE")
+                astropy_table_from_results.remove_column("SIGNAL")
+                astropy_table_from_results.remove_column("CAL_IS_ON")
+                astropy_table_from_results.remove_column("BINARY_COL")
+                astropy_table_from_results.remove_column("MJD")
 
-                dummy_hdu = \
-                    fits.BinTableHDU(data=astropy_table_from_results)
+                dummy_hdu = fits.BinTableHDU(data=astropy_table_from_results)
                 new_hdul[1].data = dummy_hdu.data
 
                 new_tables[new_filekey] = new_hdul
@@ -712,14 +826,17 @@ class CLASSFITS_creator():
     def write_tables_to_disk(self):
         """Write all HDU lists produced until now in separate FITS files."""
         for (filekey, table) in self.tables.items():
-            outfile = os.path.join(self.dirname, '{}.fits'.format(filekey))
+            outfile = os.path.join(self.dirname, "{}.fits".format(filekey))
             table.writeto(outfile, overwrite=True)
 
-            outscript = os.path.join(self.dirname,
-                                     '{}_class_script.txt'.format(filekey))
-            with open(outscript, 'w') as fobj:
+            outscript = os.path.join(
+                self.dirname, "{}_class_script.txt".format(filekey)
+            )
+            with open(outscript, "w") as fobj:
                 string = """
 file out {file}.gdf multiple /overwrite
 fits read {file}.fits
-                """.format(file=filekey)
+                """.format(
+                    file=filekey
+                )
                 print(string, file=fobj)
