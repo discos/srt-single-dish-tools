@@ -81,7 +81,7 @@ def main_parse_acs_logs(args=None):
         table = load_acs_log_file(fname, full=full)
         if args.list_calon:
             print("\n\nList of files with the calibration mark on:\n")
-            good = (table["CAL"] is True) & (table["file"] != "")
+            good = table["CAL"] & (table["file"] != "")
             if np.any(good):
                 for fname in table["file"][good]:
                     print(fname)
