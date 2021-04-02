@@ -333,6 +333,8 @@ class TestScanSet(object):
 
         assert 'Feed0_RCP' in images
 
+        scanset.save_ds9_images(save_sdev=True, altaz=True)
+
         if HAS_MPL and DEBUG:
             img = images['Feed0_RCP']
 
@@ -340,7 +342,6 @@ class TestScanSet(object):
             plt.imshow(img, origin='lower')
             plt.colorbar()
             plt.savefig('img_altaz.png')
-            scanset.save_ds9_images(save_sdev=True, altaz=True)
             plt.close(fig)
 
     def test_image_scrunch(self):
