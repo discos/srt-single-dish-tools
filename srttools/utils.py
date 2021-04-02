@@ -136,23 +136,14 @@ def standard_string(s):
     if s is None:
         return None
 
-    if sys.version_info >= (3, 0, 0):
-        # for Python 3
-        # This indexing should work for both lists of strings, and strings
-        if hasattr(s, 'decode'):
-            s = s.decode()  # or  s = str(s)[2:-1]
-        # Try to see if it's a numpy array
-        elif hasattr(s, 'dtype') and s.dtype.char == 'S':
-            if s.size > 1:
-                s = np.array(s, dtype='U')
-    else:
-        # for Python 2
-        if isinstance(s[0], unicode):  # NOQA
-            s = str(s)
-        # Try to see if it's a numpy array
-        elif hasattr(s, 'dtype') and s.dtype.char == 'U':
-            if s.size > 1:
-                s = np.array(s, dtype='S')
+    # for Python 3
+    # This indexing should work for both lists of strings, and strings
+    if hasattr(s, 'decode'):
+        s = s.decode()  # or  s = str(s)[2:-1]
+    # Try to see if it's a numpy array
+    elif hasattr(s, 'dtype') and s.dtype.char == 'S':
+        if s.size > 1:
+            s = np.array(s, dtype='U')
     return s
 
 

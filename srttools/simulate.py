@@ -73,6 +73,19 @@ WOBUSED =                    0 / Wobbler used?
 
 
 def _apply_spectrum_to_data(spec_func, counts, nbin, bw=1000):
+    """
+
+    Examples
+    --------
+    >>> res = _apply_spectrum_to_data(lambda x: np.ones(x.size), 4, 3)
+    >>> np.allclose(res, [4., 4., 4.])
+    True
+    >>> res = _apply_spectrum_to_data(lambda x: np.ones(x.size), [4, 2], 3)
+    >>> np.allclose(res, [[4., 4., 4.], [2, 2, 2]])
+    True
+    >>> _apply_spectrum_to_data(lambda x: np.ones(x.size), 4, 1)
+    4
+    """
     if nbin == 1:
         return counts
     single = False
