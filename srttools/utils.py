@@ -3,7 +3,6 @@ Random utilities
 """
 
 import sys
-import six
 import shutil
 import os
 import time
@@ -233,7 +232,7 @@ def compare_anything(value1, value2):
         return False
 
     if not isinstance(value1, Iterable) or \
-            isinstance(value1, six.string_types):
+            isinstance(value1, str):
         return value1 == value2
     elif not isinstance(value1, dict):
         for i, j in zip(value1, value2):

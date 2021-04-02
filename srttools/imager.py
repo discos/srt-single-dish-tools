@@ -9,7 +9,6 @@ import os
 import sys
 import warnings
 import traceback
-import six
 import copy
 import functools
 from collections.abc import Iterable
@@ -163,7 +162,7 @@ class ScanSet(Table):
         self.images_ver = None
 
         if isinstance(data, Iterable) and \
-                not isinstance(data, six.string_types):
+                not isinstance(data, str):
             alldata = [ScanSet(d, norefilt=norefilt, config_file=config_file,
                                freqsplat=freqsplat, nofilt=nofilt,
                                nosub=nosub, **kwargs) for d in data]
@@ -181,7 +180,7 @@ class ScanSet(Table):
             data.scan_list = scan_list
             data.config_file = config_file
 
-        elif isinstance(data, six.string_types) and data.endswith('hdf5'):
+        elif isinstance(data, str) and data.endswith('hdf5'):
             data = super().read(data)
 
             txtfile = data.meta['scan_list_file']
@@ -1123,7 +1122,7 @@ class ScanSet(Table):
             {0: {0: 0.3}, 1: {0: 1e-16}, 2: {0: 0.95, 2: 6e-19}, ...}
             Moments are symmetrical, so only the unique values are reported.
         """
-        if isinstance(im, six.string_types):
+        if isinstance(im, str):
             im = self.images[im]
 
         return calculate_zernike_moments(im, cm=cm, radius=radius,
@@ -1166,7 +1165,7 @@ class ScanSet(Table):
         results_dict : dict
             Dictionary containing the results
         """
-        if isinstance(im, six.string_types):
+        if isinstance(im, str):
             im = self.images[im]
 
         return calculate_beam_fom(im, cm=cm, radius=radius,

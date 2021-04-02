@@ -8,7 +8,6 @@ import os
 from astropy.io import fits
 from astropy.table import Table, vstack
 import astropy.units as u
-import six
 from collections.abc import Iterable
 
 from .io import mkdir_p, locations
@@ -544,7 +543,7 @@ def _create_baseline(x, baseline_kind="flat"):
         qmin, qmax = 0, 0
         stochastic_amp = float(baseline_kind)
     elif isinstance(baseline_kind, Iterable) and not \
-            isinstance(baseline_kind, six.string_types):
+            isinstance(baseline_kind, str):
         m = _single_value_as_tuple(baseline_kind[0], nvals=2)
         q = _single_value_as_tuple(baseline_kind[1], nvals=2)
         mmin, mmax = m[0], m[1]
@@ -604,7 +603,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         Ratio between the counts in the two channels
     """
 
-    if isinstance(outdir, six.string_types):
+    if isinstance(outdir, str):
         outdir = (outdir, outdir)
     outdir_ra = outdir[0]
     outdir_dec = outdir[1]

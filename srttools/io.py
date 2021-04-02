@@ -10,7 +10,6 @@ import warnings
 from astropy import log
 import copy
 import re
-import six
 import glob
 from collections.abc import Iterable
 from scipy.interpolate import interp1d
@@ -377,9 +376,9 @@ def get_value_with_units(fitsext, keyword, default=""):
     else:
         unit = u.Unit(unitstr)
     value = fitsext[keyword]
-    is_string = isinstance(value, six.string_types)
+    is_string = isinstance(value, str)
     is_iterable = isinstance(value, Iterable)
-    if is_string or (is_iterable and isinstance(value[0], six.string_types)):
+    if is_string or (is_iterable and isinstance(value[0], str)):
         return value
     else:
         return value * unit
