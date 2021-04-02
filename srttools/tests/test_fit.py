@@ -113,9 +113,9 @@ class TestFit(object):
     def test_outliers_bell_larger(self):
         """Test that outlier detection works."""
         series = np.copy(self.series) + _test_shape(self.t)
-        series[10] = 2
+        series[15] = 2
         with pytest.warns(UserWarning) as record:
-            series2 = purge_outliers(series)
+            series2 = purge_outliers(series, plot=True)
         assert np.any(["Found 1 outliers"  in r.message.args[0] for r in record])
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])

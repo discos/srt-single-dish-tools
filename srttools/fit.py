@@ -339,10 +339,12 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None,
     if plot and HAS_MPL:
         import matplotlib.pyplot as plt
         fig = plt.figure()
-        plt.plot(ysave)
-        plt.plot(y, zorder=3)
-        plt.plot(medfilt(ysave, window_size), zorder=6, lw=1)
+        plt.plot(ysave, label="Input data")
+        plt.plot(y, zorder=3, label="Filtered data")
+        plt.plot(medfilt(ysave, window_size), zorder=6, lw=1, label="Medfilt")
         plt.savefig("Bubu_" + str(np.random.randint(0, 10000000)) + '.png')
+        plt.legend()
+        plt.show()
         plt.close(fig)
 
     return y
