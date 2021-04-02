@@ -7,12 +7,11 @@ import time
 import tempfile
 import warnings
 import urllib
+from astropy import log
 
 
 def download_test_data(datadir):
     from zipfile import ZipFile
-    from astropy import log
-
     url = 'https://github.com/discos/srttools_test_data/blob/main/data/sim.zip?raw=true'
     log.info(f"Downloading test data from {url}")
     cwd = os.getcwd()
@@ -196,14 +195,17 @@ curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, 'data')
 simdir = os.path.join(datadir, 'sim')
 
-if not os.path.exists(simdir):
+pswdir_probe = os.path.join(simdir, 'test_psw')
+config_probe = os.path.join(simdir, 'test_config_sim.ini')
+if not os.path.exists(pswdir_probe):
     try:
         download_test_data(datadir)
     except Exception as e:
         warnings.warn("Download failed. Simulating dataset")
         prepare_simulated_data(simdir)
+else:
+    log.info("Test data already downloaded")
 
 assert os.path.exists(simdir)
-assert os.path.exists(os.path.join(simdir, 'test_config_sim.ini'))
-assert os.path.exists(os.path.join(simdir, 'test_config_sim_small.ini'))
-assert os.path.exists(os.path.join(simdir, 'test_psw'))
+assert os.path.exists(config_probe)
+assert os.path.exists(pswdir_probe)
