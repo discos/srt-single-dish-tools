@@ -148,7 +148,7 @@ SDTimage
                     [--sub] [--interactive] [--calibrate CALIBRATE] [--nofilt]
                     [-g] [-e EXCLUDE [EXCLUDE ...]] [--chans CHANS] [-o OUTFILE]
                     [-u UNIT] [--destripe] [--npix-tol NPIX_TOL] [--debug]
-                    [--quick] [--scrunch-channels] [--nosave]
+                    [--quick] [--scrunch-channels] [--nosave] [--noplot]
                     [--bad-chans BAD_CHANS] [--splat SPLAT]
                     [file]
 
@@ -195,6 +195,7 @@ SDTimage
       --scrunch-channels    Sum all the images from the single channels into one.
       --nosave              Do not save the hdf5 intermediate files whenloading
                             subscans.
+      --noplot              Do not produce diagnostic plots for data processing
       --bad-chans BAD_CHANS
                             Channels to be discarded when scrunching, separated by
                             a comma (e.g. --bad-chans Feed2_RCP,Feed3_RCP )

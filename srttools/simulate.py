@@ -8,7 +8,6 @@ import os
 from astropy.io import fits
 from astropy.table import Table, vstack
 import astropy.units as u
-import six
 from collections.abc import Iterable
 
 from .io import mkdir_p, locations
@@ -73,6 +72,19 @@ WOBUSED =                    0 / Wobbler used?
 
 
 def _apply_spectrum_to_data(spec_func, counts, nbin, bw=1000):
+    """
+
+    Examples
+    --------
+    >>> res = _apply_spectrum_to_data(lambda x: np.ones(x.size), 4, 3)
+    >>> np.allclose(res, [4., 4., 4.])
+    True
+    >>> res = _apply_spectrum_to_data(lambda x: np.ones(x.size), [4, 2], 3)
+    >>> np.allclose(res, [[4., 4., 4.], [2, 2, 2]])
+    True
+    >>> _apply_spectrum_to_data(lambda x: np.ones(x.size), 4, 1)
+    4
+    """
     if nbin == 1:
         return counts
     single = False
@@ -531,7 +543,7 @@ def _create_baseline(x, baseline_kind="flat"):
         qmin, qmax = 0, 0
         stochastic_amp = float(baseline_kind)
     elif isinstance(baseline_kind, Iterable) and not \
-            isinstance(baseline_kind, six.string_types):
+            isinstance(baseline_kind, str):
         m = _single_value_as_tuple(baseline_kind[0], nvals=2)
         q = _single_value_as_tuple(baseline_kind[1], nvals=2)
         mmin, mmax = m[0], m[1]
@@ -558,7 +570,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                  spacing=0.5, count_map=None, noise_amplitude=1.,
                  width_ra=None, width_dec=None, outdir='sim/',
                  baseline="flat", mean_ra=180, mean_dec=70,
-                 srcname='Dummy', channel_ratio=1, nbin=1):
+                 srcname='Dummy', channel_ratio=1, nbin=1, debug=False):
 
     """Simulate a map.
 
@@ -591,7 +603,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
         Ratio between the counts in the two channels
     """
 
-    if isinstance(outdir, six.string_types):
+    if isinstance(outdir, str):
         outdir = (outdir, outdir)
     outdir_ra = outdir[0]
     outdir_dec = outdir[1]
@@ -618,7 +630,7 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
     if width_ra is None:
         width_ra = length_ra
     # Dec scans
-    if HAS_MPL:
+    if HAS_MPL and debug:
         fig = plt.figure()
 
     delta_decs = np.arange(-width_dec/2, width_dec/2 + spacing, spacing)/60
@@ -654,11 +666,11 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                   filename=fname, other_keywords=other_keywords,
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname,
                   counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio))
-        if HAS_MPL:
+        if HAS_MPL and debug:
             plt.plot(ra_array, counts0)
             plt.plot(ra_array, counts1)
 
-    if HAS_MPL:
+    if HAS_MPL and debug:
         fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
         plt.close(fig)
 
@@ -696,11 +708,11 @@ def simulate_map(dt=0.04, length_ra=120., length_dec=120., speed=4.,
                   filename=os.path.join(outdir_dec, 'Dec{}.fits'.format(i_r)),
                   src_ra=mean_ra, src_dec=mean_dec, srcname=srcname)
 
-        if HAS_MPL:
+        if HAS_MPL and debug:
             plt.plot(dec_array, counts0)
             plt.plot(dec_array, counts1)
 
-    if HAS_MPL:
+    if HAS_MPL and debug:
         fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
         plt.close(fig)
 

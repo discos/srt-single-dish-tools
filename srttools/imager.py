@@ -9,7 +9,6 @@ import os
 import sys
 import warnings
 import traceback
-import six
 import copy
 import functools
 from collections.abc import Iterable
@@ -114,7 +113,9 @@ def outlier_score(x):
 
 class ScanSet(Table):
     def __init__(self, data=None, norefilt=True, config_file=None,
-                 freqsplat=None, nofilt=False, nosub=False, **kwargs):
+                 freqsplat=None, nofilt=False, nosub=False, plot=False,
+                 debug=False,
+                 **kwargs):
         """Class obtained by a set of scans.
 
         Once the scans are loaded, this class contains all functionality that
@@ -161,7 +162,7 @@ class ScanSet(Table):
         self.images_ver = None
 
         if isinstance(data, Iterable) and \
-                not isinstance(data, six.string_types):
+                not isinstance(data, str):
             alldata = [ScanSet(d, norefilt=norefilt, config_file=config_file,
                                freqsplat=freqsplat, nofilt=nofilt,
                                nosub=nosub, **kwargs) for d in data]
@@ -173,9 +174,13 @@ class ScanSet(Table):
                 d['Scan_id'] += max_scan_id
 
                 max_scan_id += len(d.scan_list)
-            data = vstack(alldata)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', MergeConflictWarning)
+                data = vstack(alldata)
             data.scan_list = scan_list
-        elif isinstance(data, six.string_types) and data.endswith('hdf5'):
+            data.config_file = config_file
+
+        elif isinstance(data, str) and data.endswith('hdf5'):
             data = super().read(data)
 
             txtfile = data.meta['scan_list_file']
@@ -210,9 +215,9 @@ class ScanSet(Table):
 
             tables = []
 
-            for i_s, s in self.load_scans(scan_list,
+            for i_s, s in self.load_scans(scan_list, debug=debug,
                                           freqsplat=freqsplat, nofilt=nofilt,
-                                          nosub=nosub, **kwargs):
+                                          nosub=nosub, plot=plot, **kwargs):
 
                 if 'FLAG' in s.meta.keys() and s.meta['FLAG']:
                     log.info("{} is flagged".format(s.meta['filename']))
@@ -226,11 +231,15 @@ class ScanSet(Table):
                 decvar = np.max(decs) - np.min(decs)
                 s['direction'] = np.array(ravar > decvar, dtype=bool)
 
-                del s.meta['filename']
-                del s.meta['calibrator_directories']
-                if 'skydip_directories' in s.meta:
-                    del s.meta['skydip_directories']
-                del s.meta['list_of_directories']
+                # Remove conflicting keys
+                for key in ['filename', 'calibrator_directories',
+                            'skydip_directories', 'list_of_directories',
+                            'mean_dec', 'mean_ra', 'max_dec', 'max_ra',
+                            'min_dec', 'min_ra', 'dec_offset', 'ra_offset',
+                            'RightAscension Offset', 'Declination Offset']:
+                    if key in s.meta:
+                        s.meta.pop(key)
+
                 tables.append(s)
 
             try:
@@ -259,7 +268,6 @@ class ScanSet(Table):
         self.chan_columns = np.array([i for i in self.columns
                                       if chan_re.match(i)])
         self.current = None
-        self.get_opacity()
 
     def analyze_coordinates(self, altaz=False):
         """Save statistical information on coordinates."""
@@ -316,7 +324,7 @@ class ScanSet(Table):
             if 'summary.fits' in s:
                 continue
             try:
-                results = calculate_opacity(s)
+                results = calculate_opacity(s, plot=False)
                 self.opacities[results['time']] = np.mean([results['Ch0'],
                                                            results['Ch1']])
             except KeyError as e:
@@ -326,13 +334,14 @@ class ScanSet(Table):
                     )
                 )
 
-    def load_scans(self, scan_list, freqsplat=None, nofilt=False, **kwargs):
+    def load_scans(self, scan_list, freqsplat=None, nofilt=False, debug=False,
+                   **kwargs):
         """Load the scans in the list one by ones."""
         nscan = len(scan_list)
         for i, f in enumerate(show_progress(scan_list)):
             try:
-                s = Scan(f, norefilt=self.norefilt, freqsplat=freqsplat,
-                         nofilt=nofilt, **kwargs)
+                s = Scan(f, norefilt=self.norefilt, debug=debug,
+                         freqsplat=freqsplat, nofilt=nofilt, **kwargs)
                 yield i, s
             except KeyError as e:
                 log.warning(
@@ -1113,7 +1122,7 @@ class ScanSet(Table):
             {0: {0: 0.3}, 1: {0: 1e-16}, 2: {0: 0.95, 2: 6e-19}, ...}
             Moments are symmetrical, so only the unique values are reported.
         """
-        if isinstance(im, six.string_types):
+        if isinstance(im, str):
             im = self.images[im]
 
         return calculate_zernike_moments(im, cm=cm, radius=radius,
@@ -1156,7 +1165,7 @@ class ScanSet(Table):
         results_dict : dict
             Dictionary containing the results
         """
-        if isinstance(im, six.string_types):
+        if isinstance(im, str):
             im = self.images[im]
 
         return calculate_beam_fom(im, cm=cm, radius=radius,
@@ -1387,6 +1396,11 @@ def main_imager(args=None):
                         help='Do not save the hdf5 intermediate files when'
                              'loading subscans.')
 
+    parser.add_argument("--noplot", action='store_true',
+                        default=False,
+                        help='Do not produce diagnostic plots for data '
+                             'processing')
+
     parser.add_argument("--bad-chans",
                         default="", type=str,
                         help='Channels to be discarded when scrunching, '
@@ -1417,7 +1431,8 @@ def main_imager(args=None):
     excluded_xy, excluded_radec = _excluded_regions_from_args(args.exclude)
 
     if args.file is not None:
-        scanset = ScanSet(args.file, config_file=args.config)
+        scanset = ScanSet(args.file, config_file=args.config,
+                          plot=not args.noplot)
         infile = args.file
         if outfile is None:
             outfile = infile
@@ -1428,7 +1443,7 @@ def main_imager(args=None):
                           freqsplat=args.splat, nosub=not args.sub,
                           nofilt=args.nofilt, debug=args.debug,
                           avoid_regions=excluded_radec,
-                          nosave=args.nosave)
+                          nosave=args.nosave, plot=not args.noplot)
         infile = args.config
 
         if outfile is None:

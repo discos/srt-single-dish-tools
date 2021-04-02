@@ -33,6 +33,7 @@ from srttools.simulate import simulate_map
 from srttools.global_fit import display_intermediate
 from srttools.io import mkdir_p
 from srttools.interactive_filter import intervals
+from srttools.utils import on_CI
 import copy
 import os
 import glob
@@ -58,93 +59,13 @@ def logger():
     return logger
 
 
-np.random.seed(1241347)
-
+DEBUG = not on_CI
 
 def _md5(file):
     with open(file, 'rb') as fobj:
         string = fobj.read()
 
     return hashlib.md5(string).hexdigest()
-
-
-def _2d_gauss(x, y, sigma=2.5 / 60.):
-    """A Gaussian beam"""
-    return np.exp(-(x ** 2 + y ** 2) / (2 * sigma**2))
-
-
-def gauss_src_func(x, y):
-    return 25 * _2d_gauss(x, y, sigma=2.5 / 60)
-
-
-def sim_config_file(filename, add_garbage=False, prefix=None):
-    """Create a sample config file, to be modified by hand."""
-    string0 = """
-[local]
-workdir : .
-datadir : .
-productdir : test_image
-
-[analysis]
-projection : ARC
-interpolation : spline
-prefix : test_
-list_of_directories :
-    gauss_ra
-    gauss_dec
-    defective
-"""
-    string1 = """
-calibrator_directories :
-    calibration
-"""
-    string2 = """
-
-skydip_directories :
-    gauss_skydip
-
-noise_threshold : 5
-
-pixel_size : 0.8
-
-[debugging]
-
-debug_file_format : eps
-
-"""
-    if prefix is None:
-        prefix = os.getcwd()
-    import tempfile
-    string = string0
-    with open(filename, 'w') as fobj:
-        print(string0, file=fobj)
-        if add_garbage:
-            for _ in range(100):
-                garbage = '    ' + \
-                    tempfile.NamedTemporaryFile(prefix=prefix).name[1:]
-                print(garbage, file=fobj)
-                string += garbage + '\n'
-        print(string1, file=fobj)
-        string += string1
-        if add_garbage:
-            for _ in range(100):
-                garbage = '    ' + \
-                    tempfile.NamedTemporaryFile(prefix=prefix).name[1:]
-                print(garbage, file=fobj)
-                string += garbage + '\n'
-        print(string2, file=fobj)
-        string += string2
-    return string
-
-
-def sim_map(obsdir_ra, obsdir_dec):
-    simulate_map(count_map=gauss_src_func,
-                 length_ra=30.,
-                 length_dec=30.,
-                 outdir=(obsdir_ra, obsdir_dec), mean_ra=180,
-                 mean_dec=45, speed=1.5,
-                 spacing=0.5, srcname='Dummy', channel_ratio=0.8,
-                 baseline="flat")
 
 
 class TestScanSet(object):
@@ -155,29 +76,16 @@ class TestScanSet(object):
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, 'data')
         klass.sim_dir = os.path.join(klass.datadir, 'sim')
+
+        klass.obsdir_ra = os.path.join(klass.datadir, 'sim', 'gauss_ra')
+        klass.obsdir_dec = os.path.join(klass.datadir, 'sim', 'gauss_dec')
         klass.prodir_ra = os.path.join(klass.datadir,
                                        'sim', 'test_image', 'gauss_ra')
         klass.prodir_dec = os.path.join(klass.datadir,
                                         'sim', 'test_image', 'gauss_dec')
-
-        klass.obsdir_ra = os.path.join(klass.datadir, 'sim', 'gauss_ra')
-        klass.obsdir_dec = os.path.join(klass.datadir, 'sim', 'gauss_dec')
         klass.config_file = \
-            os.path.abspath(os.path.join(klass.sim_dir, 'test_config_sim.ini'))
+            os.path.abspath(os.path.join(klass.sim_dir, 'test_config_sim_small.ini'))
         klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
-        klass.simulated_flux = 0.25
-        # First off, simulate a beamed observation  -------
-
-        sim_config_file(klass.config_file, add_garbage=True,
-                        prefix="./")
-
-        if (not os.path.exists(klass.obsdir_ra)) or \
-                (not os.path.exists(klass.obsdir_dec)):
-            mkdir_p(klass.obsdir_ra)
-            mkdir_p(klass.obsdir_dec)
-            log.info('Fake map: Point-like (but Gaussian beam shape), '
-                  '{} Jy.'.format(klass.simulated_flux))
-            sim_map(klass.obsdir_ra, klass.obsdir_dec)
 
         defective_dir = os.path.join(klass.sim_dir, 'defective')
         if not os.path.exists(defective_dir):
@@ -189,11 +97,12 @@ class TestScanSet(object):
         new_skydip_dir = os.path.join(klass.sim_dir, 'gauss_skydip')
         if os.path.exists(skydip_dir) and not os.path.exists(new_skydip_dir):
             shutil.copytree(skydip_dir, new_skydip_dir)
+
         caltable = CalibratorTable()
         caltable.from_scans(glob.glob(os.path.join(klass.caldir,
                                                    '*.fits')), debug=True)
-
         caltable.update()
+
         klass.calfile = os.path.join(klass.datadir, 'calibrators.hdf5')
         caltable.write(klass.calfile, overwrite=True)
 
@@ -211,7 +120,7 @@ class TestScanSet(object):
             excluded_xy, excluded_radec = None, None
 
         klass.scanset = ScanSet(klass.config_file, nosub=False,
-                                norefilt=False,
+                                norefilt=False, plot=False,
                                 debug=True, avoid_regions=excluded_radec)
         klass.scanset.write('test.hdf5', overwrite=True)
 
@@ -246,11 +155,12 @@ class TestScanSet(object):
     def test_preprocess_single_files(self):
         files = glob.glob(os.path.join(self.obsdir_ra, '*.fits'))
 
-        main_preprocess(files[:2] + ['--debug', '-c', self.config_file])
+        main_preprocess(files[:2] + ['--debug', '-c', self.config_file,
+                                     '--plot'])
         for file in files[:2]:
-            # I used debug_file_format : eps in the config
+            # I used debug_file_format : png in the config
             if HAS_MPL:
-                f = os.path.basename(file).replace('.fits', '_0.eps')
+                f = os.path.basename(file).replace('.fits', '_0.png')
 
                 assert os.path.exists(os.path.join(self.prodir_ra, f))
 
@@ -286,71 +196,34 @@ class TestScanSet(object):
             assert scanset.meta[k] == self.config[k]
 
     def test_raonly(self):
-        scanset = ScanSet(self.raonly)
+        scanset = ScanSet(self.raonly, plot=False)
         assert np.all(scanset['direction'])
 
     def test_deconly(self):
-        scanset = ScanSet(self.deconly)
+        scanset = ScanSet(self.deconly, plot=False)
         assert not np.any(scanset['direction'])
 
     def test_multiple_tables(self):
         # scanset_all = ScanSet('test.hdf5')
-        scanset = ScanSet([self.raonly, self.deconly])
-        assert len(scanset.scan_list) == 122
+        scanset = ScanSet([self.raonly, self.deconly], plot=False)
+        assert len(scanset.scan_list) == 32
 
     def test_wrong_file_name_raises(self):
         scanset = ScanSet('test.hdf5')
         with pytest.raises(astropy.io.registry.IORegistryError):
             scanset.write('asdlkfjsd.fjsdkf')
 
-    @pytest.mark.skipif('not HAS_MPL')
-    def test_interactive_quit(self):
-        scanset = ScanSet('test.hdf5')
-        imgsel = scanset.interactive_display('Feed0_RCP', test=True)
-        fake_event = type('event', (), {})()
-        fake_event.key = 'q'
-        fake_event.xdata, fake_event.ydata = (130, 30)
-
-        retval = imgsel.on_key(fake_event)
-        assert retval == (130, 30, 'q')
-
-    @pytest.mark.skipif('HAS_MPL')
-    def test_interactive_quit_raises(self):
-        scanset = ScanSet('test.hdf5')
-        with pytest.raises(ImportError) as excinfo:
-            imgsel = scanset.interactive_display('Feed0_RCP', test=True)
-            assert "matplotlib is not installed" in str(excinfo.value)
-
-    @pytest.mark.skipif('not HAS_MPL')
-    def test_interactive_scans_all_calibrated_channels(self, capsys):
-        scanset = ScanSet('test.hdf5')
-        scanset.calibrate_images(calibration=self.calfile)
-        images = scanset.images
-        ysize, xsize = images['Feed0_RCP'].shape
-
-        imgsel = scanset.interactive_display(test=True)
-        fake_event = type('event', (), {})()
-        fake_event.key = 'a'
-        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
-
-        imgsel.on_key(fake_event)
-        fake_event.key = 'h'
-        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
-        out, err = capsys.readouterr()
-        assert "a    open a window to filter all" in out
-
-        imgsel.on_key(fake_event)
-        fake_event.key = 'v'
-        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
-        imgsel.on_key(fake_event)
-
     def test_use_command_line(self):
-        main_imager(('test.hdf5 -u Jy/beam ' +
+        main_imager(('test.hdf5 -u Jy/beam --noplot ' +
                      '--calibrate {}'.format(self.calfile) +
                      ' -o bubu.hdf5 --debug --scrunch-channels').split(' '))
 
     def test_use_command_line_config(self):
-        main_imager(['-c', self.config_file])
+        main_imager(['-c', self.config_file, '--noplot'])
+
+    def test_get_opacity(self):
+        scanset = ScanSet('test.hdf5')
+        scanset.get_opacity()
 
     def test_meta_saved_and_loaded_correctly(self):
         scanset = ScanSet('test.hdf5')
@@ -400,8 +273,10 @@ class TestScanSet(object):
         scanset.remove_column('Feed0_RCP-filt')
         images = scanset.calculate_images(no_offsets=True)
 
-        img = images['Feed0_RCP']
-        if HAS_MPL:
+        assert 'Feed0_RCP' in images
+
+        if HAS_MPL and DEBUG:
+            img = images['Feed0_RCP']
             fig = plt.figure('img')
             plt.imshow(img, origin='lower')
             plt.colorbar()
@@ -433,13 +308,21 @@ class TestScanSet(object):
 
         images = scanset.calculate_images()
 
-        img = images['Feed0_RCP']
+        assert 'Feed0_RCP' in images
+        assert 'Feed0_RCP-Sdev' in images
 
-        if HAS_MPL:
+        if HAS_MPL and DEBUG:
+            img = images['Feed0_RCP']
             fig = plt.figure('img')
             plt.imshow(img, origin='lower')
             plt.colorbar()
             plt.savefig('img.png')
+            plt.close(fig)
+            fig = plt.figure('log(img-Sdev)')
+            plt.imshow(np.log10(img), origin='lower')
+            plt.colorbar()
+            plt.ioff()
+            plt.savefig('img_sdev.png')
             plt.close(fig)
 
     def test_rough_image_altaz(self):
@@ -448,30 +331,17 @@ class TestScanSet(object):
 
         images = scanset.calculate_images(altaz=True)
 
-        img = images['Feed0_RCP']
+        assert 'Feed0_RCP' in images
 
-        if HAS_MPL:
+        scanset.save_ds9_images(save_sdev=True, altaz=True)
+
+        if HAS_MPL and DEBUG:
+            img = images['Feed0_RCP']
+
             fig = plt.figure('img_altaz')
             plt.imshow(img, origin='lower')
             plt.colorbar()
             plt.savefig('img_altaz.png')
-            scanset.save_ds9_images(save_sdev=True, altaz=True)
-            plt.close(fig)
-
-    def test_image_stdev(self):
-        '''Test image production.'''
-
-        scanset = ScanSet('test.hdf5')
-
-        images = scanset.calculate_images()
-
-        img = images['Feed0_RCP-Sdev']
-        if HAS_MPL:
-            fig = plt.figure('log(img-Sdev)')
-            plt.imshow(np.log10(img), origin='lower')
-            plt.colorbar()
-            plt.ioff()
-            plt.savefig('img_sdev.png')
             plt.close(fig)
 
     def test_image_scrunch(self):
@@ -481,23 +351,185 @@ class TestScanSet(object):
 
         scanset.calculate_images()
         images = scanset.scrunch_images()
+        assert 'TOTAL' in images
+        assert 'TOTAL-Sdev' in images
 
-        img = images['TOTAL']
-
-        if HAS_MPL:
+        if HAS_MPL and DEBUG:
+            img = images['TOTAL']
             fig = plt.figure('img - scrunched')
             plt.imshow(img, origin='lower')
             plt.colorbar()
-            img = images['TOTAL-Sdev']
             plt.savefig('img_scrunch.png')
             plt.close(fig)
 
+            img = images['TOTAL-Sdev']
             fig = plt.figure('img - scrunched - sdev')
             plt.imshow(img, origin='lower')
             plt.colorbar()
             plt.ioff()
             plt.savefig('img_scrunch_sdev.png')
             plt.close(fig)
+
+    @classmethod
+    def teardown_class(klass):
+        """Clean up the mess."""
+        with contextlib.suppress(FileNotFoundError):
+            img_names = ['img*.png', '*altaz*.png', 'Feed*.png', 'latest*.png']
+            imgs = []
+            for name in img_names:
+                new_imgs = glob.glob(name)
+                imgs += new_imgs
+
+            for img in imgs:
+                os.unlink(img)
+
+            os.unlink('test.hdf5')
+            os.unlink('test_scan_list.txt')
+            os.unlink('bubu.hdf5')
+            for d in klass.config['list_of_directories']:
+                hfiles = \
+                    glob.glob(os.path.join(klass.config['datadir'], d,
+                                           '*.hdf5'))
+                for h in hfiles:
+                    os.unlink(h)
+            out_iter_files = glob.glob('out_iter_*')
+            for o in out_iter_files:
+                os.unlink(o)
+            out_fits_files = glob.glob(os.path.join(klass.config['datadir'],
+                                                    'test_config*.fits'))
+            out_hdf5_files = glob.glob(os.path.join(klass.config['productdir'],
+                                                    'sim',
+                                                    '*/', '*.hdf5'))
+
+            for o in out_fits_files + out_hdf5_files:
+                os.unlink(o)
+            shutil.rmtree(os.path.join(klass.config['productdir'], 'sim'))
+
+
+class TestLargeMap():
+    @classmethod
+    def setup_class(klass):
+        import os
+
+        klass.curdir = os.path.dirname(__file__)
+        klass.datadir = os.path.join(klass.curdir, 'data')
+        klass.sim_dir = os.path.join(klass.datadir, 'sim')
+        klass.prodir_ra = os.path.join(klass.datadir,
+                                       'sim', 'test_image', 'gauss_ra')
+        klass.prodir_dec = os.path.join(klass.datadir,
+                                        'sim', 'test_image', 'gauss_dec')
+
+        klass.obsdir_ra = os.path.join(klass.datadir, 'sim', 'gauss_ra')
+        klass.obsdir_dec = os.path.join(klass.datadir, 'sim', 'gauss_dec')
+        klass.config_file = \
+            os.path.abspath(
+                os.path.join(klass.sim_dir, 'test_config_sim.ini'))
+        klass.caldir = os.path.join(klass.datadir, 'sim', 'calibration')
+        klass.simulated_flux = 0.25
+        # First off, simulate a beamed observation  -------
+
+        defective_dir = os.path.join(klass.sim_dir, 'defective')
+        if not os.path.exists(defective_dir):
+            shutil.copytree(os.path.join(klass.datadir, 'calibrators'),
+                            defective_dir)
+
+        # Copy skydip scan
+        skydip_dir = os.path.join(klass.datadir, 'gauss_skydip')
+        new_skydip_dir = os.path.join(klass.sim_dir, 'gauss_skydip')
+        if os.path.exists(skydip_dir) and not os.path.exists(
+                new_skydip_dir):
+            shutil.copytree(skydip_dir, new_skydip_dir)
+        caltable = CalibratorTable()
+        caltable.from_scans(glob.glob(os.path.join(klass.caldir,
+                                                   '*.fits')), debug=False)
+
+        caltable.update()
+        klass.calfile = os.path.join(klass.datadir, 'calibrators.hdf5')
+        caltable.write(klass.calfile, overwrite=True)
+
+        klass.config = read_config(klass.config_file)
+        klass.raonly = os.path.abspath(os.path.join(klass.datadir,
+                                                    'test_raonly.ini'))
+        klass.deconly = os.path.abspath(os.path.join(klass.datadir,
+                                                     'test_deconly.ini'))
+
+        if HAS_PYREGION:
+            excluded_xy, excluded_radec = \
+                _excluded_regions_from_args([os.path.join(klass.datadir,
+                                                          "center.reg")])
+        else:
+            excluded_xy, excluded_radec = None, None
+
+        klass.scanset = ScanSet(klass.config_file, nosub=False,
+                                norefilt=False, plot=False,
+                                debug=True, avoid_regions=excluded_radec)
+        klass.scanset.write('test.hdf5', overwrite=True)
+
+        klass.stdinfo = {}
+        klass.stdinfo['FLAG'] = None
+        klass.stdinfo['zap'] = intervals()
+        klass.stdinfo['base'] = intervals()
+        klass.stdinfo['fitpars'] = np.array([0, 0])
+
+        def scan_no(scan_str):
+            basename = os.path.splitext(os.path.basename(scan_str))[0]
+            return int(basename.replace('Dec', '').replace('Ra', ''))
+
+        klass.dec_scans = \
+            dict([(scan_no(s), s)
+                  for s in klass.scanset.scan_list if 'Dec' in s])
+        klass.ra_scans = \
+            dict([(scan_no(s), s)
+                  for s in klass.scanset.scan_list if 'Ra' in s])
+        klass.n_ra_scans = max(list(klass.ra_scans.keys()))
+        klass.n_dec_scans = max(list(klass.dec_scans.keys()))
+
+        if HAS_MPL:
+            plt.ioff()
+
+    def test_prepare(self):
+        pass
+
+    @pytest.mark.skipif('not HAS_MPL')
+    def test_interactive_quit(self):
+        scanset = ScanSet('test.hdf5')
+        imgsel = scanset.interactive_display('Feed0_RCP', test=True)
+        fake_event = type('event', (), {})()
+        fake_event.key = 'q'
+        fake_event.xdata, fake_event.ydata = (130, 30)
+
+        retval = imgsel.on_key(fake_event)
+        assert retval == (130, 30, 'q')
+
+    @pytest.mark.skipif('HAS_MPL')
+    def test_interactive_quit_raises(self):
+        scanset = ScanSet('test.hdf5')
+        with pytest.raises(ImportError) as excinfo:
+            imgsel = scanset.interactive_display('Feed0_RCP', test=True)
+            assert "matplotlib is not installed" in str(excinfo.value)
+
+    @pytest.mark.skipif('not HAS_MPL')
+    def test_interactive_scans_all_calibrated_channels(self, capsys):
+        scanset = ScanSet('test.hdf5')
+        scanset.calibrate_images(calibration=self.calfile)
+        images = scanset.images
+        ysize, xsize = images['Feed0_RCP'].shape
+
+        imgsel = scanset.interactive_display(test=True)
+        fake_event = type('event', (), {})()
+        fake_event.key = 'a'
+        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
+
+        imgsel.on_key(fake_event)
+        fake_event.key = 'h'
+        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
+        out, err = capsys.readouterr()
+        assert "a    open a window to filter all" in out
+
+        imgsel.on_key(fake_event)
+        fake_event.key = 'v'
+        fake_event.xdata, fake_event.ydata = (xsize//2, ysize-1)
+        imgsel.on_key(fake_event)
 
     def test_calc_and_calibrate_image_pixel(self):
         scanset = ScanSet('test.hdf5')
@@ -848,7 +880,7 @@ class TestScanSet(object):
     def test_imager_global_fit_invalid(self):
         '''Test image production.'''
         with pytest.raises(ValueError) as excinfo:
-            main_imager('test.hdf5 -g -e 10 10 2 1'.split(' '))
+            main_imager('test.hdf5 -g -e 10 10 2 1 --noplot'.split(' '))
             assert "Exclusion region has to be specified as " in str(excinfo.value)
 
     def test_imager_global_fit_valid(self):
@@ -861,7 +893,7 @@ class TestScanSet(object):
         nx, ny = images['Feed0_RCP'].shape
         excluded = [[nx//2, ny//2, nx//4]]
 
-        main_imager('test.hdf5 -g '
+        main_imager('test.hdf5 -g --noplot '
                     '-e {} {} {}'.format(*(excluded[0])).split(' '))
 
     @pytest.mark.skipif('not HAS_PYREGION')
@@ -875,7 +907,7 @@ class TestScanSet(object):
         with open('region.reg', 'w') as fobj:
             print(regstr, file=fobj)
 
-        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        main_imager('test.hdf5 -g --noplot --exclude region.reg'.split())
         os.unlink('region.reg')
 
     @pytest.mark.skipif('not HAS_PYREGION')
@@ -904,7 +936,7 @@ class TestScanSet(object):
         regstr = 'physical;circle(30,30,1)'
         with open('region.reg', 'w') as fobj:
             print(regstr, file=fobj)
-        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        main_imager('test.hdf5 -g --noplot --exclude region.reg'.split())
         assert 'Only regions in fk5' in caplog.text
         os.unlink('region.reg')
 
@@ -914,7 +946,7 @@ class TestScanSet(object):
         regstr = 'image;line(100,100,200,200)'
         with open('region.reg', 'w') as fobj:
             print(regstr, file=fobj)
-        main_imager('test.hdf5 -g --exclude region.reg'.split())
+        main_imager('test.hdf5 -g --noplot --exclude region.reg'.split())
         assert 'Only circular regions' in caplog.text
         os.unlink('region.reg')
 

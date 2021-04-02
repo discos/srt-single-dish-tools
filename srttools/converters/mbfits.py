@@ -284,10 +284,9 @@ def reset_all_keywords(header):
     >>> h2['a']
     'blabla'
     """
-    import six
     for key in keywords_to_reset:
         if key in header:
-            if isinstance(header[key], six.string_types):
+            if isinstance(header[key], str):
                 header[key] = ''
             else:
                 header[key] = type(header[key])(0)
