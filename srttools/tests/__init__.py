@@ -209,7 +209,10 @@ def prepare_simulated_data(simdir):
     simulate_map(width_ra=2, width_dec=2., outdir=emptydir)
     log.info(f"Dataset simulated in {time.time() - t0:.2f}s")
 
-curdir = os.path.dirname(__file__)
+curdir = os.path.dirname(os.path.abspath(__file__))
+import glob
+print(curdir)
+print(glob.glob(os.path.join(curdir, '*')))
 datadir = os.path.join(curdir, 'data')
 simdir = os.path.join(datadir, 'sim')
 
