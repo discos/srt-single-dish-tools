@@ -137,7 +137,8 @@ class Monitor(object):
         self._stop = False
         self._worker_thread = None
 
-        # Initialize the web server, this will raise a OSError if the given port is already being used
+        # Initialize the web server, this will raise a OSError if the given
+        # port is already being used
         self._web_server = WebServer(self._extension, self._port)
 
     def start(self):
@@ -220,7 +221,7 @@ class Monitor(object):
                     exit_code = 1
         except KeyboardInterrupt:
             exit_code = 15
-        except:
+        except Exception:
             log.exception(sys.exc_info()[1])
             exit_code = 1
         exit_function(exit_code)

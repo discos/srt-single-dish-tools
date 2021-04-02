@@ -2,7 +2,6 @@
 Random utilities
 """
 
-import sys
 import shutil
 import os
 import time
@@ -42,13 +41,6 @@ try:
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
-
-try:
-    import statsmodels.api as sm
-
-    HAS_STATSM = True
-except ImportError:
-    HAS_STATSM = False
 
 
 def _generic_dummy_decorator(*args, **kwargs):
@@ -102,7 +94,10 @@ except ImportError:
 
 try:
     from statsmodels.robust import mad as mad  # pylint: disable=unused-import
+
+    HAS_STATSM = True
 except ImportError:
+    HAS_STATSM = False
 
     def mad(data, c=0.6745, axis=None):
         """Straight from statsmodels's source code, adapted"""

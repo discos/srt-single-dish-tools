@@ -6,7 +6,6 @@ import numpy as np
 import traceback
 import warnings
 from collections.abc import Iterable
-import copy
 from .utils import mad, HAS_MPL
 
 
@@ -336,12 +335,12 @@ def purge_outliers(
         if b[0] == 0:
             y[b[0]] = y[b[1]]
         elif b[1] >= len(y):
-            y[b[0] :] = y[b[0] - 1]
+            y[b[0]:] = y[b[0] - 1]
         else:
             previous = y[b[0] - 1]
             next_bin = y[b[1]]
             dx = b[1] - b[0]
-            y[b[0] : b[1]] = (next_bin - previous) / (dx + 1) * np.arange(
+            y[b[0]: b[1]] = (next_bin - previous) / (dx + 1) * np.arange(
                 1, b[1] - b[0] + 1
             ) + previous
 
@@ -660,7 +659,7 @@ def total_variance(xs, ys, params):
     """
     params = np.array(params).flatten()
     qs = params[: len(xs) - 1]
-    ms = params[len(xs) - 1 :]
+    ms = params[len(xs) - 1:]
 
     x = xs[0].copy()
     y = ys[0].copy()
@@ -729,6 +728,6 @@ def align(xs, ys):
     )
 
     qs = result.x[: len(xs) - 1]
-    ms = result.x[len(xs) - 1 :]
+    ms = result.x[len(xs) - 1:]
 
     return qs, ms

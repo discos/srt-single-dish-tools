@@ -12,13 +12,13 @@ def main():
     delimiters = r"&", r"$\pm$"
     regexPattern = "|".join(map(re.escape, delimiters))
 
-    for l in file.readlines():
-        match = good_line.match(l.rstrip())
+    for line in file.readlines():
+        match = good_line.match(line.rstrip())
         #    print(l)
         if not match:
             continue
 
-        values = l.rstrip().replace(r"\\", "").replace(" ", "")
+        values = line.rstrip().replace(r"\\", "").replace(" ", "")
 
         values = re.split(regexPattern, values)
 

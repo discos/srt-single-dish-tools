@@ -28,7 +28,7 @@ from .read_config import read_config, get_config_file
 from .fit import ref_mad, contiguous_regions
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
-from .utils import jit, vectorize, HAS_NUMBA
+from .utils import vectorize, HAS_NUMBA
 
 __all__ = [
     "Scan",
@@ -771,10 +771,9 @@ def clean_scan_using_variability(
         mkdir_p(rootdir)
 
     try:
-        bandwidth_unit = bandwidth.unit
         bandwidth = bandwidth.value
     except AttributeError:
-        bandwidth_unit = u.MHz
+        pass
 
     if len(dynamical_spectrum.shape) == 1:
         if not plot or not HAS_MPL:
@@ -983,7 +982,7 @@ class Scan(Table):
                         avoid_regions=avoid_regions, plot=debug
                     )
                 except Exception as e:
-                    log.error("Baseline subtraction failed: {str(e)}")
+                    log.error(f"Baseline subtraction failed: {str(e)}")
 
             if not nosave:
                 self.save()

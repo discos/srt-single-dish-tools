@@ -8,8 +8,7 @@ try:
     import tornado.web
     import tornado.websocket
     from tornado.web import Application, RequestHandler
-    from tornado.websocket import WebSocketHandler, WebSocketClosedError
-    from tornado.log import access_log
+    from tornado.websocket import WebSocketHandler
 except ImportError:
     warnings.warn(
         "To use SDTmonitor, you need to install tornado: \n"
@@ -107,7 +106,7 @@ def create_index_file(port, max_images=MAX_FEEDS * 2):
                     {
                         console.log('Connected')
                     }
-                    
+
                     ws.onmessage = function(message)
                     {
                         var msg = JSON.parse(message.data)
@@ -224,6 +223,7 @@ class WebServer(object):
                 (r"/index.html", HTTPHandler),
             ]
         )
+
         # Disable default log function, we use custom ones
         def log_function(_):
             pass

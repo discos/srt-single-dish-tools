@@ -434,14 +434,14 @@ def adjust_temperature_size_rough(temp, comparison_array):
 
     sizediff = temp.size - comparison_array.size
     if sizediff > 0:
-        temp = temp[sizediff // 2 : sizediff // 2 + comparison_array.size]
+        temp = temp[sizediff // 2: sizediff // 2 + comparison_array.size]
     elif sizediff < 0:
         # make it positive
         sizediff = -sizediff
         temp = np.zeros_like(comparison_array)
-        temp[sizediff // 2 : sizediff // 2 + temp_save.size] = temp_save
+        temp[sizediff // 2: sizediff // 2 + temp_save.size] = temp_save
         temp[: sizediff // 2] = temp_save[0]
-        temp[sizediff // 2 + temp_save.size - 1 :] = temp_save[-1]
+        temp[sizediff // 2 + temp_save.size - 1:] = temp_save[-1]
 
     return temp
 
@@ -718,7 +718,7 @@ def _read_data_fitszilla(lchdulist):
         if len(chan_ids) <= ic:
             continue
         ch_string = f"ch{chan_ids[ic]}"
-        if not ch_string in tempdata.colnames:
+        if ch_string not in tempdata.colnames:
             continue
 
         td = np.asarray(tempdata[ch_string])

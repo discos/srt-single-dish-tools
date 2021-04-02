@@ -273,8 +273,8 @@ Actions:
         log.info("Scan was {}flagged".format("un" if not value else ""))
 
     def reset(self):
-        for l in self.lines:
-            l.remove()
+        for line in self.lines:
+            line.remove()
         for current in self.xs.keys():
             self.lines = []
             self.info[current]["zap"].clear()
@@ -376,8 +376,8 @@ Actions:
             xlim_save = self.ax1.get_xlim()
             ylim_save = self.ax1.get_ylim()
             update_limits = True
-        for l in self.lines:
-            l.remove()
+        for line in self.lines:
+            line.remove()
         self.lines = []
         self.ax1.cla()
         plt.setp(self.ax1.get_xticklabels(), visible=False)

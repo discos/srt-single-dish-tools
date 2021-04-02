@@ -380,7 +380,6 @@ class ScanSet(Table):
         self, scan_list, freqsplat=None, nofilt=False, debug=False, **kwargs
     ):
         """Load the scans in the list one by ones."""
-        nscan = len(scan_list)
         for i, f in enumerate(show_progress(scan_list)):
             try:
                 s = Scan(

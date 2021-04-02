@@ -2,7 +2,6 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.io.fits.column import _parse_tdim
 import astropy.units as u
-import astropy.constants as c
 import os
 import numpy as np
 from srttools.io import (
@@ -410,7 +409,6 @@ class SDFITS_creator:
                             for ch in columns_allbase
                             if ch.endswith("{}".format(baseband))
                         ]
-                    ncol = len(columns)
 
                     data_matrix = np.stack(
                         list(zip(*[subscan[ch] for ch in columns]))
@@ -439,7 +437,6 @@ class SDFITS_creator:
                     data["TSYS"] = 1
                     df = (bandwidth / nbin).to("Hz")
                     data["CDELT1"] = df
-                    deltav = -df / restfreq * c.c
 
                     data["FREQRES"] = df.to("Hz").value
 

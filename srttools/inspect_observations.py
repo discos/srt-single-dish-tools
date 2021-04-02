@@ -1,8 +1,5 @@
 """Read the relevant information and link observations to calibrators."""
 
-
-import os
-import glob
 import warnings
 import numpy as np
 from astropy.table import Table, Column
@@ -12,7 +9,6 @@ from .io import read_data, chan_re
 from .scan import list_scans
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
-from .utils import standard_string
 
 try:
     from ConfigParser import ConfigParser
@@ -145,7 +141,7 @@ def split_observation_table(
             )
         )
         s = split_by_source(
-            grouped_table[ind[0] : ind[1]],
+            grouped_table[ind[0]: ind[1]],
             max_calibrator_delay=max_calibrator_delay,
             max_source_delay=max_source_delay,
         )
@@ -191,7 +187,7 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
             retval[s]["Obs{}".format(i)] = {}
             print("---------------")
             print("{}, observation {}\n".format(s, i + 1))
-            ft = filtered_table[cont[0] : cont[1]]
+            ft = filtered_table[cont[0]: cont[1]]
 
             observation_start = ft[0]["Time"]
             observation_end = ft[-1]["Time"]
