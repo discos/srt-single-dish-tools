@@ -299,7 +299,7 @@ class ScanSet(Table):
 
             self.meta["scan_list_file"] = None
 
-            self.analyze_coordinates(altaz=False)
+            self.analyze_coordinates(frame='icrs')
 
             self.convert_coordinates()
 
@@ -308,14 +308,11 @@ class ScanSet(Table):
         )
         self.current = None
 
-    def analyze_coordinates(self, altaz=False):
+    def analyze_coordinates(self, frame='icrs'):
         """Save statistical information on coordinates."""
-        if altaz:
-            hor, ver = "delta_az", "delta_el"
-        else:
-            hor, ver = "ra", "dec"
+        hor, ver = self.coord_names(frame)
 
-        if "delta_az" not in self.columns and altaz:
+        if "delta_az" not in self.columns and frame == 'altaz':
             self.calculate_delta_altaz()
 
         allhor = self[hor]
@@ -401,12 +398,10 @@ class ScanSet(Table):
                 log.warning(traceback.format_exc())
                 log.warning("Error while processing {}: {}".format(f, str(e)))
 
-    def get_coordinates(self, altaz=False):
+    def get_coordinates(self, frame='icrs'):
         """Give the coordinates as pairs of RA, DEC."""
-        if altaz:
-            return np.array(np.dstack([self["delta_az"], self["delta_el"]]))
-        else:
-            return np.array(np.dstack([self["ra"], self["dec"]]))
+        hor, ver = self.coord_names(frame)
+        return np.array(np.dstack([self[hor], self[ver]]))
 
     def get_obstimes(self):
         """Get :class:`astropy.time.Time` at the telescope location."""
@@ -494,17 +489,14 @@ class ScanSet(Table):
             plt.savefig("altaz_with_src.png")
             plt.close(fig2)
 
-    def create_wcs(self, altaz=False):
+    def create_wcs(self, frame='icrs'):
         """Create a wcs object from the pointing information."""
-        if altaz:
-            hor, ver = "delta_az", "delta_el"
-        else:
-            hor, ver = "ra", "dec"
+        hor, ver = self.coord_names(frame)
         pixel_size = self.meta["pixel_size"]
         self.wcs = wcs.WCS(naxis=2)
 
         if "max_" + hor not in self.meta:
-            self.analyze_coordinates(altaz)
+            self.analyze_coordinates(frame)
 
         delta_hor = self.meta["max_" + hor] - self.meta["min_" + hor]
         delta_hor *= np.cos(self.meta["reference_" + ver])
@@ -543,43 +535,66 @@ class ScanSet(Table):
             "DEC--{}".format(self.meta["projection"]),
         ]
 
-    def convert_coordinates(self, altaz=False):
-        """Convert the coordinates from sky to pixel."""
-        if altaz:
+    def coord_names(self, frame):
+        hor, ver = "ra", "dec"
+        if frame == 'altaz':
             hor, ver = "delta_az", "delta_el"
-        else:
-            hor, ver = "ra", "dec"
-        self.create_wcs(altaz)
+        elif frame == 'sun':
+            hor, ver = "sun_lon", "sun_lat"
+        elif frame == 'galactic':
+            hor, ver = "glon", "glat"
+
+        return hor, ver
+
+    def convert_coordinates(self, frame='icrs'):
+        """Convert the coordinates from sky to pixel."""
+        hor, ver = self.coord_names(frame)
+
+        self.create_wcs(frame)
 
         self["x"] = np.zeros_like(self[hor])
         self["y"] = np.zeros_like(self[ver])
-        coords = np.degrees(self.get_coordinates(altaz=altaz))
+        coords = np.degrees(self.get_coordinates(frame=frame))
         for f in range(len(self[hor][0, :])):
             pixcrd = self.wcs.all_world2pix(coords[:, f], 0.5)
 
             self["x"][:, f] = pixcrd[:, 0] + 0.5
             self["y"][:, f] = pixcrd[:, 1] + 0.5
-        self["x"].meta["altaz"] = altaz
-        self["y"].meta["altaz"] = altaz
+        self["x"].meta["frame"] = frame
+        self["y"].meta["frame"] = frame
 
-    def calculate_images(
-        self,
-        no_offsets=False,
-        altaz=False,
-        calibration=None,
-        elevation=None,
-        map_unit="Jy/beam",
-        calibrate_scans=False,
-        direction=None,
-        onlychans=None,
-    ):
+    def calculate_images(self, no_offsets=False, frame='icrs',
+                         calibration=None, elevation=None, map_unit="Jy/beam",
+                         calibrate_scans=False, direction=None,
+                         onlychans=None):
         """Obtain image from all scans.
 
-        no_offsets:      use positions from feed 0 for all feeds.
-        direction:       0 if horizontal, 1 if vertical
+        Other parameters
+        ----------------
+        no_offsets: bool
+            use positions from feed 0 for all feeds.
+        frame: str
+            One of ``icrs``, ``altaz``, ``sun``, ``galactic``, default ``icrs``
+        calibration: CalibratorTable
+            Optional Calibrator table for calibration, default ``None``
+        elevation: Angle
+            Optional elevation angle. Defaults to mean elevation
+        map_unit: str
+            Only used if ``calibration`` is not ``None``. One of ``Jy/beam``
+            or ``Jy/pixel``
+        calibrate_scans: bool
+            Calibrate from subscans instead of from the binned image. Slower
+            but more precise
+        direction: int
+            Optional: only select horizontal or vertical scans for this image.
+            0 if horizontal, 1 if vertical, defaults to ``None`` that means
+            that all scans will be used.
+        onlychans: List
+            List of channels for which images are calculated. If defaults to
+            all channels
         """
-        if altaz != self["x"].meta["altaz"]:
-            self.convert_coordinates(altaz)
+        if frame != self["x"].meta["frame"]:
+            self.convert_coordinates(frame)
 
         images = {}
 
@@ -794,30 +809,17 @@ class ScanSet(Table):
         self.images.update(total_images)
         return total_images
 
-    def fit_full_images(
-        self,
-        chans=None,
-        fname=None,
-        save_sdev=False,
-        no_offsets=False,
-        altaz=False,
-        calibration=None,
-        excluded=None,
-        par=None,
-        map_unit="Jy/beam",
-    ):
+    def fit_full_images(self, chans=None, fname=None, save_sdev=False,
+                        no_offsets=False, frame='icrs', calibration=None,
+                        excluded=None, par=None, map_unit="Jy/beam"):
         """Flatten the baseline with a global fit.
 
         Fit a linear trend to each scan to minimize the scatter in an image
         """
 
         if self.images is None:
-            self.calculate_images(
-                no_offsets=no_offsets,
-                altaz=altaz,
-                calibration=calibration,
-                map_unit=map_unit,
-            )
+            self.calculate_images(no_offsets=no_offsets, frame=frame,
+                                  calibration=calibration, map_unit=map_unit)
 
         if chans is not None:
             chans = chans.split(",")
@@ -835,12 +837,8 @@ class ScanSet(Table):
             )
             self[ch].meta = self[ch + "_save"].meta
 
-        self.calculate_images(
-            no_offsets=no_offsets,
-            altaz=altaz,
-            calibration=calibration,
-            map_unit=map_unit,
-        )
+        self.calculate_images(no_offsets=no_offsets, frame=frame,
+                              calibration=calibration, map_unit=map_unit)
 
     def _calculate_calibration_factors(self, map_unit):
         if map_unit == "Jy/beam":
@@ -1356,25 +1354,15 @@ class ScanSet(Table):
             show_plot=show_plot,
         )
 
-    def save_ds9_images(
-        self,
-        fname=None,
-        save_sdev=False,
-        scrunch=False,
-        no_offsets=False,
-        altaz=False,
-        calibration=None,
-        map_unit="Jy/beam",
-        calibrate_scans=False,
-        destripe=False,
-        npix_tol=None,
-        bad_chans=[],
-    ):
+    def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
+                        no_offsets=False, frame='icrs', calibration=None,
+                        map_unit="Jy/beam", calibrate_scans=False,
+                        destripe=False, npix_tol=None, bad_chans=[]):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             tail = ".fits"
-            if altaz:
-                tail = "_altaz.fits"
+            if frame != 'icrs':
+                tail = f"_{frame}.fits"
             if scrunch:
                 tail = tail.replace(".fits", "_scrunch.fits")
             if calibration is not None:
@@ -1387,25 +1375,22 @@ class ScanSet(Table):
             log.info("Destriping....")
             images = self.destripe_images(
                 no_offsets=no_offsets,
-                altaz=altaz,
+                frame=frame,
                 calibration=calibration,
                 map_unit=map_unit,
                 npix_tol=npix_tol,
                 calibrate_scans=calibrate_scans,
             )
         else:
-            images = self.calculate_images(
-                no_offsets=no_offsets,
-                altaz=altaz,
-                calibration=calibration,
-                map_unit=map_unit,
-                calibrate_scans=calibrate_scans,
-            )
+            images = self.calculate_images(no_offsets=no_offsets, frame=frame,
+                                           calibration=calibration,
+                                           map_unit=map_unit,
+                                           calibrate_scans=calibrate_scans)
 
         if scrunch:
             self.scrunch_images(bad_chans=bad_chans)
 
-        self.create_wcs(altaz)
+        self.create_wcs(frame)
 
         hdulist = fits.HDUList()
 
@@ -1434,7 +1419,7 @@ class ScanSet(Table):
             is_stokes = ("Q" in ch) or ("U" in ch)
 
             do_moments = not (is_sdev or is_expo or is_stokes or is_outl)
-            do_moments = do_moments and altaz and HAS_MAHO
+            do_moments = do_moments and frame and HAS_MAHO
 
             if is_sdev and not save_sdev:
                 continue
@@ -1549,7 +1534,8 @@ def main_imager(args=None):
         "--altaz",
         default=False,
         action="store_true",
-        help="Do images in Az-El coordinates",
+        help="Do images in Az-El coordinates (deprecated in favor of --frame "
+             "altaz)",
     )
 
     parser.add_argument(
@@ -1625,6 +1611,14 @@ def main_imager(args=None):
         type=str,
         default="Jy/beam",
         help="Unit of the calibrated image. Jy/beam or " "Jy/pixel",
+    )
+
+    parser.add_argument(
+        "--frame",
+        type=str,
+        default="icrs",
+        choices=["icrs", "altaz", "sun"],
+        help="Reference frame for the image. One of icrs, altaz, sun",
     )
 
     parser.add_argument(
@@ -1720,6 +1714,9 @@ def main_imager(args=None):
 
     excluded_xy, excluded_radec = _excluded_regions_from_args(args.exclude)
 
+    if args.altaz:
+        args.frame = 'altaz'
+
     if args.file is not None:
         scanset = ScanSet(
             args.file, config_file=args.config, plot=not args.noplot
@@ -1750,21 +1747,14 @@ def main_imager(args=None):
         scanset.interactive_display()
 
     if args.global_fit:
-        scanset.fit_full_images(
-            excluded=excluded_xy, chans=args.chans, altaz=args.altaz
-        )
+        scanset.fit_full_images(chans=args.chans, frame=args.frame,
+                                excluded=excluded_xy)
 
-    scanset.save_ds9_images(
-        save_sdev=True,
-        calibration=args.calibrate,
-        map_unit=args.unit,
-        scrunch=args.scrunch_channels,
-        altaz=args.altaz,
-        calibrate_scans=not args.quick,
-        destripe=args.destripe,
-        npix_tol=args.npix_tol,
-        bad_chans=bad_chans,
-    )
+    scanset.save_ds9_images(save_sdev=True, scrunch=args.scrunch_channels,
+                            frame=args.frame, calibration=args.calibrate,
+                            map_unit=args.unit, calibrate_scans=not args.quick,
+                            destripe=args.destripe, npix_tol=args.npix_tol,
+                            bad_chans=bad_chans)
 
     scanset.write(outfile, overwrite=True)
 
