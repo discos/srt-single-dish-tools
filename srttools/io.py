@@ -3,7 +3,15 @@ import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS, SkyCoord
+from astropy.coordinates import (
+    EarthLocation,
+    AltAz,
+    Angle,
+    ICRS,
+    GCRS,
+    SkyCoord,
+    get_sun,
+)
 import os
 from astropy.time import Time
 import warnings
@@ -360,6 +368,24 @@ def get_coords_from_altaz_offset(
     ra = np.radians(coords_deg.ra)
     dec = np.radians(coords_deg.dec)
     return ra, dec
+
+
+def is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg):
+    """Test if current source is close to the Sun.
+
+    Examples
+    --------
+    >>> ra, dec = 131.13535699 * u.deg, 18.08202663 * u.deg
+    >>> obstime = Time("2017-08-01")
+    >>> is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg)
+    True
+    >>> is_close_to_sun(ra, dec + 4 * u.deg, obstime, tolerance=3 * u.deg)
+    False
+    """
+    coords = SkyCoord(ra=ra, dec=dec, frame=GCRS(obstime=obstime))
+    sun_position = get_sun(obstime).transform_to(GCRS(obstime=obstime))
+
+    return (coords.separation(sun_position)).to(u.deg).value < tolerance.value
 
 
 def update_table_with_offsets(
@@ -854,8 +880,15 @@ def _read_data_fitszilla(lchdulist):
             new_table["az"][:, i] = az
 
     # Don't know if better euristics is needed
-    sun_position = SkyCoord(0*u.deg, 0*u.deg, frame=frames.Helioprojective(observer="earth", obstime=))
-    if "sun" in source.lower():
+    obstime = Time(
+        np.mean(new_table["time"]) * u.day, format="mjd", scale="utc"
+    )
+    if is_close_to_sun(
+        new_table.meta["RA"],
+        new_table.meta["Dec"],
+        obstime,
+        tolerance=3 * u.deg,
+    ):
         if DEFAULT_SUN_FRAME is None:
             raise ValueError("You need Sunpy to process Sun observations.")
         update_table_with_offsets(
