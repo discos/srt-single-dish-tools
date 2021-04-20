@@ -3,7 +3,7 @@ import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS
+from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS, SkyCoord
 import os
 from astropy.time import Time
 import warnings
@@ -854,6 +854,7 @@ def _read_data_fitszilla(lchdulist):
             new_table["az"][:, i] = az
 
     # Don't know if better euristics is needed
+    sun_position = SkyCoord(0*u.deg, 0*u.deg, frame=frames.Helioprojective(observer="earth", obstime=))
     if "sun" in source.lower():
         if DEFAULT_SUN_FRAME is None:
             raise ValueError("You need Sunpy to process Sun observations.")
