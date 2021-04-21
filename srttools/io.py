@@ -398,7 +398,7 @@ def update_table_with_offsets(
 
     lon_str, lat_str = "ra", "dec"
     if use_sun_frame is not None:
-        lon_str, lat_str = "sun_lon", "sun_lat"
+        lon_str, lat_str = "hpln", "hplt"
 
     if not (lon_str in new_table.colnames):
         new_table[lon_str] = np.zeros_like(new_table["el"])

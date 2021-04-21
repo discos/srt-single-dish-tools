@@ -60,7 +60,7 @@ class Test1_Sun(object):
     @pytest.mark.skipif("not HAS_SUNPY")
     def test_read(self):
         scan = read_data_fitszilla(self.fname)
-        assert "sun_lon" in scan.colnames
+        assert "hpln" in scan.colnames
 
     @pytest.mark.skipif("HAS_SUNPY")
     def test_read_fails_if_no_sunpy(self):
@@ -71,7 +71,7 @@ class Test1_Sun(object):
     @pytest.mark.skipif("not HAS_SUNPY")
     def test_read_no_sun(self):
         scan = read_data_fitszilla(self.nosun)
-        assert not "sun_lon" in scan.colnames
+        assert not "hpln" in scan.colnames
 
 
 class Test1_Scan(object):

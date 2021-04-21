@@ -66,6 +66,64 @@ def all_lower(list_of_strings):
     return [s.lower() for s in list_of_strings]
 
 
+def _coord_names(frame):
+    """Name the coordinates based on the frame.
+
+    Examples
+    --------
+    >>> _coord_names('icrs')[0]
+    'ra'
+    >>> _coord_names('altaz')[0]
+    'delta_az'
+    >>> _coord_names('sun')[0]
+    'hpln'
+    >>> _coord_names('galactic')[0]
+    'glon'
+    >>> _coord_names('ecliptic')[0]
+    'elon'
+    >>> _coord_names('turuturu')[0]
+    Traceback (most recent call last):
+       ...
+    ValueError: turuturu: Unknown frame
+
+    """
+    if frame in ['icrs', 'fk5']:
+        hor, ver = "ra", "dec"
+    elif frame == 'altaz':
+        hor, ver = "delta_az", "delta_el"
+    elif frame == 'sun':
+        hor, ver = "hpln", "hplt"
+    elif frame == 'galactic':
+        hor, ver = "glon", "glat"
+    elif frame == 'ecliptic':
+        hor, ver = "elon", "elat"
+    else:
+        raise ValueError(f"{frame}: Unknown frame")
+
+    return hor, ver
+
+
+def _wcs_ctype_names(frame, projection):
+    """WCS ctype names
+
+    Example
+    -------
+    >>> hor, ver = _wcs_ctype_names('icrs', 'ARC')
+    >>> hor
+    'RA---ARC'
+    >>> ver
+    'DEC--ARC'
+    """
+    hor, ver = _coord_names(frame)
+    nproj = len(projection)
+    nhor = len(hor)
+    nver = len(ver)
+
+    hor_str = f"{hor.upper()}{'-' * (8 - nhor - nproj)}{projection.upper()}"
+    ver_str = f"{ver.upper()}{'-' * (8 - nver - nproj)}{projection.upper()}"
+
+    return hor_str, ver_str
+
 def _load_calibration(calibration, map_unit):
     caltable = CalibratorTable().read(calibration)
     caltable.update()
@@ -310,7 +368,7 @@ class ScanSet(Table):
 
     def analyze_coordinates(self, frame='icrs'):
         """Save statistical information on coordinates."""
-        hor, ver = self.coord_names(frame)
+        hor, ver = _coord_names(frame)
 
         if "delta_az" not in self.columns and frame == 'altaz':
             self.calculate_delta_altaz()
@@ -400,7 +458,7 @@ class ScanSet(Table):
 
     def get_coordinates(self, frame='icrs'):
         """Give the coordinates as pairs of RA, DEC."""
-        hor, ver = self.coord_names(frame)
+        hor, ver = _coord_names(frame)
         return np.array(np.dstack([self[hor], self[ver]]))
 
     def get_obstimes(self):
@@ -491,7 +549,7 @@ class ScanSet(Table):
 
     def create_wcs(self, frame='icrs'):
         """Create a wcs object from the pointing information."""
-        hor, ver = self.coord_names(frame)
+        hor, ver = _coord_names(frame)
         pixel_size = self.meta["pixel_size"]
         self.wcs = wcs.WCS(naxis=2)
 
@@ -530,25 +588,12 @@ class ScanSet(Table):
         )
         self.wcs.wcs.cdelt = np.degrees(cdelt)
 
-        self.wcs.wcs.ctype = [
-            "RA---{}".format(self.meta["projection"]),
-            "DEC--{}".format(self.meta["projection"]),
-        ]
-
-    def coord_names(self, frame):
-        hor, ver = "ra", "dec"
-        if frame == 'altaz':
-            hor, ver = "delta_az", "delta_el"
-        elif frame == 'sun':
-            hor, ver = "sun_lon", "sun_lat"
-        elif frame == 'galactic':
-            hor, ver = "glon", "glat"
-
-        return hor, ver
+        hor_str, ver_str = _wcs_ctype_names(frame, self.meta['projection'])
+        self.wcs.wcs.ctype = [hor_str, ver_str]
 
     def convert_coordinates(self, frame='icrs'):
         """Convert the coordinates from sky to pixel."""
-        hor, ver = self.coord_names(frame)
+        hor, ver = _coord_names(frame)
 
         self.create_wcs(frame)
 
