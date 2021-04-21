@@ -71,6 +71,8 @@ WOBUSED =                    0 / Wobbler used?
 
 """
 
+_REFERENCE_MJD = 57000.5
+
 
 def _apply_spectrum_to_data(spec_func, counts, nbin, bw=1000):
     """
@@ -566,7 +568,9 @@ def save_scan(
     data_table_data.remove_column("Ch0")
     data_table_data.remove_column("Ch1")
 
-    obstimes = Time((times / 86400 + 57000) * u.day, format="mjd", scale="utc")
+    obstimes = Time(
+        (times / 86400 + _REFERENCE_MJD) * u.day, format="mjd", scale="utc"
+    )
 
     coords = SkyCoord(
         ra, dec, unit=u.degree, location=locations["srt"], obstime=obstimes
@@ -690,6 +694,34 @@ def _create_baseline(x, baseline_kind="flat"):
     return baseline + stochastic
 
 
+def simulate_sun(**kwargs):
+    from astropy.coordinates import get_sun
+
+    coords = get_sun(Time(_REFERENCE_MJD * u.day, format="mjd", scale="utc"))
+
+    for input in ["mean_ra", "mean_dec", "count_map", "start_time"]:
+        _ = kwargs.pop(input, None)
+
+    mean_ra = coords.ra.to(u.deg).value
+    mean_dec = coords.dec.to(u.deg).value
+    count_map = kwargs.pop("count_map", _sun_map)
+
+    simulate_map(
+        mean_ra=mean_ra, mean_dec=mean_dec, count_map=count_map, **kwargs
+    )
+
+
+def _sun_map(x, y, sigma=0.5):
+    """A Gaussian beam"""
+    import numpy as np
+
+    # It will raise ValueError when they're not compatible
+    map = np.zeros_like(x) * np.zeros_like(y)
+    map[x ** 2 + y ** 2 < sigma] = 100.0
+
+    return map
+
+
 def simulate_map(
     dt=0.04,
     length_ra=120.0,
@@ -708,6 +740,7 @@ def simulate_map(
     channel_ratio=1,
     nbin=1,
     debug=False,
+    start_time=0,
 ):
 
     """Simulate a map.
@@ -755,8 +788,8 @@ def simulate_map(
     nbins_ra = int(np.rint(length_ra / speed / dt))
     nbins_dec = int(np.rint(length_dec / speed / dt))
 
-    times_ra = np.arange(nbins_ra) * dt
-    times_dec = np.arange(nbins_dec) * dt
+    times_ra = np.arange(nbins_ra) * dt + start_time
+    times_dec = np.arange(nbins_dec) * dt + start_time
 
     ra_array = (
         np.arange(-nbins_ra / 2, nbins_ra / 2) / nbins_ra * length_ra / 60
@@ -1003,6 +1036,13 @@ def main_simulate(args=None):
     )
 
     parser.add_argument(
+        "--sun",
+        action="store_true",
+        default=False,
+        help="Simulate a map of the Sun",
+    )
+
+    parser.add_argument(
         "--debug",
         action="store_true",
         default=False,
@@ -1045,8 +1085,13 @@ def main_simulate(args=None):
             baseline=args.baseline,
             nbin=args.spectral_bins,
         )
+    func = simulate_map
+    count_map = local_gauss_src_func
+    if args.sun:
+        func = simulate_sun
+        count_map = _sun_map
 
-    simulate_map(
+    func(
         dt=args.integration_time,
         length_ra=args.geometry[0],
         length_dec=args.geometry[1],
@@ -1064,6 +1109,6 @@ def main_simulate(args=None):
         mean_dec=70,
         srcname="Dummy",
         channel_ratio=0.9,
-        count_map=local_gauss_src_func,
+        count_map=count_map,
         nbin=args.spectral_bins,
     )
