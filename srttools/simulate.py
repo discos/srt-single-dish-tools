@@ -706,7 +706,7 @@ def simulate_sun(**kwargs):
     mean_dec = coords.dec.to(u.deg).value
     count_map = kwargs.pop("count_map", _sun_map)
 
-    simulate_map(
+    return simulate_map(
         mean_ra=mean_ra, mean_dec=mean_dec, count_map=count_map, **kwargs
     )
 

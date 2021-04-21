@@ -7,6 +7,7 @@ from astropy.io import fits
 from srttools.io import mkdir_p
 from srttools.simulate import (
     simulate_map,
+    simulate_sun,
     simulate_scan,
     sim_position_switching,
     sim_crossscans,
@@ -66,6 +67,16 @@ class TestSimulate(object):
         assert os.path.exists(probe)
         with fits.open(probe) as hdul:
             assert hdul[0].header["Declination Offset"] != 0.0
+        os.unlink(probe)
+
+    def test_sim_sun_map_small(self):
+        """Test the simulation of an empty map."""
+        out_ra, _ = simulate_sun(
+            length_ra=2, length_dec=2.0, outdir=self.emptydir
+        )
+        probe = os.path.join(out_ra, "Ra0.fits")
+        assert os.path.exists(probe)
+        os.unlink(probe)
 
     def test_sim_map_small(self):
         """Test the simulation of an empty map."""
@@ -74,6 +85,7 @@ class TestSimulate(object):
         )
         probe = os.path.join(out_ra, "Ra0.fits")
         assert os.path.exists(probe)
+        os.unlink(probe)
 
     def test_sim_map_empty_messy(self):
         """Test the simulation of an empty map."""
