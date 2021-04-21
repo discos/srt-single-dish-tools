@@ -35,7 +35,8 @@ from srttools.imager import (
     main_preprocess,
     _excluded_regions_from_args,
 )
-from srttools.simulate import simulate_map
+from srttools.inspect_observations import main_inspector
+from srttools.simulate import simulate_sun
 from srttools.global_fit import display_intermediate
 from srttools.io import mkdir_p
 from srttools.interactive_filter import intervals
@@ -75,6 +76,20 @@ def _md5(file):
         string = fobj.read()
 
     return hashlib.md5(string).hexdigest()
+
+
+class TestSunImage(object):
+    def test_sun_map(self):
+        simulate_sun(
+            length_ra=2,
+            length_dec=2.0,
+            outdir=(
+                os.path.join("babababa", "n"),
+                os.path.join("babababa", "t"),
+            ),
+        )
+        files = main_inspector([os.path.join("babababa", "*"), "-d"])
+        main_imager(["-c", files[0], "--frame", "sun"])
 
 
 class TestScanSet(object):
@@ -365,7 +380,7 @@ class TestScanSet(object):
 
         assert "Feed0_RCP" in images
 
-        scanset.save_ds9_images(save_sdev=True, frame=True)
+        scanset.save_ds9_images(save_sdev=True, frame="altaz")
 
         if HAS_MPL and DEBUG:
             img = images["Feed0_RCP"]

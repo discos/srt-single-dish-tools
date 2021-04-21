@@ -348,6 +348,7 @@ def main_inspector(args=None):
     )
     info.write("table.csv", overwrite=True)
 
+    config_files = []
     if args.dump_config_files:
         if args.options is not None:
             args.options = ast.literal_eval(args.options)
@@ -358,3 +359,4 @@ def main_inspector(args=None):
     else:
         groups = split_observation_table(info, group_by_entries=args.group_by)
         log.debug(groups)
+    return config_files
