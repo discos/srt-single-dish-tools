@@ -226,7 +226,6 @@ def prepare_simulated_data(simdir):
 
 
 curdir = os.path.dirname(os.path.abspath(__file__))
-import glob
 
 datadir = os.path.join(curdir, "data")
 simdir = os.path.join(datadir, "sim")

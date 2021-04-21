@@ -361,7 +361,7 @@ class TestScanSet(object):
         """Test image production."""
         scanset = ScanSet("test.hdf5")
 
-        images = scanset.calculate_images(frame='altaz')
+        images = scanset.calculate_images(frame="altaz")
 
         assert "Feed0_RCP" in images
 
@@ -637,8 +637,9 @@ class TestLargeMap:
     def test_calibrate_image_pixel(self):
         scanset = ScanSet("test.hdf5")
 
-        images = scanset.calculate_images(calibration=self.calfile,
-                                          map_unit="Jy/pixel")
+        images = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/pixel"
+        )
 
         img = images["Feed0_RCP"]
         center = img.shape[0] // 2, img.shape[1] // 2
@@ -657,8 +658,9 @@ class TestLargeMap:
         scanset = ScanSet("test.hdf5")
 
         scanset.calculate_images()
-        images = scanset.calculate_images(calibration=self.calfile,
-                                          map_unit="Jy/beam")
+        images = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/beam"
+        )
 
         assert np.allclose(
             np.max(images["Feed0_RCP"]), self.simulated_flux, atol=0.1
@@ -669,19 +671,22 @@ class TestLargeMap:
 
         scanset.calculate_images()
         with pytest.raises(ValueError) as excinfo:
-            images = scanset.calculate_images(calibration=self.calfile,
-                                              map_unit="junk")
+            images = scanset.calculate_images(
+                calibration=self.calfile, map_unit="junk"
+            )
             assert "Unit for calibration not recognized" in str(excinfo.value)
 
     def test_calibrate_image_sr(self):
         scanset = ScanSet("test.hdf5")
 
         scanset.calculate_images()
-        images = scanset.calculate_images(calibration=self.calfile,
-                                          map_unit="Jy/sr")
+        images = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/sr"
+        )
 
-        images_pix = scanset.calculate_images(calibration=self.calfile,
-                                              map_unit="Jy/pixel")
+        images_pix = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/pixel"
+        )
 
         pixel_area = scanset.meta["pixel_size"] ** 2
         assert np.allclose(
@@ -692,22 +697,24 @@ class TestLargeMap:
 
     def test_calibrate_scanset_pixel(self):
         scanset = ScanSet("test.hdf5")
-        images_standard = scanset.calculate_images(calibration=self.calfile,
-                                                   map_unit="Jy/pixel")
-        images = scanset.calculate_images(calibration=self.calfile,
-                                          map_unit="Jy/pixel",
-                                          calibrate_scans=True)
+        images_standard = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/pixel"
+        )
+        images = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/pixel", calibrate_scans=True
+        )
         assert np.allclose(
             images["Feed0_RCP"], images_standard["Feed0_RCP"], rtol=0.05
         )
 
     def test_calibrate_scanset_beam(self):
         scanset = ScanSet("test.hdf5")
-        images_standard = scanset.calculate_images(calibration=self.calfile,
-                                                   map_unit="Jy/beam")
-        images = scanset.calculate_images(calibration=self.calfile,
-                                          map_unit="Jy/beam",
-                                          calibrate_scans=True)
+        images_standard = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/beam"
+        )
+        images = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/beam", calibrate_scans=True
+        )
 
         assert np.allclose(
             images["Feed0_RCP"], images_standard["Feed0_RCP"], atol=1e-3
@@ -715,11 +722,12 @@ class TestLargeMap:
 
     def test_calibrate_scanset_sr(self):
         scanset = ScanSet("test.hdf5")
-        images_standard = scanset.calculate_images(calibration=self.calfile,
-                                                   map_unit="Jy/sr")
-        images = scanset.calculate_images(calibration=self.calfile,
-                                          map_unit="Jy/sr",
-                                          calibrate_scans=True)
+        images_standard = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/sr"
+        )
+        images = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/sr", calibrate_scans=True
+        )
 
         good = images["Feed0_RCP"] > 1
 

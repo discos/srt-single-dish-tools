@@ -87,15 +87,15 @@ def _coord_names(frame):
     ValueError: turuturu: Unknown frame
 
     """
-    if frame in ['icrs', 'fk5']:
+    if frame in ["icrs", "fk5"]:
         hor, ver = "ra", "dec"
-    elif frame == 'altaz':
+    elif frame == "altaz":
         hor, ver = "delta_az", "delta_el"
-    elif frame == 'sun':
+    elif frame == "sun":
         hor, ver = "hpln", "hplt"
-    elif frame == 'galactic':
+    elif frame == "galactic":
         hor, ver = "glon", "glat"
-    elif frame == 'ecliptic':
+    elif frame == "ecliptic":
         hor, ver = "elon", "elat"
     else:
         raise ValueError(f"{frame}: Unknown frame")
@@ -123,6 +123,7 @@ def _wcs_ctype_names(frame, projection):
     ver_str = f"{ver.upper()}{'-' * (8 - nver - nproj)}{projection.upper()}"
 
     return hor_str, ver_str
+
 
 def _load_calibration(calibration, map_unit):
     caltable = CalibratorTable().read(calibration)
@@ -184,7 +185,7 @@ class ScanSet(Table):
         nosub=False,
         plot=False,
         debug=False,
-        **kwargs
+        **kwargs,
     ):
         """Class obtained by a set of scans.
 
@@ -240,7 +241,7 @@ class ScanSet(Table):
                     freqsplat=freqsplat,
                     nofilt=nofilt,
                     nosub=nosub,
-                    **kwargs
+                    **kwargs,
                 )
                 for d in data
             ]
@@ -299,7 +300,7 @@ class ScanSet(Table):
                 nofilt=nofilt,
                 nosub=nosub,
                 plot=plot,
-                **kwargs
+                **kwargs,
             ):
 
                 if "FLAG" in s.meta.keys() and s.meta["FLAG"]:
@@ -357,7 +358,7 @@ class ScanSet(Table):
 
             self.meta["scan_list_file"] = None
 
-            self.analyze_coordinates(frame='icrs')
+            self.analyze_coordinates(frame="icrs")
 
             self.convert_coordinates()
 
@@ -366,11 +367,11 @@ class ScanSet(Table):
         )
         self.current = None
 
-    def analyze_coordinates(self, frame='icrs'):
+    def analyze_coordinates(self, frame="icrs"):
         """Save statistical information on coordinates."""
         hor, ver = _coord_names(frame)
 
-        if "delta_az" not in self.columns and frame == 'altaz':
+        if "delta_az" not in self.columns and frame == "altaz":
             self.calculate_delta_altaz()
 
         allhor = self[hor]
@@ -443,7 +444,7 @@ class ScanSet(Table):
                     debug=debug,
                     freqsplat=freqsplat,
                     nofilt=nofilt,
-                    **kwargs
+                    **kwargs,
                 )
                 yield i, s
             except KeyError as e:
@@ -456,7 +457,7 @@ class ScanSet(Table):
                 log.warning(traceback.format_exc())
                 log.warning("Error while processing {}: {}".format(f, str(e)))
 
-    def get_coordinates(self, frame='icrs'):
+    def get_coordinates(self, frame="icrs"):
         """Give the coordinates as pairs of RA, DEC."""
         hor, ver = _coord_names(frame)
         return np.array(np.dstack([self[hor], self[ver]]))
@@ -547,7 +548,7 @@ class ScanSet(Table):
             plt.savefig("altaz_with_src.png")
             plt.close(fig2)
 
-    def create_wcs(self, frame='icrs'):
+    def create_wcs(self, frame="icrs"):
         """Create a wcs object from the pointing information."""
         hor, ver = _coord_names(frame)
         pixel_size = self.meta["pixel_size"]
@@ -557,7 +558,8 @@ class ScanSet(Table):
             self.analyze_coordinates(frame)
 
         delta_hor = self.meta["max_" + hor] - self.meta["min_" + hor]
-        delta_hor *= np.cos(self.meta["reference_" + ver])
+        if frame != "sun":
+            delta_hor *= np.cos(self.meta["reference_" + ver])
         delta_ver = self.meta["max_" + ver] - self.meta["min_" + ver]
 
         # npix >= 1!
@@ -588,10 +590,10 @@ class ScanSet(Table):
         )
         self.wcs.wcs.cdelt = np.degrees(cdelt)
 
-        hor_str, ver_str = _wcs_ctype_names(frame, self.meta['projection'])
+        hor_str, ver_str = _wcs_ctype_names(frame, self.meta["projection"])
         self.wcs.wcs.ctype = [hor_str, ver_str]
 
-    def convert_coordinates(self, frame='icrs'):
+    def convert_coordinates(self, frame="icrs"):
         """Convert the coordinates from sky to pixel."""
         hor, ver = _coord_names(frame)
 
@@ -608,10 +610,17 @@ class ScanSet(Table):
         self["x"].meta["frame"] = frame
         self["y"].meta["frame"] = frame
 
-    def calculate_images(self, no_offsets=False, frame='icrs',
-                         calibration=None, elevation=None, map_unit="Jy/beam",
-                         calibrate_scans=False, direction=None,
-                         onlychans=None):
+    def calculate_images(
+        self,
+        no_offsets=False,
+        frame="icrs",
+        calibration=None,
+        elevation=None,
+        map_unit="Jy/beam",
+        calibrate_scans=False,
+        direction=None,
+        onlychans=None,
+    ):
         """Obtain image from all scans.
 
         Other parameters
@@ -854,17 +863,30 @@ class ScanSet(Table):
         self.images.update(total_images)
         return total_images
 
-    def fit_full_images(self, chans=None, fname=None, save_sdev=False,
-                        no_offsets=False, frame='icrs', calibration=None,
-                        excluded=None, par=None, map_unit="Jy/beam"):
+    def fit_full_images(
+        self,
+        chans=None,
+        fname=None,
+        save_sdev=False,
+        no_offsets=False,
+        frame="icrs",
+        calibration=None,
+        excluded=None,
+        par=None,
+        map_unit="Jy/beam",
+    ):
         """Flatten the baseline with a global fit.
 
         Fit a linear trend to each scan to minimize the scatter in an image
         """
 
         if self.images is None:
-            self.calculate_images(no_offsets=no_offsets, frame=frame,
-                                  calibration=calibration, map_unit=map_unit)
+            self.calculate_images(
+                no_offsets=no_offsets,
+                frame=frame,
+                calibration=calibration,
+                map_unit=map_unit,
+            )
 
         if chans is not None:
             chans = chans.split(",")
@@ -882,8 +904,12 @@ class ScanSet(Table):
             )
             self[ch].meta = self[ch + "_save"].meta
 
-        self.calculate_images(no_offsets=no_offsets, frame=frame,
-                              calibration=calibration, map_unit=map_unit)
+        self.calculate_images(
+            no_offsets=no_offsets,
+            frame=frame,
+            calibration=calibration,
+            map_unit=map_unit,
+        )
 
     def _calculate_calibration_factors(self, map_unit):
         if map_unit == "Jy/beam":
@@ -1399,14 +1425,24 @@ class ScanSet(Table):
             show_plot=show_plot,
         )
 
-    def save_ds9_images(self, fname=None, save_sdev=False, scrunch=False,
-                        no_offsets=False, frame='icrs', calibration=None,
-                        map_unit="Jy/beam", calibrate_scans=False,
-                        destripe=False, npix_tol=None, bad_chans=[]):
+    def save_ds9_images(
+        self,
+        fname=None,
+        save_sdev=False,
+        scrunch=False,
+        no_offsets=False,
+        frame="icrs",
+        calibration=None,
+        map_unit="Jy/beam",
+        calibrate_scans=False,
+        destripe=False,
+        npix_tol=None,
+        bad_chans=[],
+    ):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
             tail = ".fits"
-            if frame != 'icrs':
+            if frame != "icrs":
                 tail = f"_{frame}.fits"
             if scrunch:
                 tail = tail.replace(".fits", "_scrunch.fits")
@@ -1427,10 +1463,13 @@ class ScanSet(Table):
                 calibrate_scans=calibrate_scans,
             )
         else:
-            images = self.calculate_images(no_offsets=no_offsets, frame=frame,
-                                           calibration=calibration,
-                                           map_unit=map_unit,
-                                           calibrate_scans=calibrate_scans)
+            images = self.calculate_images(
+                no_offsets=no_offsets,
+                frame=frame,
+                calibration=calibration,
+                map_unit=map_unit,
+                calibrate_scans=calibrate_scans,
+            )
 
         if scrunch:
             self.scrunch_images(bad_chans=bad_chans)
@@ -1580,7 +1619,7 @@ def main_imager(args=None):
         default=False,
         action="store_true",
         help="Do images in Az-El coordinates (deprecated in favor of --frame "
-             "altaz)",
+        "altaz)",
     )
 
     parser.add_argument(
@@ -1760,7 +1799,7 @@ def main_imager(args=None):
     excluded_xy, excluded_radec = _excluded_regions_from_args(args.exclude)
 
     if args.altaz:
-        args.frame = 'altaz'
+        args.frame = "altaz"
 
     if args.file is not None:
         scanset = ScanSet(
@@ -1792,14 +1831,22 @@ def main_imager(args=None):
         scanset.interactive_display()
 
     if args.global_fit:
-        scanset.fit_full_images(chans=args.chans, frame=args.frame,
-                                excluded=excluded_xy)
+        scanset.fit_full_images(
+            chans=args.chans, frame=args.frame, excluded=excluded_xy
+        )
+    scanset.write(outfile, overwrite=True)
 
-    scanset.save_ds9_images(save_sdev=True, scrunch=args.scrunch_channels,
-                            frame=args.frame, calibration=args.calibrate,
-                            map_unit=args.unit, calibrate_scans=not args.quick,
-                            destripe=args.destripe, npix_tol=args.npix_tol,
-                            bad_chans=bad_chans)
+    scanset.save_ds9_images(
+        save_sdev=True,
+        scrunch=args.scrunch_channels,
+        frame=args.frame,
+        calibration=args.calibrate,
+        map_unit=args.unit,
+        calibrate_scans=not args.quick,
+        destripe=args.destripe,
+        npix_tol=args.npix_tol,
+        bad_chans=bad_chans,
+    )
 
     scanset.write(outfile, overwrite=True)
 

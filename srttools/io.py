@@ -306,24 +306,13 @@ def infer_skydip_from_elevation(elevation, azimuth=None):
     return az_condition & el_condition
 
 
-def get_sun_coords_from_altaz_offset(
-    obstimes, el, az, xoffs, yoffs, location, inplace=False, sun_frame=None
-):
-    """"""
-    # Calculate observing angle
-    if not inplace:
-        el = copy.deepcopy(el)
-        az = copy.deepcopy(az)
-    if sun_frame is not None:  # pragma: no cover
+def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
+    if sun_frame is None:  # pragma: no cover
         sun_frame = DEFAULT_SUN_FRAME
 
-    el += yoffs.to(u.rad).value
-    az += xoffs.to(u.rad).value / np.cos(el)
-
-    coords = AltAz(
-        az=Angle(az),
-        alt=Angle(el),
-        location=location,
+    coords = GCRS(
+        ra=Angle(ra),
+        dec=Angle(dec),
         obstime=obstimes,
         distance=sun.earth_distance(obstimes),
     )
@@ -334,21 +323,33 @@ def get_sun_coords_from_altaz_offset(
     return lon, lat
 
 
-def get_coords_from_altaz_offset(
-    obstimes, el, az, xoffs, yoffs, location, inplace=False, sun_frame=None
-):
-    """"""
-    if sun_frame is not None:
-        return get_sun_coords_from_altaz_offset(
+def update_table_with_sun_coords(new_table, sun_frame=None):
+
+    lon_str, lat_str = "hpln", "hplt"
+
+    if not (lon_str in new_table.colnames):
+        new_table[lon_str] = np.zeros_like(new_table["el"])
+        new_table[lat_str] = np.zeros_like(new_table["az"])
+
+    for i in range(0, new_table["el"].shape[1]):
+        obstimes = Time(new_table["time"] * u.day, format="mjd", scale="utc")
+
+        lon, lat = get_sun_coords_from_radec(
             obstimes,
-            el,
-            az,
-            xoffs,
-            yoffs,
-            location,
-            inplace=False,
+            new_table["ra"][:, i],
+            new_table["dec"][:, i],
             sun_frame=sun_frame,
         )
+        new_table[lon_str][:, i] = lon
+        new_table[lat_str][:, i] = lat
+
+    return new_table
+
+
+def get_coords_from_altaz_offset(
+    obstimes, el, az, xoffs, yoffs, location, inplace=False
+):
+    """"""
     # Calculate observing angle
     if not inplace:
         el = copy.deepcopy(el)
@@ -388,17 +389,13 @@ def is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg):
     return (coords.separation(sun_position)).to(u.deg).value < tolerance.value
 
 
-def update_table_with_offsets(
-    new_table, xoffsets, yoffsets, inplace=False, use_sun_frame=None
-):
+def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
     rest_angles = get_rest_angle(xoffsets, yoffsets)
 
     if not inplace:
         new_table = copy.deepcopy(new_table)
 
     lon_str, lat_str = "ra", "dec"
-    if use_sun_frame is not None:
-        lon_str, lat_str = "hpln", "hplt"
 
     if not (lon_str in new_table.colnames):
         new_table[lon_str] = np.zeros_like(new_table["el"])
@@ -425,7 +422,6 @@ def update_table_with_offsets(
             yoffs,
             location=location,
             inplace=inplace,
-            sun_frame=use_sun_frame,
         )
         new_table[lon_str][:, i] = lon
         new_table[lat_str][:, i] = lat
@@ -891,12 +887,9 @@ def _read_data_fitszilla(lchdulist):
     ):
         if DEFAULT_SUN_FRAME is None:
             raise ValueError("You need Sunpy to process Sun observations.")
-        update_table_with_offsets(
+        update_table_with_sun_coords(
             new_table,
-            xoffsets,
-            yoffsets,
-            inplace=True,
-            use_sun_frame=DEFAULT_SUN_FRAME,
+            sun_frame=DEFAULT_SUN_FRAME,
         )
 
     lchdulist.close()
