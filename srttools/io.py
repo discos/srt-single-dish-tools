@@ -327,17 +327,17 @@ def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
         ca.distance.value for ca in coords_asec
     ] * coords_asec.distance.unit
 
-    return lon.to(u.radian), lat.to(u.radian), dist
+    return lon.to(u.radian), lat.to(u.radian), dist.to(u.m).value
 
 
 def update_table_with_sun_coords(new_table, sun_frame=None):
 
     lon_str, lat_str = "hpln", "hplt"
 
-    if not ("distance" in new_table.colnames):
+    if not ("dsun" in new_table.colnames):
         new_table[lon_str] = np.zeros_like(new_table["el"])
         new_table[lat_str] = np.zeros_like(new_table["az"])
-        new_table["distance"] = np.zeros(len(new_table["az"]))
+        new_table["dsun"] = np.zeros(len(new_table["az"]))
 
     for i in range(0, new_table["el"].shape[1]):
         obstimes = Time(new_table["time"] * u.day, format="mjd", scale="utc")
@@ -351,7 +351,7 @@ def update_table_with_sun_coords(new_table, sun_frame=None):
         new_table[lon_str][:, i] = lon
         new_table[lat_str][:, i] = lat
         if i == 0:
-            new_table["distance"][:] = dist
+            new_table["dsun"][:] = dist
 
     return new_table
 

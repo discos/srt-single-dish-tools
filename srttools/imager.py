@@ -1490,6 +1490,10 @@ class ScanSet(Table):
         if calibration is not None:
             header["bunit"] = map_unit
 
+        if 'dsun' in self.colnames:
+            header["dsun_obs"] = np.mean(self["dsun"])
+            header["dsun_ref"] = 149597870700.0
+
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
 
