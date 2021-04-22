@@ -25,6 +25,13 @@ try:
 except ImportError:
     HAS_PYREGION = False
 
+try:
+    from sunpy.coordinates import frames
+
+    HAS_SUNPY = True
+except ImportError:
+    HAS_SUNPY = False
+
 from srttools.imager import ScanSet
 from srttools.scan import Scan
 from srttools.calibration import CalibratorTable
@@ -35,7 +42,8 @@ from srttools.imager import (
     main_preprocess,
     _excluded_regions_from_args,
 )
-from srttools.simulate import simulate_map
+from srttools.inspect_observations import main_inspector
+from srttools.simulate import simulate_sun
 from srttools.global_fit import display_intermediate
 from srttools.io import mkdir_p
 from srttools.interactive_filter import intervals
@@ -75,6 +83,39 @@ def _md5(file):
         string = fobj.read()
 
     return hashlib.md5(string).hexdigest()
+
+
+class TestSunImage(object):
+    @classmethod
+    def setup_class(klass):
+        import os
+
+        klass.simdir = "babababa"
+        simulate_sun(
+            length_ra=2,
+            length_dec=2.0,
+            outdir=(
+                os.path.join(klass.simdir, "n"),
+                os.path.join(klass.simdir, "t"),
+            ),
+        )
+
+    @pytest.mark.skipif("not HAS_SUNPY")
+    def test_sun_map(self):
+        files = main_inspector([os.path.join(self.simdir, "*"), "-d"])
+        main_imager(["-c", files[0], "--frame", "sun"])
+        for f in files:
+            os.unlink(f)
+
+    @pytest.mark.skipif("HAS_SUNPY")
+    def test_sun_map(self):
+        with pytest.raises(ValueError) as excinfo:
+            _ = main_inspector([os.path.join(self.simdir, "*"), "-d"])
+        assert "No valid observations found" in str(excinfo.value)
+
+    @classmethod
+    def teardown_class(klass):
+        shutil.rmtree(klass.simdir)
 
 
 class TestScanSet(object):
@@ -361,11 +402,11 @@ class TestScanSet(object):
         """Test image production."""
         scanset = ScanSet("test.hdf5")
 
-        images = scanset.calculate_images(altaz=True)
+        images = scanset.calculate_images(frame="altaz")
 
         assert "Feed0_RCP" in images
 
-        scanset.save_ds9_images(save_sdev=True, altaz=True)
+        scanset.save_ds9_images(save_sdev=True, frame="altaz")
 
         if HAS_MPL and DEBUG:
             img = images["Feed0_RCP"]
@@ -768,9 +809,9 @@ class TestLargeMap:
         images = scanset.calculate_images()
         nx, ny = images["Feed0_RCP"].shape
         excluded = [[nx // 2, ny // 2, nx // 4]]
-        scanset.fit_full_images(excluded=excluded, chans="Feed0_RCP")
+        scanset.fit_full_images(chans="Feed0_RCP", excluded=excluded)
         os.path.exists("out_iter_Feed0_RCP_002.txt")
-        scanset.fit_full_images(excluded=excluded, chans="Feed0_LCP")
+        scanset.fit_full_images(chans="Feed0_LCP", excluded=excluded)
         os.path.exists("out_iter_Feed0_LCP_000.txt")
 
         if not HAS_MPL:

@@ -230,7 +230,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
     ni = nbin.argsort()
     xy = zeros(N, int)
     for i in arange(0, D - 1):
-        xy += Ncount[ni[i]] * nbin[ni[i + 1:]].prod()
+        xy += Ncount[ni[i]] * nbin[ni[i + 1 :]].prod()
     xy += Ncount[ni[-1]]
 
     # Compute the number of repetitions in xy and assign it to the

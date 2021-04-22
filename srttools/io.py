@@ -3,7 +3,15 @@ import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import EarthLocation, AltAz, Angle, ICRS
+from astropy.coordinates import (
+    EarthLocation,
+    AltAz,
+    Angle,
+    ICRS,
+    GCRS,
+    SkyCoord,
+    get_sun,
+)
 import os
 from astropy.time import Time
 import warnings
@@ -15,6 +23,13 @@ from collections.abc import Iterable
 from scipy.interpolate import interp1d
 
 from .utils import force_move_file
+
+try:
+    from sunpy.coordinates import frames, sun
+
+    DEFAULT_SUN_FRAME = frames.Helioprojective
+except ImportError:
+    DEFAULT_SUN_FRAME = None
 
 
 __all__ = [
@@ -291,6 +306,56 @@ def infer_skydip_from_elevation(elevation, azimuth=None):
     return az_condition & el_condition
 
 
+def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
+    if sun_frame is None:  # pragma: no cover
+        sun_frame = DEFAULT_SUN_FRAME
+
+    coords = GCRS(
+        ra=Angle(ra),
+        dec=Angle(dec),
+        obstime=obstimes,
+        distance=sun.earth_distance(obstimes),
+    )
+
+    coords_asec = coords.transform_to(
+        sun_frame(obstime=obstimes, observer="earth")
+    )
+
+    lon = [ca.Tx.value for ca in coords_asec] * coords_asec.Tx.unit
+    lat = [ca.Ty.value for ca in coords_asec] * coords_asec.Ty.unit
+    dist = [
+        ca.distance.value for ca in coords_asec
+    ] * coords_asec.distance.unit
+
+    return lon.to(u.radian), lat.to(u.radian), dist.to(u.m).value
+
+
+def update_table_with_sun_coords(new_table, sun_frame=None):
+
+    lon_str, lat_str = "hpln", "hplt"
+
+    if not ("dsun" in new_table.colnames):
+        new_table[lon_str] = np.zeros_like(new_table["el"])
+        new_table[lat_str] = np.zeros_like(new_table["az"])
+        new_table["dsun"] = np.zeros(len(new_table["az"]))
+
+    for i in range(0, new_table["el"].shape[1]):
+        obstimes = Time(new_table["time"] * u.day, format="mjd", scale="utc")
+
+        lon, lat, dist = get_sun_coords_from_radec(
+            obstimes,
+            new_table["ra"][:, i],
+            new_table["dec"][:, i],
+            sun_frame=sun_frame,
+        )
+        new_table[lon_str][:, i] = lon
+        new_table[lat_str][:, i] = lat
+        if i == 0:
+            new_table["dsun"][:] = dist
+
+    return new_table
+
+
 def get_coords_from_altaz_offset(
     obstimes, el, az, xoffs, yoffs, location, inplace=False
 ):
@@ -316,11 +381,35 @@ def get_coords_from_altaz_offset(
     return ra, dec
 
 
+def is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg):
+    """Test if current source is close to the Sun.
+
+    Examples
+    --------
+    >>> ra, dec = 131.13535699 * u.deg, 18.08202663 * u.deg
+    >>> obstime = Time("2017-08-01")
+    >>> is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg)
+    True
+    >>> is_close_to_sun(ra, dec + 4 * u.deg, obstime, tolerance=3 * u.deg)
+    False
+    """
+    coords = SkyCoord(ra=ra, dec=dec, frame=GCRS(obstime=obstime))
+    sun_position = get_sun(obstime).transform_to(GCRS(obstime=obstime))
+
+    return (coords.separation(sun_position)).to(u.deg).value < tolerance.value
+
+
 def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
     rest_angles = get_rest_angle(xoffsets, yoffsets)
 
     if not inplace:
         new_table = copy.deepcopy(new_table)
+
+    lon_str, lat_str = "ra", "dec"
+
+    if not (lon_str in new_table.colnames):
+        new_table[lon_str] = np.zeros_like(new_table["el"])
+        new_table[lat_str] = np.zeros_like(new_table["az"])
 
     for i in range(0, new_table["el"].shape[1]):
         obs_angle = observing_angle(rest_angles[i], new_table["derot_angle"])
@@ -335,7 +424,7 @@ def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
         obstimes = Time(new_table["time"] * u.day, format="mjd", scale="utc")
 
         location = locations[new_table.meta["site"]]
-        ra, dec = get_coords_from_altaz_offset(
+        lon, lat = get_coords_from_altaz_offset(
             obstimes,
             new_table["el"][:, i],
             new_table["az"][:, i],
@@ -344,8 +433,8 @@ def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
             location=location,
             inplace=inplace,
         )
-        new_table["ra"][:, i] = ra
-        new_table["dec"][:, i] = dec
+        new_table[lon_str][:, i] = lon
+        new_table[lat_str][:, i] = lat
 
     return new_table
 
@@ -434,14 +523,14 @@ def adjust_temperature_size_rough(temp, comparison_array):
 
     sizediff = temp.size - comparison_array.size
     if sizediff > 0:
-        temp = temp[sizediff // 2: sizediff // 2 + comparison_array.size]
+        temp = temp[sizediff // 2 : sizediff // 2 + comparison_array.size]
     elif sizediff < 0:
         # make it positive
         sizediff = -sizediff
         temp = np.zeros_like(comparison_array)
-        temp[sizediff // 2: sizediff // 2 + temp_save.size] = temp_save
+        temp[sizediff // 2 : sizediff // 2 + temp_save.size] = temp_save
         temp[: sizediff // 2] = temp_save[0]
-        temp[sizediff // 2 + temp_save.size - 1:] = temp_save[-1]
+        temp[sizediff // 2 + temp_save.size - 1 :] = temp_save[-1]
 
     return temp
 
@@ -795,6 +884,23 @@ def _read_data_fitszilla(lchdulist):
             new_table["dec"][:, i] = dec
             new_table["el"][:, i] = el
             new_table["az"][:, i] = az
+
+    # Don't know if better euristics is needed
+    obstime = Time(
+        np.mean(new_table["time"]) * u.day, format="mjd", scale="utc"
+    )
+    if is_close_to_sun(
+        new_table.meta["RA"],
+        new_table.meta["Dec"],
+        obstime,
+        tolerance=3 * u.deg,
+    ):
+        if DEFAULT_SUN_FRAME is None:
+            raise ValueError("You need Sunpy to process Sun observations.")
+        update_table_with_sun_coords(
+            new_table,
+            sun_frame=DEFAULT_SUN_FRAME,
+        )
 
     lchdulist.close()
 

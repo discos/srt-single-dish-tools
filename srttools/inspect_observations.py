@@ -141,7 +141,7 @@ def split_observation_table(
             )
         )
         s = split_by_source(
-            grouped_table[ind[0]: ind[1]],
+            grouped_table[ind[0] : ind[1]],
             max_calibrator_delay=max_calibrator_delay,
             max_source_delay=max_source_delay,
         )
@@ -187,7 +187,7 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
             retval[s]["Obs{}".format(i)] = {}
             print("---------------")
             print("{}, observation {}\n".format(s, i + 1))
-            ft = filtered_table[cont[0]: cont[1]]
+            ft = filtered_table[cont[0] : cont[1]]
 
             observation_start = ft[0]["Time"]
             observation_end = ft[-1]["Time"]
@@ -348,6 +348,10 @@ def main_inspector(args=None):
     )
     info.write("table.csv", overwrite=True)
 
+    if len(info) == 0:
+        raise ValueError("No valid observations found")
+
+    config_files = []
     if args.dump_config_files:
         if args.options is not None:
             args.options = ast.literal_eval(args.options)
@@ -358,3 +362,4 @@ def main_inspector(args=None):
     else:
         groups = split_observation_table(info, group_by_entries=args.group_by)
         log.debug(groups)
+    return config_files

@@ -26,12 +26,52 @@ except ImportError:
     import contextlib
 
 
+try:
+    from sunpy.coordinates import frames
+
+    HAS_SUNPY = True
+except ImportError:
+    HAS_SUNPY = False
+
+
 @pytest.fixture()
 def logger():
     logger = logging.getLogger("Some.Logger")
     logger.setLevel(logging.INFO)
 
     return logger
+
+
+class Test1_Sun(object):
+    @classmethod
+    def setup_class(klass):
+        import os
+
+        klass.curdir = os.path.dirname(__file__)
+        klass.datadir = os.path.join(klass.curdir, "data")
+
+        klass.fname = os.path.abspath(
+            os.path.join(klass.datadir, "sun_obs.fits")
+        )
+        klass.nosun = os.path.abspath(
+            os.path.join(klass.datadir, "gauss_dec", "Dec0.fits")
+        )
+
+    @pytest.mark.skipif("not HAS_SUNPY")
+    def test_read(self):
+        scan = read_data_fitszilla(self.fname)
+        assert "hpln" in scan.colnames
+
+    @pytest.mark.skipif("HAS_SUNPY")
+    def test_read_fails_if_no_sunpy(self):
+        with pytest.raises(ValueError) as excinfo:
+            _ = read_data_fitszilla(self.fname)
+        assert "You need Sunpy to process Sun " in str(excinfo.value)
+
+    @pytest.mark.skipif("not HAS_SUNPY")
+    def test_read_no_sun(self):
+        scan = read_data_fitszilla(self.nosun)
+        assert not "hpln" in scan.colnames
 
 
 class Test1_Scan(object):
