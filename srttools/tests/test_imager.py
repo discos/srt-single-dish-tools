@@ -25,6 +25,13 @@ try:
 except ImportError:
     HAS_PYREGION = False
 
+try:
+    from sunpy.coordinates import frames
+
+    HAS_SUNPY = True
+except ImportError:
+    HAS_SUNPY = False
+
 from srttools.imager import ScanSet
 from srttools.scan import Scan
 from srttools.calibration import CalibratorTable
@@ -79,17 +86,36 @@ def _md5(file):
 
 
 class TestSunImage(object):
-    def test_sun_map(self):
+    @classmethod
+    def setup_class(klass):
+        import os
+
+        klass.simdir = "babababa"
         simulate_sun(
             length_ra=2,
             length_dec=2.0,
             outdir=(
-                os.path.join("babababa", "n"),
-                os.path.join("babababa", "t"),
+                os.path.join(klass.simdir, "n"),
+                os.path.join(klass.simdir, "t"),
             ),
         )
-        files = main_inspector([os.path.join("babababa", "*"), "-d"])
+
+    @pytest.mark.skipif("not HAS_SUNPY")
+    def test_sun_map(self):
+        files = main_inspector([os.path.join(self.simdir, "*"), "-d"])
         main_imager(["-c", files[0], "--frame", "sun"])
+        for f in files:
+            os.unlink(f)
+
+    @pytest.mark.skipif("HAS_SUNPY")
+    def test_sun_map(self):
+        with pytest.raises(ValueError) as excinfo:
+            _ = main_inspector([os.path.join(self.simdir, "*"), "-d"])
+        assert "No valid observations found" in str(excinfo.value)
+
+    @classmethod
+    def teardown_class(klass):
+        shutil.rmtree(klass.simdir)
 
 
 class TestScanSet(object):

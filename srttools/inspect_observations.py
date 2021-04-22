@@ -348,6 +348,9 @@ def main_inspector(args=None):
     )
     info.write("table.csv", overwrite=True)
 
+    if len(info) == 0:
+        raise ValueError("No valid observations found")
+
     config_files = []
     if args.dump_config_files:
         if args.options is not None:
