@@ -1490,7 +1490,9 @@ class ScanSet(Table):
         if calibration is not None:
             header["bunit"] = map_unit
 
+        print(self.colnames)
         if 'dsun' in self.colnames:
+            print("SAVING DSUN")
             header["dsun_obs"] = np.mean(self["dsun"])
             header["dsun_ref"] = 149597870700.0
 
