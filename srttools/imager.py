@@ -552,10 +552,6 @@ class ScanSet(Table):
         """Create a wcs object from the pointing information."""
         hor, ver = _coord_names(frame)
         pixel_size = self.meta["pixel_size"]
-        if frame == "sun":
-            # Rescale to the coordinates! It's \pm pi/2 at the poles,
-            # and the Sun is about half a degree  in total
-            pixel_size = pixel_size * np.pi / np.radians(0.5)
         self.wcs = wcs.WCS(naxis=2)
 
         if "max_" + hor not in self.meta:

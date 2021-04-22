@@ -27,7 +27,7 @@ from .utils import force_move_file
 try:
     from sunpy.coordinates import frames, sun
 
-    DEFAULT_SUN_FRAME = frames.HeliographicStonyhurst
+    DEFAULT_SUN_FRAME = frames.Helioprojective
 except ImportError:
     DEFAULT_SUN_FRAME = None
 
@@ -317,24 +317,32 @@ def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
         distance=sun.earth_distance(obstimes),
     )
 
-    coords_deg = coords.transform_to(sun_frame(obstime=obstimes))
-    lon = np.radians(coords_deg.lon)
-    lat = np.radians(coords_deg.lat)
-    return lon, lat
+    coords_asec = coords.transform_to(
+        sun_frame(obstime=obstimes, observer="earth")
+    )
+
+    lon = [ca.Tx.value for ca in coords_asec] * coords_asec.Tx.unit
+    lat = [ca.Ty.value for ca in coords_asec] * coords_asec.Ty.unit
+    dist = [
+        ca.distance.value for ca in coords_asec
+    ] * coords_asec.distance.unit
+
+    return lon.to(u.radian), lat.to(u.radian), dist
 
 
 def update_table_with_sun_coords(new_table, sun_frame=None):
 
     lon_str, lat_str = "hpln", "hplt"
 
-    if not (lon_str in new_table.colnames):
+    if not ("distance" in new_table.colnames):
         new_table[lon_str] = np.zeros_like(new_table["el"])
         new_table[lat_str] = np.zeros_like(new_table["az"])
+        new_table["distance"] = np.zeros(len(new_table["az"]))
 
     for i in range(0, new_table["el"].shape[1]):
         obstimes = Time(new_table["time"] * u.day, format="mjd", scale="utc")
 
-        lon, lat = get_sun_coords_from_radec(
+        lon, lat, dist = get_sun_coords_from_radec(
             obstimes,
             new_table["ra"][:, i],
             new_table["dec"][:, i],
@@ -342,6 +350,8 @@ def update_table_with_sun_coords(new_table, sun_frame=None):
         )
         new_table[lon_str][:, i] = lon
         new_table[lat_str][:, i] = lat
+        if i == 0:
+            new_table["distance"][:] = dist
 
     return new_table
 
