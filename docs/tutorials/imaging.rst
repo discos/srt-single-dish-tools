@@ -439,3 +439,29 @@ The above command will:
 + Create a csv file for each source, containing three columns: time, flux, flux error for each cross scan
 
 The light curve will also be saved in a text file.
+
+
+Sun images
+~~~~~~~~~~
+
+Images of the Sun need only a small change in the processing. During ``SDTpreprocess`` and ``SDTimager``, when the user loads data from within 3 degrees of the Sun, Helioprojective coordinates are automatically calculated along with the ICRS and horizontal ones. At this point, to get a map in these coordinates it is sufficient to specify the ``--frame sun`` option to ``SDTimage``.
+
+.. code-block:: console
+
+    (py3) $ SDTimage -c CCB_TP_Src1_Obs0.ini <other options> --frame sun
+
+This will produce an output file ending with ``_end.fits``.
+The correctness of the processing can be quickly tested using ``SunPy``:
+
+.. code-block:: python
+
+    import sunpy.map
+    sunmap = sunpy.map.Map("CCB_TP_Dummy_Obs0_sun.fits")
+    sunmap.peek()
+
+.. figure:: ../images/sun_obs.jpg
+   :width: 80 %
+   :alt: sun obs
+   :align: center
+
+   **Figure 4.** Example Sun observation, plotted with ``SunPy``

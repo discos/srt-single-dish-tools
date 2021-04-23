@@ -100,7 +100,7 @@ SDTfake
                    [-g GEOMETRY GEOMETRY GEOMETRY GEOMETRY]
                    [--beam-width BEAM_WIDTH] [--spacing SPACING] [-o OUTDIR_ROOT]
                    [--scan-speed SCAN_SPEED] [--integration-time INTEGRATION_TIME]
-                   [--spectral-bins SPECTRAL_BINS] [--no-cal] [--debug]
+                   [--spectral-bins SPECTRAL_BINS] [--no-cal] [--sun] [--debug]
 
     Simulate a single scan or a map with a point source.
 
@@ -136,6 +136,7 @@ SDTfake
       --spectral-bins SPECTRAL_BINS
                             Simulate a spectrum with this number of bins
       --no-cal              Don't simulate calibrators
+      --sun                 Simulate a map of the Sun
       --debug               Plot stuff and be verbose
 
 
@@ -147,9 +148,9 @@ SDTimage
     usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--altaz]
                     [--sub] [--interactive] [--calibrate CALIBRATE] [--nofilt]
                     [-g] [-e EXCLUDE [EXCLUDE ...]] [--chans CHANS] [-o OUTFILE]
-                    [-u UNIT] [--destripe] [--npix-tol NPIX_TOL] [--debug]
-                    [--quick] [--scrunch-channels] [--nosave] [--noplot]
-                    [--bad-chans BAD_CHANS] [--splat SPLAT]
+                    [-u UNIT] [--frame {icrs,altaz,sun}] [--destripe]
+                    [--npix-tol NPIX_TOL] [--debug] [--quick] [--scrunch-channels]
+                    [--nosave] [--noplot] [--bad-chans BAD_CHANS] [--splat SPLAT]
                     [file]
 
     Load a series of scans from a config file and produce a map.
@@ -163,7 +164,8 @@ SDTimage
       -c CONFIG, --config CONFIG
                             Config file
       --refilt              Re-run the scan filtering
-      --altaz               Do images in Az-El coordinates
+      --altaz               Do images in Az-El coordinates (deprecated in favor of
+                            --frame altaz)
       --sub                 Subtract the baseline from single scans
       --interactive         Open the interactive display
       --calibrate CALIBRATE
@@ -184,6 +186,8 @@ SDTimage
       -o OUTFILE, --outfile OUTFILE
                             Save intermediate scanset to this file.
       -u UNIT, --unit UNIT  Unit of the calibrated image. Jy/beam or Jy/pixel
+      --frame {icrs,altaz,sun}
+                            Reference frame for the image. One of icrs, altaz, sun
       --destripe            Destripe the image
       --npix-tol NPIX_TOL   Number of pixels with zero exposure to tolerate when
                             destriping the image, or the full row or column is
