@@ -51,13 +51,13 @@ Tentative Roadmap
 
 + v.0.4: Generalized, user-supplied scanset filters
 
-+ v.**0.5**: Converters to MBFITS and CLASS
++ v.0.5: Converters to MBFITS and CLASS
 
-+ v.0.6: Improved calibration, accept input gain curves
++ v.0.6: **Sun Images**
 
-+ v.0.7: Improved RFI support, using simple techniques of machine learning
++ v.0.7: Full support of general coordinate systems, including Galactic
 
-+ v.0.8: Full support of general coordinate systems, including Galactic
++ v.0.8: Improved calibration, accept input gain curves
 
 + v.1.0: code release.
 
