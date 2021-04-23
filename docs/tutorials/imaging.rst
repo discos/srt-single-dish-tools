@@ -450,7 +450,7 @@ Images of the Sun need only a small change in the processing. During ``SDTprepro
 
     (py3) $ SDTimage -c CCB_TP_Src1_Obs0.ini <other options> --frame sun
 
-This will produce an output file ending with ``_end.fits``.
+This will produce an output file ending with ``_sun.fits``.
 The correctness of the processing can be quickly tested using ``SunPy``:
 
 .. code-block:: python
