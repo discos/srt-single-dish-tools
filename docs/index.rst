@@ -19,7 +19,7 @@ The Python library is written following the modern coding standards
 documented in the Astropy Coding Guidelines. Automatic tests cover
 a significant fraction of the code, and are launched each time a commit
 is pushed to the `Github`_ repository, through Github Actions.
-The current version is 0.6-devXXX, indicating the development version towards 0.6.
+The current version is 0.7-devXXX, indicating the development version towards 0.7.
 See below the tentative roadmap.
 
 In the current implementation, spectroscopic and total-power on-the-fly
@@ -59,7 +59,7 @@ Tentative Roadmap
 
 + v.0.8: Improved calibration, accept input gain curves
 
-+ v.1.0: code release.
++ v.1.0: Code release.
 
 
 Installation
