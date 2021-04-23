@@ -458,3 +458,10 @@ The correctness of the processing can be quickly tested using ``SunPy``:
     import sunpy.map
     sunmap = sunpy.map.Map("CCB_TP_Dummy_Obs0_sun.fits")
     sunmap.peek()
+
+.. figure:: ../images/sun_obs.jpg
+   :width: 80 %
+   :alt: sun obs
+   :align: center
+
+   **Figure 4.** Example Sun observation, plotted with ``SunPy``
