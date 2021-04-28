@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 
-
 from srttools.read_config import read_config
 from astropy.time import Time
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy import log
 import astropy.units as u
 import pytest
 
-from srttools.scan import Scan, HAS_MPL
+from srttools.scan import Scan, HAS_MPL, clean_scan_using_variability
 from srttools.io import print_obs_info_fitszilla, bulk_change, main_bulk_change
 from srttools.io import locations, read_data_fitszilla, mkdir_p
 from srttools.utils import compare_anything
@@ -95,6 +95,25 @@ class Test1_Scan(object):
         h5file = os.path.join(config["productdir"], "gauss_dec", "Dec0.hdf5")
         if os.path.exists(h5file):
             os.unlink(h5file)
+
+    def test_clean_large_data(self):
+        """Test that large data sets needing pickling are handled correctly."""
+
+        existing_pickle_files = glob.glob('*.p')
+        with log.log_to_list() as log_list:
+            clean_scan_using_variability(
+                np.random.random((16000, 1000)),
+                16,
+                512,
+                debug_file_format='jpg'
+            )
+        assert np.any(['data set is large' in l.message for l in log_list])
+        new_pickle_files = glob.glob('*.p')
+        for epf in existing_pickle_files:
+            if epf in new_pickle_files:
+                new_pickle_files.pop(epf)
+        # No new pickle files have survived the cleaning!
+        assert len(new_pickle_files) == 0
 
     def test_bulk_change_hdr(self):
         dummyname = os.path.join(os.getcwd(), "dummyfile.fits")
