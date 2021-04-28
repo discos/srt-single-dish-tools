@@ -243,10 +243,13 @@ class CleaningResults:
     mask = None
 
 
-def object_or_pickle(obj):
+def object_or_pickle(obj, remove=False):
     if isinstance(obj, str):
         with open(obj, "rb") as fobj:
-            return pickle.load(fobj)
+            data = pickle.load(fobj)
+        if remove:
+            os.unlink(obj)
+        return data
     return obj
 
 
@@ -596,6 +599,7 @@ def plot_spectrum_cleaning_results(
         cmap = plt.get_cmap("magma")
     except Exception:
         cmap = plt.get_cmap("gnuplot2")
+
     ax_dynspec.imshow(
         varimg,
         origin="lower",
@@ -766,7 +770,7 @@ def clean_scan_using_variability(
     """
     import gc
 
-    rootdir, _ = os.path.split(outfile)
+    rootdir, _ = os.path.split(os.path.abspath(outfile))
     if not os.path.exists(rootdir):
         mkdir_p(rootdir)
 
@@ -804,6 +808,8 @@ def clean_scan_using_variability(
         filename=dummy_file,
     )
     if spec_stats_ is None:
+        if isinstance(dummy_file, str) and os.path.exists(dummy_file):
+            os.unlink(dummy_file)
         return None
 
     cleaning_res_file = _clean_spectrum(
@@ -815,8 +821,11 @@ def clean_scan_using_variability(
     gc.collect()
 
     if not plot or not HAS_MPL:
+        for filename in [dummy_file, spec_stats_]:
+            if isinstance(filename, str) and os.path.exists(filename):
+                os.unlink(filename)
         log.debug("No plotting needs to be done.")
-        return object_or_pickle(cleaning_res_file)
+        return object_or_pickle(cleaning_res_file, remove=True)
 
     plot_spectrum_cleaning_results(
         cleaning_res_file,
@@ -833,7 +842,7 @@ def clean_scan_using_variability(
 
     results = object_or_pickle(cleaning_res_file)
 
-    for filename in [cleaning_res_file, dummy_file]:
+    for filename in [cleaning_res_file, dummy_file, spec_stats_]:
         if isinstance(filename, str) and os.path.exists(filename):
             os.unlink(filename)
 
