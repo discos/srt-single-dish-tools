@@ -808,6 +808,8 @@ def clean_scan_using_variability(
         filename=dummy_file,
     )
     if spec_stats_ is None:
+        if isinstance(dummy_file, str) and os.path.exists(dummy_file):
+            os.unlink(dummy_file)
         return None
 
     cleaning_res_file = _clean_spectrum(
@@ -819,6 +821,9 @@ def clean_scan_using_variability(
     gc.collect()
 
     if not plot or not HAS_MPL:
+        for filename in [dummy_file, spec_stats_]:
+            if isinstance(filename, str) and os.path.exists(filename):
+                os.unlink(filename)
         log.debug("No plotting needs to be done.")
         return object_or_pickle(cleaning_res_file, remove=True)
 

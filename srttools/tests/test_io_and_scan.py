@@ -111,7 +111,7 @@ class Test1_Scan(object):
         new_pickle_files = glob.glob('*.p')
         for epf in existing_pickle_files:
             if epf in new_pickle_files:
-                new_pickle_files.pop(epf)
+                new_pickle_files.remove(epf)
         # No new pickle files have survived the cleaning!
         assert len(new_pickle_files) == 0
 
