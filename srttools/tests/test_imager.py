@@ -227,7 +227,9 @@ class TestScanSet(object):
             assert np.all(scanset.meta[k] == self.scanset.meta[k])
         for chan in scanset.chan_columns:
             for k in scanset[chan].meta.keys():
-                assert np.all(scanset[chan].meta[k] == self.scanset[chan].meta[k])
+                assert np.all(
+                    scanset[chan].meta[k] == self.scanset[chan].meta[k]
+                )
 
         assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
         assert scanset.scan_list == self.scanset.scan_list

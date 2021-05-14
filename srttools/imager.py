@@ -113,6 +113,7 @@ def _load_and_merge_subscans(indices_and_subscans):
         tables.append(s)
     return merge_tables(tables)
 
+
 def merge_tables(tables):
     """
 
