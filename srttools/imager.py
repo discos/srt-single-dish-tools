@@ -18,7 +18,7 @@ from astropy import log
 import numpy as np
 import astropy
 from astropy import wcs
-from astropy.table import Table, vstack, Column
+from astropy.table import Table, vstack, Column, TableAttribute
 from astropy.utils.metadata import MergeConflictWarning
 import astropy.io.fits as fits
 import astropy.units as u
@@ -175,6 +175,10 @@ def outlier_score(x):
 
 
 class ScanSet(Table):
+    scan_list = TableAttribute(default=[])
+    _chan_columns = TableAttribute(default=None)
+    current = TableAttribute()
+
     def __init__(
         self,
         data=None,
@@ -223,155 +227,153 @@ class ScanSet(Table):
         >>> isinstance(scanset, ScanSet)
         True
         """
-        if data is None and config_file is None:
-            Table.__init__(self, data, **kwargs)
-            return
         self.norefilt = norefilt
         self.freqsplat = freqsplat
         self.images = None
         self.images_hor = None
         self.images_ver = None
+        self.nofilt = nofilt
+        self.nosub = nosub
+        self.plot = plot
+        self.debug = debug
 
-        if isinstance(data, Iterable) and not isinstance(data, str):
-            alldata = [
-                ScanSet(
-                    d,
-                    norefilt=norefilt,
-                    config_file=config_file,
-                    freqsplat=freqsplat,
-                    nofilt=nofilt,
-                    nosub=nosub,
-                    **kwargs,
-                )
-                for d in data
-            ]
+        if data is None and config_file is None:
+            pass
 
-            scan_list = []
-            max_scan_id = 0
-            for d in alldata:
-                scan_list += d.scan_list
-                d["Scan_id"] += max_scan_id
-
-                max_scan_id += len(d.scan_list)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", MergeConflictWarning)
-                data = vstack(alldata)
-            data.scan_list = scan_list
-            data.config_file = config_file
+        elif isinstance(data, Iterable) and not isinstance(data, str):
+            data = self._merge_input_data(data, **kwargs)
 
         elif isinstance(data, str) and data.endswith("hdf5"):
-            data = super().read(data)
-
-            txtfile = data.meta["scan_list_file"]
-
-            with open(txtfile, "r") as fobj:
-                self.scan_list = []
-                for i in fobj.readlines():
-                    self.scan_list.append(i.strip())
-            self.read_images_from_meta()
-
-        if isinstance(data, Table):
-            Table.__init__(self, data, **kwargs)
-            if config_file is not None:
-                config = read_config(config_file)
-                self.meta.update(config)
-
-            self.create_wcs()
-            if hasattr(data, "scan_list"):
-                self.scan_list = data.scan_list
+            data = Table.read(data)
 
         else:  # data is a config file
-            config_file = data
+            data = self._read_data_from_config(data, **kwargs)
+
+        if config_file is not None:
+            data.meta["config_file"] = config_file
             config = read_config(config_file)
-
             self.meta.update(config)
-            self.meta["config_file"] = config_file
 
-            scan_list = self.list_scans()
-
-            scan_list.sort()
-
-            tables = []
-
-            for i_s, s in self.load_scans(
-                scan_list,
-                debug=debug,
-                freqsplat=freqsplat,
-                nofilt=nofilt,
-                nosub=nosub,
-                plot=plot,
-                **kwargs,
-            ):
-
-                if "FLAG" in s.meta.keys() and s.meta["FLAG"]:
-                    log.info("{} is flagged".format(s.meta["filename"]))
-                    continue
-                s["Scan_id"] = i_s + np.zeros(len(s["time"]), dtype=int)
-
-                ras = s["ra"][:, 0]
-                decs = s["dec"][:, 0]
-
-                ravar = (np.max(ras) - np.min(ras)) / np.cos(np.mean(decs))
-                decvar = np.max(decs) - np.min(decs)
-                s["direction"] = np.array(ravar > decvar, dtype=bool)
-
-                # Remove conflicting keys
-                for key in [
-                    "filename",
-                    "calibrator_directories",
-                    "skydip_directories",
-                    "list_of_directories",
-                    "mean_dec",
-                    "mean_ra",
-                    "max_dec",
-                    "max_ra",
-                    "min_dec",
-                    "min_ra",
-                    "dec_offset",
-                    "ra_offset",
-                    "RightAscension Offset",
-                    "Declination Offset",
-                ]:
-                    if key in s.meta:
-                        s.meta.pop(key)
-
-                tables.append(s)
-
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", MergeConflictWarning)
-                    scan_table = Table(vstack(tables))
-            except TableMergeError as e:
-                warnings.warn(
-                    "ERROR while merging tables. {}"
-                    "Debug: tables:".format(str(e))
-                )
-
-                for t in tables:
-                    warnings.warn(scan_list[int(t["Scan_id"][0])])
-                    warnings.warn(t.colnames)
-                    warnings.warn(t[0])
-                raise
-
-            Table.__init__(self, scan_table)
-            self.scan_list = scan_list
-
-            self.meta["scan_list_file"] = None
-
-            self.analyze_coordinates(frame="icrs")
-
+        super().__init__(data)
+        if not "x" in self.colnames:
             self.convert_coordinates()
 
-        self.chan_columns = np.array(
-            [i for i in self.columns if chan_re.match(i)]
-        )
-        self.current = None
+    @property
+    def chan_columns(self):
+        if self._chan_columns is None:
+            self._chan_columns = np.array([i for i in self.columns if chan_re.match(i)])
+        return self._chan_columns
+
+    def _read_data_from_config(self, data, **kwargs):
+        config_file = data
+        config = read_config(config_file)
+
+        self.meta.update(config)
+        self.meta["config_file"] = config_file
+
+        scan_list = self.list_scans()
+
+        scan_list.sort()
+
+        tables = []
+
+        for i_s, s in self.load_scans(
+                scan_list,
+                debug=self.debug,
+                freqsplat=self.freqsplat,
+                nofilt=self.nofilt,
+                nosub=self.nosub,
+                plot=self.plot,
+                **kwargs,
+        ):
+
+            if "FLAG" in s.meta.keys() and s.meta["FLAG"]:
+                log.info("{} is flagged".format(s.meta["filename"]))
+                continue
+            s["Scan_id"] = i_s + np.zeros(len(s["time"]), dtype=int)
+
+            ras = s["ra"][:, 0]
+            decs = s["dec"][:, 0]
+
+            ravar = (np.max(ras) - np.min(ras)) / np.cos(np.mean(decs))
+            decvar = np.max(decs) - np.min(decs)
+            s["direction"] = np.array(ravar > decvar, dtype=bool)
+
+            # Remove conflicting keys
+            for key in [
+                "filename",
+                "calibrator_directories",
+                "skydip_directories",
+                "list_of_directories",
+                "mean_dec",
+                "mean_ra",
+                "max_dec",
+                "max_ra",
+                "min_dec",
+                "min_ra",
+                "dec_offset",
+                "ra_offset",
+                "RightAscension Offset",
+                "Declination Offset",
+            ]:
+                if key in s.meta:
+                    s.meta.pop(key)
+
+            tables.append(s)
+
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", MergeConflictWarning)
+                scan_table = vstack(tables)
+        except TableMergeError as e:
+            warnings.warn(
+                "ERROR while merging tables. {}"
+                "Debug: tables:".format(str(e))
+            )
+
+            for t in tables:
+                warnings.warn(scan_list[int(t["Scan_id"][0])])
+                warnings.warn(t.colnames)
+                warnings.warn(t[0])
+            raise
+
+        scan_table.scan_list = scan_list
+        return scan_table
+
+    def _merge_input_data(self, data, **kwargs):
+        alldata = [
+            ScanSet(
+                d,
+                norefilt=self.norefilt,
+                config_file=self.meta["config_file"],
+                freqsplat=self.freqsplat,
+                nofilt=self.nofilt,
+                nosub=self.nosub,
+                **kwargs,
+            )
+            for d in data
+        ]
+
+        scan_list = []
+        max_scan_id = 0
+        for d in alldata:
+            scan_list += d.scan_list
+            d["Scan_id"] += max_scan_id
+
+            max_scan_id += len(d.scan_list)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", MergeConflictWarning)
+            data = vstack(alldata)
+
+        data.scan_list = scan_list
+        data.meta = data.meta
+        return data
 
     def analyze_coordinates(self, frame="icrs"):
         """Save statistical information on coordinates."""
         hor, ver = _coord_names(frame)
 
-        if "delta_az" not in self.columns and frame == "altaz":
+        if "delta_az" not in self.colnames and frame == "altaz":
             self.calculate_delta_altaz()
 
         allhor = self[hor]
@@ -1282,25 +1284,16 @@ class ScanSet(Table):
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5.
 
-        Moreover, saves the scan list to a txt file, that will be read when
-        data are reloaded. This is a *temporary solution*
         """
-        import os
-
-        f, _ = os.path.splitext(fname)
-        txtfile = f + "_scan_list.txt"
-        self.meta["scan_list_file"] = txtfile
-        with open(txtfile, "w") as fobj:
-            for i in self.scan_list:
-                print(i, file=fobj)
 
         self.update_meta_with_images()
 
+        print(self.meta)
+
         try:
             kwargs["serialize_meta"] = kwargs.pop("serialize_meta", True)
+            print(kwargs["serialize_meta"])
             super(ScanSet, self).write(fname, *args, **kwargs)
-            # Table.write(self, fname, serialize_meta=True,
-            #             **kwargs)
         except astropy.io.registry.IORegistryError as e:
             raise astropy.io.registry.IORegistryError(fname + ": " + str(e))
 
@@ -1500,10 +1493,22 @@ class ScanSet(Table):
             if key not in self.meta:
                 warnings.warn(f"Key {key} not found in metadata")
                 continue
-            header[key] = self.meta[key]
+            headkey = key
+            if len(key) > 8:
+                headkey = f"HIERARCH {key}"
+            header[headkey] = self.meta[key]
 
+        firstchan = self.chan_columns[0]
         for key in "frequency,bandwidth,local_oscillator".split(","):
-            header[key] = self.meta[key].to(u.GHz)
+
+            if key not in self[firstchan].meta[key]:
+                warnings.warn(f"Key {key} not found in metadata")
+
+            val = self[firstchan].meta[key].to(u.GHz)
+            headkey = key
+            if len(key) > 8:
+                headkey = f"HIERARCH {key}"
+            header[headkey] = (val.value, val.unit)
 
         header["SOURCE"] = (
             self.meta["SOURCE"].replace("_RA", "").replace("_DEC", "")
