@@ -37,10 +37,8 @@ except ImportError:
 
 
 def create_dummy_config(filename="monitor_config.ini", extension="png"):
-    config_str = (
-        """[local]\n[analysis]\n[debugging]\ndebug_file_format : {}""".format(
-            extension
-        )
+    config_str = """[local]\n[analysis]\n[debugging]\ndebug_file_format : {}""".format(
+        extension
     )
     with open(filename, "w") as fobj:
         print(config_str, file=fobj)

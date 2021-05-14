@@ -972,13 +972,9 @@ class CalibratorTable(Table):
             np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
         )
 
-        for (
-            n,
-            t,
-            b,
-            c,
-            cons,
-        ) in zip(names, times, biblio_fluxes, calc_fluxes, consistent):
+        for (n, t, b, c, cons,) in zip(
+            names, times, biblio_fluxes, calc_fluxes, consistent
+        ):
             if not cons:
                 warnings.warn(
                     "{}, MJD {}: Expected {}, "

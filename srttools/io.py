@@ -898,8 +898,7 @@ def _read_data_fitszilla(lchdulist):
         if DEFAULT_SUN_FRAME is None:
             raise ValueError("You need Sunpy to process Sun observations.")
         update_table_with_sun_coords(
-            new_table,
-            sun_frame=DEFAULT_SUN_FRAME,
+            new_table, sun_frame=DEFAULT_SUN_FRAME,
         )
 
     lchdulist.close()

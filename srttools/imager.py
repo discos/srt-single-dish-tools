@@ -175,10 +175,6 @@ def outlier_score(x):
 
 
 class ScanSet(Table):
-    scan_list = TableAttribute(default=[])
-    _chan_columns = TableAttribute(default=None)
-    current = TableAttribute()
-
     def __init__(
         self,
         data=None,
@@ -239,15 +235,16 @@ class ScanSet(Table):
 
         if data is None and config_file is None:
             pass
-
         elif isinstance(data, Iterable) and not isinstance(data, str):
-            data = self._merge_input_data(data, **kwargs)
-
+            data = self._merge_input_data(data, config_file, **kwargs)
         elif isinstance(data, str) and data.endswith("hdf5"):
             data = Table.read(data)
-
-        else:  # data is a config file
+        elif isinstance(data, str) and data.endswith(
+            "ini"
+        ):  # data is a config file
             data = self._read_data_from_config(data, **kwargs)
+        elif not isinstance(data, Table):  # data needs to be a Table object
+            raise ValueError(f"Invalid data: \n{data}")
 
         if config_file is not None:
             data.meta["config_file"] = config_file
@@ -255,14 +252,26 @@ class ScanSet(Table):
             self.meta.update(config)
 
         super().__init__(data)
-        if not "x" in self.colnames:
+
+        if data is not None and not "x" in self.colnames:
             self.convert_coordinates()
+        self.current = None
+        self._scan_list = None
+        self._chan_columns = None
 
     @property
     def chan_columns(self):
         if self._chan_columns is None:
-            self._chan_columns = np.array([i for i in self.columns if chan_re.match(i)])
+            self._chan_columns = np.array(
+                [i for i in self.columns if chan_re.match(i)]
+            )
         return self._chan_columns
+
+    @property
+    def scan_list(self):
+        if self._scan_list is None:
+            self._scan_list = self.meta["scan_list"]
+        return self._scan_list
 
     def _read_data_from_config(self, data, **kwargs):
         config_file = data
@@ -278,13 +287,13 @@ class ScanSet(Table):
         tables = []
 
         for i_s, s in self.load_scans(
-                scan_list,
-                debug=self.debug,
-                freqsplat=self.freqsplat,
-                nofilt=self.nofilt,
-                nosub=self.nosub,
-                plot=self.plot,
-                **kwargs,
+            scan_list,
+            debug=self.debug,
+            freqsplat=self.freqsplat,
+            nofilt=self.nofilt,
+            nosub=self.nosub,
+            plot=self.plot,
+            **kwargs,
         ):
 
             if "FLAG" in s.meta.keys() and s.meta["FLAG"]:
@@ -337,15 +346,15 @@ class ScanSet(Table):
                 warnings.warn(t[0])
             raise
 
-        scan_table.scan_list = scan_list
+        scan_table.meta["scan_list"] = scan_list
         return scan_table
 
-    def _merge_input_data(self, data, **kwargs):
+    def _merge_input_data(self, data, config_file, **kwargs):
         alldata = [
             ScanSet(
                 d,
                 norefilt=self.norefilt,
-                config_file=self.meta["config_file"],
+                config_file=config_file,
                 freqsplat=self.freqsplat,
                 nofilt=self.nofilt,
                 nosub=self.nosub,
@@ -365,7 +374,7 @@ class ScanSet(Table):
             warnings.simplefilter("ignore", MergeConflictWarning)
             data = vstack(alldata)
 
-        data.scan_list = scan_list
+        data.meta["scan_list"] = scan_list
         data.meta = data.meta
         return data
 
@@ -721,13 +730,13 @@ class ScanSet(Table):
                     final_unit,
                 ) = self._calculate_calibration_factors(map_unit)
 
-                (
-                    Jy_over_counts,
-                    Jy_over_counts_err,
-                ) = conversion_units * caltable.Jy_over_counts(
-                    channel=ch,
-                    map_unit=map_unit,
-                    elevation=self["el"][:, feed][good],
+                (Jy_over_counts, Jy_over_counts_err,) = (
+                    conversion_units
+                    * caltable.Jy_over_counts(
+                        channel=ch,
+                        map_unit=map_unit,
+                        elevation=self["el"][:, feed][good],
+                    )
                 )
 
                 counts = counts * u.ct * area_conversion * Jy_over_counts
@@ -1483,13 +1492,16 @@ class ScanSet(Table):
         if calibration is not None:
             header["bunit"] = map_unit
 
-        print(self.colnames)
-        if 'dsun' in self.colnames:
+        if "dsun" in self.colnames:
             print("SAVING DSUN")
             header["dsun_obs"] = np.mean(self["dsun"])
             header["dsun_ref"] = 149597870700.0
 
-        for key in "ANTENNA,site,RightAscension,Declination,backend,receiver,DATE,Project_Name,SiteLongitude,SiteLatitude,SiteHeight,ScheduleName".split(","):
+        for (
+            key
+        ) in "ANTENNA,site,RightAscension,Declination,backend,receiver,DATE,Project_Name,SiteLongitude,SiteLatitude,SiteHeight,ScheduleName".split(
+            ","
+        ):
             if key not in self.meta:
                 warnings.warn(f"Key {key} not found in metadata")
                 continue
@@ -1500,9 +1512,8 @@ class ScanSet(Table):
 
         firstchan = self.chan_columns[0]
         for key in "frequency,bandwidth,local_oscillator".split(","):
-
             if key not in self[firstchan].meta[key]:
-                warnings.warn(f"Key {key} not found in metadata")
+                warnings.warn(f"Key {key} not in the {firstchan} metadata")
 
             val = self[firstchan].meta[key].to(u.GHz)
             headkey = key
