@@ -88,7 +88,6 @@ def read_config(fname=None):
     global SRT_tools_config_file, SRT_tools_config
 
     # --- If already read, use existing config ---
-
     if fname == SRT_tools_config_file and SRT_tools_config is not None:
         return SRT_tools_config
 

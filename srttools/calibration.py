@@ -838,7 +838,7 @@ class CalibratorTable(Table):
         p = [np.median(y_to_fit)]
         pcov = np.array([[np.median(ye_to_fit) ** 2]])
         first = True
-        print(x_to_fit, y_to_fit, ye_to_fit)
+
         while 1:
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
 
@@ -972,13 +972,9 @@ class CalibratorTable(Table):
             np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
         )
 
-        for (
-            n,
-            t,
-            b,
-            c,
-            cons,
-        ) in zip(names, times, biblio_fluxes, calc_fluxes, consistent):
+        for (n, t, b, c, cons,) in zip(
+            names, times, biblio_fluxes, calc_fluxes, consistent
+        ):
             if not cons:
                 warnings.warn(
                     "{}, MJD {}: Expected {}, "

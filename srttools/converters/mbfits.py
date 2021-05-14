@@ -674,8 +674,9 @@ class MBFITS_creator:
                     newtable["LATOFF"] = yoff
                 elif direction_cut in ["el", "az"]:
                     warnings.warn("AltAz projection not implemented properly")
-                    baslon, baslat = subscan["az"].to(u.deg), subscan["el"].to(
-                        u.deg
+                    baslon, baslat = (
+                        subscan["az"].to(u.deg),
+                        subscan["el"].to(u.deg),
                     )
                     newtable["LONGOFF"] = 0 * u.deg
                     newtable["LATOFF"] = 0 * u.deg

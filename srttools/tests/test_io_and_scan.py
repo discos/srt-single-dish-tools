@@ -99,16 +99,16 @@ class Test1_Scan(object):
     def test_clean_large_data(self):
         """Test that large data sets needing pickling are handled correctly."""
 
-        existing_pickle_files = glob.glob('*.p')
+        existing_pickle_files = glob.glob("*.p")
         with log.log_to_list() as log_list:
             clean_scan_using_variability(
                 np.random.random((16000, 1000)),
                 16,
                 512,
-                debug_file_format='jpg'
+                debug_file_format="jpg",
             )
-        assert np.any(['data set is large' in l.message for l in log_list])
-        new_pickle_files = glob.glob('*.p')
+        assert np.any(["data set is large" in l.message for l in log_list])
+        new_pickle_files = glob.glob("*.p")
         for epf in existing_pickle_files:
             if epf in new_pickle_files:
                 new_pickle_files.remove(epf)

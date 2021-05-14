@@ -717,7 +717,7 @@ def _sun_map(x, y, sigma=1011 / 3600):
 
     # It will raise ValueError when they're not compatible
     map = np.zeros_like(x) * np.zeros_like(y)
-    map[x ** 2 + y ** 2 < sigma**2] = 100.0
+    map[x ** 2 + y ** 2 < sigma ** 2] = 100.0
 
     return map
 
