@@ -838,7 +838,7 @@ class CalibratorTable(Table):
         p = [np.median(y_to_fit)]
         pcov = np.array([[np.median(ye_to_fit) ** 2]])
         first = True
-        print(x_to_fit, y_to_fit, ye_to_fit)
+
         while 1:
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
 

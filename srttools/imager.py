@@ -62,6 +62,85 @@ IMG_VER_STR = "__img_ver_dump_"
 __all__ = ["ScanSet"]
 
 
+def _load_and_merge_subscans(indices_and_subscans):
+    """
+
+    Examples
+    --------
+    >>> t0 = Table({"time": [0, 1], "ra": [[0], [0.4]], "dec": [[0], [0.1]]})
+    >>> t1 = Table({"time": [2, 3], "ra": [[0], [0.2]], "dec": [[0], [0.3]]})
+    >>> t0.meta = {"FLAG": True, "filename": "puff.fits"}
+    >>> t1.meta = {"FLAG": False, "filename": "puff2.fits"}
+    >>> s = _load_and_merge_subscans([(1, t0), (3, t1)])
+    INFO: puff.fits is flagged...
+    >>> np.allclose(s["ra"], [[0], [0.2]])
+    True
+    """
+    tables = []
+    for i_s, s in indices_and_subscans:
+        if "FLAG" in s.meta and s.meta["FLAG"]:
+            log.info("{} is flagged".format(s.meta["filename"]))
+            continue
+        s["Scan_id"] = i_s + np.zeros(len(s["time"]), dtype=int)
+
+        ras = s["ra"][:, 0]
+        decs = s["dec"][:, 0]
+
+        ravar = (np.max(ras) - np.min(ras)) / np.cos(np.mean(decs))
+        decvar = np.max(decs) - np.min(decs)
+        s["direction"] = np.array(ravar > decvar, dtype=bool)
+
+        # Remove conflicting keys
+        for key in [
+            "filename",
+            "calibrator_directories",
+            "skydip_directories",
+            "list_of_directories",
+            "mean_dec",
+            "mean_ra",
+            "max_dec",
+            "max_ra",
+            "min_dec",
+            "min_ra",
+            "dec_offset",
+            "ra_offset",
+            "RightAscension Offset",
+            "Declination Offset",
+        ]:
+            if key in s.meta:
+                s.meta.pop(key)
+
+        tables.append(s)
+    return merge_tables(tables)
+
+def merge_tables(tables):
+    """
+
+    Examples
+    --------
+    >>> t0 = Table({"Ch0": [0, 1]})
+    >>> t1 = Table({"Ch0": [[0, 1]]})
+    >>> t0.meta["filename"] = "sss"
+    >>> t1.meta["filename"] = "asd"
+    >>> s = merge_tables([t0, t1])
+    Traceback (most recent call last):
+        ...
+    astropy.table.np_utils.TableMergeError:...
+        ...
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", MergeConflictWarning)
+            scan_table = vstack(tables)
+    except TableMergeError as e:
+        raise TableMergeError(
+            "ERROR while merging tables. "
+            "Tables:\n" + "\n".join([t.meta["filename"] for t in tables])
+        )
+
+    return scan_table
+
+
 def all_lower(list_of_strings):
     return [s.lower() for s in list_of_strings]
 
@@ -284,9 +363,7 @@ class ScanSet(Table):
 
         scan_list.sort()
 
-        tables = []
-
-        for i_s, s in self.load_scans(
+        indices_and_subscans = self.load_scans(
             scan_list,
             debug=self.debug,
             freqsplat=self.freqsplat,
@@ -294,57 +371,10 @@ class ScanSet(Table):
             nosub=self.nosub,
             plot=self.plot,
             **kwargs,
-        ):
+        )
+        tables = _load_and_merge_subscans(indices_and_subscans)
 
-            if "FLAG" in s.meta.keys() and s.meta["FLAG"]:
-                log.info("{} is flagged".format(s.meta["filename"]))
-                continue
-            s["Scan_id"] = i_s + np.zeros(len(s["time"]), dtype=int)
-
-            ras = s["ra"][:, 0]
-            decs = s["dec"][:, 0]
-
-            ravar = (np.max(ras) - np.min(ras)) / np.cos(np.mean(decs))
-            decvar = np.max(decs) - np.min(decs)
-            s["direction"] = np.array(ravar > decvar, dtype=bool)
-
-            # Remove conflicting keys
-            for key in [
-                "filename",
-                "calibrator_directories",
-                "skydip_directories",
-                "list_of_directories",
-                "mean_dec",
-                "mean_ra",
-                "max_dec",
-                "max_ra",
-                "min_dec",
-                "min_ra",
-                "dec_offset",
-                "ra_offset",
-                "RightAscension Offset",
-                "Declination Offset",
-            ]:
-                if key in s.meta:
-                    s.meta.pop(key)
-
-            tables.append(s)
-
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", MergeConflictWarning)
-                scan_table = vstack(tables)
-        except TableMergeError as e:
-            warnings.warn(
-                "ERROR while merging tables. {}"
-                "Debug: tables:".format(str(e))
-            )
-
-            for t in tables:
-                warnings.warn(scan_list[int(t["Scan_id"][0])])
-                warnings.warn(t.colnames)
-                warnings.warn(t[0])
-            raise
+        scan_table = merge_tables(tables)
 
         scan_table.meta["scan_list"] = scan_list
         return scan_table
@@ -1297,11 +1327,8 @@ class ScanSet(Table):
 
         self.update_meta_with_images()
 
-        print(self.meta)
-
         try:
             kwargs["serialize_meta"] = kwargs.pop("serialize_meta", True)
-            print(kwargs["serialize_meta"])
             super(ScanSet, self).write(fname, *args, **kwargs)
         except astropy.io.registry.IORegistryError as e:
             raise astropy.io.registry.IORegistryError(fname + ": " + str(e))

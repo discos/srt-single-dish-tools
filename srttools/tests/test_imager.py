@@ -118,6 +118,13 @@ class TestSunImage(object):
         shutil.rmtree(klass.simdir)
 
 
+class TestBasicScanset(object):
+    def test_invalid_value(data):
+        with pytest.raises(ValueError) as excinfo:
+            ScanSet(1)
+        assert "Invalid data:" in str(excinfo.value)
+
+
 class TestScanSet(object):
     @classmethod
     def setup_class(klass):
@@ -214,6 +221,36 @@ class TestScanSet(object):
     def test_script_is_installed(self):
         sp.check_call("SDTimage -h".split(" "))
 
+    def test_meta_saved_and_loaded_correctly(self):
+        scanset = ScanSet("test.hdf5")
+        for k in scanset.meta.keys():
+            assert np.all(scanset.meta[k] == self.scanset.meta[k])
+        for chan in scanset.chan_columns:
+            for k in scanset[chan].meta.keys():
+                assert np.all(scanset[chan].meta[k] == self.scanset[chan].meta[k])
+
+        assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
+        assert scanset.scan_list == self.scanset.scan_list
+        assert sorted(scanset.meta["calibrator_directories"]) == sorted(
+            list(set(scanset.meta["calibrator_directories"]))
+        )
+        assert sorted(scanset.meta["list_of_directories"]) == sorted(
+            list(set(scanset.meta["list_of_directories"]))
+        )
+
+    def test_roundtrip(self):
+        sc0 = ScanSet("test.hdf5")
+        sc0.write("bububu.hdf5", overwrite=True)
+        sc1 = ScanSet("bububu.hdf5")
+
+        for chan in sc0.chan_columns:
+            assert np.allclose(sc0[chan], sc1[chan])
+            for k in sc0[chan].meta.keys():
+                assert np.all(sc0[chan].meta[k] == sc1[chan].meta[k])
+        for k in sc0.meta.keys():
+            assert np.all(sc0.meta[k] == sc1.meta[k])
+        os.unlink("bububu.hdf5")
+
     def test_preprocess_single_files(self):
         files = glob.glob(os.path.join(self.obsdir_ra, "*.fits"))
 
@@ -294,19 +331,6 @@ class TestScanSet(object):
     def test_get_opacity(self):
         scanset = ScanSet("test.hdf5")
         scanset.get_opacity()
-
-    def test_meta_saved_and_loaded_correctly(self):
-        scanset = ScanSet("test.hdf5")
-        for k in scanset.meta.keys():
-            assert np.all(scanset.meta[k] == self.scanset.meta[k])
-        assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
-        assert scanset.scan_list == self.scanset.scan_list
-        assert sorted(scanset.meta["calibrator_directories"]) == sorted(
-            list(set(scanset.meta["calibrator_directories"]))
-        )
-        assert sorted(scanset.meta["list_of_directories"]) == sorted(
-            list(set(scanset.meta["list_of_directories"]))
-        )
 
     def test_barycenter_times(self):
         """Test image production."""
