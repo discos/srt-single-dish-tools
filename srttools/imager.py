@@ -1496,6 +1496,19 @@ class ScanSet(Table):
             header["dsun_obs"] = np.mean(self["dsun"])
             header["dsun_ref"] = 149597870700.0
 
+        for key in "ANTENNA,site,RightAscension,Declination,backend,receiver,DATE,Project_Name,SiteLongitude,SiteLatitude,SiteHeight,ScheduleName".split(","):
+            if key not in self.meta:
+                warnings.warn(f"Key {key} not found in metadata")
+                continue
+            header[key] = self.meta[key]
+
+        for key in "frequency,bandwidth,local_oscillator".split(","):
+            header[key] = self.meta[key].to(u.GHz)
+
+        header["SOURCE"] = (
+            self.meta["SOURCE"].replace("_RA", "").replace("_DEC", "")
+        )
+
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
 
