@@ -11,6 +11,7 @@ import warnings
 import traceback
 import copy
 import functools
+from datetime import datetime
 from collections.abc import Iterable
 
 from scipy.stats import binned_statistic_2d
@@ -23,6 +24,7 @@ from astropy.utils.metadata import MergeConflictWarning
 import astropy.io.fits as fits
 import astropy.units as u
 from astropy.table.np_utils import TableMergeError
+from astropy.time import Time
 
 from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
@@ -506,7 +508,6 @@ class ScanSet(Table):
 
     def get_obstimes(self):
         """Get :class:`astropy.time.Time` at the telescope location."""
-        from astropy.time import Time
         from .io import locations
 
         return Time(
@@ -1553,11 +1554,17 @@ class ScanSet(Table):
             self.meta["SOURCE"].replace("_RA", "").replace("_DEC", "")
         )
 
+        header["CREATOR"] = "SDT"
+        ut = Time(datetime.utcnow(), scale='utc')
+        header["COMMENT"] = (
+            f"Made with the SRT Single-Dish Tools on UT {ut.fits}"
+        )
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
 
         keys = list(images.keys())
         keys.sort()
+
         header_mod = copy.deepcopy(header)
         for ch in keys:
             is_sdev = ch.endswith("Sdev")
@@ -1597,7 +1604,6 @@ class ScanSet(Table):
                     # header_mod['FOM_{}'.format(k)] = moments_dict[k]
 
             hdu = fits.ImageHDU(images[ch], header=header_mod, name="IMG" + ch)
-
             hdulist.append(hdu)
 
         hdulist.writeto(fname, overwrite=True)
