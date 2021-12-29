@@ -26,7 +26,12 @@ except ImportError:
 DEFAULT_MPL_BACKEND = None
 on_CI = os.environ.get("CI") or os.environ.get("CONTINUOUS_INTEGRATION")
 if not on_CI and os.environ.get("DISPLAY") and os.environ.get("DISPLAY") != "":
-    DEFAULT_MPL_BACKEND = "TKAgg"
+    env_backend = os.environ.get("SDT_MPL_BACKEND")
+    if env_backend:
+        DEFAULT_MPL_BACKEND = env_backend
+    else:
+        DEFAULT_MPL_BACKEND = "TKAgg"
+    log.info(f"Using backend {DEFAULT_MPL_BACKEND}")
 else:
     DEFAULT_MPL_BACKEND = "Agg"
 
