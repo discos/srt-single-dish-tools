@@ -385,11 +385,11 @@ class SDFITS_creator:
             classif = classify_chan_columns(allcolumns)
             feeds = list(classif.keys())
 
-            for f in feeds:
-                azimuth = subscan["az"][:, f].to(u.deg).value
-                elevation = subscan["el"][:, f].to(u.deg).value
-                crval3 = subscan["ra"][:, f].to(u.deg).value
-                crval4 = subscan["dec"][:, f].to(u.deg).value
+            for i, f in enumerate(np.sort(feeds)):
+                azimuth = subscan["az"][:, i].to(u.deg).value
+                elevation = subscan["el"][:, i].to(u.deg).value
+                crval3 = subscan["ra"][:, i].to(u.deg).value
+                crval4 = subscan["dec"][:, i].to(u.deg).value
 
                 columns_allbase = [
                     a for a in allcolumns if a.startswith("Feed{}".format(f))
@@ -464,8 +464,8 @@ class SDFITS_creator:
                     data["PRESSURE"] = weather[:, 2]
                     data["BEAM"] = f
                     data["DATE-OBS"] = date_col[0]
-                    data["OBJ-RA"] = subscan["ra"][:, f].to(u.deg).value
-                    data["OBJ-DEC"] = subscan["dec"][:, f].to(u.deg).value
+                    data["OBJ-RA"] = subscan["ra"][:, i].to(u.deg).value
+                    data["OBJ-DEC"] = subscan["dec"][:, i].to(u.deg).value
                     data["RESTFRQ"] = restfreq.to(u.Hz).value
                     data["BANDWID"] = array.meta["bandwidth"].to(u.Hz).value
                     data["OBSMODE"] = subscan.meta["SubScanType"]
@@ -486,10 +486,10 @@ class SDFITS_creator:
                     header["CTYPE1"] = "FREQ"
                     header["CRVAL"] = 0
                     header["CRVAL3"] = np.mean(
-                        subscan["ra"][:, f].to(u.deg).value
+                        subscan["ra"][:, i].to(u.deg).value
                     )
                     header["CRVAL4"] = np.mean(
-                        subscan["dec"][:, f].to(u.deg).value
+                        subscan["dec"][:, i].to(u.deg).value
                     )
                     header["LINE"] = subscan.meta["SOURCE"]
                     header["DATE-OBS"] = date_col[0]

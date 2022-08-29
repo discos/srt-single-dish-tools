@@ -586,11 +586,11 @@ class CLASSFITS_creator:
             classif = classify_chan_columns(allcolumns)
             feeds = list(classif.keys())
 
-            for i, f in enumerate(feeds):
-                azimuth = subscan["az"][:, f].to(u.deg).value
-                elevation = subscan["el"][:, f].to(u.deg).value
-                crval2 = subscan["ra"][:, f].to(u.deg).value
-                crval3 = subscan["dec"][:, f].to(u.deg).value
+            for i, f in enumerate(np.sort(feeds)):
+                azimuth = subscan["az"][:, i].to(u.deg).value
+                elevation = subscan["el"][:, i].to(u.deg).value
+                crval2 = subscan["ra"][:, i].to(u.deg).value
+                crval3 = subscan["dec"][:, i].to(u.deg).value
 
                 columns = [
                     a for a in allcolumns if a.startswith("Feed{}".format(f))
