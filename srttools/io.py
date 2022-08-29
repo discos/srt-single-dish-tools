@@ -321,11 +321,14 @@ def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
         sun_frame(obstime=obstimes, observer="earth")
     )
 
-    lon = [ca.Tx.value for ca in coords_asec] * coords_asec.Tx.unit
-    lat = [ca.Ty.value for ca in coords_asec] * coords_asec.Ty.unit
-    dist = [
-        ca.distance.value for ca in coords_asec
-    ] * coords_asec.distance.unit
+    # lon = [ca.Tx.value for ca in coords_asec] * coords_asec.Tx.unit
+    # lat = [ca.Ty.value for ca in coords_asec] * coords_asec.Ty.unit
+    # dist = [
+    #     ca.distance.value for ca in coords_asec
+    # ] * coords_asec.distance.unit
+    lon = coords_asec.Tx
+    lat = coords_asec.Ty
+    dist = coords_asec.distance
 
     return lon.to(u.radian), lat.to(u.radian), dist.to(u.m).value
 
