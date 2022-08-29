@@ -320,7 +320,6 @@ def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
     coords_asec = coords.transform_to(
         sun_frame(obstime=obstimes, observer="earth")
     )
-
     # lon = [ca.Tx.value for ca in coords_asec] * coords_asec.Tx.unit
     # lat = [ca.Ty.value for ca in coords_asec] * coords_asec.Ty.unit
     # dist = [
@@ -402,9 +401,7 @@ def is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg):
     return (coords.separation(sun_position)).to(u.deg).value < tolerance.value
 
 
-def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
-    rest_angles = get_rest_angle(xoffsets, yoffsets)
-
+def update_table_with_offsets(new_table, xoffsets, yoffsets, rest_angles, inplace=False):
     if not inplace:
         new_table = copy.deepcopy(new_table)
 
@@ -731,6 +728,7 @@ def _read_data_fitszilla(lchdulist):
     IFs = IFs[good]
     polarizations = polarizations[good]
     sections = sections[good]
+    rest_angles = get_rest_angle(xoffsets, yoffsets)
 
     if is_spectrum:
         nchan = len(chan_ids)
@@ -853,7 +851,13 @@ def _read_data_fitszilla(lchdulist):
         new_table["derot_angle"][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)
-    Nfeeds = np.max(allfeeds) + 1
+    unique_feeds = np.unique(feeds)
+    good_offsets = np.zeros(len(xoffsets), dtype=bool)
+    for f in unique_feeds:
+        good_offsets[f] = True
+
+    Nfeeds = unique_feeds.size
+
     new_table["ra"] = np.tile(
         data_table_data["raj2000"], (Nfeeds, 1)
     ).transpose()
@@ -871,9 +875,9 @@ def _read_data_fitszilla(lchdulist):
         new_table[info].unit = u.radian
 
     if not is_new_fitszilla:
-        update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=True)
+        update_table_with_offsets(new_table, xoffsets[good_offsets], yoffsets[good_offsets], rest_angles[good_offsets], inplace=True)
     else:
-        for i in range(len(xoffsets)):
+        for i in range(len(xoffsets[good_offsets])):
             try:
                 ext = lchdulist["Coord{}".format(i)]
                 extdata = ext.data
