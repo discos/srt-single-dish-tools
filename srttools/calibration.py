@@ -86,10 +86,6 @@ def read_calibrator_config():
         coefficients a la Perley & Butler ApJS 204, 19 (2013), as a
         comma-separated string.
 
-    See Also
-    --------
-    srttools.calibration.flux_function
-
     Examples
     --------
     >>> calibs = read_calibrator_config() # doctest: +ELLIPSIS
