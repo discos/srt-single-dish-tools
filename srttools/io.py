@@ -321,16 +321,14 @@ def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
         sun_frame(obstime=obstimes, observer="earth")
     )
 
-    lon = [ca.Tx.value for ca in coords_asec] * coords_asec.Tx.unit
-    lat = [ca.Ty.value for ca in coords_asec] * coords_asec.Ty.unit
-    dist = [
-        ca.distance.value for ca in coords_asec
-    ] * coords_asec.distance.unit
+    lon = coords_asec.Tx
+    lat = coords_asec.Ty
+    dist = coords_asec.distance
 
     return lon.to(u.radian), lat.to(u.radian), dist.to(u.m).value
 
 
-def update_table_with_sun_coords(new_table, sun_frame=None):
+def update_table_with_sun_coords(new_table, feeds=None, sun_frame=None):
 
     lon_str, lat_str = "hpln", "hplt"
 
@@ -339,7 +337,10 @@ def update_table_with_sun_coords(new_table, sun_frame=None):
         new_table[lat_str] = np.zeros_like(new_table["az"])
         new_table["dsun"] = np.zeros(len(new_table["az"]))
 
-    for i in range(0, new_table["el"].shape[1]):
+    if feeds is None:
+        feeds = np.arange(0, new_table["el"].shape[1], dtype=int)
+
+    for i in feeds:
         obstimes = Time(new_table["time"] * u.day, format="mjd", scale="utc")
 
         lon, lat, dist = get_sun_coords_from_radec(
@@ -399,8 +400,7 @@ def is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg):
     return (coords.separation(sun_position)).to(u.deg).value < tolerance.value
 
 
-def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
-    rest_angles = get_rest_angle(xoffsets, yoffsets)
+def update_table_with_offsets(new_table, xoffsets, yoffsets, rest_angles, feeds=None, inplace=False):
 
     if not inplace:
         new_table = copy.deepcopy(new_table)
@@ -411,7 +411,10 @@ def update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=False):
         new_table[lon_str] = np.zeros_like(new_table["el"])
         new_table[lat_str] = np.zeros_like(new_table["az"])
 
-    for i in range(0, new_table["el"].shape[1]):
+    if feeds is None:
+        feeds = np.arange(0, new_table["el"].shape[1], dtype=int)
+
+    for i in feeds:
         obs_angle = observing_angle(rest_angles[i], new_table["derot_angle"])
 
         # offsets < 0.001 arcseconds: don't correct (usually feed 0)
@@ -729,6 +732,10 @@ def _read_data_fitszilla(lchdulist):
     polarizations = polarizations[good]
     sections = sections[good]
 
+    unique_feeds = np.unique(feeds)
+
+    rest_angles = get_rest_angle(xoffsets, yoffsets)
+
     if is_spectrum:
         nchan = len(chan_ids)
 
@@ -851,14 +858,11 @@ def _read_data_fitszilla(lchdulist):
 
     # Duplicate raj and decj columns (in order to be corrected later)
     Nfeeds = np.max(allfeeds) + 1
-    new_table["ra"] = np.tile(
-        data_table_data["raj2000"], (Nfeeds, 1)
-    ).transpose()
-    new_table["dec"] = np.tile(
-        data_table_data["decj2000"], (Nfeeds, 1)
-    ).transpose()
-    new_table["el"] = np.tile(data_table_data["el"], (Nfeeds, 1)).transpose()
-    new_table["az"] = np.tile(data_table_data["az"], (Nfeeds, 1)).transpose()
+
+    for newcol, oldcol in [("ra", "raj2000"), ("dec", "decj2000"), ("el", "el"), ("az", "az")]:
+        new_table[newcol] = np.tile(
+            data_table_data[oldcol], (Nfeeds, 1)
+        ).transpose()
 
     new_table.meta["is_skydip"] = infer_skydip_from_elevation(
         data_table_data["el"], data_table_data["az"]
@@ -868,7 +872,7 @@ def _read_data_fitszilla(lchdulist):
         new_table[info].unit = u.radian
 
     if not is_new_fitszilla:
-        update_table_with_offsets(new_table, xoffsets, yoffsets, inplace=True)
+        update_table_with_offsets(new_table, xoffsets, yoffsets, rest_angles, feeds=unique_feeds, inplace=True)
     else:
         for i in range(len(xoffsets)):
             try:
@@ -898,7 +902,7 @@ def _read_data_fitszilla(lchdulist):
         if DEFAULT_SUN_FRAME is None:
             raise ValueError("You need Sunpy to process Sun observations.")
         update_table_with_sun_coords(
-            new_table, sun_frame=DEFAULT_SUN_FRAME,
+            new_table, feeds=unique_feeds, sun_frame=DEFAULT_SUN_FRAME,
         )
 
     lchdulist.close()
