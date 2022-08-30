@@ -19,7 +19,7 @@ from astropy import log
 import numpy as np
 import astropy
 from astropy import wcs
-from astropy.table import Table, vstack, Column, TableAttribute
+from astropy.table import Table, vstack, Column
 from astropy.utils.metadata import MergeConflictWarning
 import astropy.io.fits as fits
 import astropy.units as u

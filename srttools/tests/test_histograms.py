@@ -24,7 +24,7 @@ class TestHist(object):
     def test_hist_numbers_normed_and_weights(self):
         w = np.random.uniform(1, 0.01, self.N)
         hnum, xbnum, ybnum = np.histogram2d(
-            self.a, self.b, bins=(self.bins, self.bins), weights=w, normed=True
+            self.a, self.b, bins=(self.bins, self.bins), weights=w, density=True
         )
         hh, xbh, ybh = hist.histogram2d(
             self.a, self.b, bins=(self.bins, self.bins), weights=w, normed=True
