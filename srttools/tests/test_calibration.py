@@ -196,6 +196,8 @@ class TestCalibration(object):
         """Simple calibration from scans."""
 
         caltable = CalibratorTable.read(self.calfile)
+        # The values need to be positive
+        caltable["RA err"] = np.abs(caltable["RA err"])
         caltable.plot_two_columns(
             "RA",
             "Flux/Counts",
