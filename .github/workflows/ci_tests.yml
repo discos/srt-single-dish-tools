@@ -27,12 +27,7 @@ jobs:
             python: 3.x
             toxenv: codestyle
 
-#           - name: Python 3.6 with minimal dependencies and coverage checking
-#             os: ubuntu-latest
-#             python: 3.6
-#             toxenv: py36-astropy40-test-cov
-
-          - name: Python 3.8 with all optional dependencies and coverage checking
+          - name: Python 3.10 with all optional dependencies and coverage checking
             os: ubuntu-latest
             python: 3.10
             toxenv: py38-test-alldeps-cov
@@ -42,15 +37,10 @@ jobs:
             python: 3.8
             toxenv: py38-test-alldeps
 
-          - name: Windows - Python 3.8 with all optional dependencies
+          - name: Windows - Python 3.10 with all optional dependencies
             os: windows-latest
             python: 3.10
-            toxenv: py38-test-alldeps
-
-#           - name: Python 3.6 with oldest supported version of all dependencies
-#             os: ubuntu-16.04
-#             python: 3.6
-#             toxenv: py36-test-oldestdeps
+            toxenv: py310-test-alldeps
 
           - name: Python 3.11 with latest dev versions of key dependencies
             os: ubuntu-latest
