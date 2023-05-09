@@ -361,18 +361,16 @@ def purge_outliers(
 def _als(y, lam, p, niter=30):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
-    Modifications to the routine from Eilers & Boelens 2005
-    https://www.researchgate.net/publication/
-        228961729_Technical_Report_Baseline_Correction_with_
-        Asymmetric_Least_Squares_Smoothing
-    The Python translation is partly from
-    http://stackoverflow.com/questions/29156532/
-        python-baseline-correction-library
+    Modifications to the routine from Eilers & Boelens 2005 [eilers-2005]_.
+    The Python translation is partly from [so-als]_.
+    
+    Thanks to Shriharsh Tendulkar for an optimized version
+    originally implemented in [Stingray]_.
 
     Parameters
     ----------
     y : array-like
-        the data series corresponding to x
+        the data series corresponding to ``x``
     lam : float
         the lambda parameter of the ALS method. This control how much the
         baseline can adapt to local changes. A higher value corresponds to a
@@ -389,13 +387,27 @@ def _als(y, lam, p, niter=30):
 
     Returns
     -------
-    z : array-like, same size as y
+    z : array-like, same size as ``y``
         Fitted baseline.
+
+    References
+    ----------
+    .. [eilers-2005] https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
+    .. [so-als] http://stackoverflow.com/questions/29156532/python-baseline-correction-library
+    .. [Stingray] https://github.com/StingraySoftware/stingray/pull/725
+
     """
     from scipy import sparse
 
     L = len(y)
-    D = sparse.csc_matrix(np.diff(np.eye(L), 2))
+
+    indptr = np.arange(0, L - 1, dtype=np.int32) * 3
+    indices = np.vstack(
+        (np.arange(0, L - 2).T, np.arange(0, L - 2).T + 1, np.arange(0, L - 2).T + 2)
+    ).T.flatten()
+    data = np.tile([1, -2, 1], L - 2)
+    D = sparse.csc_matrix((data, indices, indptr), shape=(L, L - 2))
+
     w = np.ones(L)
     for _ in range(niter):
         W = sparse.spdiags(w, 0, L, L)
