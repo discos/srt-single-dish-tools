@@ -363,7 +363,7 @@ def _als(y, lam, p, niter=30):
 
     Modifications to the routine from Eilers & Boelens 2005 [eilers-2005]_.
     The Python translation is partly from [so-als]_.
-    
+
     Thanks to Shriharsh Tendulkar for an optimized version
     originally implemented in [Stingray]_.
 
