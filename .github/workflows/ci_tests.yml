@@ -27,10 +27,10 @@ jobs:
             python: 3.x
             toxenv: codestyle
 
-          - name: Python 3.6 with minimal dependencies and coverage checking
-            os: ubuntu-latest
-            python: 3.6
-            toxenv: py36-astropy40-test-cov
+#           - name: Python 3.6 with minimal dependencies and coverage checking
+#             os: ubuntu-latest
+#             python: 3.6
+#             toxenv: py36-astropy40-test-cov
 
           - name: Python 3.8 with all optional dependencies and coverage checking
             os: ubuntu-latest
