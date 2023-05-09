@@ -29,27 +29,27 @@ jobs:
 
           - name: Python 3.10 with all optional dependencies and coverage checking
             os: ubuntu-latest
-            python: 3.10
+            python: '3.10'
             toxenv: py310-test-alldeps-cov
 
           - name: OS X - Python 3.8 with all optional dependencies
             os: macos-latest
-            python: 3.8
+            python: '3.8'
             toxenv: py38-test-alldeps
 
           - name: Windows - Python 3.10 with all optional dependencies
             os: windows-latest
-            python: 3.10
+            python: '3.10'
             toxenv: py310-test-alldeps
 
           - name: Python 3.11 with latest dev versions of key dependencies
             os: ubuntu-latest
-            python: 3.11
+            python: '3.11'
             toxenv: py311-test-devdeps
 
           - name: Test building of Sphinx docs
             os: ubuntu-latest
-            python: 3.8
+            python: '3.8'
             toxenv: build_docs
 
     steps:
