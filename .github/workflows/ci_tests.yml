@@ -30,7 +30,7 @@ jobs:
           - name: Python 3.10 with all optional dependencies and coverage checking
             os: ubuntu-latest
             python: 3.10
-            toxenv: py38-test-alldeps-cov
+            toxenv: py310-test-alldeps-cov
 
           - name: OS X - Python 3.8 with all optional dependencies
             os: macos-latest
