@@ -16,10 +16,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: Python 3.6 with minimal dependencies and coverage checking
+          - name: Python 3.10 with minimal dependencies and coverage checking
             os: ubuntu-latest
-            python: 3.6
-            toxenv: py36-test-cov
+            python: '3.10'
+            toxenv: py310-test-cov
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -50,7 +50,7 @@ jobs:
     - name: Set up Python to build docs with sphinx
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: 3.10
     - name: Install base dependencies
       run: |
         python -m pip install --upgrade pip
