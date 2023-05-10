@@ -18,7 +18,7 @@ command in your shell. First of all, create a new environment:
 
 load the new environment:
 
-    $ source activate py3
+    $ conda activate py3
 
 and install the dependencies (including a few optional but recommended):
 
