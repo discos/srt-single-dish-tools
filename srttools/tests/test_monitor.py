@@ -74,11 +74,7 @@ class WebSocketClient(object):
                 break
             try:
                 remaining = timeout - elapsed if timeout else 0
-                messages.append(
-                    await asyncio.wait_for(
-                        self._ws.read_message(), timeout=remaining
-                    )
-                )
+                messages.append(await asyncio.wait_for(self._ws.read_message(), timeout=remaining))
             except asyncio.TimeoutError:
                 pass
         return messages
@@ -92,9 +88,7 @@ class TestMonitor(object):
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
         klass.specdir = os.path.join(klass.datadir, "spectrum")
-        klass.config_file = os.path.abspath(
-            os.path.join(klass.datadir, "test_config.ini")
-        )
+        klass.config_file = os.path.abspath(os.path.join(klass.datadir, "test_config.ini"))
 
         config = read_config(klass.config_file)
 
@@ -115,15 +109,9 @@ class TestMonitor(object):
         klass.file_empty = os.path.abspath(dummy)
         klass.file_empty_single_feed = os.path.abspath(dummy) + "5"
 
-        klass.file_empty_hdf5 = os.path.abspath(
-            os.path.join(klass.datadir, "srt_data_dummy.hdf5")
-        )
-        klass.file_empty_pdf0 = os.path.abspath(
-            os.path.join(klass.datadir, "srt_data_dummy_0.png")
-        )
-        klass.file_empty_pdf1 = os.path.abspath(
-            os.path.join(klass.datadir, "srt_data_dummy_1.png")
-        )
+        klass.file_empty_hdf5 = os.path.abspath(os.path.join(klass.datadir, "srt_data_dummy.hdf5"))
+        klass.file_empty_pdf0 = os.path.abspath(os.path.join(klass.datadir, "srt_data_dummy_0.png"))
+        klass.file_empty_pdf1 = os.path.abspath(os.path.join(klass.datadir, "srt_data_dummy_1.png"))
         klass.file_empty_hdf5_alt = os.path.abspath(
             os.path.join(klass.proddir, "srt_data_dummy.hdf5")
         )
@@ -199,9 +187,7 @@ class TestMonitor(object):
     @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_all_new_with_config(self):
         port = get_free_tcp_port()
-        self.monitor = Monitor(
-            [self.datadir], config_file=self.config_file, port=port
-        )
+        self.monitor = Monitor([self.datadir], config_file=self.config_file, port=port)
         self.monitor.start()
 
         time.sleep(1)
@@ -240,16 +226,12 @@ class TestMonitor(object):
     @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_a_single_feed(self):
         port = get_free_tcp_port()
-        self.monitor = Monitor(
-            [self.datadir], config_file=self.config_file, port=port
-        )
+        self.monitor = Monitor([self.datadir], config_file=self.config_file, port=port)
         self.monitor.start()
 
         time.sleep(1)
 
-        shutil.copy(
-            self.file_empty_init_single_feed, self.file_empty_single_feed
-        )
+        shutil.copy(self.file_empty_init_single_feed, self.file_empty_single_feed)
 
         files = ["latest_10.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
@@ -280,16 +262,12 @@ class TestMonitor(object):
         files = ["latest_8.png", "latest_10.png"]
 
         port = get_free_tcp_port()
-        self.monitor = Monitor(
-            [self.datadir], config_file=self.config_file, workers=2, port=port
-        )
+        self.monitor = Monitor([self.datadir], config_file=self.config_file, workers=2, port=port)
         self.monitor.start()
 
         time.sleep(1)
 
-        shutil.copy(
-            self.file_empty_init_single_feed, self.file_empty_single_feed
-        )
+        shutil.copy(self.file_empty_init_single_feed, self.file_empty_single_feed)
         shutil.copy(
             self.file_empty_init_single_feed,
             self.file_empty_single_feed.replace("fits5", "fits4"),
@@ -381,9 +359,7 @@ class TestMonitor(object):
             for image_string in l:
                 image = json.loads(image_string)
                 assert image["index"] in [0, 1]
-                compare_images(
-                    image["image"], "latest_{}.png".format(image["index"])
-                )
+                compare_images(image["image"], "latest_{}.png".format(image["index"]))
 
             for fname in files:
                 assert os.path.exists(fname)

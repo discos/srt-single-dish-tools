@@ -111,9 +111,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     elif isinstance(smooth_window, Iterable):
         img = gaussian_filter(img, np.array(smooth_window) / 5)
     else:
-        img = gaussian_filter1d(
-            img, smooth_window / 5, axis=np.logical_not(direction)
-        )
+        img = gaussian_filter1d(img, smooth_window / 5, axis=np.logical_not(direction))
     return img
 
 
@@ -142,16 +140,12 @@ def basket_weaving(
             break
 
         diff = img_hor - img_ver
-        diff = clip_and_smooth(
-            diff, clip_sigma=clip_sigma, smooth_window=(0.0, window)
-        )
+        diff = clip_and_smooth(diff, clip_sigma=clip_sigma, smooth_window=(0.0, window))
 
         img_hor = img_hor - diff
 
         diff = img_ver - img_hor
-        diff = clip_and_smooth(
-            diff, clip_sigma=clip_sigma, smooth_window=(window, 0.0)
-        )
+        diff = clip_and_smooth(diff, clip_sigma=clip_sigma, smooth_window=(window, 0.0))
 
         img_ver = img_ver - diff
         it += 1
@@ -180,12 +174,8 @@ def destripe_wrapper(
         expo_hor = expo_ver = np.ones_like(image_mean)
         masked_image, mask = mask_zeros(image_mean, npix_tol=npix_tol)
     else:
-        image_mean = (image_hor * expo_hor + image_ver * expo_ver) / (
-            expo_hor + expo_ver
-        )
-        masked_image, mask = mask_zeros(
-            image_mean, expo_hor + expo_ver, npix_tol=npix_tol
-        )
+        image_mean = (image_hor * expo_hor + image_ver * expo_ver) / (expo_hor + expo_ver)
+        masked_image, mask = mask_zeros(image_mean, expo_hor + expo_ver, npix_tol=npix_tol)
 
     if HAS_MPL:
         fig = plt.figure()

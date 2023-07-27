@@ -38,7 +38,6 @@ def pytest_configure(config):
 
     """
     if ASTROPY_HEADER:
-
         config.option.astropy_header = True
 
         # Customize the following lines to add/remove entries from the list of

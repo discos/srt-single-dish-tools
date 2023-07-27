@@ -60,9 +60,7 @@ class TestSimulate(object):
 
     def test_sim_map_empty(self):
         """Test the simulation of an empty map."""
-        out_ra, _ = simulate_map(
-            width_ra=2, width_dec=2.0, outdir=self.emptydir
-        )
+        out_ra, _ = simulate_map(width_ra=2, width_dec=2.0, outdir=self.emptydir)
         probe = os.path.join(out_ra, "Ra0.fits")
         assert os.path.exists(probe)
         with fits.open(probe) as hdul:
@@ -71,18 +69,14 @@ class TestSimulate(object):
 
     def test_sim_sun_map_small(self):
         """Test the simulation of an empty map."""
-        out_ra, _ = simulate_sun(
-            length_ra=2, length_dec=2.0, outdir=self.emptydir
-        )
+        out_ra, _ = simulate_sun(length_ra=2, length_dec=2.0, outdir=self.emptydir)
         probe = os.path.join(out_ra, "Ra0.fits")
         assert os.path.exists(probe)
         os.unlink(probe)
 
     def test_sim_map_small(self):
         """Test the simulation of an empty map."""
-        out_ra, _ = simulate_map(
-            length_ra=2, length_dec=2.0, outdir=self.emptydir
-        )
+        out_ra, _ = simulate_map(length_ra=2, length_dec=2.0, outdir=self.emptydir)
         probe = os.path.join(out_ra, "Ra0.fits")
         assert os.path.exists(probe)
         os.unlink(probe)
@@ -100,9 +94,7 @@ class TestSimulate(object):
 
     def test_sim_map_empty_slope(self):
         """Test the simulation of an empty map."""
-        simulate_map(
-            width_ra=2, width_dec=2.0, outdir=self.emptydir, baseline="slope"
-        )
+        simulate_map(width_ra=2, width_dec=2.0, outdir=self.emptydir, baseline="slope")
 
     def test_raises_wrong_map_shape(self):
         with pytest.raises(ValueError):
@@ -117,9 +109,7 @@ class TestSimulate(object):
         shutil.rmtree("simc")
         main_simulate("--integration-time .02 -g 10 10 1 1 -o simd".split(" "))
         shutil.rmtree("simd")
-        main_simulate(
-            "--no-cal --scan-speed 3. -g 10 10 1 1 " "-o sime".split(" ")
-        )
+        main_simulate("--no-cal --scan-speed 3. -g 10 10 1 1 " "-o sime".split(" "))
         shutil.rmtree("sime")
 
     def test_use_wrong_baseline(self):

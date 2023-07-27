@@ -35,22 +35,12 @@ class Test1_Scan(object):
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
 
-        klass.fname = os.path.abspath(
-            os.path.join(klass.datadir, "srt_data_tp_multif.fits")
-        )
+        klass.fname = os.path.abspath(os.path.join(klass.datadir, "srt_data_tp_multif.fits"))
 
-        klass.skydip = os.path.abspath(
-            os.path.join(klass.datadir, "gauss_skydip")
-        )
-        klass.example = os.path.abspath(
-            os.path.join(klass.datadir, "example_polar")
-        )
-        klass.onoff = os.path.abspath(
-            os.path.join(klass.datadir, "onoff_xarcos")
-        )
-        klass.nodding = os.path.abspath(
-            os.path.join(klass.datadir, "nodding_xarcos")
-        )
+        klass.skydip = os.path.abspath(os.path.join(klass.datadir, "gauss_skydip"))
+        klass.example = os.path.abspath(os.path.join(klass.datadir, "example_polar"))
+        klass.onoff = os.path.abspath(os.path.join(klass.datadir, "onoff_xarcos"))
+        klass.nodding = os.path.abspath(os.path.join(klass.datadir, "nodding_xarcos"))
         klass.outdir = os.path.join(klass.datadir, "sim")
         klass.emptydir = os.path.join(klass.outdir, "test_sdfits")
 
@@ -126,15 +116,11 @@ class Test1_Scan(object):
             os.unlink(fname)
 
     def test_main_mbfitsw_local(self):
-        files = main_convert(
-            [self.skydip, "-f", "mbfitsw", "--test", "--save-locally"]
-        )
+        files = main_convert([self.skydip, "-f", "mbfitsw", "--test", "--save-locally"])
         newfiles = glob.glob(os.path.basename(self.skydip) + "*KKG*.fits")
         assert len(newfiles) > 0
         # test that a new conversion does not make this fail
-        newdir = main_convert(
-            [self.skydip, "-f", "mbfitsw", "--test", "--save-locally"]
-        )[0]
+        newdir = main_convert([self.skydip, "-f", "mbfitsw", "--test", "--save-locally"])[0]
 
         shutil.rmtree(newdir)
         with fits.open(newfiles[0]) as hdul:
@@ -167,9 +153,7 @@ class Test1_Scan(object):
         shutil.rmtree(newdir)
 
     def test_main_mbfits_local(self):
-        newdir = main_convert(
-            [self.skydip, "-f", "mbfits", "--test", "--save-locally"]
-        )[0]
+        newdir = main_convert([self.skydip, "-f", "mbfits", "--test", "--save-locally"])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
         assert os.path.exists(os.path.join(newdir, "GROUPING.fits"))
@@ -195,74 +179,52 @@ class Test1_Scan(object):
         probe_cal = os.path.join(newdir, "test_psw_cal_feed0.fits")
         probe_psw = os.path.join(newdir, "test_psw_onoff_feed0.fits")
         with fits.open(probe_all) as hdul:
-            good = (hdul[1].data["SIGNAL"] == 0) & (
-                hdul[1].data["CAL_IS_ON"] == 0
-            )
+            good = (hdul[1].data["SIGNAL"] == 0) & (hdul[1].data["CAL_IS_ON"] == 0)
             off_spec = hdul[1].data["SPECTRUM"][good][0]
             good = hdul[1].data["SIGNAL"] == 1
             on_spec = hdul[1].data["SPECTRUM"][good][0]
-            good = (hdul[1].data["SIGNAL"] == 0) & (
-                hdul[1].data["CAL_IS_ON"] == 1
-            )
+            good = (hdul[1].data["SIGNAL"] == 0) & (hdul[1].data["CAL_IS_ON"] == 1)
             cal_spec_unnorm = hdul[1].data["SPECTRUM"][good][0]
         with fits.open(probe_cal) as hdul:
             cal_spec = hdul[1].data["SPECTRUM"][0]
         with fits.open(probe_psw) as hdul:
             onoff_spec = hdul[1].data["SPECTRUM"][0]
-        assert np.isclose(
-            np.max(on_spec - off_spec), DEFAULT_PEAK_COUNTS, atol=0.3
-        )
-        assert np.isclose(
-            np.max(cal_spec_unnorm - off_spec), DEFAULT_CAL_OFFSET, atol=0.3
-        )
+        assert np.isclose(np.max(on_spec - off_spec), DEFAULT_PEAK_COUNTS, atol=0.3)
+        assert np.isclose(np.max(cal_spec_unnorm - off_spec), DEFAULT_CAL_OFFSET, atol=0.3)
         idx = np.argmax(on_spec)
         max_onoff = onoff_spec[idx]
         ref_off = off_spec[idx]
         ref_cal = cal_spec[idx]
 
         assert np.isclose(max_onoff * ref_off, 100, atol=0.1)
-        assert np.isclose(
-            ref_cal / DEFAULT_CAL_TEMP, 100 / DEFAULT_CAL_OFFSET, atol=0.1
-        )
+        assert np.isclose(ref_cal / DEFAULT_CAL_TEMP, 100 / DEFAULT_CAL_OFFSET, atol=0.1)
 
     def test_main_classfits_legacy_sim(self):
-        newdir = main_convert(
-            [self.pswdir_legacy, "-f", "classfits", "--test"]
-        )[0]
+        newdir = main_convert([self.pswdir_legacy, "-f", "classfits", "--test"])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
         probe_all = os.path.join(newdir, "test_psw_legacy_all_feed0.fits")
         probe_cal = os.path.join(newdir, "test_psw_legacy_cal_feed0.fits")
         probe_psw = os.path.join(newdir, "test_psw_legacy_onoff_feed0.fits")
         with fits.open(probe_all) as hdul:
-            good = (hdul[1].data["SIGNAL"] == 0) & (
-                hdul[1].data["CAL_IS_ON"] == 0
-            )
+            good = (hdul[1].data["SIGNAL"] == 0) & (hdul[1].data["CAL_IS_ON"] == 0)
             off_spec = hdul[1].data["SPECTRUM"][good][0]
             good = hdul[1].data["SIGNAL"] == 1
             on_spec = hdul[1].data["SPECTRUM"][good][0]
-            good = (hdul[1].data["SIGNAL"] == 0) & (
-                hdul[1].data["CAL_IS_ON"] == 1
-            )
+            good = (hdul[1].data["SIGNAL"] == 0) & (hdul[1].data["CAL_IS_ON"] == 1)
             cal_spec_unnorm = hdul[1].data["SPECTRUM"][good][0]
         with fits.open(probe_cal) as hdul:
             cal_spec = hdul[1].data["SPECTRUM"][0]
         with fits.open(probe_psw) as hdul:
             onoff_spec = hdul[1].data["SPECTRUM"][0]
-        assert np.isclose(
-            np.max(on_spec - off_spec), DEFAULT_PEAK_COUNTS, atol=0.3
-        )
-        assert np.isclose(
-            np.max(cal_spec_unnorm - off_spec), DEFAULT_CAL_OFFSET, atol=0.3
-        )
+        assert np.isclose(np.max(on_spec - off_spec), DEFAULT_PEAK_COUNTS, atol=0.3)
+        assert np.isclose(np.max(cal_spec_unnorm - off_spec), DEFAULT_CAL_OFFSET, atol=0.3)
         idx = np.argmax(on_spec)
         max_onoff = onoff_spec[idx]
         ref_off = off_spec[idx]
         ref_cal = cal_spec[idx]
         assert np.isclose(max_onoff * ref_off, 100, atol=0.1)
-        assert np.isclose(
-            ref_cal / DEFAULT_CAL_TEMP, 100 / DEFAULT_CAL_OFFSET, atol=0.1
-        )
+        assert np.isclose(ref_cal / DEFAULT_CAL_TEMP, 100 / DEFAULT_CAL_OFFSET, atol=0.1)
 
     def test_main_classfits_nodding(self):
         newdir = main_convert([self.nodding, "-f", "classfits", "--test"])[0]
@@ -271,9 +233,7 @@ class Test1_Scan(object):
         shutil.rmtree(self.nodding + "_classfits")
 
     def test_main_classfits_nodding_local(self):
-        newdir = main_convert(
-            [self.nodding, "-f", "classfits", "--test", "--save-locally"]
-        )[0]
+        newdir = main_convert([self.nodding, "-f", "classfits", "--test", "--save-locally"])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
         shutil.rmtree(os.path.basename(self.nodding) + "_classfits")
@@ -290,9 +250,7 @@ class Test1_Scan(object):
         shutil.rmtree(self.skydip + "_sdfits")
 
     def test_main_sdfits_skydip_local(self):
-        newdir = main_convert(
-            [self.skydip, "-f", "sdfits", "--test", "--save-locally"]
-        )[0]
+        newdir = main_convert([self.skydip, "-f", "sdfits", "--test", "--save-locally"])[0]
         assert os.path.exists(newdir)
         assert os.path.isdir(newdir)
         newfiles = glob.glob(os.path.join(newdir, "*.fits"))

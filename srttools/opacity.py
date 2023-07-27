@@ -112,18 +112,12 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
 def main_opacity(args=None):
     import argparse
 
-    description = (
-        "Calculate opacity from a skydip scan and plot the fit " "results"
-    )
+    description = "Calculate opacity from a skydip scan and plot the fit " "results"
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument(
-        "files", nargs="+", help="File to inspect", default=None, type=str
-    )
+    parser.add_argument("files", nargs="+", help="File to inspect", default=None, type=str)
 
-    parser.add_argument(
-        "--tatm", type=float, default=None, help="Atmospheric temperature"
-    )
+    parser.add_argument("--tatm", type=float, default=None, help="Atmospheric temperature")
 
     parser.add_argument(
         "--tau0",

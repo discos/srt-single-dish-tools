@@ -50,12 +50,8 @@ class Test1_Sun(object):
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
 
-        klass.fname = os.path.abspath(
-            os.path.join(klass.datadir, "sun_obs.fits")
-        )
-        klass.nosun = os.path.abspath(
-            os.path.join(klass.datadir, "gauss_dec", "Dec0.fits")
-        )
+        klass.fname = os.path.abspath(os.path.join(klass.datadir, "sun_obs.fits"))
+        klass.nosun = os.path.abspath(os.path.join(klass.datadir, "gauss_dec", "Dec0.fits"))
 
     @pytest.mark.skipif("not HAS_SUNPY")
     def test_read(self):
@@ -82,13 +78,9 @@ class Test1_Scan(object):
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
 
-        klass.fname = os.path.abspath(
-            os.path.join(klass.datadir, "gauss_dec", "Dec0.fits")
-        )
+        klass.fname = os.path.abspath(os.path.join(klass.datadir, "gauss_dec", "Dec0.fits"))
 
-        klass.config_file = os.path.abspath(
-            os.path.join(klass.datadir, "test_config.ini")
-        )
+        klass.config_file = os.path.abspath(os.path.join(klass.datadir, "test_config.ini"))
 
         config = read_config(klass.config_file)
 
@@ -192,9 +184,7 @@ class Test1_Scan(object):
         os.unlink(dummyname)
 
     def test_temperatures_are_read(self):
-        scan = read_data_fitszilla(
-            os.path.join(self.datadir, "gauss_skydip", "skydip_mod.fits")
-        )
+        scan = read_data_fitszilla(os.path.join(self.datadir, "gauss_skydip", "skydip_mod.fits"))
         assert np.all(scan["Feed0_RCP-Temp"] > 0.0)
 
     def test_print_info(self, capsys):
@@ -246,9 +236,7 @@ class Test1_Scan(object):
         scan = Scan(self.fname)
         scan.interactive_filter("Feed0_RCP", test=True)
 
-    @pytest.mark.parametrize(
-        "fname", ["med_data.fits", "srt_data_tp_multif.fits"]
-    )
+    @pytest.mark.parametrize("fname", ["med_data.fits", "srt_data_tp_multif.fits"])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(os.path.join(self.datadir, fname), norefilt=False)
         obstimes = Time(scan["time"] * u.day, format="mjd", scale="utc")
@@ -261,13 +249,9 @@ class Test1_Scan(object):
         )
         altaz = ref_coords.altaz
 
-        diff = np.abs(
-            (altaz.az.to(u.rad) - scan["az"][:, idx]).to(u.arcsec).value
-        )
+        diff = np.abs((altaz.az.to(u.rad) - scan["az"][:, idx]).to(u.arcsec).value)
         assert np.all(diff < 1)
-        diff = np.abs(
-            (altaz.alt.to(u.rad) - scan["el"][:, idx]).to(u.arcsec).value
-        )
+        diff = np.abs((altaz.alt.to(u.rad) - scan["el"][:, idx]).to(u.arcsec).value)
         assert np.all(diff < 1)
 
     def test_bad_nchan_detected(self):
@@ -278,16 +262,9 @@ class Test1_Scan(object):
 
     def test_simple_in_stokes(self):
         with pytest.warns(UserWarning) as record:
-            scan = Scan(
-                os.path.join(self.datadir, "srt_pol_bad.fits"), norefilt=False
-            )
+            scan = Scan(os.path.join(self.datadir, "srt_pol_bad.fits"), norefilt=False)
 
-        assert np.any(
-            [
-                "contain polarization information" in r.message.args[0]
-                for r in record
-            ]
-        )
+        assert np.any(["contain polarization information" in r.message.args[0] for r in record])
 
     @classmethod
     def teardown_class(klass):
@@ -301,7 +278,6 @@ class Test1_Scan(object):
 class Test2_Scan(object):
     @classmethod
     def setup_class(klass):
-
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
 
@@ -309,14 +285,10 @@ class Test2_Scan(object):
             os.path.join(klass.datadir, "spectrum", "roach_template.fits")
         )
 
-        klass.config_file = os.path.abspath(
-            os.path.join(klass.datadir, "spectrum.ini")
-        )
+        klass.config_file = os.path.abspath(os.path.join(klass.datadir, "spectrum.ini"))
         config = read_config(klass.config_file)
 
-        h5file = os.path.join(
-            config["productdir"], "spectrum", "roach_template.hdf5"
-        )
+        h5file = os.path.join(config["productdir"], "spectrum", "roach_template.hdf5")
         if os.path.exists(h5file):
             os.unlink(h5file)
         klass.config = config
@@ -357,11 +329,7 @@ class Test2_Scan(object):
         with pytest.warns(UserWarning) as record:
             Scan(os.path.join(self.datadir, "spectrum", fname))
         assert np.any(
-            [
-                "No good channels found. A problem with the "
-                in r.message.args[0]
-                for r in record
-            ]
+            ["No good channels found. A problem with the " in r.message.args[0] for r in record]
         )
         assert os.path.exists(
             os.path.join(
@@ -398,15 +366,10 @@ class Test2_Scan(object):
         with pytest.warns(UserWarning) as record:
             scan.clean_and_splat()
             assert np.any(
-                [
-                    "Don't use filtering factors > 0.5" in r.message.args[0]
-                    for r in record
-                ]
+                ["Don't use filtering factors > 0.5" in r.message.args[0] for r in record]
             )
 
-    @pytest.mark.parametrize(
-        "fname", ["srt_data.fits", "srt_data_roach_polar.fits"]
-    )
+    @pytest.mark.parametrize("fname", ["srt_data.fits", "srt_data_roach_polar.fits"])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(
             os.path.join(self.datadir, "spectrum", fname),
@@ -418,9 +381,7 @@ class Test2_Scan(object):
 
         # Tolerance: +- 1 second of observation, or sample time, whichever is
         # larger
-        sampletime = np.max(
-            [scan[ch].meta["sample_time"].value for ch in scan.chan_columns()]
-        )
+        sampletime = np.max([scan[ch].meta["sample_time"].value for ch in scan.chan_columns()])
         sampletime = np.max([sampletime, 1]) * u.s
 
         ref_coords0 = SkyCoord(
@@ -441,22 +402,14 @@ class Test2_Scan(object):
 
         az0, az1 = altaz0.az.to(u.rad).value, altaz1.az.to(u.rad).value
         tol = (30 * u.arcsec).to(u.rad).value
-        good0 = (scan["az"][:, idx] >= az0 - tol) & (
-            scan["az"][:, idx] <= az1 + tol
-        )
-        good1 = (scan["az"][:, idx] <= az1 + tol) & (
-            scan["az"][:, idx] >= az0 - tol
-        )
+        good0 = (scan["az"][:, idx] >= az0 - tol) & (scan["az"][:, idx] <= az1 + tol)
+        good1 = (scan["az"][:, idx] <= az1 + tol) & (scan["az"][:, idx] >= az0 - tol)
         assert np.all(good0 | good1)
 
         el0, el1 = altaz0.alt.to(u.rad).value, altaz1.alt.to(u.rad).value
         tol = (30 * u.arcsec).to(u.rad).value
-        good0 = (scan["el"][:, idx] >= el0 - tol) & (
-            scan["el"][:, idx] <= el1 + tol
-        )
-        good1 = (scan["el"][:, idx] <= el1 + tol) & (
-            scan["el"][:, idx] >= el0 - tol
-        )
+        good0 = (scan["el"][:, idx] >= el0 - tol) & (scan["el"][:, idx] <= el1 + tol)
+        good1 = (scan["el"][:, idx] <= el1 + tol) & (scan["el"][:, idx] >= el0 - tol)
         assert np.all(good0 | good1)
 
     @classmethod
@@ -464,12 +417,8 @@ class Test2_Scan(object):
         """Cleanup."""
         with contextlib.suppress(FileNotFoundError):
             os.unlink("scan.hdf5")
-            for f in glob.glob(
-                os.path.join(klass.datadir, "spectrum", "*.jpg")
-            ):
+            for f in glob.glob(os.path.join(klass.datadir, "spectrum", "*.jpg")):
                 os.unlink(f)
-            for f in glob.glob(
-                os.path.join(klass.datadir, "spectrum", "*.hdf5")
-            ):
+            for f in glob.glob(os.path.join(klass.datadir, "spectrum", "*.hdf5")):
                 os.unlink(f)
             shutil.rmtree(os.path.join(klass.datadir, "out_spectrum_test"))

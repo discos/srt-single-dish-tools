@@ -10,10 +10,7 @@ try:
     from tornado.web import Application, RequestHandler
     from tornado.websocket import WebSocketHandler
 except ImportError:
-    warnings.warn(
-        "To use SDTmonitor, you need to install tornado: \n"
-        "\n   > pip install tornado"
-    )
+    warnings.warn("To use SDTmonitor, you need to install tornado: \n" "\n   > pip install tornado")
     RequestHandler = WebSocketHandler = object
 
 from srttools.monitor.common import MAX_FEEDS, log
@@ -234,9 +231,7 @@ class WebServer(object):
             self.web_server.listen(self.port)
         except OSError:
             raise OSError(
-                "Port {} is already being used, choose a different one!".format(
-                    self.port
-                )
+                "Port {} is already being used, choose a different one!".format(self.port)
             )
 
     def start(self):

@@ -47,9 +47,7 @@ __all__ = [
 
 
 chan_re = re.compile(
-    r"^Ch([0-9]+)$"
-    r"|^Feed([0-9]+)_([a-zA-Z]+)$"
-    r"|^Feed([0-9]+)_([a-zA-Z]+)_([0-9]+)$"
+    r"^Ch([0-9]+)$" r"|^Feed([0-9]+)_([a-zA-Z]+)$" r"|^Feed([0-9]+)_([a-zA-Z]+)_([0-9]+)$"
 )
 
 
@@ -61,9 +59,7 @@ chan_re = re.compile(
 
 locations = {
     "srt": EarthLocation(4865182.7660, 791922.6890, 4035137.1740, unit=u.m),
-    "medicina": EarthLocation(
-        Angle("11:38:49", u.deg), Angle("44:31:15", u.deg), 25 * u.meter
-    ),
+    "medicina": EarthLocation(Angle("11:38:49", u.deg), Angle("44:31:15", u.deg), 25 * u.meter),
     "greenwich": EarthLocation(lat=51.477 * u.deg, lon=0 * u.deg),
 }
 
@@ -218,7 +214,7 @@ def correct_offsets(obs_angle, xoffset, yoffset):
     True
 
     """
-    sep = np.sqrt(xoffset ** 2.0 + yoffset ** 2.0)
+    sep = np.sqrt(xoffset**2.0 + yoffset**2.0)
 
     new_xoff = sep * np.cos(obs_angle)
     new_yoff = sep * np.sin(obs_angle)
@@ -291,10 +287,7 @@ def get_rest_angle(xoffsets, yoffsets):
     n_lat_feeds = len(xoffsets) - 1
     rest_angle_default = _rest_angle_default(n_lat_feeds) * 2 * np.pi * u.rad
     w_0 = np.where((xoffsets[1:] > 0) & (yoffsets[1:] == 0.0))[0][0]
-    return (
-        np.concatenate(([0], np.roll(rest_angle_default.to(u.rad).value, w_0)))
-        * u.rad
-    )
+    return np.concatenate(([0], np.roll(rest_angle_default.to(u.rad).value, w_0))) * u.rad
 
 
 def infer_skydip_from_elevation(elevation, azimuth=None):
@@ -317,9 +310,7 @@ def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
         distance=sun.earth_distance(obstimes),
     )
 
-    coords_asec = coords.transform_to(
-        sun_frame(obstime=obstimes, observer="earth")
-    )
+    coords_asec = coords.transform_to(sun_frame(obstime=obstimes, observer="earth"))
 
     lon = coords_asec.Tx
     lat = coords_asec.Ty
@@ -329,7 +320,6 @@ def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
 
 
 def update_table_with_sun_coords(new_table, feeds=None, sun_frame=None):
-
     lon_str, lat_str = "hpln", "hplt"
 
     if not ("dsun" in new_table.colnames):
@@ -357,9 +347,7 @@ def update_table_with_sun_coords(new_table, feeds=None, sun_frame=None):
     return new_table
 
 
-def get_coords_from_altaz_offset(
-    obstimes, el, az, xoffs, yoffs, location, inplace=False
-):
+def get_coords_from_altaz_offset(obstimes, el, az, xoffs, yoffs, location, inplace=False):
     """"""
     # Calculate observing angle
     if not inplace:
@@ -369,9 +357,7 @@ def get_coords_from_altaz_offset(
     el += yoffs.to(u.rad).value
     az += xoffs.to(u.rad).value / np.cos(el)
 
-    coords = AltAz(
-        az=Angle(az), alt=Angle(el), location=location, obstime=obstimes
-    )
+    coords = AltAz(az=Angle(az), alt=Angle(el), location=location, obstime=obstimes)
 
     # According to line_profiler, coords.icrs is *by far* the longest
     # operation in this function, taking between 80 and 90% of the
@@ -400,8 +386,9 @@ def is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg):
     return (coords.separation(sun_position)).to(u.deg).value < tolerance.value
 
 
-def update_table_with_offsets(new_table, xoffsets, yoffsets, rest_angles, feeds=None, inplace=False):
-
+def update_table_with_offsets(
+    new_table, xoffsets, yoffsets, rest_angles, feeds=None, inplace=False
+):
     if not inplace:
         new_table = copy.deepcopy(new_table)
 
@@ -452,9 +439,7 @@ def print_obs_info_fitszilla(fname):
 
         rf_input_data = lchdulist["RF INPUTS"].data
         print("Feeds          :", get_value_with_units(rf_input_data, "feed"))
-        print(
-            "IFs            :", get_value_with_units(rf_input_data, "ifChain")
-        )
+        print("IFs            :", get_value_with_units(rf_input_data, "ifChain"))
         print(
             "Polarizations  :",
             get_value_with_units(rf_input_data, "polarization"),
@@ -602,8 +587,7 @@ def _read_data_fitszilla(lchdulist):
     integration_time = lchdulist["SECTION TABLE"].header["Integration"] * u.ms
     if len(list(set(nbin_per_chan))) > 1:
         raise ValueError(
-            "Only datasets with the same nbin per channel are "
-            "supported at the moment"
+            "Only datasets with the same nbin per channel are " "supported at the moment"
         )
     nbin_per_chan = list(set(nbin_per_chan))[0]
     types = get_value_with_units(section_table_data, "type")
@@ -644,9 +628,7 @@ def _read_data_fitszilla(lchdulist):
     if bw_section is not None:
         bandwidths_section = [bw_section[i] for i in sections]
         frequencies_section = [fr_section[i] for i in sections]
-        frequencies_section = [
-            f + l for (f, l) in zip(frequencies_section, local_oscillator)
-        ]
+        frequencies_section = [f + l for (f, l) in zip(frequencies_section, local_oscillator)]
 
     if backend == "TP" or bw_section is None:
         frequencies, bandwidths = frequencies_rf, bandwidths_rf
@@ -661,10 +643,7 @@ def _read_data_fitszilla(lchdulist):
         feeds[:] = 0
 
     if len(set(combinations)) > 1:
-        chan_names = [
-            _chan_name(f, p, c)
-            for f, p, c in zip(feeds, polarizations, combination_idx)
-        ]
+        chan_names = [_chan_name(f, p, c) for f, p, c in zip(feeds, polarizations, combination_idx)]
     else:
         chan_names = [_chan_name(f, p) for f, p in zip(feeds, polarizations)]
 
@@ -710,9 +689,7 @@ def _read_data_fitszilla(lchdulist):
             unsupported_temperature = True
             pass
 
-    existing_columns = [
-        chn for chn in data_table_data.colnames if chn.startswith("ch")
-    ]
+    existing_columns = [chn for chn in data_table_data.colnames if chn.startswith("ch")]
     if existing_columns == []:
         raise ValueError("Invalid data")
 
@@ -788,12 +765,8 @@ def _read_data_fitszilla(lchdulist):
                 qname, uname = _chan_name(f, "Q", c), _chan_name(f, "U", c)
                 qstart, qend = 2 * nbin_per_chan, 3 * nbin_per_chan
                 ustart, uend = 3 * nbin_per_chan, 4 * nbin_per_chan
-                data_table_data[qname] = data_table_data[section_name][
-                    :, qstart:qend
-                ]
-                data_table_data[uname] = data_table_data[section_name][
-                    :, ustart:uend
-                ]
+                data_table_data[qname] = data_table_data[section_name][:, qstart:qend]
+                data_table_data[uname] = data_table_data[section_name][:, ustart:uend]
 
                 chan_names += [qname, uname]
 
@@ -818,9 +791,7 @@ def _read_data_fitszilla(lchdulist):
             continue
 
         td = np.asarray(tempdata[ch_string])
-        data_table_data[ch + "-Temp"] = adjust_temperature_size(
-            td, data_table_data[ch + "-Temp"]
-        )
+        data_table_data[ch + "-Temp"] = adjust_temperature_size(td, data_table_data[ch + "-Temp"])
 
     info_to_retrieve = [
         "time",
@@ -860,9 +831,7 @@ def _read_data_fitszilla(lchdulist):
     Nfeeds = np.max(allfeeds) + 1
 
     for newcol, oldcol in [("ra", "raj2000"), ("dec", "decj2000"), ("el", "el"), ("az", "az")]:
-        new_table[newcol] = np.tile(
-            data_table_data[oldcol], (Nfeeds, 1)
-        ).transpose()
+        new_table[newcol] = np.tile(data_table_data[oldcol], (Nfeeds, 1)).transpose()
 
     new_table.meta["is_skydip"] = infer_skydip_from_elevation(
         data_table_data["el"], data_table_data["az"]
@@ -872,7 +841,9 @@ def _read_data_fitszilla(lchdulist):
         new_table[info].unit = u.radian
 
     if not is_new_fitszilla:
-        update_table_with_offsets(new_table, xoffsets, yoffsets, rest_angles, feeds=unique_feeds, inplace=True)
+        update_table_with_offsets(
+            new_table, xoffsets, yoffsets, rest_angles, feeds=unique_feeds, inplace=True
+        )
     else:
         for i in range(len(xoffsets)):
             try:
@@ -890,9 +861,7 @@ def _read_data_fitszilla(lchdulist):
             new_table["az"][:, i] = az
 
     # Don't know if better euristics is needed
-    obstime = Time(
-        np.mean(new_table["time"]) * u.day, format="mjd", scale="utc"
-    )
+    obstime = Time(np.mean(new_table["time"]) * u.day, format="mjd", scale="utc")
     if is_close_to_sun(
         new_table.meta["RA"],
         new_table.meta["Dec"],
@@ -902,7 +871,9 @@ def _read_data_fitszilla(lchdulist):
         if DEFAULT_SUN_FRAME is None:
             raise ValueError("You need Sunpy to process Sun observations.")
         update_table_with_sun_coords(
-            new_table, feeds=unique_feeds, sun_frame=DEFAULT_SUN_FRAME,
+            new_table,
+            feeds=unique_feeds,
+            sun_frame=DEFAULT_SUN_FRAME,
         )
 
     lchdulist.close()
@@ -927,17 +898,11 @@ def _read_data_fitszilla(lchdulist):
             frequencies[ic] -= bandwidths[ic]
             bandwidths[ic] *= -1
             for i in range(data_table_data[chan_name].shape[0]):
-                data_table_data[chan_name][f, :] = data_table_data[chan_name][
-                    f, ::-1
-                ]
+                data_table_data[chan_name][f, :] = data_table_data[chan_name][f, ::-1]
 
-        new_table[chan_name] = (
-            data_table_data[chan_name] * relpowers[feeds[ic]]
-        )
+        new_table[chan_name] = data_table_data[chan_name] * relpowers[feeds[ic]]
 
-        new_table[chan_name + "-filt"] = np.ones(
-            len(data_table_data[chan_name]), dtype=bool
-        )
+        new_table[chan_name + "-filt"] = np.ones(len(data_table_data[chan_name]), dtype=bool)
         data_table_data.remove_column(chan_name)
 
         newmeta = {
@@ -1095,10 +1060,7 @@ def main_bulk_change(args=None):
     """Preprocess the data."""
     import argparse
 
-    description = (
-        "Change all values of a given column or header keyword in "
-        "fits files"
-    )
+    description = "Change all values of a given column or header keyword in " "fits files"
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument(
@@ -1118,9 +1080,7 @@ def main_bulk_change(args=None):
         "in extension EXT; EXT,data,COL to change column"
         "COL in the data of extension EXT",
     )
-    parser.add_argument(
-        "-v", "--value", default=None, type=str, help="Value to be written"
-    )
+    parser.add_argument("-v", "--value", default=None, type=str, help="Value to be written")
     parser.add_argument(
         "--apply-cal-mark",
         action="store_true",
@@ -1148,8 +1108,7 @@ def main_bulk_change(args=None):
 
     if args.key is None:
         raise ValueError(
-            "What should I do? Please specify either key and "
-            "value, or apply-cal-mark"
+            "What should I do? Please specify either key and " "value, or apply-cal-mark"
         )
 
     fnames = []
@@ -1157,8 +1116,7 @@ def main_bulk_change(args=None):
         if args.recursive:
             if not fname == os.path.basename(fname):
                 raise ValueError(
-                    "Options recursive requires a file name, not "
-                    "a full path: {}".format(fname)
+                    "Options recursive requires a file name, not " "a full path: {}".format(fname)
                 )
 
             fs = glob.glob(os.path.join("**", fname), recursive=True)

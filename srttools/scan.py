@@ -50,7 +50,6 @@ if HAS_NUMBA:
             angle += TWOPI
         return angle
 
-
 else:
 
     def normalize_angle_mpPI(angle):
@@ -273,7 +272,6 @@ def _get_spectrum_stats(
     length=1,
     filename="stats.p",
 ):
-
     results = StatResults()
     dynspec_len, nbin = dynamical_spectrum.shape
     # Calculate spectral variability curve
@@ -284,9 +282,7 @@ def _get_spectrum_stats(
     # Mask frequencies -- avoid those excluded from splat
 
     freqmask = np.ones(len(meanspec), dtype=bool)
-    freqmin, freqmax, binmin, binmax = interpret_frequency_range(
-        freqsplat, bandwidth, nbin
-    )
+    freqmin, freqmax, binmin, binmax = interpret_frequency_range(freqsplat, bandwidth, nbin)
     freqmask[0:binmin] = False
     freqmask[binmax:] = False
     results.freqmask = freqmask
@@ -299,16 +295,11 @@ def _get_spectrum_stats(
     results.length = length
 
     if dynspec_len < 10:
-        warnings.warn(
-            "Very few data in the dataset. " "Skipping spectral filtering."
-        )
+        warnings.warn("Very few data in the dataset. " "Skipping spectral filtering.")
         return results
 
     spectral_var = (
-        np.sqrt(
-            np.sum((dynamical_spectrum - meanspec) ** 2, axis=0) / dynspec_len
-        )
-        / meanspec
+        np.sqrt(np.sum((dynamical_spectrum - meanspec) ** 2, axis=0) / dynspec_len) / meanspec
     )
 
     varimg = np.sqrt((dynamical_spectrum - meanspec) ** 2) / meanspec
@@ -347,8 +338,7 @@ def _get_spectrum_stats(
 
     if not np.any(mask):
         warnings.warn(
-            "No good channels found. A problem with the data or "
-            "incorrect noise threshold?"
+            "No good channels found. A problem with the data or " "incorrect noise threshold?"
         )
         return None
 
@@ -406,7 +396,6 @@ def plot_all_spectra(
     info_string="Empty info string",
     fig=None,
 ):
-
     if fig is None:
         fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
 
@@ -450,9 +439,7 @@ def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
 
     # Calculate cleaned dynamical spectrum
 
-    cleaned_dynamical_spectrum = _clean_dyn_spec(
-        dynamical_spectrum, bad_intervals
-    )
+    cleaned_dynamical_spectrum = _clean_dyn_spec(dynamical_spectrum, bad_intervals)
 
     lc_corr = np.sum(cleaned_dynamical_spectrum[:, freqmask], axis=1)
     if len(lc_corr) > 10:
@@ -525,20 +512,12 @@ def plot_spectrum_cleaning_results(
         lc_masked -= np.median(lc_masked)
 
     meanspec = np.sum(dynamical_spectrum, axis=0) / dynspec_len
-    cleaned_meanspec = np.sum(cleaned_dynamical_spectrum, axis=0) / len(
-        cleaned_dynamical_spectrum
-    )
+    cleaned_meanspec = np.sum(cleaned_dynamical_spectrum, axis=0) / len(cleaned_dynamical_spectrum)
     cleaned_varimg = np.sqrt(
-        (cleaned_dynamical_spectrum - cleaned_meanspec) ** 2
-        / cleaned_meanspec ** 2
+        (cleaned_dynamical_spectrum - cleaned_meanspec) ** 2 / cleaned_meanspec**2
     )
     cleaned_spectral_var = (
-        np.sqrt(
-            np.sum(
-                (cleaned_dynamical_spectrum - cleaned_meanspec) ** 2, axis=0
-            )
-            / dynspec_len
-        )
+        np.sqrt(np.sum((cleaned_dynamical_spectrum - cleaned_meanspec) ** 2, axis=0) / dynspec_len)
         / cleaned_meanspec
     )
 
@@ -590,9 +569,7 @@ def plot_spectrum_cleaning_results(
     # Plot mean spectrum
 
     ax_meanspec.plot(allbins[1:], meanspec[1:], label="Unfiltered")
-    ax_meanspec.plot(
-        allbins[wholemask], meanspec[wholemask], label="Final mask"
-    )
+    ax_meanspec.plot(allbins[wholemask], meanspec[wholemask], label="Final mask")
     ax_meanspec.set_ylim([np.min(cleaned_meanspec), np.max(cleaned_meanspec)])
 
     try:
@@ -879,9 +856,7 @@ def list_scans(datadir, dirlist):
     for d in dirlist:
         list_of_files = glob.glob(os.path.join(datadir, d, "*.fits"))
         list_of_files += glob.glob(os.path.join(datadir, d, "*.fits[0-9]"))
-        list_of_files += glob.glob(
-            os.path.join(datadir, d, "*.fits[0-9][0-9]")
-        )
+        list_of_files += glob.glob(os.path.join(datadir, d, "*.fits[0-9][0-9]"))
         for f in list_of_files:
             if "summary.fits" in f:
                 continue
@@ -979,17 +954,10 @@ class Scan(Table):
             if interactive:
                 self.interactive_filter()
 
-            if (
-                ("backsub" not in self.meta.keys() or not self.meta["backsub"])
-            ) and not nosub:
-                log.debug(
-                    f"Subtracting the baseline from "
-                    f'{self.meta["filename"]}'
-                )
+            if (("backsub" not in self.meta.keys() or not self.meta["backsub"])) and not nosub:
+                log.debug(f"Subtracting the baseline from " f'{self.meta["filename"]}')
                 try:
-                    self.baseline_subtract(
-                        avoid_regions=avoid_regions, plot=debug
-                    )
+                    self.baseline_subtract(avoid_regions=avoid_regions, plot=debug)
                 except Exception as e:
                     log.error(f"Baseline subtraction failed: {str(e)}")
 
@@ -1004,18 +972,10 @@ class Scan(Table):
         infostr = "Target: {}\n".format(self.meta["SOURCE"])
         infostr += "SubScan ID: {}\n".format(self.meta["SubScanID"])
         infostr += "Channel: {}\n".format(ch)
-        infostr += "Mean RA: {:.2f} d\n".format(
-            np.degrees(np.mean(self["ra"]))
-        )
-        infostr += "Mean Dec: {:.2f} d\n".format(
-            np.degrees(np.mean(self["dec"]))
-        )
-        infostr += "Mean Az: {:.2f} d\n".format(
-            np.degrees(np.mean(self["az"]))
-        )
-        infostr += "Mean El: {:.2f} d\n".format(
-            np.degrees(np.mean(self["el"]))
-        )
+        infostr += "Mean RA: {:.2f} d\n".format(np.degrees(np.mean(self["ra"])))
+        infostr += "Mean Dec: {:.2f} d\n".format(np.degrees(np.mean(self["dec"])))
+        infostr += "Mean Az: {:.2f} d\n".format(np.degrees(np.mean(self["az"])))
+        infostr += "Mean El: {:.2f} d\n".format(np.degrees(np.mean(self["el"])))
         infostr += "Receiver: {}\n".format(self.meta["receiver"])
         infostr += "Backend: {}\n".format(self.meta["backend"])
         infostr += "Frequency: {}\n".format(self[ch].meta["frequency"])
@@ -1130,9 +1090,7 @@ class Scan(Table):
                     self.remove_column(ch)
                 self[ch + "TEMP"].name = ch
 
-    def baseline_subtract(
-        self, kind="als", plot=False, avoid_regions=None, **kwargs
-    ):
+    def baseline_subtract(self, kind="als", plot=False, avoid_regions=None, **kwargs):
         """Subtract the baseline.
 
         Parameters
@@ -1170,14 +1128,10 @@ class Scan(Table):
                     decs = self["dec"][:, feed]
                     ra_dist = angular_distance(ras, r[0])
                     dec_dist = angular_distance(decs, r[1])
-                    dist = np.sqrt(
-                        (ra_dist * np.cos(decs)) ** 2 + dec_dist ** 2
-                    )
+                    dist = np.sqrt((ra_dist * np.cos(decs)) ** 2 + dec_dist**2)
                     mask[dist < r[2]] = 0
             if kind == "als" and not force_rough:
-                self[ch] = baseline_als(
-                    self["time"], self[ch], mask=mask, **kwargs
-                )
+                self[ch] = baseline_als(self["time"], self[ch], mask=mask, **kwargs)
             elif kind == "rough" or force_rough:
                 self[ch] = baseline_rough(self["time"], self[ch], mask=mask)
             else:
@@ -1192,9 +1146,7 @@ class Scan(Table):
 
     def __repr__(self):
         """Give the print() function something to print."""
-        reprstring = "\n\n----Scan from file {0} ----\n".format(
-            self.meta["filename"]
-        )
+        reprstring = "\n\n----Scan from file {0} ----\n".format(self.meta["filename"])
         reprstring += repr(Table(self))
         return reprstring
 
@@ -1207,10 +1159,7 @@ class Scan(Table):
             super(Scan, self).write(fname, *args, **kwargs)
 
         else:
-            raise TypeError(
-                "Saving to anything else than HDF5 is not "
-                "supported at the moment"
-            )
+            raise TypeError("Saving to anything else than HDF5 is not " "supported at the moment")
 
     def check_order(self):
         """Check that times in a scan are monotonically increasing."""
@@ -1237,9 +1186,7 @@ class Scan(Table):
                 dim = "dec"
 
             # ------- CALL INTERACTIVE FITTER ---------
-            info = select_data(
-                self[dim][:, feed], self[ch], xlabel=dim, test=test
-            )
+            info = select_data(self[dim][:, feed], self[ch], xlabel=dim, test=test)
 
             # -----------------------------------------
 
@@ -1262,9 +1209,7 @@ class Scan(Table):
             self["{}-filt".format(ch)] = good
 
             if len(info["Ch"]["fitpars"]) > 1:
-                self[ch] -= linear_fun(
-                    self[dim][:, feed], *info["Ch"]["fitpars"]
-                )
+                self[ch] -= linear_fun(self[dim][:, feed], *info["Ch"]["fitpars"])
                 self.meta["backsub"] = True
 
             if info["Ch"]["FLAG"]:

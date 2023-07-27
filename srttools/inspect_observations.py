@@ -60,17 +60,13 @@ def inspect_directories(directories, only_after=None, only_before=None):
             datetime.datetime.strptime(only_after, "%Y%m%d-%H%M%S"),
             scale="utc",
         ).mjd
-        log.info(
-            "Filtering out observations before " "MJD {}".format(only_after)
-        )
+        log.info("Filtering out observations before " "MJD {}".format(only_after))
     if only_before is not None:
         only_before = Time(
             datetime.datetime.strptime(only_before, "%Y%m%d-%H%M%S"),
             scale="utc",
         ).mjd
-        log.info(
-            "Filtering out observations after " "MJD {}".format(only_before)
-        )
+        log.info("Filtering out observations after " "MJD {}".format(only_before))
 
     for d in directories:
         fits_files = list_scans(".", [d])
@@ -136,9 +132,7 @@ def split_observation_table(
         start_row = grouped_table[ind[0]]
         log.info(
             "Group {}, Backend = {}, "
-            "Receiver = {}".format(
-                i, start_row["Backend"], start_row["Receiver"]
-            )
+            "Receiver = {}".format(i, start_row["Backend"], start_row["Receiver"])
         )
         s = split_by_source(
             grouped_table[ind[0] : ind[1]],
@@ -196,20 +190,14 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
             retval[s]["Obs{}".format(i)]["Src"] = []
             for c in range(cont[0], cont[1]):
                 print(filtered_table[c]["Dir"])
-                retval[s]["Obs{}".format(i)]["Src"].append(
-                    filtered_table[c]["Dir"]
-                )
+                retval[s]["Obs{}".format(i)]["Src"].append(filtered_table[c]["Dir"])
 
             print("")
             print("Calibrator observations:")
             retval[s]["Obs{}".format(i)]["Cal"] = []
 
-            condition1 = (
-                np.abs(info["Time"] - observation_start) < max_calibrator_delay
-            )
-            condition2 = (
-                np.abs(info["Time"] - observation_end) < max_calibrator_delay
-            )
+            condition1 = np.abs(info["Time"] - observation_start) < max_calibrator_delay
+            condition2 = np.abs(info["Time"] - observation_end) < max_calibrator_delay
             condition = condition1 & condition2
 
             for row in info[condition]:
@@ -222,12 +210,8 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
 
             retval[s]["Obs{}".format(i)]["Skydip"] = []
 
-            condition1 = (
-                np.abs(info["Time"] - observation_start) < max_calibrator_delay
-            )
-            condition2 = (
-                np.abs(info["Time"] - observation_end) < max_calibrator_delay
-            )
+            condition1 = np.abs(info["Time"] - observation_start) < max_calibrator_delay
+            condition2 = np.abs(info["Time"] - observation_end) < max_calibrator_delay
             condition = condition1 & condition2
 
             for row in info[condition]:
@@ -241,9 +225,7 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
 
 
 def dump_config_files(info, group_by_entries=None, options=None):
-    observation_dict = split_observation_table(
-        info, group_by_entries=group_by_entries
-    )
+    observation_dict = split_observation_table(info, group_by_entries=group_by_entries)
     config_files = []
     for label in observation_dict.keys():
         group = observation_dict[label]
@@ -256,9 +238,7 @@ def dump_config_files(info, group_by_entries=None, options=None):
                 caldata = obs["Cal"]
                 skydata = obs["Skydip"]
 
-                filename = "{}_{}_{}.ini".format(
-                    label.replace(",", "_"), sourcelabel, obslabel
-                )
+                filename = "{}_{}_{}.ini".format(label.replace(",", "_"), sourcelabel, obslabel)
                 fname = sample_config_file()
                 config = ConfigParser()
                 config.read(fname)
@@ -321,9 +301,7 @@ def main_inspector(args=None):
         '\'{"pixel_size": 0.6, '
         '"noise_threshold": 5}\' ',
     )
-    parser.add_argument(
-        "-d", "--dump-config-files", action="store_true", default=False
-    )
+    parser.add_argument("-d", "--dump-config-files", action="store_true", default=False)
     parser.add_argument(
         "--only-after",
         type=str,
@@ -343,9 +321,7 @@ def main_inspector(args=None):
 
     args = parser.parse_args(args)
 
-    info = inspect_directories(
-        args.directories, args.only_after, args.only_before
-    )
+    info = inspect_directories(args.directories, args.only_after, args.only_before)
     info.write("table.csv", overwrite=True)
 
     if len(info) == 0:
@@ -355,9 +331,7 @@ def main_inspector(args=None):
     if args.dump_config_files:
         if args.options is not None:
             args.options = ast.literal_eval(args.options)
-        config_files = dump_config_files(
-            info, group_by_entries=args.group_by, options=args.options
-        )
+        config_files = dump_config_files(info, group_by_entries=args.group_by, options=args.options)
         log.debug(config_files)
     else:
         groups = split_observation_table(info, group_by_entries=args.group_by)

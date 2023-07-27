@@ -27,7 +27,6 @@ def convert_to_complete_fitszilla(fname, outname):
 
 
 def _convert_to_complete_fitszilla(lchdulist, outname):
-
     feed_input_data = lchdulist["FEED TABLE"].data
     xoffsets = feed_input_data["xOffset"] * u.rad
     yoffsets = feed_input_data["yOffset"] * u.rad
@@ -110,9 +109,7 @@ def launch_convert_coords(name, label, save_locally=False):
 # precision = 10
 #
 # @profile(precision=precision, stream=fp)
-def launch_mbfits_creator(
-    name, label, test=False, wrap=False, detrend=False, save_locally=False
-):
+def launch_mbfits_creator(name, label, test=False, wrap=False, detrend=False, save_locally=False):
     if not os.path.isdir(name):
         raise ValueError("Input for MBFITS conversion must be a directory.")
     name = name.rstrip("/")
@@ -198,9 +195,7 @@ def match_srt_name(name):
 def main_convert(args=None):
     import argparse
 
-    description = (
-        "Load a series of scans and convert them to various" "formats"
-    )
+    description = "Load a series of scans and convert them to various" "formats"
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument(
@@ -244,8 +239,7 @@ def main_convert(args=None):
 
     parser.add_argument(
         "--save-locally",
-        help="Save all data in the current directory, not"
-        "alongside the original data.",
+        help="Save all data in the current directory, not" "alongside the original data.",
         action="store_true",
         default=False,
     )
@@ -255,9 +249,7 @@ def main_convert(args=None):
     outnames = []
     for fname in args.files:
         if args.format == "fitsmod":
-            outname = launch_convert_coords(
-                fname, args.format, save_locally=args.save_locally
-            )
+            outname = launch_convert_coords(fname, args.format, save_locally=args.save_locally)
             outnames.append(outname)
         elif args.format == "mbfits":
             outname, mbfits = launch_mbfits_creator(

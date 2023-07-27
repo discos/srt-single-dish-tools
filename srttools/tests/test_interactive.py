@@ -19,13 +19,9 @@ class TestImageSelector(object):
         klass.ax = plt.subplot()
 
         def fun(x, y, key):
-            warnings.warn(
-                "It is working: {}, {}, {}".format(x, y, key), TestWarning
-            )
+            warnings.warn("It is working: {}, {}, {}".format(x, y, key), TestWarning)
 
-        klass.selector = ImageSelector(
-            klass.data, klass.ax, test=True, fun=fun
-        )
+        klass.selector = ImageSelector(klass.data, klass.ax, test=True, fun=fun)
 
     def test_interactive_valid_data(self):
         fake_event = type("event", (), {})()
@@ -50,9 +46,7 @@ class TestImageSelector(object):
 
         with pytest.warns(TestWarning) as record:
             retval = self.selector.on_key(fake_event)
-        assert np.any(
-            ["It is working: 130, 30, b" in r.message.args[0] for r in record]
-        )
+        assert np.any(["It is working: 130, 30, b" in r.message.args[0] for r in record])
         assert retval == (130, 30, "b")
 
 
@@ -66,8 +60,7 @@ class TestDataSelector(object):
         chans = ["scan1.fits", "scan2.fits"]
         klass.xs = {c: np.arange(30) for c in chans}
         klass.ys = {
-            c: -(1 ** i) * np.random.normal(klass.xs[c] * 0.1, 0.1) + i
-            for i, c in enumerate(chans)
+            c: -(1**i) * np.random.normal(klass.xs[c] * 0.1, 0.1) + i for i, c in enumerate(chans)
         }
 
         gs = mpl.gridspec.GridSpec(2, 1)
@@ -75,9 +68,7 @@ class TestDataSelector(object):
         klass.ax0 = plt.subplot(gs[0])
         klass.ax1 = plt.subplot(gs[1])
 
-        klass.selector = DataSelector(
-            klass.xs, klass.ys, klass.ax0, klass.ax1, test=True
-        )
+        klass.selector = DataSelector(klass.xs, klass.ys, klass.ax0, klass.ax1, test=True)
         klass.selector.current = "scan1.fits"
 
     def test_interactive_zap_and_print_info(self, capsys):
@@ -89,12 +80,7 @@ class TestDataSelector(object):
         fake_event.key, fake_event.xdata, fake_event.ydata = ("z", 4, 3)
         with pytest.warns(TestWarning) as record:
             self.selector.on_key(fake_event)
-        assert np.any(
-            [
-                "I select a zap interval at 4" in r.message.args[0]
-                for r in record
-            ]
-        )
+        assert np.any(["I select a zap interval at 4" in r.message.args[0] for r in record])
         assert self.selector.info["scan1.fits"]["zap"].xs == [1, 4]
         assert self.selector.info["scan1.fits"]["zap"].ys == [3, 3]
         assert self.selector.zcounter == 2
@@ -116,9 +102,7 @@ class TestDataSelector(object):
         fake_event.key, fake_event.xdata, fake_event.ydata = ("b", 4, 3)
         with pytest.warns(TestWarning) as record:
             self.selector.on_key(fake_event)
-        assert np.any(
-            ["I put a baseline mark at 4" in r.message.args[0] for r in record]
-        )
+        assert np.any(["I put a baseline mark at 4" in r.message.args[0] for r in record])
         assert self.selector.info["scan1.fits"]["base"].xs == [1, 4]
         assert self.selector.info["scan1.fits"]["base"].ys == [3, 3]
         assert self.selector.bcounter == 2

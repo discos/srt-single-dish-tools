@@ -122,9 +122,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
             W = len(weights)
 
     if W == -1 and weights.ndim != 1:
-        raise AttributeError(
-            "Weights must be a 1D-array, None, or " "a list of both"
-        )
+        raise AttributeError("Weights must be a 1D-array, None, or " "a list of both")
 
     nbin = empty(D, int)
     edges = D * [None]
@@ -145,8 +143,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
         M = len(bins)
         if M != D:
             raise AttributeError(
-                "The dimension of bins must be equal to the dimension of the "
-                " sample x."
+                "The dimension of bins must be equal to the dimension of the " " sample x."
             )
     except TypeError:
         # bins is an integer
@@ -179,8 +176,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
         if isscalar(bins[i]):
             if bins[i] < 1:
                 raise ValueError(
-                    "Element at index %s in `bins` should be a positive "
-                    "integer." % i
+                    "Element at index %s in `bins` should be a positive " "integer." % i
                 )
             nbin[i] = bins[i] + 2  # +2 for outlier bins
             edges[i] = linspace(smin[i], smax[i], int(nbin[i]) - 1)
@@ -190,8 +186,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
         dedges[i] = diff(edges[i])
         if np.any(np.asarray(dedges[i]) <= 0):
             raise ValueError(
-                "Found bin edge of size <= 0. Did you specify `bins` with"
-                "non-monotonic sequence?"
+                "Found bin edge of size <= 0. Did you specify `bins` with" "non-monotonic sequence?"
             )
 
     nbin = asarray(nbin)
@@ -220,9 +215,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
             decimal = int(-log10(mindiff)) + 6
             # Find which points are on the rightmost edge.
             not_smaller_than_edge = sample[:, i] >= edges[i][-1]
-            on_edge = around(sample[:, i], decimal) == around(
-                edges[i][-1], decimal
-            )
+            on_edge = around(sample[:, i], decimal) == around(edges[i][-1], decimal)
             # Shift these points one bin to the left.
             Ncount[i][where(on_edge & not_smaller_than_edge)[0]] -= 1
 

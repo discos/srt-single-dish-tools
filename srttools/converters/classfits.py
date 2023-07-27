@@ -254,21 +254,14 @@ def get_model_HDUlist(additional_columns=None, **kwargs):
         coldefs += fits.ColDefs(additional_columns)
 
     hdu = fits.BinTableHDU.from_columns(
-        coldefs,
-        header=fits.Header.fromstring(model_header, sep="\n"),
-        name="MATRIX",
-        **kwargs
+        coldefs, header=fits.Header.fromstring(model_header, sep="\n"), name="MATRIX", **kwargs
     )
 
-    primary_hdu = fits.PrimaryHDU(
-        header=fits.Header.fromstring(model_primary_header, sep="\n")
-    )
+    primary_hdu = fits.PrimaryHDU(header=fits.Header.fromstring(model_primary_header, sep="\n"))
     return fits.HDUList([primary_hdu, hdu])
 
 
-def create_variable_length_column(
-    values, max_length=2048, name="SPECTRUM", unit="K"
-):
+def create_variable_length_column(values, max_length=2048, name="SPECTRUM", unit="K"):
     """If we want to use variable length arrays, this is what we should do.
 
     Examples
@@ -474,9 +467,7 @@ def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
 class CLASSFITS_creator:
     """CLASS-compatible FITS creator obhject."""
 
-    def __init__(
-        self, dirname, scandir=None, average=True, use_calon=False, test=False
-    ):
+    def __init__(self, dirname, scandir=None, average=True, use_calon=False, test=False):
         """Initialization.
 
         Initialization is easy. If scandir is given, the conversion is
@@ -558,15 +549,10 @@ class CLASSFITS_creator:
             mjd_col = subscan["time"]
             ut_col = (times.mjd - np.floor(times.mjd)) * 86400
 
-            lsts = times.sidereal_time(
-                "apparent", locations[subscan.meta["site"]].lon
-            )
+            lsts = times.sidereal_time("apparent", locations[subscan.meta["site"]].lon)
             lsts_col = lsts.value * u.hr
 
-            mH2O = [
-                get_mH2O(weather[1] + 273.15, weather[0])
-                for weather in subscan["weather"]
-            ]
+            mH2O = [get_mH2O(weather[1] + 273.15, weather[0]) for weather in subscan["weather"]]
             lsts = lsts_col.to("s").value
             if average:
                 date_col = date_col[0]
@@ -592,9 +578,7 @@ class CLASSFITS_creator:
                 crval2 = subscan["ra"][:, f].to(u.deg).value
                 crval3 = subscan["dec"][:, f].to(u.deg).value
 
-                columns = [
-                    a for a in allcolumns if a.startswith("Feed{}".format(f))
-                ]
+                columns = [a for a in allcolumns if a.startswith("Feed{}".format(f))]
 
                 data_matrix = []
                 for ch in columns:
@@ -628,17 +612,14 @@ class CLASSFITS_creator:
                     feed, polar, baseband = interpret_chan_name(ch)
                     if feed != f:
                         warnings.warn(
-                            "Problem interpreting chan name: {} "
-                            "instead of {}".format(feed, f)
+                            "Problem interpreting chan name: {} " "instead of {}".format(feed, f)
                         )
                     if baseband is None:
                         baseband = 1
                     array = subscan[ch]
                     if average:
                         length = len(array)
-                        array = Table(
-                            data=[[np.mean(array, axis=0)]], meta=array.meta
-                        )
+                        array = Table(data=[[np.mean(array, axis=0)]], meta=array.meta)
                         array.meta["integration_time"] *= length
 
                     length = len(array)
@@ -652,12 +633,8 @@ class CLASSFITS_creator:
                     restfreq = self.summary[restfreq_label] * u.MHz
                     data["MJD"][id0:id1] = mjd_col
                     data["RESTFREQ"][id0:id1] = restfreq.to(u.Hz).value
-                    data["OBSTIME"][id0:id1] = array.meta[
-                        "integration_time"
-                    ].value
-                    data["VELOCITY"][id0:id1] = (
-                        subscan.meta["VLSR"].to("m/s").value
-                    )
+                    data["OBSTIME"][id0:id1] = array.meta["integration_time"].value
+                    data["VELOCITY"][id0:id1] = subscan.meta["VLSR"].to("m/s").value
                     data["DATE-OBS"][id0:id1] = date_col
                     data["UT"][id0:id1] = ut_col
                     data["MH2O"][id0:id1] = mH2O
@@ -666,15 +643,10 @@ class CLASSFITS_creator:
                     is_on = cal_is_on(subscan)
                     if isinstance(is_on, Iterable) and average:
                         if len(list(set(is_on))) != 1:
-                            raise ValueError(
-                                "flag_cal is inconsistent "
-                                "in {}".format(fname)
-                            )
+                            raise ValueError("flag_cal is inconsistent " "in {}".format(fname))
                         is_on = is_on[0]
                     data["CAL_IS_ON"][id0:id1] = is_on
-                    data["CALTEMP"][id0:id1] = (
-                        array.meta["cal_mark_temp"].to("K").value
-                    )
+                    data["CALTEMP"][id0:id1] = array.meta["cal_mark_temp"].to("K").value
                     label = "SRT-{}-{}-{}".format(
                         subscan.meta["receiver"][0],
                         subscan.meta["backend"][:3],
@@ -684,17 +656,11 @@ class CLASSFITS_creator:
                     data["TSYS"][id0:id1] = 1
                     df = (bandwidth / nbin).to("Hz")
                     data["CDELT1"][id0:id1] = df
-                    data["CDELT2"][id0:id1] = (
-                        subscan.meta["ra_offset"].to(u.deg).value
-                    )
-                    data["CDELT3"][id0:id1] = (
-                        subscan.meta["dec_offset"].to(u.deg).value
-                    )
+                    data["CDELT2"][id0:id1] = subscan.meta["ra_offset"].to(u.deg).value
+                    data["CDELT3"][id0:id1] = subscan.meta["dec_offset"].to(u.deg).value
                     deltav = -df / restfreq * c.c
                     data["DELTAV"][id0:id1] = deltav.to("m/s").value
-                    data["LINE"][id0:id1] = "F{}-{:3.3f}-MHz".format(
-                        f, bandwidth.to("MHz").value
-                    )
+                    data["LINE"][id0:id1] = "F{}-{:3.3f}-MHz".format(f, bandwidth.to("MHz").value)
 
                     data["OBJECT"][id0:id1] = subscan.meta["SOURCE"]
                     data["AZIMUTH"][id0:id1] = azimuth
@@ -716,12 +682,8 @@ class CLASSFITS_creator:
                 header["LINE"] = subscan.meta["SOURCE"]
                 header["OBJECT"] = subscan.meta["SOURCE"]
                 header["SOURCE"] = subscan.meta["SOURCE"]
-                header["DATE-RED"] = (
-                    Time.now().to_datetime().strftime("%d/%m/%y")
-                )
-                header["LINE"] = "FEED{}-{:3.3f}-MHz".format(
-                    f, bandwidth.to("MHz").value
-                )
+                header["DATE-RED"] = Time.now().to_datetime().strftime("%d/%m/%y")
+                header["LINE"] = "FEED{}-{:3.3f}-MHz".format(f, bandwidth.to("MHz").value)
                 header["CDELT1"] = df.to("Hz").value
                 header["RESTFREQ"] = restfreq.to(u.Hz).value
                 header["MAXIS1"] = channels[0]
@@ -732,9 +694,7 @@ class CLASSFITS_creator:
                     hdul = self.tables[filekey]
                     nrows1, nrows2 = len(hdul[1].data), len(data)
                     nrows = nrows1 + nrows2
-                    newhdu = fits.BinTableHDU.from_columns(
-                        hdul[1].columns, nrows=nrows
-                    )
+                    newhdu = fits.BinTableHDU.from_columns(hdul[1].columns, nrows=nrows)
                     for col in hdul[1].columns:
                         name = col.name
                         newhdu.data[name][:nrows1] = hdul[1].data[name]
@@ -769,7 +729,7 @@ class CLASSFITS_creator:
         """
         new_tables = {}
         for caltype in ["cal", "onoff"]:
-            for (filekey, hdul) in self.tables.items():
+            for filekey, hdul in self.tables.items():
                 new_filekey = filekey.replace("_all", "_" + caltype)
                 new_hdul = copy.deepcopy(hdul)
 
@@ -783,9 +743,7 @@ class CLASSFITS_creator:
 
                 apply_cal = caltype == "cal"
 
-                for _, out_group in zip(
-                    out_grouped.groups.keys, out_grouped.groups
-                ):
+                for _, out_group in zip(out_grouped.groups.keys, out_grouped.groups):
                     out_group = find_cycles(out_group, ["SIGNAL", "CAL_IS_ON"])
 
                     grouped = out_group.group_by(["CYCLE"])
@@ -825,13 +783,11 @@ class CLASSFITS_creator:
 
     def write_tables_to_disk(self):
         """Write all HDU lists produced until now in separate FITS files."""
-        for (filekey, table) in self.tables.items():
+        for filekey, table in self.tables.items():
             outfile = os.path.join(self.dirname, "{}.fits".format(filekey))
             table.writeto(outfile, overwrite=True)
 
-            outscript = os.path.join(
-                self.dirname, "{}_class_script.txt".format(filekey)
-            )
+            outscript = os.path.join(self.dirname, "{}_class_script.txt".format(filekey))
             with open(outscript, "w") as fobj:
                 string = """
 file out {file}.gdf multiple /overwrite

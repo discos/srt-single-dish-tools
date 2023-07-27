@@ -19,7 +19,7 @@ class TestScanSet(object):
         y = np.linspace(-1, 1, 101)
         xx, yy = np.meshgrid(x, y)
 
-        zz = np.exp(-(xx ** 2 + yy ** 2) / 0.01)
+        zz = np.exp(-(xx**2 + yy**2) / 0.01)
 
         klass.img = zz
         klass.img_hor = 0
@@ -30,17 +30,11 @@ class TestScanSet(object):
         for i in range(6):
             offset = np.random.choice(example_scan)
             zz_hor = np.array(
-                [
-                    z + offset + np.cumsum(np.random.normal(0, 0.01, len(z)))
-                    for z in zz
-                ]
+                [z + offset + np.cumsum(np.random.normal(0, 0.01, len(z))) for z in zz]
             )
             offset = np.random.choice(example_scan)
             zz_ver = np.array(
-                [
-                    z + offset + np.cumsum(np.random.normal(0, 0.01, len(z)))
-                    for z in zz.T
-                ]
+                [z + offset + np.cumsum(np.random.normal(0, 0.01, len(z))) for z in zz.T]
             ).T
 
             if i != 0:  # One less integration over x

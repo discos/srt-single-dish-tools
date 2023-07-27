@@ -48,9 +48,7 @@ def _calculate_image(x, y, counts, bx, by, nsamp):
     global EXPOMAP
 
     if EXPOMAP is None:
-        EXPOMAP, xedges, yedges = histogram2d(
-            x, y, bins=(bx, by), weights=nsamp
-        )
+        EXPOMAP, xedges, yedges = histogram2d(x, y, bins=(bx, by), weights=nsamp)
 
     histograms, xedges, yedges = histogram2d(
         x, y, bins=(bx, by), weights=[counts * nsamp, (counts) ** 2 * nsamp]
@@ -108,9 +106,7 @@ def _save_iteration(par):
     iteration = next(ITERATION_COUNT)
     print(iteration, end="\r")
     if iteration % 2 == 0:
-        _save_intermediate(
-            "out_iter_{}_{:03d}.txt".format(CURR_CHANNEL, iteration), par
-        )
+        _save_intermediate("out_iter_{}_{:03d}.txt".format(CURR_CHANNEL, iteration), par)
 
 
 def _obj_fun(par, data, data_idx, excluded, bx, by):
@@ -135,15 +131,13 @@ def _obj_fun(par, data, data_idx, excluded, bx, by):
     newd_t, _, newd_x, newd_y, newd_c, newd_e = data
 
     newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
-    X, Y, img, img_var = _calculate_image(
-        newd_x, newd_y, newd_c_new, bx, by, newd_e
-    )
+    X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by, newd_e)
 
     good = img != 0.0
     if excluded is not None:
         for e in excluded:
             centerx, centery, radius = e
-            filt = (X - centerx) ** 2 + (Y - centery) ** 2 < radius ** 2
+            filt = (X - centerx) ** 2 + (Y - centery) ** 2 < radius**2
             good[filt] = 0
 
     stat = np.sum(img_var[good]) + np.var(img[good]) * img[good].size
@@ -317,9 +311,7 @@ def fit_full_image(scanset, chan="Feed0_RCP", feed=0, excluded=None, par=None):
     return new_counts * count_range
 
 
-def display_intermediate(
-    scanset, chan="Feed0_RCP", feed=0, excluded=None, parfile=None, factor=1
-):
+def display_intermediate(scanset, chan="Feed0_RCP", feed=0, excluded=None, parfile=None, factor=1):
     """Display the intermediate steps of global_fitting.
 
     Parameters
@@ -362,15 +354,13 @@ def display_intermediate(
     data_idx = _get_data_idx(par, newd_i)
 
     newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
-    X, Y, img, img_var = _calculate_image(
-        newd_x, newd_y, newd_c_new, bx, by, newd_e
-    )
+    X, Y, img, img_var = _calculate_image(newd_x, newd_y, newd_c_new, bx, by, newd_e)
 
     good = np.ones_like(img, dtype=bool)
     if excluded is not None:
         for e in excluded:
             centerx, centery, radius = e
-            filt = (X - centerx) ** 2 + (Y - centery) ** 2 < radius ** 2
+            filt = (X - centerx) ** 2 + (Y - centery) ** 2 < radius**2
             good[filt] = 0
 
     bad = np.logical_not(good)

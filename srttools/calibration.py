@@ -213,9 +213,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         # Fit for gain curves
         x, _ = scantype(ras, decs, els, azs)
-        temperature_model, _ = fit_baseline_plus_bell(
-            x, temperature, kind="gauss"
-        )
+        temperature_model, _ = fit_baseline_plus_bell(x, temperature, kind="gauss")
         source_temperature = temperature_model["Bell"].amplitude.value
 
         # Fit RA and/or Dec
@@ -228,9 +226,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             uncert = fit_info["param_cov"].diagonal() ** 0.5
         except Exception:
             message = fit_info["message"]
-            warnings.warn(
-                "Fit failed in scan {s}: {m}".format(s=sname, m=message)
-            )
+            warnings.warn("Fit failed in scan {s}: {m}".format(s=sname, m=message))
             continue
         bell = model["Bell"]
         baseline = model["Baseline"]
@@ -334,9 +330,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
             ax0.legend()
 
-            plt.savefig(
-                os.path.join(outdir, "Feed{}_chan{}.png".format(feed, nch))
-            )
+            plt.savefig(os.path.join(outdir, "Feed{}_chan{}.png".format(feed, nch)))
             plt.close(fig)
             fig = plt.figure("Fit information - temperature")
             gs = GridSpec(2, 1, height_ratios=(3, 1))
@@ -354,11 +348,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1.set_ylabel("Residual (cts)")
 
             ax0.legend()
-            plt.savefig(
-                os.path.join(
-                    outdir, "Feed{}_chan{}_temp.png".format(feed, nch)
-                )
-            )
+            plt.savefig(os.path.join(outdir, "Feed{}_chan{}_temp.png".format(feed, nch)))
             plt.close(fig)
 
     return True, rows
@@ -502,9 +492,9 @@ class CalibratorTable(Table):
             if config_file is None:
                 config_file = get_config_file()
             config = read_config(config_file)
-            scan_list = list_scans(
-                config["datadir"], config["list_of_directories"]
-            ) + list_scans(config["datadir"], config["calibrator_directories"])
+            scan_list = list_scans(config["datadir"], config["list_of_directories"]) + list_scans(
+                config["datadir"], config["calibrator_directories"]
+            )
             scan_list.sort()
         nscan = len(scan_list)
 
@@ -586,9 +576,7 @@ class CalibratorTable(Table):
             source = self["Source"][it]
             frequency = self["Frequency"][it] / 1000
             bandwidth = self["Bandwidth"][it] / 1000
-            flux, eflux = _get_calibrator_flux(
-                source, frequency, bandwidth, time=t
-            )
+            flux, eflux = _get_calibrator_flux(source, frequency, bandwidth, time=t)
 
             self["Flux"][it] = flux
             self["Flux Err"][it] = eflux
@@ -628,8 +616,8 @@ class CalibratorTable(Table):
 
         # Volume in a beam: For a 2-d Gaussian with amplitude A and sigmas sx
         # and sy, this is 2 pi A sx sy.
-        total = 2 * np.pi * counts * width ** 2
-        etotal = 2 * np.pi * ecounts * width ** 2
+        total = 2 * np.pi * counts * width**2
+        etotal = 2 * np.pi * ecounts * width**2
 
         flux_integral_over_counts = flux / total
         flux_integral_over_counts_err = (
@@ -637,9 +625,7 @@ class CalibratorTable(Table):
         ) * flux_integral_over_counts
 
         flux_over_counts = flux / counts
-        flux_over_counts_err = (
-            ecounts / counts + eflux / flux
-        ) * flux_over_counts
+        flux_over_counts_err = (ecounts / counts + eflux / flux) * flux_over_counts
 
         self["Flux/Counts"][:] = flux_over_counts.to(u.Jy / u.ct).value
         self["Flux/Counts Err"][:] = flux_over_counts_err.to(u.Jy / u.ct).value
@@ -712,14 +698,10 @@ class CalibratorTable(Table):
             results = model.fit()
 
             self.calibration_coeffs[channel] = results.params
-            self.calibration_uncerts[channel] = (
-                results.cov_params().diagonal() ** 0.5
-            )
+            self.calibration_uncerts[channel] = results.cov_params().diagonal() ** 0.5
             self.calibration[channel] = results
 
-    def Jy_over_counts(
-        self, channel=None, elevation=None, map_unit="Jy/beam", good_mask=None
-    ):
+    def Jy_over_counts(self, channel=None, elevation=None, map_unit="Jy/beam", good_mask=None):
         """Compute the Jy/Counts conversion corresponding to a given map unit.
 
         Parameters
@@ -764,26 +746,20 @@ class CalibratorTable(Table):
                 fce = np.zeros_like(elevation) + fce
             return fc, fce
 
-        X = np.column_stack(
-            (np.ones(np.array(elevation).size), np.array(elevation))
-        )
+        X = np.column_stack((np.ones(np.array(elevation).size), np.array(elevation)))
 
         fc = self.calibration[channel].predict(X)
 
         goodch = self["Chan"] == channel
         good = good_mask & goodch
-        fce = np.sqrt(
-            np.mean(self[flux_quantity + "/Counts Err"][good] ** 2)
-        ) + np.zeros_like(fc)
+        fce = np.sqrt(np.mean(self[flux_quantity + "/Counts Err"][good] ** 2)) + np.zeros_like(fc)
 
         if len(fc) == 1:
             fc, fce = fc[0], fce[0]
 
         return fc, fce
 
-    def Jy_over_counts_rough(
-        self, channel=None, map_unit="Jy/beam", good_mask=None
-    ):
+    def Jy_over_counts_rough(self, channel=None, map_unit="Jy/beam", good_mask=None):
         """Get the conversion from counts to Jy.
 
         Other parameters
@@ -855,18 +831,14 @@ class CalibratorTable(Table):
             y_to_fit = y_to_fit[good]
             ye_to_fit = ye_to_fit[good]
 
-            p, pcov = curve_fit(
-                _constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p
-            )
+            p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p)
             first = False
         fc = p[0]
         fce = np.sqrt(pcov[0, 0])
 
         return fc, fce
 
-    def calculate_src_flux(
-        self, channel=None, map_unit="Jy/beam", source=None
-    ):
+    def calculate_src_flux(self, channel=None, map_unit="Jy/beam", source=None):
         """Calculate source flux and error, pointing by pointing.
 
         Uses the conversion factors calculated from the tabulated fluxes for
@@ -930,9 +902,7 @@ class CalibratorTable(Table):
             self["Calculated Flux Err"][:] = calculated_flux_err
 
             mean_flux.append(np.mean(calculated_flux[good]))
-            mean_flux_err.append(
-                np.sqrt(np.mean(calculated_flux_err[good] ** 2))
-            )
+            mean_flux_err.append(np.sqrt(np.mean(calculated_flux_err[good] ** 2)))
 
         return mean_flux, mean_flux_err
 
@@ -964,18 +934,17 @@ class CalibratorTable(Table):
         names = self["Source"][is_cal & good_chan]
         times = self["Time"][is_cal & good_chan]
 
-        consistent = (
-            np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
-        )
+        consistent = np.abs(biblio_fluxes - calc_fluxes) < epsilon * biblio_fluxes
 
-        for (n, t, b, c, cons,) in zip(
-            names, times, biblio_fluxes, calc_fluxes, consistent
-        ):
+        for (
+            n,
+            t,
+            b,
+            c,
+            cons,
+        ) in zip(names, times, biblio_fluxes, calc_fluxes, consistent):
             if not cons:
-                warnings.warn(
-                    "{}, MJD {}: Expected {}, "
-                    "measured {}".format(n, t, b, c)
-                )
+                warnings.warn("{}, MJD {}: Expected {}, " "measured {}".format(n, t, b, c))
 
         return consistent
 
@@ -996,7 +965,7 @@ class CalibratorTable(Table):
         # Weighted mean
         width = np.sum(allwidths / allwidth_errs) / np.sum(1 / allwidth_errs)
 
-        width_err = np.sqrt(np.sum(allwidth_errs ** 2))
+        width_err = np.sqrt(np.sum(allwidth_errs**2))
         return np.radians(width), np.radians(width_err)
 
     def counts_over_Jy(self, channel=None, elevation=None):
@@ -1098,12 +1067,8 @@ class CalibratorTable(Table):
                 color=color,
             )
 
-            elevations = np.arange(
-                np.min(self["Elevation"]), np.max(self["Elevation"]), 0.001
-            )
-            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(
-                channel_str, np.radians(elevations)
-            )
+            elevations = np.arange(np.min(self["Elevation"]), np.max(self["Elevation"]), 0.001)
+            jy_over_cts, jy_over_cts_err = self.Jy_over_counts(channel_str, np.radians(elevations))
             ax00.plot(elevations, jy_over_cts, color=color)
             ax00.plot(elevations, jy_over_cts + jy_over_cts_err, color=color)
             ax00.plot(elevations, jy_over_cts - jy_over_cts_err, color=color)
@@ -1201,10 +1166,10 @@ def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
     fmean = (fs[:-1] + fs[1:]) / 2
 
     logf = np.log10(fmean)
-    logS = a0 + a1 * logf + a2 * logf ** 2 + a3 * logf ** 3
-    elogS = a0e + a1e * logf + a2e * logf ** 2 + a3e * logf ** 3
+    logS = a0 + a1 * logf + a2 * logf**2 + a3 * logf**3
+    elogS = a0e + a1e * logf + a2e * logf**2 + a3e * logf**3
 
-    S = 10 ** logS
+    S = 10**logS
     eS = S * elogS
 
     # Error is not random, should add linearly; divide by bandwidth
@@ -1239,10 +1204,7 @@ def main_cal(args=None):
     """Main function."""
     import argparse
 
-    description = (
-        "Load a series of cross scans from a config file "
-        "and use them as calibrators."
-    )
+    description = "Load a series of cross scans from a config file " "and use them as calibrators."
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument(
@@ -1266,9 +1228,7 @@ def main_cal(args=None):
         help="Do not filter noisy channels",
     )
 
-    parser.add_argument(
-        "-c", "--config", type=str, default=None, help="Config file"
-    )
+    parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
 
     parser.add_argument(
         "--splat",
@@ -1296,8 +1256,7 @@ def main_cal(args=None):
         "--snr-min",
         type=float,
         default=10,
-        help="Minimum SNR for calibrator measurements "
-        "to be considered valid",
+        help="Minimum SNR for calibrator measurements " "to be considered valid",
     )
 
     parser.add_argument(
@@ -1344,14 +1303,11 @@ def main_cal(args=None):
     outfile_unfilt = args.config.replace(".ini", "_cal_unfilt.hdf5")
     if not os.path.exists(outfile_unfilt):
         caltable = CalibratorTable()
-        caltable.from_scans(
-            scan_list, freqsplat=args.splat, nofilt=args.nofilt, plot=args.show
-        )
+        caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt, plot=args.show)
         caltable.write(outfile_unfilt)
     else:
         log.info(
-            f"Loading unfiltered calibration table from {outfile_unfilt} "
-            f"(delete to reprocess)"
+            f"Loading unfiltered calibration table from {outfile_unfilt} " f"(delete to reprocess)"
         )
         caltable = CalibratorTable.read(outfile_unfilt)
 
@@ -1360,8 +1316,7 @@ def main_cal(args=None):
     good = snr > args.snr_min
     caltable = caltable[good]
     log.info(
-        f"{len(caltable)} good calibrator observations found above "
-        f"SNR={args.snr_min} (of {N})"
+        f"{len(caltable)} good calibrator observations found above " f"SNR={args.snr_min} (of {N})"
     )
     caltable.update()
 
@@ -1380,8 +1335,7 @@ def main_lcurve(args=None):
     import argparse
 
     description = (
-        "Load a series of cross scans from a config file "
-        "and obtain a calibrated curve."
+        "Load a series of cross scans from a config file " "and obtain a calibrated curve."
     )
     parser = argparse.ArgumentParser(description=description)
 
@@ -1414,9 +1368,7 @@ def main_lcurve(args=None):
         help="Do not filter noisy channels",
     )
 
-    parser.add_argument(
-        "-c", "--config", type=str, default=None, help="Config file"
-    )
+    parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
 
     parser.add_argument(
         "--splat",

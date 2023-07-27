@@ -143,15 +143,10 @@ def read_config(fname=None):
             os.path.join(os.path.split(fname)[0], config_output["datadir"])
         )
 
-    if (
-        config_output["productdir"] is not None
-        and config_output["productdir"].lower() == "none"
-    ):
+    if config_output["productdir"] is not None and config_output["productdir"].lower() == "none":
         config_output["productdir"] = None
 
-    if config_output["productdir"] is not None and not config_output[
-        "productdir"
-    ].startswith("/"):
+    if config_output["productdir"] is not None and not config_output["productdir"].startswith("/"):
         config_output["productdir"] = os.path.abspath(
             os.path.join(os.path.split(fname)[0], config_output["productdir"])
         )
@@ -171,27 +166,21 @@ def read_config(fname=None):
 
     try:
         config_output["list_of_directories"] = [
-            s
-            for s in analysis_params["list_of_directories"].splitlines()
-            if s.strip()
+            s for s in analysis_params["list_of_directories"].splitlines() if s.strip()
         ]  # This last instruction eliminates blank lines
     except Exception:
         warnings.warn("Invalid list_of_directories in config file")
 
     try:
         config_output["calibrator_directories"] = [
-            s
-            for s in analysis_params["calibrator_directories"].splitlines()
-            if s.strip()
+            s for s in analysis_params["calibrator_directories"].splitlines() if s.strip()
         ]  # This last instruction eliminates blank lines
     except Exception:
         warnings.warn("Invalid calibrator_directories in config file")
 
     try:
         config_output["skydip_directories"] = [
-            s
-            for s in analysis_params["skydip_directories"].splitlines()
-            if s.strip()
+            s for s in analysis_params["skydip_directories"].splitlines() if s.strip()
         ]  # This last instruction eliminates blank lines
     except Exception:
         warnings.warn("Invalid skydip_directories in config file")
@@ -206,20 +195,14 @@ def read_config(fname=None):
             if os.path.isdir(f)
         ]  # only if it's a directory
 
-    config_output["pixel_size"] = (
-        float(np.radians(float(config_output["pixel_size"]) / 60)) * u.rad
-    )
+    config_output["pixel_size"] = float(np.radians(float(config_output["pixel_size"]) / 60)) * u.rad
 
     if config_output["goodchans"] is not None:
-        config_output["goodchans"] = [
-            int(n) for n in config_output["goodchans"]
-        ]
+        config_output["goodchans"] = [int(n) for n in config_output["goodchans"]]
 
     config_output["noise_threshold"] = float(config_output["noise_threshold"])
     config_output["smooth_window"] = float(config_output["smooth_window"])
-    config_output["filtering_factor"] = float(
-        config_output["filtering_factor"]
-    )
+    config_output["filtering_factor"] = float(config_output["filtering_factor"])
 
     SRT_tools_config = config_output
     return config_output

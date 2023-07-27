@@ -109,7 +109,7 @@ def _2d_gauss(x, y, sigma=2.5 / 60.0):
     """A Gaussian beam"""
     import numpy as np
 
-    return np.exp(-(x ** 2 + y ** 2) / (2 * sigma ** 2))
+    return np.exp(-(x**2 + y**2) / (2 * sigma**2))
 
 
 def gauss_src_func(x, y):
@@ -161,10 +161,7 @@ def prepare_simulated_data(simdir):
     obsdir_dec = os.path.join(simdir, "gauss_dec")
     mkdir_p(obsdir_ra)
     mkdir_p(obsdir_dec)
-    log.info(
-        "Fake map: Point-like (but Gaussian beam shape), "
-        "{} Jy.".format(simulated_flux)
-    )
+    log.info("Fake map: Point-like (but Gaussian beam shape), " "{} Jy.".format(simulated_flux))
 
     simulate_map(
         count_map=gauss_src_func,
@@ -189,10 +186,7 @@ def prepare_simulated_data(simdir):
     obsdir_dec = os.path.join(simdir, "gauss_dec_small")
     mkdir_p(obsdir_ra)
     mkdir_p(obsdir_dec)
-    log.info(
-        "Fake map: Point-like (but Gaussian beam shape), "
-        "{} Jy.".format(simulated_flux)
-    )
+    log.info("Fake map: Point-like (but Gaussian beam shape), " "{} Jy.".format(simulated_flux))
     simulate_map(
         count_map=gauss_src_func,
         length_ra=15.0,
@@ -207,9 +201,7 @@ def prepare_simulated_data(simdir):
         baseline="flat",
     )
 
-    config_file = os.path.abspath(
-        os.path.join(simdir, "test_config_sim_small.ini")
-    )
+    config_file = os.path.abspath(os.path.join(simdir, "test_config_sim_small.ini"))
     sim_config_file(config_file, add_garbage=True, prefix="./", label="_small")
 
     # ************* Create data to convert *******************
