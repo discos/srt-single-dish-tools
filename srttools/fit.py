@@ -728,16 +728,13 @@ def align(xs, ys):
     qs = np.zeros(len(xs) - 1)
     ms = np.zeros(len(xs) - 1)
 
-    result = minimize(
-        _objective_function, [qs, ms], args=[xs, ys], options={"disp": True}
-    )
+    pars0 = np.array([qs, ms]).flatten()
+    result = minimize(_objective_function, pars0, args=[xs, ys], options={"disp": True})
 
     qs = result.x[: len(xs) - 1]
     ms = np.zeros(len(xs) - 1)
 
-    result = minimize(
-        _objective_function, [qs, ms], args=[xs, ys], options={"disp": True}
-    )
+    result = minimize(_objective_function, pars0, args=[xs, ys], options={"disp": True})
 
     qs = result.x[: len(xs) - 1]
     ms = result.x[len(xs) - 1 :]
