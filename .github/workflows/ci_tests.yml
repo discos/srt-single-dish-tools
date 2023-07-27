@@ -19,13 +19,14 @@ jobs:
   ci_tests:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    if: "!(contains(github.event.head_commit.message, '[skip ci]') || contains(github.event.head_commit.message, '[ci skip]'))"
     strategy:
       matrix:
         include:
-          - name: Code style checks
+          - name: Code style checks with black
             os: ubuntu-latest
-            python: 3.x
-            toxenv: codestyle
+            python: '3.10'
+            tox_env: 'black'
 
           - name: Python 3.10 with all optional dependencies and coverage checking
             os: ubuntu-latest
