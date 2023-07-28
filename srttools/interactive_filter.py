@@ -118,9 +118,7 @@ class intervals:
 class DataSelector:
     """Plot and process scans interactively."""
 
-    def __init__(
-        self, xs, ys, ax1, ax2, masks=None, xlabel=None, title=None, test=False
-    ):
+    def __init__(self, xs, ys, ax1, ax2, masks=None, xlabel=None, title=None, test=False):
         """Initialize."""
 
         self.instructions = """
@@ -160,10 +158,7 @@ Actions:
                 list(
                     zip(
                         self.xs.keys(),
-                        [
-                            np.ones(len(self.xs[k]), dtype=bool)
-                            for k in self.xs.keys()
-                        ],
+                        [np.ones(len(self.xs[k]), dtype=bool) for k in self.xs.keys()],
                     )
                 )
             )
@@ -237,9 +232,7 @@ Actions:
         self.lines.append(line)
         plt.draw()
         if self.test:
-            warnings.warn(
-                "I put a baseline mark at {}".format(event.xdata), TestWarning
-            )
+            warnings.warn("I put a baseline mark at {}".format(event.xdata), TestWarning)
 
     def on_key(self, event):
         """Do something when the keyboard is used."""
@@ -422,9 +415,7 @@ Actions:
 
             if len(fitpars) >= 2:
                 model[key] = linear_fun(self.xs[key], *fitpars)
-                self.ax1.plot(
-                    self.xs[key], model[key], color="b", rasterized=True
-                )
+                self.ax1.plot(self.xs[key], model[key], color="b", rasterized=True)
             else:
                 model[key] = np.zeros(len(self.xs[key])) + np.min(self.ys[key])
 
@@ -513,9 +504,7 @@ def select_data(xs, ys, masks=None, title=None, xlabel=None, test=False):
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[1], sharex=ax1)
 
-    datasel = DataSelector(
-        xs, ys, ax1, ax2, masks=masks, title=title, xlabel=xlabel, test=test
-    )
+    datasel = DataSelector(xs, ys, ax1, ax2, masks=masks, title=title, xlabel=xlabel, test=test)
 
     return datasel.info
 

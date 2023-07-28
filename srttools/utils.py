@@ -292,9 +292,7 @@ def interpolate_invalid_points_image(array, zeros_are_invalid=False):
     y1 = yy[~array.mask]
     newarr = array[~array.mask]
 
-    GD1 = interpolate.griddata(
-        (x1, y1), newarr.ravel(), (xx, yy), method="cubic", fill_value=0
-    )
+    GD1 = interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method="cubic", fill_value=0)
     return GD1
 
 
@@ -368,9 +366,7 @@ def get_center_of_mass(im, radius=1, approx=None):
     ymin, ymax = max(0, approx[1] - npix), min(approx[1] + npix, im.shape[1])
     good_x = slice(xmin, xmax)
     good_y = slice(ymin, ymax)
-    cm = np.asarray(
-        scipy.ndimage.measurements.center_of_mass(im[good_x, good_y])
-    )
+    cm = np.asarray(scipy.ndimage.measurements.center_of_mass(im[good_x, good_y]))
     cm[0] += xmin
     cm[1] += ymin
     return cm
@@ -427,9 +423,7 @@ def calculate_zernike_moments(
     if np.all(np.isnan(im)):
         return None
     im_to_analyze = im.copy()
-    im_to_analyze = interpolate_invalid_points_image(
-        im_to_analyze, zeros_are_invalid=True
-    )
+    im_to_analyze = interpolate_invalid_points_image(im_to_analyze, zeros_are_invalid=True)
 
     if cm is None or np.any(np.isnan(cm)):
         cm = get_center_of_mass(im_to_analyze, radius, approx="max")
@@ -448,9 +442,7 @@ def calculate_zernike_moments(
     moments = zernike_moments(im_to_analyze, radius_pix, norder, cm=cm)
     count = 0
     moments_dict = {}
-    description_string = "Zernike moments (cm: {}, radius: {}):\n".format(
-        cm, radius_pix
-    )
+    description_string = "Zernike moments (cm: {}, radius: {}):\n".format(cm, radius_pix)
 
     if HAS_MPL:
         fig = plt.figure("Zernike moments", figsize=(10, 10))
@@ -461,9 +453,7 @@ def calculate_zernike_moments(
         if (x < shape[0]) & (y < shape[1]):
             vmax = im_to_analyze[x, y]
 
-        plt.imshow(
-            im_to_analyze, vmin=0, vmax=vmax, origin="lower", cmap="magma"
-        )
+        plt.imshow(im_to_analyze, vmin=0, vmax=vmax, origin="lower", cmap="magma")
         circle = plt.Circle((y, x), radius_pix, color="r", fill=False)
         plt.gca().add_patch(circle)
         plt.colorbar()
@@ -473,9 +463,7 @@ def calculate_zernike_moments(
         moments_dict[i] = {}
         for j in range(i + 1):
             if (i - j) % 2 == 0:
-                description_string += "{}/{} {:.1e} ".format(
-                    i, j, moments[count]
-                )
+                description_string += "{}/{} {:.1e} ".format(i, j, moments[count])
                 moments_dict[i][j] = moments[count]
                 count += 1
         description_string += "\n"
@@ -505,9 +493,7 @@ def calculate_zernike_moments(
     return moments_dict
 
 
-def calculate_beam_fom(
-    im, cm=None, radius=0.3, label=None, use_log=False, show_plot=False
-):
+def calculate_beam_fom(im, cm=None, radius=0.3, label=None, use_log=False, show_plot=False):
     """Calculate various figures of merit (FOMs) in an image.
 
     These FOMs are useful to single out asymmetries in a beam shape:
@@ -544,9 +530,7 @@ def calculate_beam_fom(
     if np.all(np.isnan(im)):
         return None
     im_to_analyze = im.copy()
-    im_to_analyze = interpolate_invalid_points_image(
-        im_to_analyze, zeros_are_invalid=True
-    )
+    im_to_analyze = interpolate_invalid_points_image(im_to_analyze, zeros_are_invalid=True)
     if cm is None:
         cm = get_center_of_mass(im_to_analyze, radius, approx="max")
     if (
@@ -563,9 +547,7 @@ def calculate_beam_fom(
     radius_pix = int(np.min(im.shape) * radius)
 
     moments_dict = {}
-    description_string = "Figures of Merit (cm: {}, radius: {}):\n".format(
-        cm, radius_pix
-    )
+    description_string = "Figures of Merit (cm: {}, radius: {}):\n".format(cm, radius_pix)
 
     img_max = np.unravel_index(im.argmax(), im.shape)
     npix = int(radius * min(im.shape))
@@ -582,9 +564,7 @@ def calculate_beam_fom(
 
     if HAS_MPL:
         fig = plt.figure("FOM", figsize=(10, 10))
-        gs = GridSpec(
-            2, 2, height_ratios=(1, 3), width_ratios=(3, 1), hspace=0
-        )
+        gs = GridSpec(2, 2, height_ratios=(1, 3), width_ratios=(3, 1), hspace=0)
         img_ax = plt.subplot(gs[1, 0])
         hor_ax = plt.subplot(gs[0, 0], sharex=img_ax)
         ver_ax = plt.subplot(gs[1, 1], sharey=img_ax)
@@ -853,12 +833,8 @@ def look_for_files_or_bust(files, timeout):
             log.info("Not all files were found. Keep going...")
 
     else:
-        missing_files = [
-            fname for exists, fname in zip(all_exist, files) if not exists
-        ]
+        missing_files = [fname for exists, fname in zip(all_exist, files) if not exists]
 
         raise FileNotFoundError(
-            ("One or more of the expected files" " were not found: {}").format(
-                missing_files
-            )
+            ("One or more of the expected files" " were not found: {}").format(missing_files)
         )

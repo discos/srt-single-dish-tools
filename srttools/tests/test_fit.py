@@ -16,12 +16,7 @@ def _test_shape(x):
 
 
 def _setup_spectra(nx, ny):
-    spectrum = (
-        np.vstack(
-            [np.linspace(0 + i, 2 + i, nx) for i in np.linspace(0.0, 4, ny)]
-        )
-        + 1
-    )
+    spectrum = np.vstack([np.linspace(0 + i, 2 + i, nx) for i in np.linspace(0.0, 4, ny)]) + 1
     spectrum_noisy = np.random.normal(spectrum, 0.00001)
     x = np.arange(spectrum.shape[0])
     return x, spectrum_noisy
@@ -29,9 +24,7 @@ def _setup_spectra(nx, ny):
 
 list_of_par_pairs = [
     (2 * n + 1, 2 * m + 1)
-    for (n, m) in zip(
-        np.random.randint(1, 50, 10), np.random.randint(1, 50, 10)
-    )
+    for (n, m) in zip(np.random.randint(1, 50, 10), np.random.randint(1, 50, 10))
 ]
 
 
@@ -45,9 +38,7 @@ class TestStuff(object):
     @pytest.mark.parametrize("nx,ny", list_of_par_pairs)
     def test_detrend_spectroscopic_data_als(self, nx, ny):
         x, spectrum = _setup_spectra(nx, ny)
-        detr, _ = detrend_spectroscopic_data(
-            x, spectrum, kind="als", outlier_purging=False
-        )
+        detr, _ = detrend_spectroscopic_data(x, spectrum, kind="als", outlier_purging=False)
         assert np.allclose(detr, 0.0, atol=1e-2)
 
     @pytest.mark.parametrize("nx,ny", list_of_par_pairs)
@@ -69,14 +60,10 @@ class TestFit(object):
         series[10] = 2
         with pytest.warns(UserWarning) as record:
             series2 = purge_outliers(series)
-        assert np.any(
-            ["Found 1 outliers" in r.message.args[0] for r in record]
-        )
+        assert np.any(["Found 1 outliers" in r.message.args[0] for r in record])
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])
-        np.testing.assert_almost_equal(
-            series2[10], (series[9] + series[11]) / 2
-        )
+        np.testing.assert_almost_equal(series2[10], (series[9] + series[11]) / 2)
 
     def test_outliers2(self):
         """Test that outlier detection works."""
@@ -84,14 +71,10 @@ class TestFit(object):
         series[10] = -2
         with pytest.warns(UserWarning) as record:
             series2 = purge_outliers(series)
-        assert np.any(
-            ["Found 1 outliers" in r.message.args[0] for r in record]
-        )
+        assert np.any(["Found 1 outliers" in r.message.args[0] for r in record])
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])
-        np.testing.assert_almost_equal(
-            series2[10], (series[9] + series[11]) / 2
-        )
+        np.testing.assert_almost_equal(series2[10], (series[9] + series[11]) / 2)
 
     def test_outliers3(self):
         """Test that outlier detection works."""
@@ -100,9 +83,7 @@ class TestFit(object):
         series[11] = 20
         with pytest.warns(UserWarning) as record:
             series2 = purge_outliers(series)
-        assert np.any(
-            ["Found 2 outliers" in r.message.args[0] for r in record]
-        )
+        assert np.any(["Found 2 outliers" in r.message.args[0] for r in record])
 
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[12:] == series[12:])
@@ -117,14 +98,10 @@ class TestFit(object):
         series[10] = 2
         with pytest.warns(UserWarning) as record:
             series2 = purge_outliers(series)
-        assert np.any(
-            ["Found 1 outliers" in r.message.args[0] for r in record]
-        )
+        assert np.any(["Found 1 outliers" in r.message.args[0] for r in record])
         assert np.all(series2[:10] == series[:10])
         assert np.all(series2[11:] == series[11:])
-        np.testing.assert_almost_equal(
-            series2[10], (series[9] + series[11]) / 2
-        )
+        np.testing.assert_almost_equal(series2[10], (series[9] + series[11]) / 2)
 
     # For some reasons this sometimes doesn't work
     @pytest.mark.xfail(strict=False)
@@ -136,9 +113,7 @@ class TestFit(object):
             series2 = purge_outliers(series, plot=True)
         assert np.any(["outliers" in r.message.args[0] for r in record])
         assert np.all(series2[:15] == series[:15])
-        np.testing.assert_almost_equal(
-            series2[15], (series[14] + series[16]) / 2
-        )
+        np.testing.assert_almost_equal(series2[15], (series[14] + series[16]) / 2)
 
     def test_fit_baseline_plus_bell(self):
         """Test that the fit procedure works."""
@@ -223,12 +198,7 @@ class TestFit(object):
         y = np.zeros(10)
         with pytest.warns(UserWarning) as record:
             _, err = linear_fit(x, y, [0, 0], return_err=True)
-            assert np.any(
-                [
-                    "return_err not implemented" in r.message.args[0]
-                    for r in record
-                ]
-            )
+            assert np.any(["return_err not implemented" in r.message.args[0] for r in record])
         assert err is None
 
     def test_offset_fit_err_not_implemented(self):
@@ -236,10 +206,5 @@ class TestFit(object):
         y = np.zeros(10)
         with pytest.warns(UserWarning) as record:
             _, err = offset_fit(x, y, 0, return_err=True)
-            assert np.any(
-                [
-                    "return_err not implemented" in r.message.args[0]
-                    for r in record
-                ]
-            )
+            assert np.any(["return_err not implemented" in r.message.args[0] for r in record])
         assert err is None

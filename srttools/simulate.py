@@ -110,7 +110,7 @@ def _apply_spectrum_to_data(spec_func, counts, nbin, bw=1000):
 def _standard_source_spectrum(counts, nbin, bw=1000, sigma=1):
     def spec_func(f):
         f = f - bw / 2
-        return np.exp(-(f ** 2) / (2 * sigma ** 2))
+        return np.exp(-(f**2) / (2 * sigma**2))
 
     return _apply_spectrum_to_data(spec_func, counts, nbin, bw)
 
@@ -173,7 +173,7 @@ def _default_flat_shape(x):
 @jit(nopython=True)
 def _2d_gauss(x, y, sigma=2.5 / 60.0):
     """A Gaussian beam"""
-    return np.exp(-(x ** 2 + y ** 2) / (2 * sigma ** 2))
+    return np.exp(-(x**2 + y**2) / (2 * sigma**2))
 
 
 @jit(nopython=True)
@@ -539,14 +539,10 @@ def save_scan(
         counts_to_K = counts_to_K * np.ones(len(list(channels.keys())))
     # If it's a list, make it into a dict
     if not hasattr(counts_to_K, "keys"):
-        counts_to_K = dict(
-            [(ch, counts_to_K[i]) for i, ch in enumerate(channels.keys())]
-        )
+        counts_to_K = dict([(ch, counts_to_K[i]) for i, ch in enumerate(channels.keys())])
 
     curdir = os.path.abspath(os.path.dirname(__file__))
-    template = os.path.abspath(
-        os.path.join(curdir, "data", "scan_template.fits")
-    )
+    template = os.path.abspath(os.path.join(curdir, "data", "scan_template.fits"))
     lchdulist = fits.open(template)
     datahdu = lchdulist["DATA TABLE"]
     temphdu = lchdulist["ANTENNA TEMP TABLE"]
@@ -568,13 +564,9 @@ def save_scan(
     data_table_data.remove_column("Ch0")
     data_table_data.remove_column("Ch1")
 
-    obstimes = Time(
-        (times / 86400 + _REFERENCE_MJD) * u.day, format="mjd", scale="utc"
-    )
+    obstimes = Time((times / 86400 + _REFERENCE_MJD) * u.day, format="mjd", scale="utc")
 
-    coords = SkyCoord(
-        ra, dec, unit=u.degree, location=locations["srt"], obstime=obstimes
-    )
+    coords = SkyCoord(ra, dec, unit=u.degree, location=locations["srt"], obstime=obstimes)
 
     altaz = coords.altaz
     el = altaz.alt.rad
@@ -669,18 +661,14 @@ def _create_baseline(x, baseline_kind="flat"):
         mmin, mmax = 0, 0
         qmin, qmax = 0, 0
         stochastic_amp = float(baseline_kind)
-    elif isinstance(baseline_kind, Iterable) and not isinstance(
-        baseline_kind, str
-    ):
+    elif isinstance(baseline_kind, Iterable) and not isinstance(baseline_kind, str):
         m = _single_value_as_tuple(baseline_kind[0], nvals=2)
         q = _single_value_as_tuple(baseline_kind[1], nvals=2)
         mmin, mmax = m[0], m[1]
         qmin, qmax = q[0], q[1]
         stochastic_amp = float(baseline_kind[2])
     else:
-        raise ValueError(
-            "baseline has to be 'flat', 'slope', 'messy' or a " "number"
-        )
+        raise ValueError("baseline has to be 'flat', 'slope', 'messy' or a " "number")
 
     n = len(x)
     m = ra.uniform(mmin, mmax)
@@ -706,9 +694,7 @@ def simulate_sun(**kwargs):
     mean_dec = coords.dec.to(u.deg).value
     count_map = kwargs.pop("count_map", _sun_map)
 
-    return simulate_map(
-        mean_ra=mean_ra, mean_dec=mean_dec, count_map=count_map, **kwargs
-    )
+    return simulate_map(mean_ra=mean_ra, mean_dec=mean_dec, count_map=count_map, **kwargs)
 
 
 def _sun_map(x, y, sigma=1011 / 3600):
@@ -717,7 +703,7 @@ def _sun_map(x, y, sigma=1011 / 3600):
 
     # It will raise ValueError when they're not compatible
     map = np.zeros_like(x) * np.zeros_like(y)
-    map[x ** 2 + y ** 2 < sigma ** 2] = 100.0
+    map[x**2 + y**2 < sigma**2] = 100.0
 
     return map
 
@@ -742,7 +728,6 @@ def simulate_map(
     debug=False,
     start_time=0,
 ):
-
     """Simulate a map.
 
     Parameters
@@ -791,12 +776,8 @@ def simulate_map(
     times_ra = np.arange(nbins_ra) * dt + start_time
     times_dec = np.arange(nbins_dec) * dt + start_time
 
-    ra_array = (
-        np.arange(-nbins_ra / 2, nbins_ra / 2) / nbins_ra * length_ra / 60
-    )
-    dec_array = (
-        np.arange(-nbins_dec / 2, nbins_dec / 2) / nbins_dec * length_dec / 60
-    )
+    ra_array = np.arange(-nbins_ra / 2, nbins_ra / 2) / nbins_ra * length_ra / 60
+    dec_array = np.arange(-nbins_dec / 2, nbins_dec / 2) / nbins_dec * length_dec / 60
     # In degrees!
     if width_dec is None:
         width_dec = length_dec
@@ -806,35 +787,18 @@ def simulate_map(
     if HAS_MPL and debug:
         fig = plt.figure()
 
-    delta_decs = (
-        np.arange(-width_dec / 2, width_dec / 2 + spacing, spacing) / 60
-    )
+    delta_decs = np.arange(-width_dec / 2, width_dec / 2 + spacing, spacing) / 60
     log.info("Simulating dec scans...")
     for i_d, delta_dec in enumerate(tqdm(delta_decs)):
-
         start_dec = mean_dec + delta_dec
 
-        counts_clean = _standard_source_spectrum(
-            count_map(ra_array, delta_dec), nbin=nbin
-        )
+        counts_clean = _standard_source_spectrum(count_map(ra_array, delta_dec), nbin=nbin)
 
-        baseline0 = _standard_bkg_spectrum(
-            _create_baseline(ra_array, baseline), nbin=nbin
-        )
-        baseline1 = _standard_bkg_spectrum(
-            _create_baseline(ra_array, baseline), nbin=nbin
-        )
+        baseline0 = _standard_bkg_spectrum(_create_baseline(ra_array, baseline), nbin=nbin)
+        baseline1 = _standard_bkg_spectrum(_create_baseline(ra_array, baseline), nbin=nbin)
 
-        counts0 = (
-            counts_clean
-            + ra.normal(0, noise_amplitude, counts_clean.shape)
-            + baseline0
-        )
-        counts1 = (
-            counts_clean
-            + ra.normal(0, noise_amplitude, counts_clean.shape)
-            + baseline1
-        )
+        counts0 = counts_clean + ra.normal(0, noise_amplitude, counts_clean.shape) + baseline0
+        counts1 = counts_clean + ra.normal(0, noise_amplitude, counts_clean.shape) + baseline1
 
         actual_ra = mean_ra + ra_array / np.cos(np.radians(start_dec))
 
@@ -869,27 +833,13 @@ def simulate_map(
     for i_r, delta_ra in enumerate(tqdm(delta_ras)):
         start_ra = delta_ra / np.cos(np.radians(mean_dec)) + mean_ra
 
-        counts_clean = _standard_source_spectrum(
-            count_map(delta_ra, dec_array), nbin=nbin
-        )
+        counts_clean = _standard_source_spectrum(count_map(delta_ra, dec_array), nbin=nbin)
 
-        baseline0 = _standard_bkg_spectrum(
-            _create_baseline(dec_array, baseline), nbin=nbin
-        )
-        baseline1 = _standard_bkg_spectrum(
-            _create_baseline(dec_array, baseline), nbin=nbin
-        )
+        baseline0 = _standard_bkg_spectrum(_create_baseline(dec_array, baseline), nbin=nbin)
+        baseline1 = _standard_bkg_spectrum(_create_baseline(dec_array, baseline), nbin=nbin)
 
-        counts0 = (
-            counts_clean
-            + ra.normal(0, noise_amplitude, counts_clean.shape)
-            + baseline0
-        )
-        counts1 = (
-            counts_clean
-            + ra.normal(0, noise_amplitude, counts_clean.shape)
-            + baseline1
-        )
+        counts0 = counts_clean + ra.normal(0, noise_amplitude, counts_clean.shape) + baseline0
+        counts1 = counts_clean + ra.normal(0, noise_amplitude, counts_clean.shape) + baseline1
 
         if i_r % 2 != 0:
             dec_array = dec_array[::-1]
@@ -943,9 +893,7 @@ def main_simulate(args=None):
     description = "Simulate a single scan or a map with a point source."
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument(
-        "-s", "--source-flux", type=float, default=1, help="Source flux in Jy"
-    )
+    parser.add_argument("-s", "--source-flux", type=float, default=1, help="Source flux in Jy")
 
     parser.add_argument(
         "-n",
@@ -1052,16 +1000,10 @@ def main_simulate(args=None):
     args = parser.parse_args(args)
 
     def local_gauss_src_func(x, y):
-        return (
-            args.source_flux
-            * DEFAULT_PEAK_COUNTS
-            * _2d_gauss(x, y, sigma=args.beam_width / 60)
-        )
+        return args.source_flux * DEFAULT_PEAK_COUNTS * _2d_gauss(x, y, sigma=args.beam_width / 60)
 
     def calibrator_scan_func(x):
-        return DEFAULT_PEAK_COUNTS * _2d_gauss(
-            x, 0, sigma=args.beam_width / 60
-        )
+        return DEFAULT_PEAK_COUNTS * _2d_gauss(x, 0, sigma=args.beam_width / 60)
 
     if not args.no_cal:
         cal1 = os.path.join(args.outdir_root, "calibrator1")

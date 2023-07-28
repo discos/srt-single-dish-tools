@@ -22,8 +22,7 @@ try:
     from srttools.monitor.webserver import WebServer
 except ImportError:
     warnings.warn(
-        "To use SDTmonitor, you need to install watchdog: \n"
-        "\n   > pip install watchdog"
+        "To use SDTmonitor, you need to install watchdog: \n" "\n   > pip install watchdog"
     )
     PatternMatchingEventHandler = object
 
@@ -37,9 +36,7 @@ except ImportError:
 
 
 def create_dummy_config(filename="monitor_config.ini", extension="png"):
-    config_str = """[local]\n[analysis]\n[debugging]\ndebug_file_format : {}""".format(
-        extension
-    )
+    config_str = """[local]\n[analysis]\n[debugging]\ndebug_file_format : {}""".format(extension)
     with open(filename, "w") as fobj:
         print(config_str, file=fobj)
     return filename
@@ -52,9 +49,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         "*/*.fitstemp",
         "*/summary.fits",
     ]
-    patterns = ["*/*.fits"] + [
-        "*/*.fits{}".format(x) for x in range(MAX_FEEDS)
-    ]
+    patterns = ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 
     def __init__(self, observer):
         self._observer = observer
@@ -184,9 +179,7 @@ class Monitor(object):
                 for key in [key for key in paths if not os.path.exists(key)]:
                     del paths[key]
                 for oldfile in oldfiles:
-                    if oldfile not in paths.values() and os.path.exists(
-                        oldfile
-                    ):
+                    if oldfile not in paths.values() and os.path.exists(oldfile):
                         os.remove(oldfile)
                         to_update.append(oldfile)
                 for oldfile, newfile in paths.items():
@@ -258,9 +251,9 @@ class Monitor(object):
             offset = 2 * int(feed_idx)
 
         paths = {
-            "{}{}_{}.{}".format(
-                root, feed_idx, i, self._extension
-            ): "latest_{}.{}".format(i + offset, self._extension)
+            "{}{}_{}.{}".format(root, feed_idx, i, self._extension): "latest_{}.{}".format(
+                i + offset, self._extension
+            )
             for i in range(2 if feed_idx else MAX_FEEDS * 2)
         }
 
@@ -289,17 +282,9 @@ class Monitor(object):
         elif p.exitcode == 1:  # Aborted
             log.info("Aborted file {}, pid {}".format(infile, p.pid))
         elif p.exitcode == 15:  # Forcefully terminated
-            log.info(
-                "Forcefully terminated process {}, file {}".format(
-                    p.pid, infile
-                )
-            )
+            log.info("Forcefully terminated process {}, file {}".format(p.pid, infile))
         else:  # Unexpected code
-            log.info(
-                "Process {} exited with unexpected code {}".format(
-                    p.pid, p.exitcode
-                )
-            )
+            log.info("Process {} exited with unexpected code {}".format(p.pid, p.exitcode))
 
         # Eventually notify that the queue is not full anymore
         try:

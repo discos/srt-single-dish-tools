@@ -28,9 +28,7 @@ def main_monitor(args=None):
                 raise ValueError
         except (ValueError, TypeError):
             raise argparse.ArgumentTypeError(
-                "Choose a number of processes between {} and {}.".format(
-                    min_proc, max_proc
-                )
+                "Choose a number of processes between {} and {}.".format(min_proc, max_proc)
             )
 
     def config_file(filename):
@@ -40,26 +38,20 @@ def main_monitor(args=None):
             return filename
         else:
             raise argparse.ArgumentTypeError(
-                "Provided configuration file '{}' does not exist!".format(
-                    filename
-                )
+                "Provided configuration file '{}' does not exist!".format(filename)
             )
 
     def port_available(port):
         try:
             port = int(port)
         except ValueError:
-            raise argparse.ArgumentTypeError(
-                "Argument `port` should be an integer!"
-            )
+            raise argparse.ArgumentTypeError("Argument `port` should be an integer!")
         import socket
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if s.connect_ex(("localhost", port)) == 0:
                 raise argparse.ArgumentTypeError(
-                    "Port {} is already being used, choose a different one!".format(
-                        port
-                    )
+                    "Port {} is already being used, choose a different one!".format(port)
                 )
         return port
 

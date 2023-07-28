@@ -27,7 +27,6 @@ def logger():
 class TestInspect(object):
     @classmethod
     def setup_class(klass):
-
         klass.curdir = os.path.dirname(__file__)
 
         info = Table()
@@ -65,10 +64,9 @@ class TestInspect(object):
         backends = ["SARDARA"] * 13
         frequency = [7000] * 3 + [20000] * 4 + [7000] * 3 + [20000] * 3
         bandwidth = [1000] * 3 + [500] * 4 + [1000] * 3 + [500] * 3
-        sources = (
-            "W44,3C48,3C295,3C157,3C157,3C48,3C48,"
-            "W44,3C48,3C48,W44,3C295,3C48"
-        ).split(",")
+        sources = ("W44,3C48,3C295,3C157,3C157,3C48,3C48," "W44,3C48,3C48,W44,3C295,3C48").split(
+            ","
+        )
         for i, t in enumerate(times):
             info.add_row(
                 [
@@ -94,9 +92,7 @@ class TestInspect(object):
         assert os.path.exists("CCB_SARDARA_W44_Obs1.ini")
 
     def test_inspect_observations01(self):
-        assert self.groups["CCB,SARDARA"]["W44"]["Obs0"]["Src"] == [
-            "W44_0.0_CCB"
-        ]
+        assert self.groups["CCB,SARDARA"]["W44"]["Obs0"]["Src"] == ["W44_0.0_CCB"]
 
     def test_inspect_observations02(self):
         assert self.groups["CCB,SARDARA"]["W44"]["Obs0"]["Cal"] == [
@@ -117,9 +113,7 @@ class TestInspect(object):
         ]
 
     def test_inspect_observations05(self):
-        assert self.groups["CCB,SARDARA"]["W44"]["Obs1"]["Src"] == [
-            "W44_0.7_CCB"
-        ]
+        assert self.groups["CCB,SARDARA"]["W44"]["Obs1"]["Src"] == ["W44_0.7_CCB"]
 
     def test_inspect_observations06(self):
         assert self.groups["CCB,SARDARA"]["W44"]["Obs1"]["Cal"] == [
@@ -128,9 +122,7 @@ class TestInspect(object):
         ]
 
     def test_inspect_observations07(self):
-        assert self.groups["KKG,SARDARA"]["W44"]["Obs0"]["Src"] == [
-            "W44_1.0_KKG"
-        ]
+        assert self.groups["KKG,SARDARA"]["W44"]["Obs0"]["Src"] == ["W44_1.0_KKG"]
 
     def test_inspect_observations08(self):
         assert self.groups["KKG,SARDARA"]["W44"]["Obs0"]["Cal"] == [
@@ -143,19 +135,13 @@ class TestInspect(object):
         config = ConfigParser()
         config.read("CCB_SARDARA_W44_Obs0.ini")
         entry = config.get("analysis", "calibrator_directories")
-        assert (
-            entry.strip().split("\n")
-            == self.groups["CCB,SARDARA"]["W44"]["Obs0"]["Cal"]
-        )
+        assert entry.strip().split("\n") == self.groups["CCB,SARDARA"]["W44"]["Obs0"]["Cal"]
 
     def test_inspect_observations10(self):
         config = ConfigParser()
         config.read("KKG_SARDARA_3C157_Obs0.ini")
         entry = config.get("analysis", "list_of_directories")
-        assert (
-            entry.strip().split("\n")
-            == self.groups["KKG,SARDARA"]["3C157"]["Obs0"]["Src"]
-        )
+        assert entry.strip().split("\n") == self.groups["KKG,SARDARA"]["3C157"]["Obs0"]["Src"]
 
     @classmethod
     def teardown_class(cls):
@@ -169,7 +155,6 @@ class TestInspect(object):
 class TestRun(object):
     @classmethod
     def setup_class(klass):
-
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
 
@@ -177,17 +162,12 @@ class TestRun(object):
         sp.check_call("SDTinspect -h".split(" "))
 
     def test_run_dump_default(self):
-        main_inspector(
-            glob.glob(os.path.join(self.datadir, "gauss_*/")) + ["-d"]
-        )
+        main_inspector(glob.glob(os.path.join(self.datadir, "gauss_*/")) + ["-d"])
         assert os.path.exists("CCB_TP_Dummy_Obs0.ini")
         assert os.path.exists("KKG_TP_Dummy_Obs0.ini")
 
     def test_run_dump(self):
-        main_inspector(
-            glob.glob(os.path.join(self.datadir, "gauss_*/"))
-            + ["-g", "Backend", "-d"]
-        )
+        main_inspector(glob.glob(os.path.join(self.datadir, "gauss_*/")) + ["-g", "Backend", "-d"])
         assert os.path.exists("TP_Dummy_Obs0.ini")
 
     def test_run_nodump(self, capsys):

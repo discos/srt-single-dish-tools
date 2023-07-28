@@ -136,12 +136,8 @@ class TestScanSet(object):
 
         klass.obsdir_ra = os.path.join(klass.datadir, "sim", "gauss_ra")
         klass.obsdir_dec = os.path.join(klass.datadir, "sim", "gauss_dec")
-        klass.prodir_ra = os.path.join(
-            klass.datadir, "sim", "test_image", "gauss_ra"
-        )
-        klass.prodir_dec = os.path.join(
-            klass.datadir, "sim", "test_image", "gauss_dec"
-        )
+        klass.prodir_ra = os.path.join(klass.datadir, "sim", "test_image", "gauss_ra")
+        klass.prodir_dec = os.path.join(klass.datadir, "sim", "test_image", "gauss_dec")
         klass.config_file = os.path.abspath(
             os.path.join(klass.sim_dir, "test_config_sim_small.ini")
         )
@@ -149,9 +145,7 @@ class TestScanSet(object):
 
         defective_dir = os.path.join(klass.sim_dir, "defective")
         if not os.path.exists(defective_dir):
-            shutil.copytree(
-                os.path.join(klass.datadir, "calibrators"), defective_dir
-            )
+            shutil.copytree(os.path.join(klass.datadir, "calibrators"), defective_dir)
 
         # Copy skydip scan
         skydip_dir = os.path.join(klass.datadir, "gauss_skydip")
@@ -160,21 +154,15 @@ class TestScanSet(object):
             shutil.copytree(skydip_dir, new_skydip_dir)
 
         caltable = CalibratorTable()
-        caltable.from_scans(
-            glob.glob(os.path.join(klass.caldir, "*.fits")), debug=True
-        )
+        caltable.from_scans(glob.glob(os.path.join(klass.caldir, "*.fits")), debug=True)
         caltable.update()
 
         klass.calfile = os.path.join(klass.datadir, "calibrators.hdf5")
         caltable.write(klass.calfile, overwrite=True)
 
         klass.config = read_config(klass.config_file)
-        klass.raonly = os.path.abspath(
-            os.path.join(klass.datadir, "test_raonly.ini")
-        )
-        klass.deconly = os.path.abspath(
-            os.path.join(klass.datadir, "test_deconly.ini")
-        )
+        klass.raonly = os.path.abspath(os.path.join(klass.datadir, "test_raonly.ini"))
+        klass.deconly = os.path.abspath(os.path.join(klass.datadir, "test_deconly.ini"))
 
         if HAS_PYREGION:
             excluded_xy, excluded_radec = _excluded_regions_from_args(
@@ -203,12 +191,8 @@ class TestScanSet(object):
             basename = os.path.splitext(os.path.basename(scan_str))[0]
             return int(basename.replace("Dec", "").replace("Ra", ""))
 
-        klass.dec_scans = dict(
-            [(scan_no(s), s) for s in klass.scanset.scan_list if "Dec" in s]
-        )
-        klass.ra_scans = dict(
-            [(scan_no(s), s) for s in klass.scanset.scan_list if "Ra" in s]
-        )
+        klass.dec_scans = dict([(scan_no(s), s) for s in klass.scanset.scan_list if "Dec" in s])
+        klass.ra_scans = dict([(scan_no(s), s) for s in klass.scanset.scan_list if "Ra" in s])
         klass.n_ra_scans = max(list(klass.ra_scans.keys()))
         klass.n_dec_scans = max(list(klass.dec_scans.keys()))
 
@@ -227,9 +211,7 @@ class TestScanSet(object):
             assert np.all(scanset.meta[k] == self.scanset.meta[k])
         for chan in scanset.chan_columns:
             for k in scanset[chan].meta.keys():
-                assert np.all(
-                    scanset[chan].meta[k] == self.scanset[chan].meta[k]
-                )
+                assert np.all(scanset[chan].meta[k] == self.scanset[chan].meta[k])
 
         assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
         assert scanset.scan_list == self.scanset.scan_list
@@ -256,9 +238,7 @@ class TestScanSet(object):
     def test_preprocess_single_files(self):
         files = glob.glob(os.path.join(self.obsdir_ra, "*.fits"))
 
-        main_preprocess(
-            files[:2] + ["--debug", "-c", self.config_file, "--plot"]
-        )
+        main_preprocess(files[:2] + ["--debug", "-c", self.config_file, "--plot"])
         for file in files[:2]:
             # I used debug_file_format : png in the config
             if HAS_MPL:
@@ -277,9 +257,7 @@ class TestScanSet(object):
     def test_preprocess_invalid(self):
         with pytest.warns(UserWarning) as record:
             main_preprocess([self.config_file])
-        assert np.any(
-            ["is not in a known format" in r.message.args[0] for r in record]
-        )
+        assert np.any(["is not in a known format" in r.message.args[0] for r in record])
         with pytest.warns(UserWarning) as record:
             main_preprocess(["asdfasldkfjw"])
         assert np.any(["does not exist" in r.message.args[0] for r in record])
@@ -342,9 +320,7 @@ class TestScanSet(object):
         scanset.barycenter_times()
 
         assert "barytime" in scanset.colnames
-        assert np.all(
-            np.abs(scanset["barytime"] - scanset["time"]) < 9 * 60 / 86400
-        )
+        assert np.all(np.abs(scanset["barytime"] - scanset["time"]) < 9 * 60 / 86400)
 
     def test_apply_bad_user_filt(self):
         scanset = ScanSet("test.hdf5")
@@ -486,17 +462,13 @@ class TestScanSet(object):
             os.unlink("test_scan_list.txt")
             os.unlink("bubu.hdf5")
             for d in klass.config["list_of_directories"]:
-                hfiles = glob.glob(
-                    os.path.join(klass.config["datadir"], d, "*.hdf5")
-                )
+                hfiles = glob.glob(os.path.join(klass.config["datadir"], d, "*.hdf5"))
                 for h in hfiles:
                     os.unlink(h)
             out_iter_files = glob.glob("out_iter_*")
             for o in out_iter_files:
                 os.unlink(o)
-            out_fits_files = glob.glob(
-                os.path.join(klass.config["datadir"], "test_config*.fits")
-            )
+            out_fits_files = glob.glob(os.path.join(klass.config["datadir"], "test_config*.fits"))
             out_hdf5_files = glob.glob(
                 os.path.join(klass.config["productdir"], "sim", "*/", "*.hdf5")
             )
@@ -514,27 +486,19 @@ class TestLargeMap:
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
         klass.sim_dir = os.path.join(klass.datadir, "sim")
-        klass.prodir_ra = os.path.join(
-            klass.datadir, "sim", "test_image", "gauss_ra"
-        )
-        klass.prodir_dec = os.path.join(
-            klass.datadir, "sim", "test_image", "gauss_dec"
-        )
+        klass.prodir_ra = os.path.join(klass.datadir, "sim", "test_image", "gauss_ra")
+        klass.prodir_dec = os.path.join(klass.datadir, "sim", "test_image", "gauss_dec")
 
         klass.obsdir_ra = os.path.join(klass.datadir, "sim", "gauss_ra")
         klass.obsdir_dec = os.path.join(klass.datadir, "sim", "gauss_dec")
-        klass.config_file = os.path.abspath(
-            os.path.join(klass.sim_dir, "test_config_sim.ini")
-        )
+        klass.config_file = os.path.abspath(os.path.join(klass.sim_dir, "test_config_sim.ini"))
         klass.caldir = os.path.join(klass.datadir, "sim", "calibration")
         klass.simulated_flux = 0.25
         # First off, simulate a beamed observation  -------
 
         defective_dir = os.path.join(klass.sim_dir, "defective")
         if not os.path.exists(defective_dir):
-            shutil.copytree(
-                os.path.join(klass.datadir, "calibrators"), defective_dir
-            )
+            shutil.copytree(os.path.join(klass.datadir, "calibrators"), defective_dir)
 
         # Copy skydip scan
         skydip_dir = os.path.join(klass.datadir, "gauss_skydip")
@@ -542,21 +506,15 @@ class TestLargeMap:
         if os.path.exists(skydip_dir) and not os.path.exists(new_skydip_dir):
             shutil.copytree(skydip_dir, new_skydip_dir)
         caltable = CalibratorTable()
-        caltable.from_scans(
-            glob.glob(os.path.join(klass.caldir, "*.fits")), debug=False
-        )
+        caltable.from_scans(glob.glob(os.path.join(klass.caldir, "*.fits")), debug=False)
 
         caltable.update()
         klass.calfile = os.path.join(klass.datadir, "calibrators.hdf5")
         caltable.write(klass.calfile, overwrite=True)
 
         klass.config = read_config(klass.config_file)
-        klass.raonly = os.path.abspath(
-            os.path.join(klass.datadir, "test_raonly.ini")
-        )
-        klass.deconly = os.path.abspath(
-            os.path.join(klass.datadir, "test_deconly.ini")
-        )
+        klass.raonly = os.path.abspath(os.path.join(klass.datadir, "test_raonly.ini"))
+        klass.deconly = os.path.abspath(os.path.join(klass.datadir, "test_deconly.ini"))
 
         if HAS_PYREGION:
             excluded_xy, excluded_radec = _excluded_regions_from_args(
@@ -585,12 +543,8 @@ class TestLargeMap:
             basename = os.path.splitext(os.path.basename(scan_str))[0]
             return int(basename.replace("Dec", "").replace("Ra", ""))
 
-        klass.dec_scans = dict(
-            [(scan_no(s), s) for s in klass.scanset.scan_list if "Dec" in s]
-        )
-        klass.ra_scans = dict(
-            [(scan_no(s), s) for s in klass.scanset.scan_list if "Ra" in s]
-        )
+        klass.dec_scans = dict([(scan_no(s), s) for s in klass.scanset.scan_list if "Dec" in s])
+        klass.ra_scans = dict([(scan_no(s), s) for s in klass.scanset.scan_list if "Ra" in s])
         klass.n_ra_scans = max(list(klass.ra_scans.keys()))
         klass.n_dec_scans = max(list(klass.dec_scans.keys()))
 
@@ -650,110 +604,78 @@ class TestLargeMap:
         center = img.shape[0] // 2, img.shape[1] // 2
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
-        good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (
-            shortest_side // 4
-        ) ** 2
+        good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (shortest_side // 4) ** 2
         rtol = 0.2
 
-        assert np.isclose(
-            np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=rtol
-        )
+        assert np.isclose(np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=rtol)
 
     def test_destripe(self):
         """Test image production."""
 
         scanset = ScanSet("test.hdf5")
 
-        scanset.destripe_images(
-            calibration=self.calfile, map_unit="Jy/pixel", npix_tol=10
-        )
+        scanset.destripe_images(calibration=self.calfile, map_unit="Jy/pixel", npix_tol=10)
         images = scanset.images
         img = images["Feed0_RCP"]
         center = img.shape[0] // 2, img.shape[1] // 2
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
-        good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (
-            shortest_side // 4
-        ) ** 2
-        assert np.isclose(
-            np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=0.1
-        )
+        good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (shortest_side // 4) ** 2
+        assert np.isclose(np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=0.1)
 
     def test_destripe_scrunch(self):
         """Test image production."""
 
         scanset = ScanSet("test.hdf5")
 
-        scanset.destripe_images(
-            calibration=self.calfile, map_unit="Jy/pixel", calibrate_scans=True
-        )
+        scanset.destripe_images(calibration=self.calfile, map_unit="Jy/pixel", calibrate_scans=True)
         scanset.scrunch_images()
         images = scanset.images
         img = images["TOTAL"]
         center = img.shape[0] // 2, img.shape[1] // 2
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
-        good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (
-            shortest_side // 4
-        ) ** 2
+        good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (shortest_side // 4) ** 2
 
-        assert np.isclose(
-            np.sum(images["TOTAL"][good]), self.simulated_flux, rtol=0.1
-        )
+        assert np.isclose(np.sum(images["TOTAL"][good]), self.simulated_flux, rtol=0.1)
 
     def test_calibrate_image_pixel(self):
         scanset = ScanSet("test.hdf5")
 
-        images = scanset.calculate_images(
-            calibration=self.calfile, map_unit="Jy/pixel"
-        )
+        images = scanset.calculate_images(calibration=self.calfile, map_unit="Jy/pixel")
 
         img = images["Feed0_RCP"]
         center = img.shape[0] // 2, img.shape[1] // 2
         shortest_side = np.min(img.shape)
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
-        good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (
-            shortest_side // 4
-        ) ** 2
+        good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (shortest_side // 4) ** 2
         rtol = 0.1 if HAS_STATSM else 0.15
 
-        assert np.isclose(
-            np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=rtol
-        )
+        assert np.isclose(np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=rtol)
 
     def test_calibrate_image_beam(self):
         scanset = ScanSet("test.hdf5")
 
         scanset.calculate_images()
-        images = scanset.calculate_images(
-            calibration=self.calfile, map_unit="Jy/beam"
-        )
+        images = scanset.calculate_images(calibration=self.calfile, map_unit="Jy/beam")
 
-        assert np.allclose(
-            np.max(images["Feed0_RCP"]), self.simulated_flux, atol=0.1
-        )
+        assert np.allclose(np.max(images["Feed0_RCP"]), self.simulated_flux, atol=0.1)
 
     def test_calibrate_image_junk_unit_fails(self):
         scanset = ScanSet("test.hdf5")
 
         scanset.calculate_images()
         with pytest.raises(ValueError) as excinfo:
-            images = scanset.calculate_images(
-                calibration=self.calfile, map_unit="junk"
-            )
+            images = scanset.calculate_images(calibration=self.calfile, map_unit="junk")
             assert "Unit for calibration not recognized" in str(excinfo.value)
 
     def test_calibrate_image_sr(self):
         scanset = ScanSet("test.hdf5")
 
         scanset.calculate_images()
-        images = scanset.calculate_images(
-            calibration=self.calfile, map_unit="Jy/sr"
-        )
+        images = scanset.calculate_images(calibration=self.calfile, map_unit="Jy/sr")
 
-        images_pix = scanset.calculate_images(
-            calibration=self.calfile, map_unit="Jy/pixel"
-        )
+        images_pix = scanset.calculate_images(calibration=self.calfile, map_unit="Jy/pixel")
 
         pixel_area = scanset.meta["pixel_size"] ** 2
         assert np.allclose(
@@ -764,34 +686,24 @@ class TestLargeMap:
 
     def test_calibrate_scanset_pixel(self):
         scanset = ScanSet("test.hdf5")
-        images_standard = scanset.calculate_images(
-            calibration=self.calfile, map_unit="Jy/pixel"
-        )
+        images_standard = scanset.calculate_images(calibration=self.calfile, map_unit="Jy/pixel")
         images = scanset.calculate_images(
             calibration=self.calfile, map_unit="Jy/pixel", calibrate_scans=True
         )
-        assert np.allclose(
-            images["Feed0_RCP"], images_standard["Feed0_RCP"], rtol=0.05
-        )
+        assert np.allclose(images["Feed0_RCP"], images_standard["Feed0_RCP"], rtol=0.05)
 
     def test_calibrate_scanset_beam(self):
         scanset = ScanSet("test.hdf5")
-        images_standard = scanset.calculate_images(
-            calibration=self.calfile, map_unit="Jy/beam"
-        )
+        images_standard = scanset.calculate_images(calibration=self.calfile, map_unit="Jy/beam")
         images = scanset.calculate_images(
             calibration=self.calfile, map_unit="Jy/beam", calibrate_scans=True
         )
 
-        assert np.allclose(
-            images["Feed0_RCP"], images_standard["Feed0_RCP"], atol=1e-3
-        )
+        assert np.allclose(images["Feed0_RCP"], images_standard["Feed0_RCP"], atol=1e-3)
 
     def test_calibrate_scanset_sr(self):
         scanset = ScanSet("test.hdf5")
-        images_standard = scanset.calculate_images(
-            calibration=self.calfile, map_unit="Jy/sr"
-        )
+        images_standard = scanset.calculate_images(calibration=self.calfile, map_unit="Jy/sr")
         images = scanset.calculate_images(
             calibration=self.calfile, map_unit="Jy/sr", calibrate_scans=True
         )
@@ -870,14 +782,10 @@ class TestLargeMap:
             xsize // 2, ysize - 1, test=True
         )
 
-        dec_scan = os.path.join(
-            self.obsdir_dec, self.dec_scans[self.n_dec_scans // 2]
-        )
+        dec_scan = os.path.join(self.obsdir_dec, self.dec_scans[self.n_dec_scans // 2])
         assert dec_scan in coord
         assert coord[dec_scan] == "dec"
-        ra_scan = os.path.join(
-            self.obsdir_ra, self.ra_scans[self.n_ra_scans - 1]
-        )
+        ra_scan = os.path.join(self.obsdir_ra, self.ra_scans[self.n_ra_scans - 1])
         assert ra_scan in coord
         assert coord[ra_scan] == "ra"
 
@@ -888,13 +796,9 @@ class TestLargeMap:
 
         images = scanset.calculate_images()
         ysize, xsize = images["Feed0_RCP"].shape
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(
-            xsize // 2, 0, test=True
-        )
+        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
 
-        dec_scan = os.path.join(
-            self.obsdir_dec, self.dec_scans[self.n_dec_scans // 2]
-        )
+        dec_scan = os.path.join(self.obsdir_dec, self.dec_scans[self.n_dec_scans // 2])
         assert dec_scan in coord
         assert coord[dec_scan] == "dec"
         ra_scan = os.path.join(self.obsdir_ra, "Ra0.fits")
@@ -906,9 +810,7 @@ class TestLargeMap:
 
         images = scanset.calculate_images()
         ysize, xsize = images["Feed0_RCP"].shape
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(
-            xsize // 2, -2, test=True
-        )
+        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(xsize // 2, -2, test=True)
         assert coord == {}
         _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(
             xsize // 2, ysize + 2, test=True
@@ -1077,19 +979,14 @@ class TestLargeMap:
         assert np.all(before[:10] != after[:10])
         s = Scan(sname)
 
-        assert np.all(
-            np.array(after, dtype=bool)
-            == np.array(s["Feed0_RCP-filt"], dtype=bool)
-        )
+        assert np.all(np.array(after, dtype=bool) == np.array(s["Feed0_RCP-filt"], dtype=bool))
         # os.unlink(sname.replace('fits', 'hdf5'))
 
     def test_imager_global_fit_invalid(self):
         """Test image production."""
         with pytest.raises(ValueError) as excinfo:
             main_imager("test.hdf5 -g -e 10 10 2 1 --noplot".split(" "))
-            assert "Exclusion region has to be specified as " in str(
-                excinfo.value
-            )
+            assert "Exclusion region has to be specified as " in str(excinfo.value)
 
     def test_imager_global_fit_valid(self):
         """Test image production."""
@@ -1101,10 +998,7 @@ class TestLargeMap:
         nx, ny = images["Feed0_RCP"].shape
         excluded = [[nx // 2, ny // 2, nx // 4]]
 
-        main_imager(
-            "test.hdf5 -g --noplot "
-            "-e {} {} {}".format(*(excluded[0])).split(" ")
-        )
+        main_imager("test.hdf5 -g --noplot " "-e {} {} {}".format(*(excluded[0])).split(" "))
 
     @pytest.mark.skipif("not HAS_PYREGION")
     def test_global_fit_image_using_ds9_region(self):
@@ -1127,10 +1021,7 @@ class TestLargeMap:
             print(regstr, file=fobj)
 
         main_imager(
-            (
-                "-c {} --refilt ".format(self.config_file)
-                + "--sub --exclude region.reg"
-            ).split()
+            ("-c {} --refilt ".format(self.config_file) + "--sub --exclude region.reg").split()
         )
         os.unlink("region.reg")
 
@@ -1140,18 +1031,11 @@ class TestLargeMap:
         with open("region.reg", "w") as fobj:
             print(regstr, file=fobj)
 
-        main_preprocess(
-            (
-                "-c {} ".format(self.config_file)
-                + "--sub --exclude region.reg"
-            ).split()
-        )
+        main_preprocess(("-c {} ".format(self.config_file) + "--sub --exclude region.reg").split())
         os.unlink("region.reg")
 
     @pytest.mark.skipif("not HAS_PYREGION")
-    def test_global_fit_image_using_ds9_region_garbage_warns(
-        self, logger, caplog
-    ):
+    def test_global_fit_image_using_ds9_region_garbage_warns(self, logger, caplog):
         regstr = "physical;circle(30,30,1)"
         with open("region.reg", "w") as fobj:
             print(regstr, file=fobj)
@@ -1160,9 +1044,7 @@ class TestLargeMap:
         os.unlink("region.reg")
 
     @pytest.mark.skipif("not HAS_PYREGION")
-    def test_global_fit_image_using_ds9_region_noncircular_warns(
-        self, logger, caplog
-    ):
+    def test_global_fit_image_using_ds9_region_noncircular_warns(self, logger, caplog):
         regstr = "image;line(100,100,200,200)"
         with open("region.reg", "w") as fobj:
             print(regstr, file=fobj)
@@ -1194,17 +1076,13 @@ class TestLargeMap:
             os.unlink("test_scan_list.txt")
             os.unlink("bubu.hdf5")
             for d in klass.config["list_of_directories"]:
-                hfiles = glob.glob(
-                    os.path.join(klass.config["datadir"], d, "*.hdf5")
-                )
+                hfiles = glob.glob(os.path.join(klass.config["datadir"], d, "*.hdf5"))
                 for h in hfiles:
                     os.unlink(h)
             out_iter_files = glob.glob("out_iter_*")
             for o in out_iter_files:
                 os.unlink(o)
-            out_fits_files = glob.glob(
-                os.path.join(klass.config["datadir"], "test_config*.fits")
-            )
+            out_fits_files = glob.glob(os.path.join(klass.config["datadir"], "test_config*.fits"))
             out_hdf5_files = glob.glob(
                 os.path.join(klass.config["productdir"], "sim", "*/", "*.hdf5")
             )

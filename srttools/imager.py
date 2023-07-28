@@ -321,9 +321,7 @@ class ScanSet(Table):
             data = self._merge_input_data(data, config_file, **kwargs)
         elif isinstance(data, str) and data.endswith("hdf5"):
             data = Table.read(data)
-        elif isinstance(data, str) and data.endswith(
-            "ini"
-        ):  # data is a config file
+        elif isinstance(data, str) and data.endswith("ini"):  # data is a config file
             data = self._read_data_from_config(data, **kwargs)
         elif not isinstance(data, Table):  # data needs to be a Table object
             raise ValueError(f"Invalid data: \n{data}")
@@ -344,9 +342,7 @@ class ScanSet(Table):
     @property
     def chan_columns(self):
         if self._chan_columns is None:
-            self._chan_columns = np.array(
-                [i for i in self.columns if chan_re.match(i)]
-            )
+            self._chan_columns = np.array([i for i in self.columns if chan_re.match(i)])
         return self._chan_columns
 
     @property
@@ -429,12 +425,8 @@ class ScanSet(Table):
         self.meta["max_" + hor] = float(np.max(allhor)) * hor_unit
         self.meta["max_" + ver] = float(np.max(allver)) * ver_unit
 
-        self.meta["mean_" + hor] = (
-            self.meta["max_" + hor] + self.meta["min_" + hor]
-        ) / 2
-        self.meta["mean_" + ver] = (
-            self.meta["max_" + ver] + self.meta["min_" + ver]
-        ) / 2
+        self.meta["mean_" + hor] = (self.meta["max_" + hor] + self.meta["min_" + hor]) / 2
+        self.meta["mean_" + ver] = (self.meta["max_" + ver] + self.meta["min_" + ver]) / 2
 
         if "reference_ra" not in self.meta:
             self.meta["reference_ra"] = self.meta["RA"]
@@ -466,19 +458,11 @@ class ScanSet(Table):
                 continue
             try:
                 results = calculate_opacity(s, plot=False)
-                self.opacities[results["time"]] = np.mean(
-                    [results["Ch0"], results["Ch1"]]
-                )
+                self.opacities[results["time"]] = np.mean([results["Ch0"], results["Ch1"]])
             except KeyError as e:
-                log.warning(
-                    "Error while processing {}: Missing key: {}".format(
-                        s, str(e)
-                    )
-                )
+                log.warning("Error while processing {}: Missing key: {}".format(s, str(e)))
 
-    def load_scans(
-        self, scan_list, freqsplat=None, nofilt=False, debug=False, **kwargs
-    ):
+    def load_scans(self, scan_list, freqsplat=None, nofilt=False, debug=False, **kwargs):
         """Load the scans in the list one by ones."""
         for i, f in enumerate(show_progress(scan_list)):
             try:
@@ -492,11 +476,7 @@ class ScanSet(Table):
                 )
                 yield i, s
             except KeyError as e:
-                log.warning(
-                    "Error while processing {}: Missing key: {}".format(
-                        f, str(e)
-                    )
-                )
+                log.warning("Error while processing {}: Missing key: {}".format(f, str(e)))
             except Exception as e:
                 log.warning(traceback.format_exc())
                 log.warning("Error while processing {}: {}".format(f, str(e)))
@@ -567,16 +547,12 @@ class ScanSet(Table):
         self["delta_az"] = np.zeros_like(self["az"])
         self["delta_el"] = np.zeros_like(self["el"])
         for f in range(len(self["el"][0, :])):
-            self["delta_az"][:, f] = (self["az"][:, f] - ref_az) * np.cos(
-                ref_el
-            )
+            self["delta_az"][:, f] = (self["az"][:, f] - ref_az) * np.cos(ref_el)
             self["delta_el"][:, f] = self["el"][:, f] - ref_el
 
         if HAS_MPL:
             fig1 = plt.figure("adsfasdfasd")
-            plt.plot(
-                np.degrees(self["delta_az"]), np.degrees(self["delta_el"])
-            )
+            plt.plot(np.degrees(self["delta_az"]), np.degrees(self["delta_el"]))
             plt.xlabel("Delta Azimuth (deg)")
             plt.ylabel("Delta Elevation (deg)")
 
@@ -618,19 +594,13 @@ class ScanSet(Table):
         # Here I'm assuming all angles are radians
         # crval = np.array([self.meta['reference_' + hor].to(u.rad).value,
         #                   self.meta['reference_' + ver].to(u.rad).value])
-        crhor = np.mean(
-            [self.meta["max_" + hor].value, self.meta["min_" + hor].value]
-        )
-        crver = np.mean(
-            [self.meta["max_" + ver].value, self.meta["min_" + ver].value]
-        )
+        crhor = np.mean([self.meta["max_" + hor].value, self.meta["min_" + hor].value])
+        crver = np.mean([self.meta["max_" + ver].value, self.meta["min_" + ver].value])
         crval = np.array([crhor, crver])
 
         self.wcs.wcs.crval = np.degrees(crval)
 
-        cdelt = np.array(
-            [-pixel_size.to(u.rad).value, pixel_size.to(u.rad).value]
-        )
+        cdelt = np.array([-pixel_size.to(u.rad).value, pixel_size.to(u.rad).value])
         self.wcs.wcs.cdelt = np.degrees(cdelt)
 
         hor_str, ver_str = _wcs_ctype_names(frame, self.meta["projection"])
@@ -695,23 +665,15 @@ class ScanSet(Table):
 
         images = {}
 
-        xbins = np.linspace(
-            0, self.meta["npix"][0], int(self.meta["npix"][0] + 1)
-        )
-        ybins = np.linspace(
-            0, self.meta["npix"][1], int(self.meta["npix"][1] + 1)
-        )
+        xbins = np.linspace(0, self.meta["npix"][0], int(self.meta["npix"][0] + 1))
+        ybins = np.linspace(0, self.meta["npix"][1], int(self.meta["npix"][1] + 1))
 
         for ch in self.chan_columns:
             if direction is None:
                 log.info("Calculating image in channel {}".format(ch))
             else:
                 dir_string = "horizontal" if direction == 1 else "vertical"
-                log.info(
-                    "Calculating image in channel {}, {}".format(
-                        ch, dir_string
-                    )
-                )
+                log.info("Calculating image in channel {}, {}".format(ch, dir_string))
             if (
                 onlychans is not None
                 and ch not in onlychans
@@ -719,15 +681,9 @@ class ScanSet(Table):
                 and ch in self.images.keys()
             ):
                 images[ch] = self.images[ch]
-                images["{}-Sdev".format(ch)] = self.images[
-                    "{}-Sdev".format(ch)
-                ]
-                images["{}-EXPO".format(ch)] = self.images[
-                    "{}-EXPO".format(ch)
-                ]
-                images["{}-Outliers".format(ch)] = self.images[
-                    "{}-Outliers".format(ch)
-                ]
+                images["{}-Sdev".format(ch)] = self.images["{}-Sdev".format(ch)]
+                images["{}-EXPO".format(ch)] = self.images["{}-EXPO".format(ch)]
+                images["{}-Outliers".format(ch)] = self.images["{}-Outliers".format(ch)]
                 continue
 
             feed = get_channel_feed(ch)
@@ -754,21 +710,19 @@ class ScanSet(Table):
             counts = np.array(self[ch][good])
 
             if calibration is not None and calibrate_scans:
-                caltable, conversion_units = _load_calibration(
-                    calibration, map_unit
-                )
+                caltable, conversion_units = _load_calibration(calibration, map_unit)
                 (
                     area_conversion,
                     final_unit,
                 ) = self._calculate_calibration_factors(map_unit)
 
-                (Jy_over_counts, Jy_over_counts_err,) = (
-                    conversion_units
-                    * caltable.Jy_over_counts(
-                        channel=ch,
-                        map_unit=map_unit,
-                        elevation=self["el"][:, feed][good],
-                    )
+                (
+                    Jy_over_counts,
+                    Jy_over_counts_err,
+                ) = conversion_units * caltable.Jy_over_counts(
+                    channel=ch,
+                    map_unit=map_unit,
+                    elevation=self["el"][:, feed][good],
                 )
 
                 counts = counts * u.ct * area_conversion * Jy_over_counts
@@ -777,15 +731,13 @@ class ScanSet(Table):
             filtered_x = self["x"][:, feed][good]
             filtered_y = self["y"][:, feed][good]
 
-            img, _, _ = np.histogram2d(
-                filtered_x, filtered_y, bins=[xbins, ybins], weights=counts
-            )
+            img, _, _ = np.histogram2d(filtered_x, filtered_y, bins=[xbins, ybins], weights=counts)
 
             img_sq, _, _ = np.histogram2d(
                 filtered_x,
                 filtered_y,
                 bins=[xbins, ybins],
-                weights=counts ** 2,
+                weights=counts**2,
             )
 
             img_outliers, _, _, _ = binned_statistic_2d(
@@ -806,9 +758,7 @@ class ScanSet(Table):
 
             img_sdev[good] = np.sqrt(img_sdev[good])
             if calibration is not None and calibrate_scans:
-                cal_rel_err = np.mean(
-                    Jy_over_counts_err / Jy_over_counts
-                ).value
+                cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
                 img_sdev += mean * cal_rel_err
 
             images["{}-Sdev".format(ch)] = img_sdev.T
@@ -854,9 +804,7 @@ class ScanSet(Table):
 
         for ch in images_hor:
             if "Sdev" in ch:
-                destriped[ch] = (
-                    images_hor[ch] ** 2 + images_ver[ch] ** 2
-                ) ** 0.5
+                destriped[ch] = (images_hor[ch] ** 2 + images_ver[ch] ** 2) ** 0.5
                 continue
             if "EXPO" in ch:
                 destriped[ch] = images_hor[ch] + images_ver[ch]
@@ -895,7 +843,7 @@ class ScanSet(Table):
             total_sdev += self.images["{}-Sdev".format(ch)] ** 2
             total_img += self.images[ch]
             count += 1
-        total_sdev = total_sdev ** 0.5 / count
+        total_sdev = total_sdev**0.5 / count
         total_img /= count
 
         total_images = {
@@ -940,11 +888,7 @@ class ScanSet(Table):
             log.info("Fitting channel {}".format(ch))
             feed = get_channel_feed(ch)
             self[ch + "_save"] = self[ch].copy()
-            self[ch] = Column(
-                fit_full_image(
-                    self, chan=ch, feed=feed, excluded=excluded, par=par
-                )
-            )
+            self[ch] = Column(fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par))
             self[ch].meta = self[ch + "_save"].meta
 
         self.calculate_images(
@@ -988,9 +932,7 @@ class ScanSet(Table):
 
         for ch in self.chan_columns:
             Jy_over_counts, Jy_over_counts_err = (
-                caltable.Jy_over_counts(
-                    channel=ch, map_unit=map_unit, elevation=elevation
-                )
+                caltable.Jy_over_counts(channel=ch, map_unit=map_unit, elevation=elevation)
                 * conversion_units
             )
 
@@ -1001,12 +943,8 @@ class ScanSet(Table):
             eA = images["{}-Sdev".format(ch)].copy() * u.ct
 
             images["{}-RAW".format(ch)] = images["{}".format(ch)].copy()
-            images["{}-RAW-Sdev".format(ch)] = images[
-                "{}-Sdev".format(ch)
-            ].copy()
-            images["{}-RAW-EXPO".format(ch)] = images[
-                "{}-EXPO".format(ch)
-            ].copy()
+            images["{}-RAW-Sdev".format(ch)] = images["{}-Sdev".format(ch)].copy()
+            images["{}-RAW-EXPO".format(ch)] = images["{}-EXPO".format(ch)].copy()
             bad = eA != eA
             A[bad] = 1 * u.ct
             eA[bad] = 0 * u.ct
@@ -1018,9 +956,7 @@ class ScanSet(Table):
             B = Jy_over_counts
             eB = Jy_over_counts_err
 
-            area_conversion, final_unit = self._calculate_calibration_factors(
-                map_unit
-            )
+            area_conversion, final_unit = self._calculate_calibration_factors(map_unit)
 
             C = A * area_conversion * Jy_over_counts
             C[bad] = 0
@@ -1043,9 +979,7 @@ class ScanSet(Table):
         from .interactive_filter import ImageSelector
 
         if not HAS_MPL:
-            raise ImportError(
-                "interactive_display: " "matplotlib is not installed"
-            )
+            raise ImportError("interactive_display: " "matplotlib is not installed")
 
         if self.images is None:
             recreate = True
@@ -1188,9 +1122,7 @@ class ScanSet(Table):
                     )
 
         # Only recreate images if there were changes!
-        display = self.interactive_display(
-            ch=ch, recreate=(dec_xs != {} or ra_xs != {}), test=test
-        )
+        display = self.interactive_display(ch=ch, recreate=(dec_xs != {} or ra_xs != {}), test=test)
         return display
 
     def find_scans_through_pixel(self, x, y, test=False):
@@ -1262,9 +1194,7 @@ class ScanSet(Table):
             vars_to_filter,
         )
 
-    def update_scan(
-        self, sname, sid, dim, zap_info, fit_info, flag_info, test=False
-    ):
+    def update_scan(self, sname, sid, dim, zap_info, fit_info, flag_info, test=False):
         """Update a scan in the scanset after filtering."""
         ch = self.current
         if test:
@@ -1288,11 +1218,7 @@ class ScanSet(Table):
                 intervals = list(zip(xs[:-1:2], xs[1::2]))
                 for i in intervals:
                     i = sorted(i)
-                    good[
-                        np.logical_and(
-                            s[dim][:, feed] >= i[0], s[dim][:, feed] <= i[1]
-                        )
-                    ] = False
+                    good[np.logical_and(s[dim][:, feed] >= i[0], s[dim][:, feed] <= i[1])] = False
             s["{}-filt".format(ch)] = good
             self["{}-filt".format(ch)][mask] = good
 
@@ -1323,9 +1249,7 @@ class ScanSet(Table):
         return obstimes_tdb
 
     def write(self, fname, *args, **kwargs):
-        """Same as Table.write, but adds path information for HDF5.
-
-        """
+        """Same as Table.write, but adds path information for HDF5."""
 
         self.update_meta_with_images()
 
@@ -1550,15 +1474,11 @@ class ScanSet(Table):
                 headkey = f"HIERARCH {key}"
             header[headkey] = (val.value, val.unit)
 
-        header["SOURCE"] = (
-            self.meta["SOURCE"].replace("_RA", "").replace("_DEC", "")
-        )
+        header["SOURCE"] = self.meta["SOURCE"].replace("_RA", "").replace("_DEC", "")
 
         header["CREATOR"] = "SDT"
-        ut = Time(datetime.utcnow(), scale='utc')
-        header["COMMENT"] = (
-            f"Made with the SRT Single-Dish Tools on UT {ut.fits}"
-        )
+        ut = Time(datetime.utcnow(), scale="utc")
+        header["COMMENT"] = f"Made with the SRT Single-Dish Tools on UT {ut.fits}"
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
 
@@ -1591,9 +1511,7 @@ class ScanSet(Table):
                     if k == "Description":
                         continue
                     for k1 in moments_dict[k].keys():
-                        header_mod[
-                            "ZK_{:02d}_{:02d}".format(k, k1)
-                        ] = moments_dict[k][k1]
+                        header_mod["ZK_{:02d}_{:02d}".format(k, k1)] = moments_dict[k][k1]
                 moments_dict = self.calculate_beam_fom(
                     images[ch], cm=None, radius=0.3, label=ch, use_log=True
                 )
@@ -1620,9 +1538,7 @@ def _excluded_regions_from_args(args_exclude):
                 "centerX0, centerY0, radius0, centerX1, "
                 "centerY1, radius1, ... (in X,Y coordinates)"
             )
-        excluded_xy = np.array([float(e) for e in args_exclude]).reshape(
-            (nexc // 3, 3)
-        )
+        excluded_xy = np.array([float(e) for e in args_exclude]).reshape((nexc // 3, 3))
         excluded_radec = None
     elif args_exclude is not None:
         import pyregion
@@ -1641,9 +1557,7 @@ def _excluded_regions_from_args(args_exclude):
             elif region.coord_format == "image":
                 excluded_xy.append(region.coord_list)
             else:
-                log.warning(
-                    "Only regions in fk5 or image coordinates are allowed!"
-                )
+                log.warning("Only regions in fk5 or image coordinates are allowed!")
                 continue
     return excluded_xy, excluded_radec
 
@@ -1652,9 +1566,7 @@ def main_imager(args=None):
     """Main function."""
     import argparse
 
-    description = (
-        "Load a series of scans from a config file " "and produce a map."
-    )
+    description = "Load a series of scans from a config file " "and produce a map."
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument(
@@ -1672,9 +1584,7 @@ def main_imager(args=None):
         help="Produce sample config file",
     )
 
-    parser.add_argument(
-        "-c", "--config", type=str, default=None, help="Config file"
-    )
+    parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
 
     parser.add_argument(
         "--refilt",
@@ -1687,8 +1597,7 @@ def main_imager(args=None):
         "--altaz",
         default=False,
         action="store_true",
-        help="Do images in Az-El coordinates (deprecated in favor of --frame "
-        "altaz)",
+        help="Do images in Az-El coordinates (deprecated in favor of --frame " "altaz)",
     )
 
     parser.add_argument(
@@ -1705,9 +1614,7 @@ def main_imager(args=None):
         help="Open the interactive display",
     )
 
-    parser.add_argument(
-        "--calibrate", type=str, default=None, help="Calibration file"
-    )
+    parser.add_argument("--calibrate", type=str, default=None, help="Calibration file")
 
     parser.add_argument(
         "--nofilt",
@@ -1745,8 +1652,7 @@ def main_imager(args=None):
         type=str,
         default=None,
         help=(
-            "Comma-separated channels to include in global "
-            "fitting (Feed0_RCP, Feed0_LCP, ...)"
+            "Comma-separated channels to include in global " "fitting (Feed0_RCP, Feed0_LCP, ...)"
         ),
     )
 
@@ -1818,8 +1724,7 @@ def main_imager(args=None):
         "--nosave",
         action="store_true",
         default=False,
-        help="Do not save the hdf5 intermediate files when"
-        "loading subscans.",
+        help="Do not save the hdf5 intermediate files when" "loading subscans.",
     )
 
     parser.add_argument(
@@ -1871,9 +1776,7 @@ def main_imager(args=None):
         args.frame = "altaz"
 
     if args.file is not None:
-        scanset = ScanSet(
-            args.file, config_file=args.config, plot=not args.noplot
-        )
+        scanset = ScanSet(args.file, config_file=args.config, plot=not args.noplot)
         infile = args.file
         if outfile is None:
             outfile = infile
@@ -1900,9 +1803,7 @@ def main_imager(args=None):
         scanset.interactive_display()
 
     if args.global_fit:
-        scanset.fit_full_images(
-            chans=args.chans, frame=args.frame, excluded=excluded_xy
-        )
+        scanset.fit_full_images(chans=args.chans, frame=args.frame, excluded=excluded_xy)
     scanset.write(outfile, overwrite=True)
 
     scanset.save_ds9_images(
@@ -1938,9 +1839,7 @@ def main_preprocess(args=None):
         type=str,
     )
 
-    parser.add_argument(
-        "-c", "--config", type=str, default=None, help="Config file"
-    )
+    parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
 
     parser.add_argument(
         "--sub",
@@ -1963,20 +1862,15 @@ def main_preprocess(args=None):
         help="Do not filter noisy channels",
     )
 
-    parser.add_argument(
-        "--debug", action="store_true", default=False, help="Be verbose"
-    )
+    parser.add_argument("--debug", action="store_true", default=False, help="Be verbose")
 
-    parser.add_argument(
-        "--plot", action="store_true", default=False, help="Plot stuff"
-    )
+    parser.add_argument("--plot", action="store_true", default=False, help="Plot stuff")
 
     parser.add_argument(
         "--nosave",
         action="store_true",
         default=False,
-        help="Do not save the hdf5 intermediate files when"
-        "loading subscans.",
+        help="Do not save the hdf5 intermediate files when" "loading subscans.",
     )
 
     parser.add_argument(

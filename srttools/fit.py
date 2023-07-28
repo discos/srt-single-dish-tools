@@ -227,9 +227,7 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
     N = len(y)
     if start_pars is None:
         if N > 40:
-            m0 = (np.median(y[-20:]) - np.median(y[:20])) / (
-                np.mean(x[-20:]) - np.mean(x[:20])
-            )
+            m0 = (np.median(y[-20:]) - np.median(y[:20])) / (np.mean(x[-20:]) - np.mean(x[:20]))
         else:
             m0 = (y[-1] - y[0]) / (x[-1] - x[0])
 
@@ -297,9 +295,7 @@ def outlier_from_median_filt(y, window_size, down=True, up=True):
     return outliers
 
 
-def purge_outliers(
-    y, window_size=5, up=True, down=True, mask=None, plot=False
-):
+def purge_outliers(y, window_size=5, up=True, down=True, mask=None, plot=False):
     """Remove obvious outliers.
 
     Attention: This is known to throw false positives on bona fide, very strong
@@ -471,11 +467,7 @@ def baseline_als(x, y, **kwargs):
 
     els = np.array(np.rint(np.linspace(0, y.size - 1, 31)), dtype=int)
     y_sub, base = _baseline_als(
-        x[els],
-        y_medf[els],
-        outlier_purging=False,
-        return_baseline=True,
-        **kwargs
+        x[els], y_medf[els], outlier_purging=False, return_baseline=True, **kwargs
     )
 
     func = interp1d(x[els], base)
@@ -497,7 +489,6 @@ def _baseline_als(
     mask=None,
     outlier_purging=True,
 ):
-
     if not isinstance(outlier_purging, Iterable):
         outlier_purging = (outlier_purging, outlier_purging)
     if lam is None:
@@ -518,9 +509,7 @@ def _baseline_als(
     approx_baseline = approx_m * np.arange(N) + approx_q
     y = y - approx_baseline
 
-    y_mod = purge_outliers(
-        y, up=outlier_purging[0], down=outlier_purging[1], mask=mask
-    )
+    y_mod = purge_outliers(y, up=outlier_purging[0], down=outlier_purging[1], mask=mask)
 
     z = _als(y_mod, lam, p, niter=niter)
 
@@ -544,9 +533,7 @@ def _baseline_als(
         return y - z - offset
 
 
-def detrend_spectroscopic_data(
-    x, spectrum, kind="als", mask=None, outlier_purging=True
-):
+def detrend_spectroscopic_data(x, spectrum, kind="als", mask=None, outlier_purging=True):
     """Take the baseline off the spectroscopic data.
 
     Examples
@@ -613,29 +600,21 @@ def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
         raise ValueError("kind has to be one of: gauss, lorentz")
     from astropy.modeling import models, fitting
 
-    approx_m = (np.median(y[-20:]) - np.median(y[:20])) / (
-        np.mean(x[-20:]) - np.mean(x[:20])
-    )
+    approx_m = (np.median(y[-20:]) - np.median(y[:20])) / (np.mean(x[-20:]) - np.mean(x[:20]))
 
-    base = models.Linear1D(
-        slope=approx_m, intercept=np.median(y[:20]), name="Baseline"
-    )
+    base = models.Linear1D(slope=approx_m, intercept=np.median(y[:20]), name="Baseline")
 
     xrange = np.max(x) - np.min(x)
     yrange = np.max(y) - np.min(y)
 
     if kind == "gauss":
-        bell = models.Gaussian1D(
-            mean=np.mean(x), stddev=xrange / 20, amplitude=yrange, name="Bell"
-        )
+        bell = models.Gaussian1D(mean=np.mean(x), stddev=xrange / 20, amplitude=yrange, name="Bell")
         bell.amplitude.bounds = (0, None)
         bell.mean.bounds = (None, None)
         bell.stddev.bounds = (0, None)
         # max_name = 'mean'
     elif kind == "lorentz":
-        bell = models.Lorentz1D(
-            x_0=np.mean(x), fwhm=xrange / 20, amplitude=yrange, name="Bell"
-        )
+        bell = models.Lorentz1D(x_0=np.mean(x), fwhm=xrange / 20, amplitude=yrange, name="Bell")
         bell.amplitude.bounds = (0, None)
         bell.x_0.bounds = (None, None)
         bell.fwhm.bounds = (0, None)
@@ -690,10 +669,7 @@ def total_variance(xs, ys, params):
     xints = np.linspace(x_range[0], x_range[1], int(len(x) / 20))
 
     values = np.array(
-        [
-            np.var(y[(x >= xints[k]) & (x < xints[k + 1])])
-            for k in range(len(xints[:-1]))
-        ]
+        [np.var(y[(x >= xints[k]) & (x < xints[k + 1])]) for k in range(len(xints[:-1]))]
     )
     good = values == values
     value = np.mean(values[good])
@@ -728,16 +704,13 @@ def align(xs, ys):
     qs = np.zeros(len(xs) - 1)
     ms = np.zeros(len(xs) - 1)
 
-    result = minimize(
-        _objective_function, [qs, ms], args=[xs, ys], options={"disp": True}
-    )
+    pars0 = np.array([qs, ms]).flatten()
+    result = minimize(_objective_function, pars0, args=[xs, ys], options={"disp": True})
 
     qs = result.x[: len(xs) - 1]
     ms = np.zeros(len(xs) - 1)
 
-    result = minimize(
-        _objective_function, [qs, ms], args=[xs, ys], options={"disp": True}
-    )
+    result = minimize(_objective_function, pars0, args=[xs, ys], options={"disp": True})
 
     qs = result.x[: len(xs) - 1]
     ms = result.x[len(xs) - 1 :]

@@ -94,8 +94,8 @@ def get_subscan_info(subscan):
     azvar = (azmax - azmin) * np.cos(np.mean((elmin, elmax)))
     elvar = elmax - elmin
 
-    tot_eq = np.sqrt(ravar ** 2 + decvar ** 2)
-    tot_hor = np.sqrt(elvar ** 2 + azvar ** 2)
+    tot_eq = np.sqrt(ravar**2 + decvar**2)
+    tot_hor = np.sqrt(elvar**2 + azvar**2)
     ravar /= tot_eq
     decvar /= tot_hor
 
@@ -190,9 +190,7 @@ def get_observing_strategy_from_subscan_info(info):
         el_lines = lines[lines["direction"] == "el"]
 
         directions = np.array(["ra", "dec", "az", "el"])
-        nsub = np.array(
-            [len(lines[lines["direction"] == d]) for d in directions]
-        )
+        nsub = np.array([len(lines[lines["direction"] == d]) for d in directions])
 
         direction = directions[np.argmax(nsub)]
         if direction in ["ra", "dec"]:
@@ -209,25 +207,19 @@ def get_observing_strategy_from_subscan_info(info):
         if len(lon_lines) == len(lat_lines):
             geom = "CROSS"
             zigzag = True
-            length = np.median(
-                lon_lines[dlon + "_max"] - lon_lines[dlon + "_min"]
-            )
+            length = np.median(lon_lines[dlon + "_max"] - lon_lines[dlon + "_min"])
         elif len(lon_lines) > len(lat_lines):
             geom = "LINE"
             # if we see an inversion of direction, set zigzag to True
             zigzag = np.any(sample_dist_lon[:-1] * sample_dist_lon[1:] < 0)
-            length = np.median(
-                lon_lines[dlon + "_max"] - lon_lines[dlon + "_min"]
-            )
+            length = np.median(lon_lines[dlon + "_max"] - lon_lines[dlon + "_min"])
             direction = format_direction(dlon)
             xspc = 0
             yspc = median_diff(info[dlat + "_min"], sorting=True)
         else:
             geom = "LINE"
             zigzag = np.any(sample_dist_lat[:-1] * sample_dist_lat[1:] < 0)
-            length = np.median(
-                lat_lines[dlat + "_max"] - lat_lines[dlat + "_min"]
-            )
+            length = np.median(lat_lines[dlat + "_max"] - lat_lines[dlat + "_min"])
             direction = format_direction(dlat)
             yspc = 0
             xspc = median_diff(info[dlon + "_min"], sorting=True)
@@ -527,19 +519,13 @@ class MBFITS_creator:
         ) as grouping_template:
             grouping_template[1].data = grouping_template[1].data[:1]
 
-            grouping_template.writeto(
-                os.path.join(self.dirname, self.GROUPING), overwrite=True
-            )
+            grouping_template.writeto(os.path.join(self.dirname, self.GROUPING), overwrite=True)
 
         self.SCAN = "SCAN.fits"
-        with fits.open(
-            os.path.join(self.template_dir, "SCAN.fits"), memmap=False
-        ) as scan_template:
+        with fits.open(os.path.join(self.template_dir, "SCAN.fits"), memmap=False) as scan_template:
             scan_template[1].data["FEBE"][0] = "EMPTY"
 
-            scan_template.writeto(
-                os.path.join(self.dirname, self.SCAN), overwrite=True
-            )
+            scan_template.writeto(os.path.join(self.dirname, self.SCAN), overwrite=True)
         self.date_obs = Time.now()
         self.scan_info = default_scan_info_table()
         self.nfeeds = None
@@ -569,9 +555,7 @@ class MBFITS_creator:
         except (KeyError, ValueError):
             self.obsid = 9999
 
-        with fits.open(
-            os.path.join(self.dirname, self.GROUPING), memmap=False
-        ) as grouphdul:
+        with fits.open(os.path.join(self.dirname, self.GROUPING), memmap=False) as grouphdul:
             groupheader = grouphdul[0].header
             groupdict = dict(groupheader.items())
             for key in hdudict.keys():
@@ -586,9 +570,7 @@ class MBFITS_creator:
 
         force_move_file("tmp.fits", os.path.join(self.dirname, self.GROUPING))
 
-        with fits.open(
-            os.path.join(self.dirname, self.SCAN), memmap=False
-        ) as scanhdul:
+        with fits.open(os.path.join(self.dirname, self.SCAN), memmap=False) as scanhdul:
             scanheader = reset_all_keywords(scanhdul[1].header)
             scandict = dict(scanheader.items())
             for key in hdudict.keys():
@@ -629,15 +611,11 @@ class MBFITS_creator:
             felabel = subscan.meta["receiver"] + "{}".format(feed)
             febe = felabel + "-" + subscan.meta["backend"]
 
-            datapar = os.path.join(
-                self.template_dir, "1", "FLASH460L-XFFTS-DATAPAR.fits"
-            )
+            datapar = os.path.join(self.template_dir, "1", "FLASH460L-XFFTS-DATAPAR.fits")
             with fits.open(datapar, memmap=False) as subs_par_template:
                 n = len(subscan)
                 # ------------- Update DATAPAR --------------
-                subs_par_template[1] = _copy_hdu_and_adapt_length(
-                    subs_par_template[1], n
-                )
+                subs_par_template[1] = _copy_hdu_and_adapt_length(subs_par_template[1], n)
 
                 newtable = Table(subs_par_template[1].data)
                 newtable["MJD"] = subscan["time"]
@@ -646,9 +624,7 @@ class MBFITS_creator:
                 ).value
                 if newtable["LST"][0] < self.lst:
                     self.lst = newtable["LST"][0]
-                newtable["INTEGTIM"][:] = subscan["Feed0_LCP"].meta[
-                    "sample_rate"
-                ]
+                newtable["INTEGTIM"][:] = subscan["Feed0_LCP"].meta["sample_rate"]
                 newtable["RA"] = subscan["ra"].to(u.deg)
                 newtable["DEC"] = subscan["dec"].to(u.deg)
                 newtable["AZIMUTH"] = subscan["az"].to(u.deg)
@@ -660,9 +636,7 @@ class MBFITS_creator:
                     az=subscan["az"],
                 )
 
-                direction_cut = (
-                    direction.replace("<", "").replace(">", "").lower()
-                )
+                direction_cut = direction.replace("<", "").replace(">", "").lower()
                 if direction_cut in ["ra", "dec"]:
                     baslon = subscan["ra"].to(u.deg)
                     baslat = subscan["dec"].to(u.deg)
@@ -690,14 +664,10 @@ class MBFITS_creator:
 
                 newhdu = fits.table_to_hdu(newtable)
                 subs_par_template[1].data = newhdu.data
-                subs_par_template[1].header["DATE-OBS"] = time[0].fits.replace(
-                    "(UTC)", ""
-                )
+                subs_par_template[1].header["DATE-OBS"] = time[0].fits.replace("(UTC)", "")
                 subs_par_template[1].header["LST"] = newtable["LST"][0]
                 subs_par_template[1].header["FEBE"] = febe
-                subs_par_template[1].header["SCANDIR"] = format_direction(
-                    direction_cut
-                ).upper()
+                subs_par_template[1].header["SCANDIR"] = format_direction(direction_cut).upper()
                 subs_par_template[1].header["SCANNUM"] = self.obsid
 
                 outdir = str(subscan.meta["SubScanID"])
@@ -705,13 +675,9 @@ class MBFITS_creator:
                 new_datapar = os.path.join(outdir, febe + "-DATAPAR.fits")
                 subs_par_template.writeto("tmp.fits", overwrite=True)
 
-            force_move_file(
-                "tmp.fits", os.path.join(self.dirname, new_datapar)
-            )
+            force_move_file("tmp.fits", os.path.join(self.dirname, new_datapar))
 
-            arraydata = os.path.join(
-                self.template_dir, "1", "FLASH460L-XFFTS-ARRAYDATA-1.fits"
-            )
+            arraydata = os.path.join(self.template_dir, "1", "FLASH460L-XFFTS-ARRAYDATA-1.fits")
 
             new_arraydata_rows = []
             bands = list(combinations[feed].keys())
@@ -719,14 +685,10 @@ class MBFITS_creator:
                 nbands = np.max(bands)
                 ch = list(combinations[feed][baseband].values())[0]
 
-                packed_data = pack_data(
-                    subscan, combinations[feed][baseband], detrend=detrend
-                )
+                packed_data = pack_data(subscan, combinations[feed][baseband], detrend=detrend)
                 # ------------- Update ARRAYDATA -------------
                 with fits.open(arraydata, memmap=False) as subs_template:
-                    subs_template[1] = _copy_hdu_and_adapt_length(
-                        subs_template[1], n
-                    )
+                    subs_template[1] = _copy_hdu_and_adapt_length(subs_template[1], n)
 
                     new_header = reset_all_keywords(subs_template[1].header)
 
@@ -737,9 +699,7 @@ class MBFITS_creator:
                     new_header["BASEBAND"] = baseband
                     new_header["NUSEBAND"] = nbands
                     new_header["CHANNELS"] = subscan.meta["channels"]
-                    new_header["SKYFREQ"] = (
-                        subscan[ch].meta["frequency"].to("Hz").value
-                    )
+                    new_header["SKYFREQ"] = subscan[ch].meta["frequency"].to("Hz").value
                     if self.restfreq is not None:
                         new_header["RESTFREQ"] = self.restfreq
                     else:
@@ -781,17 +741,12 @@ class MBFITS_creator:
                         ]
                     )
 
-                force_move_file(
-                    "tmp.fits", os.path.join(self.dirname, new_sub)
-                )
+                force_move_file("tmp.fits", os.path.join(self.dirname, new_sub))
 
             # Finally, update GROUPING file
-            with fits.open(
-                os.path.join(self.dirname, self.GROUPING), memmap=False
-            ) as grouping:
+            with fits.open(os.path.join(self.dirname, self.GROUPING), memmap=False) as grouping:
                 newtable = Table(grouping[1].data)
                 if febe not in self.FEBE:
-
                     nfebe = len(list(self.FEBE.keys()))
                     new_febe = self.add_febe(
                         febe, combinations, feed, subscan[ch].meta, bands=bands
@@ -819,9 +774,7 @@ class MBFITS_creator:
                     )
                     self.FEBE[febe] = new_febe
 
-                newtable.add_row(
-                    [2, new_datapar, "URL", "DATAPAR-MBFITS", -999, febe, -999]
-                )
+                newtable.add_row([2, new_datapar, "URL", "DATAPAR-MBFITS", -999, febe, -999])
 
                 for row in new_arraydata_rows:
                     newtable.add_row(row)
@@ -832,9 +785,7 @@ class MBFITS_creator:
 
                 grouping.writeto("tmp.fits", overwrite=True)
 
-            force_move_file(
-                "tmp.fits", os.path.join(self.dirname, self.GROUPING)
-            )
+            force_move_file("tmp.fits", os.path.join(self.dirname, self.GROUPING))
 
             if self.test:
                 break
@@ -851,10 +802,7 @@ class MBFITS_creator:
             os.path.join(self.template_dir, "FLASH460L-XFFTS-FEBEPAR.fits"),
             memmap=False,
         ) as febe_template:
-
-            febe_template[1].header = reset_all_keywords(
-                febe_template[1].header
-            )
+            febe_template[1].header = reset_all_keywords(febe_template[1].header)
 
             febedata = Table(febe_template[1].data)
             # FEBEFEED stores the total number of feeds for the receiver in
@@ -892,9 +840,7 @@ class MBFITS_creator:
             febe_template.writeto("tmp.fits", overwrite=True)
         force_move_file("tmp.fits", new_febe)
 
-        with fits.open(
-            os.path.join(self.dirname, self.SCAN), memmap=False
-        ) as scan:
+        with fits.open(os.path.join(self.dirname, self.SCAN), memmap=False) as scan:
             newtable = Table(scan[1].data)
 
             if newtable["FEBE"][0].strip() == "EMPTY":
@@ -920,9 +866,7 @@ class MBFITS_creator:
     def update_scan_info(self):
         info = get_observing_strategy_from_subscan_info(self.scan_info)
 
-        with fits.open(
-            os.path.join(self.dirname, self.SCAN), memmap=False
-        ) as scanhdul:
+        with fits.open(os.path.join(self.dirname, self.SCAN), memmap=False) as scanhdul:
             scanheader = scanhdul[1].header
             # Todo: update with correct keywords
             scanheader["CTYPE"] = info.ctype
@@ -972,9 +916,7 @@ class MBFITS_creator:
         import copy
 
         prihdu = fits.PrimaryHDU()
-        with fits.open(
-            os.path.join(self.dirname, self.GROUPING), memmap=False
-        ) as grouhdl:
+        with fits.open(os.path.join(self.dirname, self.GROUPING), memmap=False) as grouhdl:
             prihdu.header = copy.deepcopy(grouhdl[0].header)
             file_list = list(
                 zip(
@@ -988,9 +930,7 @@ class MBFITS_creator:
         for febe in self.FEBE.keys():
             hdulists[febe] = fits.HDUList([prihdu])
 
-            with fits.open(
-                os.path.join(self.dirname, self.SCAN), memmap=False
-            ) as scanhdul:
+            with fits.open(os.path.join(self.dirname, self.SCAN), memmap=False) as scanhdul:
                 scanhdul[1].data["FEBE"] = [febe]
                 newhdu = type(scanhdul[1])()
                 newhdu.data = scanhdul[1].data
@@ -1000,9 +940,7 @@ class MBFITS_creator:
         for fname, ext, febe in file_list:
             if febe == "":
                 continue
-            with fits.open(
-                os.path.join(self.dirname, fname), memmap=False
-            ) as hl:
+            with fits.open(os.path.join(self.dirname, fname), memmap=False) as hl:
                 newhdu = type(hl[ext])()
                 newhdu.data = hl[ext].data
                 newhdu.header = hl[ext].header

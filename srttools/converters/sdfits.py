@@ -257,42 +257,29 @@ def get_model_HDUlist(data_format, length=1, **kwargs):
         list_tdim,
     ) = get_data_description_from_model_header(data_format)
 
-    for ttype, tform, tunit, dim in zip(
-        list_ttype, list_tform, list_tunit, list_tdim
-    ):
+    for ttype, tform, tunit, dim in zip(list_ttype, list_tform, list_tunit, list_tdim):
         newdim, array = _get_empty_array(length, dim)
 
         if newdim != ():
-            newcol = fits.Column(
-                name=ttype, format=tform, unit=tunit, dim=newdim, array=array
-            )
+            newcol = fits.Column(name=ttype, format=tform, unit=tunit, dim=newdim, array=array)
         else:
-            newcol = fits.Column(
-                name=ttype, format=tform, unit=tunit, array=array
-            )
+            newcol = fits.Column(name=ttype, format=tform, unit=tunit, array=array)
         cols.append(newcol)
 
     coldefs = fits.ColDefs(cols)
 
     hdu = fits.BinTableHDU.from_columns(
-        coldefs,
-        header=fits.Header.fromstring(model_header, sep="\n"),
-        name="SINGLE DISH",
-        **kwargs
+        coldefs, header=fits.Header.fromstring(model_header, sep="\n"), name="SINGLE DISH", **kwargs
     )
 
-    primary_hdu = fits.PrimaryHDU(
-        header=fits.Header.fromstring(model_primary_header, sep="\n")
-    )
+    primary_hdu = fits.PrimaryHDU(header=fits.Header.fromstring(model_primary_header, sep="\n"))
     return fits.HDUList([primary_hdu, hdu])
 
 
 class SDFITS_creator:
     """SDFITS converter"""
 
-    def __init__(
-        self, dirname, scandir=None, average=True, use_calon=False, test=False
-    ):
+    def __init__(self, dirname, scandir=None, average=True, use_calon=False, test=False):
         """Initialization.
 
         Initialization is easy. If scandir is given, the conversion is
@@ -391,13 +378,9 @@ class SDFITS_creator:
                 crval3 = subscan["ra"][:, f].to(u.deg).value
                 crval4 = subscan["dec"][:, f].to(u.deg).value
 
-                columns_allbase = [
-                    a for a in allcolumns if a.startswith("Feed{}".format(f))
-                ]
+                columns_allbase = [a for a in allcolumns if a.startswith("Feed{}".format(f))]
 
-                basebands = [
-                    interpret_chan_name(ch)[2] for ch in columns_allbase
-                ]
+                basebands = [interpret_chan_name(ch)[2] for ch in columns_allbase]
 
                 for baseband in basebands:
                     if baseband is None:
@@ -405,20 +388,14 @@ class SDFITS_creator:
                         columns = columns_allbase
                     else:
                         columns = [
-                            ch
-                            for ch in columns_allbase
-                            if ch.endswith("{}".format(baseband))
+                            ch for ch in columns_allbase if ch.endswith("{}".format(baseband))
                         ]
 
-                    data_matrix = np.stack(
-                        list(zip(*[subscan[ch] for ch in columns]))
-                    )
+                    data_matrix = np.stack(list(zip(*[subscan[ch] for ch in columns])))
                     shape = data_matrix[0].shape
 
                     array = subscan[columns[0]]
-                    newhdu = get_model_HDUlist(
-                        data_format=shape, length=len(array)
-                    )
+                    newhdu = get_model_HDUlist(data_format=shape, length=len(array))
 
                     data = newhdu[1].data
 
@@ -449,9 +426,7 @@ class SDFITS_creator:
                     data["AZIMUTH"] = azimuth
                     data["ELEVATIO"] = elevation
                     data["CRPIX1"] = nbin // 2 + 1
-                    data["CRVAL1"] = (
-                        array.meta["frequency"] + array.meta["bandwidth"] / 2
-                    )
+                    data["CRVAL1"] = array.meta["frequency"] + array.meta["bandwidth"] / 2
                     data["CRVAL3"] = crval3
                     data["CRVAL4"] = crval4
 
@@ -473,54 +448,32 @@ class SDFITS_creator:
                     header = newhdu[1].header
                     header["TELESCOP"] = subscan.meta["site"]
                     header["OBSERVER"] = subscan.meta["OBSERVER"]
-                    header["OBSGEO-X"] = (
-                        locations[subscan.meta["site"]].x.to("m").value
-                    )
-                    header["OBSGEO-Y"] = (
-                        locations[subscan.meta["site"]].y.to("m").value
-                    )
-                    header["OBSGEO-Z"] = (
-                        locations[subscan.meta["site"]].z.to("m").value
-                    )
+                    header["OBSGEO-X"] = locations[subscan.meta["site"]].x.to("m").value
+                    header["OBSGEO-Y"] = locations[subscan.meta["site"]].y.to("m").value
+                    header["OBSGEO-Z"] = locations[subscan.meta["site"]].z.to("m").value
 
                     header["CTYPE1"] = "FREQ"
                     header["CRVAL"] = 0
-                    header["CRVAL3"] = np.mean(
-                        subscan["ra"][:, f].to(u.deg).value
-                    )
-                    header["CRVAL4"] = np.mean(
-                        subscan["dec"][:, f].to(u.deg).value
-                    )
+                    header["CRVAL3"] = np.mean(subscan["ra"][:, f].to(u.deg).value)
+                    header["CRVAL4"] = np.mean(subscan["dec"][:, f].to(u.deg).value)
                     header["LINE"] = subscan.meta["SOURCE"]
                     header["DATE-OBS"] = date_col[0]
 
-                    header["DATE-RED"] = (
-                        Time.now().to_datetime().strftime("%d/%m/%y")
-                    )
-                    header["LINE"] = "FEED{}-{:3.3f}-MHz".format(
-                        f, bandwidth.to("MHz").value
-                    )
+                    header["DATE-RED"] = Time.now().to_datetime().strftime("%d/%m/%y")
+                    header["LINE"] = "FEED{}-{:3.3f}-MHz".format(f, bandwidth.to("MHz").value)
                     header["CDELT1"] = df.to("Hz").value
-                    header["CDELT3"] = (
-                        subscan.meta["ra_offset"].to(u.deg).value
-                    )
-                    header["CDELT4"] = (
-                        subscan.meta["dec_offset"].to(u.deg).value
-                    )
+                    header["CDELT3"] = subscan.meta["ra_offset"].to(u.deg).value
+                    header["CDELT4"] = subscan.meta["dec_offset"].to(u.deg).value
                     header["RESTFREQ"] = restfreq.to(u.Hz).value
                     header["MAXIS1"] = channels[0]
 
-                    filekey = os.path.basename(
-                        scandir
-                    ) + "_all_feed{}_bband{}".format(f, baseband)
+                    filekey = os.path.basename(scandir) + "_all_feed{}_bband{}".format(f, baseband)
 
                     if filekey in list(self.tables.keys()):
                         hdul = self.tables[filekey]
                         nrows1, nrows2 = len(hdul[1].data), len(data)
                         nrows = nrows1 + nrows2
-                        newhdu = fits.BinTableHDU.from_columns(
-                            hdul[1].columns, nrows=nrows
-                        )
+                        newhdu = fits.BinTableHDU.from_columns(hdul[1].columns, nrows=nrows)
                         for col in hdul[1].columns:
                             name = col.name
                             newhdu.data[name][:nrows1] = hdul[1].data[name]
@@ -533,6 +486,6 @@ class SDFITS_creator:
 
     def write_tables_to_disk(self):
         """Write all HDU lists produced until now in separate FITS files."""
-        for (filekey, table) in self.tables.items():
+        for filekey, table in self.tables.items():
             outfile = os.path.join(self.dirname, "{}.fits".format(filekey))
             table.writeto(outfile, overwrite=True)

@@ -42,9 +42,7 @@ class TestCalibration(object):
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
 
-        klass.config_file = os.path.abspath(
-            os.path.join(klass.datadir, "calibrators.ini")
-        )
+        klass.config_file = os.path.abspath(os.path.join(klass.datadir, "calibrators.ini"))
 
         klass.config_file_empty = os.path.abspath(
             os.path.join(klass.datadir, "calibrators_nocal.ini")
@@ -132,9 +130,7 @@ class TestCalibration(object):
 
         assert caltable[flux_quantity + "/Counts"][firstidx] == 20000
 
-        Jc, Jce = caltable.Jy_over_counts_rough(
-            channel="Feed0_LCP", map_unit="Jy/beam"
-        )
+        Jc, Jce = caltable.Jy_over_counts_rough(channel="Feed0_LCP", map_unit="Jy/beam")
 
         assert "Outliers: " in caplog.text
         Cj, Cje = caltable.counts_over_Jy(channel="Feed0_LCP")
@@ -142,21 +138,13 @@ class TestCalibration(object):
 
     def test_bad_file_missing_key(self, logger, caplog):
         caltable = CalibratorTable()
-        caltable.from_scans(
-            [
-                os.path.join(
-                    self.config["datadir"], "calibrators", "summary.fits"
-                )
-            ]
-        )
+        caltable.from_scans([os.path.join(self.config["datadir"], "calibrators", "summary.fits")])
         assert "Missing key" in caplog.text
 
     def test_bad_file_generic_error(self, logger, caplog):
         caltable = CalibratorTable()
 
-        caltable.from_scans(
-            [os.path.join(self.config["datadir"], "calibrators", "bubu.fits")]
-        )
+        caltable.from_scans([os.path.join(self.config["datadir"], "calibrators", "bubu.fits")])
         assert "Error while processing" in caplog.text
 
     def test_calibration_counts(self):
@@ -165,28 +153,18 @@ class TestCalibration(object):
         caltable = CalibratorTable.read(self.calfile)
         caltable = caltable[compare_strings(caltable["Source"], "DummyCal")]
         caltable_0 = caltable[compare_strings(caltable["Chan"], "Feed0_LCP")]
-        assert np.all(
-            np.abs(caltable_0["Counts"] - 100.0) < 3 * caltable_0["Counts Err"]
-        )
+        assert np.all(np.abs(caltable_0["Counts"] - 100.0) < 3 * caltable_0["Counts Err"])
         caltable_1 = caltable[compare_strings(caltable["Chan"], "Feed0_RCP")]
-        assert np.all(
-            np.abs(caltable_1["Counts"] - 80.0) < 3 * caltable_1["Counts Err"]
-        )
+        assert np.all(np.abs(caltable_1["Counts"] - 80.0) < 3 * caltable_1["Counts Err"])
 
     def test_calibration_width(self):
         """Simple calibration from scans."""
 
         caltable = CalibratorTable.read(self.calfile)
         caltable0 = caltable[compare_strings(caltable["Chan"], "Feed0_LCP")]
-        assert np.all(
-            np.abs(caltable0["Width"] - 2.5 / 60.0)
-            < 5 * caltable0["Width Err"]
-        )
+        assert np.all(np.abs(caltable0["Width"] - 2.5 / 60.0) < 5 * caltable0["Width Err"])
         caltable1 = caltable[compare_strings(caltable["Chan"], "Feed0_RCP")]
-        assert np.all(
-            np.abs(caltable1["Width"] - 2.5 / 60.0)
-            < 5 * caltable1["Width Err"]
-        )
+        assert np.all(np.abs(caltable1["Width"] - 2.5 / 60.0) < 5 * caltable1["Width Err"])
 
         beam, beam_err = caltable.beam_width(channel="Feed0_LCP")
         assert np.all(beam - np.radians(2.5 / 60) < 3 * beam_err)
@@ -281,9 +259,7 @@ class TestCalibration(object):
         ValueError("No calibrators specified in config file")
         with pytest.raises(ValueError) as excinfo:
             main_cal(["-c", self.config_file_empty])
-            assert "No calibrators specified in config file" in str(
-                excinfo.value
-            )
+            assert "No calibrators specified in config file" in str(excinfo.value)
 
     def test_lcurve_with_single_source(self):
         main_lcurve([self.calfile, "-s", "DummySrc"])
@@ -303,15 +279,11 @@ class TestCalibration(object):
             if os.path.exists("calibration_summary.png"):
                 os.unlink("calibration_summary.png")
         for d in klass.config["list_of_directories"]:
-            hfiles = glob.glob(
-                os.path.join(klass.config["datadir"], d, "*.hdf5")
-            )
+            hfiles = glob.glob(os.path.join(klass.config["datadir"], d, "*.hdf5"))
             for h in hfiles:
                 os.unlink(h)
 
-            dirs = glob.glob(
-                os.path.join(klass.config["datadir"], d, "*_scanfit")
-            )
+            dirs = glob.glob(os.path.join(klass.config["datadir"], d, "*_scanfit"))
             for dirname in dirs:
                 shutil.rmtree(dirname)
         if os.path.exists(klass.calfile):

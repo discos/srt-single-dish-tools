@@ -21,9 +21,7 @@ class TestConfig(object):
 
         config = read_config(fname)
 
-        np.testing.assert_almost_equal(
-            config["pixel_size"].to(u.rad).value, np.radians(0.5 / 60)
-        )
+        np.testing.assert_almost_equal(config["pixel_size"].to(u.rad).value, np.radians(0.5 / 60))
         assert config["interpolation"] == "spline"
 
     def test_read_incomplete_config(self):
@@ -32,7 +30,5 @@ class TestConfig(object):
 
         config = read_config(fname)
 
-        np.testing.assert_almost_equal(
-            config["pixel_size"].to(u.rad).value, np.radians(1 / 60)
-        )
+        np.testing.assert_almost_equal(config["pixel_size"].to(u.rad).value, np.radians(1 / 60))
         assert config["interpolation"] == "linear"
