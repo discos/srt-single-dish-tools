@@ -298,11 +298,19 @@ def _get_spectrum_stats(
         warnings.warn("Very few data in the dataset. " "Skipping spectral filtering.")
         return results
 
-    # If meanspec is 0 but outside the frequency mask, set it to 1. This avoids a lot of warnings
-    # without losing consistency. Warnings should arise only if invalid data are in a valid
-    # interval.
-    not_so_bad = (meanspec == 0) & (~freqmask)
-    meanspec[not_so_bad] = 1
+    bad = meanspec == 0
+    meanspec[bad] = 1
+
+    # If invalid data are inside the frequency mask, warn the user and exit.
+    # Otherwise, just go on with business as usual.
+    bad = bad & freqmask
+    if np.any(bad):
+        warnings.warn(
+            f"{os.path.splitext(os.path.basename(filename))[0]}: "
+            "Bad channels in the data set. : {np.where(bad)[0] * df}. "
+            "Consider changing the channels included in the sum (--splat option)"
+        )
+        return results
 
     spectral_var = (
         np.sqrt(np.sum((dynamical_spectrum - meanspec) ** 2, axis=0) / dynspec_len) / meanspec
@@ -779,7 +787,7 @@ def clean_scan_using_variability(
         )
         return None
 
-    dummy_file = f"{time.time() - 1570000000}_{np.random.randint(10**8)}.p"
+    dummy_file = f"{outfile}_{label}.p"
     spec_stats_ = _get_spectrum_stats(
         dynamical_spectrum,
         freqsplat,
