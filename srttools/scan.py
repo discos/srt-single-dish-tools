@@ -298,6 +298,12 @@ def _get_spectrum_stats(
         warnings.warn("Very few data in the dataset. " "Skipping spectral filtering.")
         return results
 
+    # If meanspec is 0 but outside the frequency mask, set it to 1. This avoids a lot of warnings
+    # without losing consistency. Warnings should arise only if invalid data are in a valid
+    # interval.
+    not_so_bad = (meanspec == 0) & (~freqmask)
+    meanspec[not_so_bad] = 1
+
     spectral_var = (
         np.sqrt(np.sum((dynamical_spectrum - meanspec) ** 2, axis=0) / dynspec_len) / meanspec
     )
