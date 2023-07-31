@@ -10,7 +10,7 @@ import astropy.units as u
 from collections.abc import Iterable
 
 from .io import mkdir_p, locations
-from .utils import tqdm, jit
+from .utils import tqdm, njit
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astropy import log
@@ -170,13 +170,13 @@ def _default_flat_shape(x):
     return DEFAULT_PEAK_COUNTS + np.zeros(np.asarray(x).shape)
 
 
-@jit(nopython=True)
+@njit
 def _2d_gauss(x, y, sigma=2.5 / 60.0):
     """A Gaussian beam"""
     return np.exp(-(x**2 + y**2) / (2 * sigma**2))
 
 
-@jit(nopython=True)
+@njit
 def calibrator_scan_func(x):
     return DEFAULT_PEAK_COUNTS * _2d_gauss(x, 0, sigma=2.5 / 60)
 

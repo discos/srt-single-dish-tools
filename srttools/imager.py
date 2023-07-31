@@ -29,7 +29,7 @@ from astropy.time import Time
 from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
-from .utils import compare_anything, ds9_like_log_scale, jit
+from .utils import compare_anything, ds9_like_log_scale, njit
 
 from .io import chan_re, get_channel_feed, detect_data_kind
 from .fit import linear_fun
@@ -221,7 +221,7 @@ def _load_calibration(calibration, map_unit):
     return caltable, conversion_units
 
 
-@jit(nopython=True)
+@njit
 def _outlier_score(x):
     """Give a score to data series, larger if higher chance of outliers.
 
