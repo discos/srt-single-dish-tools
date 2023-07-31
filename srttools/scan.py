@@ -551,7 +551,7 @@ def plot_spectrum_cleaning_results(
     )
     ax_meanspec = plt.subplot(gs[0, 0])
     ax_dynspec = plt.subplot(gs[1, 0], sharex=ax_meanspec)
-    ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec)
+    ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec, sharey=ax_dynspec)
     ax_lc = plt.subplot(gs[1, 2], sharey=ax_dynspec)
     ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
     ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
