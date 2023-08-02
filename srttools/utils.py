@@ -10,7 +10,7 @@ from collections import OrderedDict
 from collections.abc import Iterable
 
 import numpy as np
-from astropy import log
+import logging
 
 import scipy
 import scipy.stats
@@ -486,7 +486,7 @@ def calculate_zernike_moments(
             plt.show()
         plt.close(fig)
 
-    log.debug(description_string)
+    logging.debug(description_string)
 
     moments_dict["Description"] = description_string
 
@@ -624,7 +624,7 @@ def calculate_beam_fom(im, cm=None, radius=0.3, label=None, use_log=False, show_
             plt.show()
         plt.close(fig)
 
-    log.debug(description_string)
+    logging.debug(description_string)
 
     moments_dict["Description"] = description_string
 
@@ -830,7 +830,7 @@ def look_for_files_or_bust(files, timeout):
         current_time = time.time()
         if current_time - t0 > number_of_seconds:
             number_of_seconds += 1
-            log.info("Not all files were found. Keep going...")
+            logging.info("Not all files were found. Keep going...")
 
     else:
         missing_files = [fname for exists, fname in zip(all_exist, files) if not exists]

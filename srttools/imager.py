@@ -15,7 +15,7 @@ from datetime import datetime
 from collections.abc import Iterable
 
 from scipy.stats import binned_statistic_2d
-from astropy import log
+import logging
 import numpy as np
 import astropy
 from astropy import wcs
@@ -74,14 +74,13 @@ def _load_and_merge_subscans(indices_and_subscans):
     >>> t0.meta = {"FLAG": True, "filename": "puff.fits"}
     >>> t1.meta = {"FLAG": False, "filename": "puff2.fits"}
     >>> s = _load_and_merge_subscans([(1, t0), (3, t1)])
-    INFO: puff.fits is flagged...
     >>> np.allclose(s["ra"], [[0], [0.2]])
     True
     """
     tables = []
     for i_s, s in indices_and_subscans:
         if "FLAG" in s.meta and s.meta["FLAG"]:
-            log.info("{} is flagged".format(s.meta["filename"]))
+            logging.info("{} is flagged".format(s.meta["filename"]))
             continue
         s["Scan_id"] = i_s + np.zeros(len(s["time"]), dtype=int)
 
@@ -460,7 +459,7 @@ class ScanSet(Table):
                 results = calculate_opacity(s, plot=False)
                 self.opacities[results["time"]] = np.mean([results["Ch0"], results["Ch1"]])
             except KeyError as e:
-                log.warning("Error while processing {}: Missing key: {}".format(s, str(e)))
+                logging.warning("Error while processing {}: Missing key: {}".format(s, str(e)))
 
     def load_scans(self, scan_list, freqsplat=None, nofilt=False, debug=False, **kwargs):
         """Load the scans in the list one by ones."""
@@ -476,10 +475,10 @@ class ScanSet(Table):
                 )
                 yield i, s
             except KeyError as e:
-                log.warning("Error while processing {}: Missing key: {}".format(f, str(e)))
+                logging.warning("Error while processing {}: Missing key: {}".format(f, str(e)))
             except Exception as e:
-                log.warning(traceback.format_exc())
-                log.warning("Error while processing {}: {}".format(f, str(e)))
+                logging.warning(traceback.format_exc())
+                logging.warning("Error while processing {}: {}".format(f, str(e)))
 
     def get_coordinates(self, frame="icrs"):
         """Give the coordinates as pairs of RA, DEC."""
@@ -670,10 +669,10 @@ class ScanSet(Table):
 
         for ch in self.chan_columns:
             if direction is None:
-                log.info("Calculating image in channel {}".format(ch))
+                logging.info("Calculating image in channel {}".format(ch))
             else:
                 dir_string = "horizontal" if direction == 1 else "vertical"
-                log.info("Calculating image in channel {}, {}".format(ch, dir_string))
+                logging.info("Calculating image in channel {}, {}".format(ch, dir_string))
             if (
                 onlychans is not None
                 and ch not in onlychans
@@ -837,7 +836,7 @@ class ScanSet(Table):
         lower_bad_chans = all_lower(bad_chans)
         for ch in self.chan_columns:
             if ch.lower() in lower_bad_chans:
-                log.info("Discarding {}".format(ch))
+                logging.info("Discarding {}".format(ch))
                 continue
             total_expo += self.images["{}-EXPO".format(ch)]
             total_sdev += self.images["{}-Sdev".format(ch)] ** 2
@@ -885,7 +884,7 @@ class ScanSet(Table):
             chans = self.chan_columns
 
         for ch in chans:
-            log.info("Fitting channel {}".format(ch))
+            logging.info("Fitting channel {}".format(ch))
             feed = get_channel_feed(ch)
             self[ch + "_save"] = self[ch].copy()
             self[ch] = Column(fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par))
@@ -1054,7 +1053,7 @@ class ScanSet(Table):
 
     def rerun_scan_analysis(self, x, y, key, test=False):
         """Rerun the analysis of single scans."""
-        log.debug("{} {} {}".format(x, y, key))
+        logging.debug("{} {} {}".format(x, y, key))
         if key == "a":
             self.reprocess_scans_through_pixel(x, y, test=test)
         elif key == "h":
@@ -1157,7 +1156,7 @@ class ScanSet(Table):
             try:
                 s = Scan(sname)
             except Exception:
-                log.warning("Errors while opening scan {}".format(sname))
+                logging.warning("Errors while opening scan {}".format(sname))
                 continue
             try:
                 chan_mask = s["{}-filt".format(ch)]
@@ -1202,7 +1201,7 @@ class ScanSet(Table):
         feed = get_channel_feed(ch)
         mask = self["Scan_id"] == sid
         try:
-            log.info("Updating scan {}".format(sname))
+            logging.info("Updating scan {}".format(sname))
             s = Scan(sname)
         except Exception as e:
             warnings.warn("Impossible to write to scan {}".format(sname))
@@ -1272,7 +1271,7 @@ class ScanSet(Table):
 
     def read_images_from_meta(self):
         for key in self.meta.keys():
-            log.info("Caught key press: {}".format(key))
+            logging.info("Caught key press: {}".format(key))
             if IMG_STR in key:
                 self.images = {}
                 self.images[key.replace(IMG_STR, "")] = self.meta[key]
@@ -1408,7 +1407,7 @@ class ScanSet(Table):
             fname = self.meta["config_file"].replace(".ini", tail)
 
         if destripe:
-            log.info("Destriping....")
+            logging.info("Destriping....")
             images = self.destripe_images(
                 no_offsets=no_offsets,
                 frame=frame,
@@ -1518,7 +1517,7 @@ class ScanSet(Table):
                 for k in moments_dict.keys():
                     if k == "Description":
                         continue
-                    log.info("FOM_{}: {}".format(k, moments_dict[k]))
+                    logging.info("FOM_{}: {}".format(k, moments_dict[k]))
                     # header_mod['FOM_{}'.format(k)] = moments_dict[k]
 
             hdu = fits.ImageHDU(images[ch], header=header_mod, name="IMG" + ch)
@@ -1550,14 +1549,14 @@ def _excluded_regions_from_args(args_exclude):
         for i in range(nregs):
             region = regions[i]
             if region.name != "circle":
-                log.warning("Only circular regions are allowed!")
+                logging.warning("Only circular regions are allowed!")
                 continue
             if region.coord_format == "fk5":
                 excluded_radec.append(np.radians(region.coord_list))
             elif region.coord_format == "image":
                 excluded_xy.append(region.coord_list)
             else:
-                log.warning("Only regions in fk5 or image coordinates are allowed!")
+                logging.warning("Only regions in fk5 or image coordinates are allowed!")
                 continue
     return excluded_xy, excluded_radec
 

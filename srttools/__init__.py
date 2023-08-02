@@ -24,3 +24,6 @@ warnings.filterwarnings("once", category=np.VisibleDeprecationWarning)
 warnings.filterwarnings("ignore", "table path was not set via the path= ")
 
 __all__ = []
+from .logging import logging, logger
+
+logger.setLevel(logging.INFO)

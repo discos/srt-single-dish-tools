@@ -80,7 +80,7 @@ from scipy.signal import medfilt
 import copy
 import warnings
 from collections.abc import Iterable
-from astropy import log
+import logging
 
 
 model_primary_header = """
@@ -293,7 +293,7 @@ def on_or_off(subscan, feed):
             is_on = True
     else:
         is_on = subscan.meta["az_offset"] > 1e-4 * u.rad
-    # log.info("Subscan {}, feed {}: ONOFF {}".format(
+    # logging.info("Subscan {}, feed {}: ONOFF {}".format(
     #     subscan.meta['SubScanID'],
     #     feed, is_on))
     return is_on
@@ -312,7 +312,7 @@ def cal_is_on(subscan):
         is_on = True
     elif "flag_cal" in subscan.colnames and np.any(subscan["flag_cal"] == 1):
         is_on = subscan["flag_cal"]
-    # log.info("Subscan {}: CAL {}".format(
+    # logging.info("Subscan {}: CAL {}".format(
     #     subscan.meta['SubScanID'],
     #     is_on))
     return is_on
@@ -369,7 +369,7 @@ def find_cycles(table, list_of_keys):
             cycle_counter += 1
         table["CYCLE"][i] = cycle_counter
         last = b
-    # log.info(table)
+    # logging.info(table)
     return table
 
 
@@ -536,7 +536,7 @@ class CLASSFITS_creator:
         for fname in sorted(glob.glob(os.path.join(scandir, "*.fits"))):
             if "summary" in fname:
                 continue
-            log.info(fname)
+            logging.info(fname)
             subscan = read_data_fitszilla(fname)
             location = locations[subscan.meta["site"]]
             times = Time(
@@ -704,7 +704,7 @@ class CLASSFITS_creator:
                     self.tables[filekey] = newhdu
 
         for t in self.tables:
-            log.debug(t)
+            logging.debug(t)
         return self.tables
 
     def calibrate_all(self, use_calon=False):

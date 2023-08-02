@@ -15,7 +15,7 @@ from astropy.coordinates import (
 import os
 from astropy.time import Time
 import warnings
-from astropy import log
+import logging
 import copy
 import re
 import glob
@@ -824,7 +824,7 @@ def _read_data_fitszilla(lchdulist):
         new_table[info] = data_table_data[info]
 
     if not _check_derotator(new_table["derot_angle"]):
-        log.debug("Derotator angle looks weird. Setting to 0")
+        logging.debug("Derotator angle looks weird. Setting to 0")
         new_table["derot_angle"][:] = 0
 
     # Duplicate raj and decj columns (in order to be corrected later)

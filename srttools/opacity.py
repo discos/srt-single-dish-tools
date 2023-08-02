@@ -3,7 +3,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from .utils import HAS_MPL
 from .io import adjust_temperature_size
-from astropy import log
+import logging
 
 if HAS_MPL:
     import matplotlib.pyplot as plt
@@ -95,7 +95,7 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
             ),
         )
 
-        log.info(f"{file}: The opacity for channel {ch} is {par[1]}")
+        logging.info(f"{file}: The opacity for channel {ch} is {par[1]}")
         if plot and HAS_MPL:
             plt.plot(airmass, exptau(airmass, *par), color="r", zorder=10)
             plt.xlabel("Airmass")

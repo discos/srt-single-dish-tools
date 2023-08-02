@@ -9,7 +9,7 @@ import tempfile
 import warnings
 
 # import urllib
-from astropy import log
+import logging
 from astropy.utils.data import download_file
 from contextlib import contextmanager
 
@@ -35,13 +35,13 @@ def download_test_data(datadir):
     url = "https://github.com/discos/srttools_test_data/blob/main/data/sim.zip?raw=true"
     with cwd(datadir):
         # urllib.request.urlretrieve(url, 'sim.zip')
-        log.info(f"Downloading test data from {url}")
+        logging.info(f"Downloading test data from {url}")
         data = download_file(url)
         shutil.copyfile(data, "sim.zip")
-        log.info("Unzipping")
+        logging.info("Unzipping")
         with ZipFile("sim.zip", "r") as zipObj:
             zipObj.extractall()
-        log.info("Done")
+        logging.info("Done")
 
 
 def print_garbage(prefix):
@@ -125,7 +125,7 @@ def cal2_scan_func(x):
 
 
 def prepare_simulated_data(simdir):
-    from astropy import log
+    import logging
     from srttools.simulate import sim_crossscans, simulate_map
     from srttools.simulate import sim_position_switching
     from srttools.io import mkdir_p
@@ -140,16 +140,16 @@ def prepare_simulated_data(simdir):
     caldir3 = os.path.join(simdir, "calibration_bad")
     crossdir = os.path.join(simdir, "crossscans")
 
-    log.info("Fake calibrators: DummyCal, 1 Jy.")
+    logging.info("Fake calibrators: DummyCal, 1 Jy.")
     mkdir_p(caldir)
     sim_crossscans(5, caldir)
-    log.info("Fake calibrators: DummyCal2, 1.321 Jy.")
+    logging.info("Fake calibrators: DummyCal2, 1.321 Jy.")
     mkdir_p(caldir2)
     sim_crossscans(5, caldir2, srcname="DummyCal2", scan_func=cal2_scan_func)
-    log.info("Fake calibrators: DummyCal2, wrong flux 0.52 Jy.")
+    logging.info("Fake calibrators: DummyCal2, wrong flux 0.52 Jy.")
     mkdir_p(caldir3)
     sim_crossscans(1, caldir3, srcname="DummyCal2", scan_func=source_scan_func)
-    log.info("Fake cross scans: DummySrc, 0.52 Jy.")
+    logging.info("Fake cross scans: DummySrc, 0.52 Jy.")
     mkdir_p(crossdir)
     sim_crossscans(5, crossdir, srcname="DummySrc", scan_func=source_scan_func)
 
@@ -161,7 +161,7 @@ def prepare_simulated_data(simdir):
     obsdir_dec = os.path.join(simdir, "gauss_dec")
     mkdir_p(obsdir_ra)
     mkdir_p(obsdir_dec)
-    log.info("Fake map: Point-like (but Gaussian beam shape), " "{} Jy.".format(simulated_flux))
+    logging.info("Fake map: Point-like (but Gaussian beam shape), " "{} Jy.".format(simulated_flux))
 
     simulate_map(
         count_map=gauss_src_func,
@@ -186,7 +186,7 @@ def prepare_simulated_data(simdir):
     obsdir_dec = os.path.join(simdir, "gauss_dec_small")
     mkdir_p(obsdir_ra)
     mkdir_p(obsdir_dec)
-    log.info("Fake map: Point-like (but Gaussian beam shape), " "{} Jy.".format(simulated_flux))
+    logging.info("Fake map: Point-like (but Gaussian beam shape), " "{} Jy.".format(simulated_flux))
     simulate_map(
         count_map=gauss_src_func,
         length_ra=15.0,
@@ -214,7 +214,7 @@ def prepare_simulated_data(simdir):
     sim_position_switching(pswdir, nbin=1024)
     sim_position_switching(pswdir_legacy, nbin=1024, legacy_cal_format=True)
     simulate_map(width_ra=2, width_dec=2.0, outdir=emptydir)
-    log.info(f"Dataset simulated in {time.time() - t0:.2f}s")
+    logging.info(f"Dataset simulated in {time.time() - t0:.2f}s")
 
 
 curdir = os.path.dirname(os.path.abspath(__file__))
@@ -228,10 +228,10 @@ if not os.path.exists(pswdir_probe):
     try:
         download_test_data(datadir)
     except Exception as e:
-        log.info("Download failed. Simulating dataset")
+        logging.info("Download failed. Simulating dataset")
         prepare_simulated_data(simdir)
 else:
-    log.info("Test data already downloaded")
+    logging.info("Test data already downloaded")
 
 assert os.path.exists(simdir)
 assert os.path.exists(config_probe)

@@ -11,7 +11,7 @@ from srttools.simulate import sim_crossscans, _2d_gauss
 from srttools.io import mkdir_p
 from srttools.utils import compare_strings, HAS_MPL
 import pytest
-from astropy import log
+import logging
 from astropy.logger import logging
 import numpy as np
 

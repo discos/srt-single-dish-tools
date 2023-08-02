@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 from astropy.table import Table, Column
 from astropy.time import Time
-from astropy import log
+import logging
 from .io import read_data, chan_re
 from .scan import list_scans
 from .calibration import read_calibrator_config
@@ -60,20 +60,20 @@ def inspect_directories(directories, only_after=None, only_before=None):
             datetime.datetime.strptime(only_after, "%Y%m%d-%H%M%S"),
             scale="utc",
         ).mjd
-        log.info("Filtering out observations before " "MJD {}".format(only_after))
+        logging.info("Filtering out observations before " "MJD {}".format(only_after))
     if only_before is not None:
         only_before = Time(
             datetime.datetime.strptime(only_before, "%Y%m%d-%H%M%S"),
             scale="utc",
         ).mjd
-        log.info("Filtering out observations after " "MJD {}".format(only_before))
+        logging.info("Filtering out observations after " "MJD {}".format(only_before))
 
     for d in directories:
         fits_files = list_scans(".", [d])
         for f in fits_files:
             if "summary.fits" in f:
                 continue
-            log.info("Reading {}".format(f))
+            logging.info("Reading {}".format(f))
             try:
                 data = read_data(f)
                 time_start = data[0]["time"]
@@ -130,7 +130,7 @@ def split_observation_table(
     groups = {}
     for i, ind in enumerate(zip(indices[:-1], indices[1:])):
         start_row = grouped_table[ind[0]]
-        log.info(
+        logging.info(
             "Group {}, Backend = {}, "
             "Receiver = {}".format(i, start_row["Backend"], start_row["Receiver"])
         )
@@ -332,8 +332,8 @@ def main_inspector(args=None):
         if args.options is not None:
             args.options = ast.literal_eval(args.options)
         config_files = dump_config_files(info, group_by_entries=args.group_by, options=args.options)
-        log.debug(config_files)
+        logging.debug(config_files)
     else:
         groups = split_observation_table(info, group_by_entries=args.group_by)
-        log.debug(groups)
+        logging.debug(groups)
     return config_files

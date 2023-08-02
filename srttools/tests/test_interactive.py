@@ -2,7 +2,7 @@ import numpy as np
 from srttools.interactive_filter import ImageSelector, DataSelector
 from srttools.interactive_filter import select_data, HAS_MPL
 from srttools.interactive_filter import TestWarning, PlotWarning
-from astropy import log
+import logging
 import warnings
 import pytest
 
@@ -65,6 +65,7 @@ class TestDataSelector(object):
 
         gs = mpl.gridspec.GridSpec(2, 1)
 
+        plt.figure()
         klass.ax0 = plt.subplot(gs[0])
         klass.ax1 = plt.subplot(gs[1])
 
