@@ -298,7 +298,7 @@ def _get_spectrum_stats(
         warnings.warn("Very few data in the dataset. " "Skipping spectral filtering.")
         return results
 
-    bad = meanspec == 0
+    bad = (meanspec == 0) | np.isnan(meanspec) | np.isinf(meanspec)
     meanspec[bad] = 1
 
     # If invalid data are inside the frequency mask, warn the user and exit.
