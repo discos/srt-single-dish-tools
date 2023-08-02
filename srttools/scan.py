@@ -307,10 +307,9 @@ def _get_spectrum_stats(
     if np.any(bad):
         warnings.warn(
             f"{os.path.splitext(os.path.basename(filename))[0]}: "
-            "Bad channels in the data set. : {np.where(bad)[0] * df}. "
+            f"Bad channels in the data set. : {np.where(bad)[0] * df}. "
             "Consider changing the channels included in the sum (--splat option)"
         )
-        return results
 
     spectral_var = (
         np.sqrt(np.sum((dynamical_spectrum - meanspec) ** 2, axis=0) / dynspec_len) / meanspec
