@@ -188,6 +188,7 @@ Actions:
         self.bcounter = 0
         if not test:
             plt.show()
+            plt.gcf().canvas.start_event_loop(timeout=-1)
 
     def on_click(self, event):
         """Dummy function, in case I want to do something with a click."""
@@ -257,6 +258,7 @@ Actions:
         elif event.key == "r":
             self.reset()
         elif event.key == "q":
+            plt.gcf().canvas.stop_event_loop()
             self.quit()
         else:
             pass
@@ -278,10 +280,11 @@ Actions:
 
     def quit(self):
         logging.info("Closing all figures and quitting.")
-        for key in self.info.keys():
+        old = copy.deepcopy(self.info)
+        for key in old:
             if compare_anything(self.info[key], self.starting_info[key]):
                 self.info.pop(key)
-        plt.close(self.ax1.figure)
+        plt.close(plt.gcf())
 
     def subtract_baseline(self):
         """Subtract the baseline based on the selected intervals."""
@@ -554,12 +557,12 @@ class ImageSelector:
         logging.info("Pressed key {} at coords {},{}".format(key, x, y))
 
         if key == "q":
-            plt.close(self.ax.figure)
+            plt.close(plt.gcf())
         elif x is None or y is None or x != x or y != y:
             logging.warning("Invalid choice. Is the window under focus?")
             return
         elif self.fun is not None:
-            plt.close(self.ax.figure)
+            plt.close(plt.gcf())
             self.fun(x, y, key)
 
         return x, y, key
