@@ -298,6 +298,19 @@ def _get_spectrum_stats(
         warnings.warn("Very few data in the dataset. " "Skipping spectral filtering.")
         return results
 
+    bad = (meanspec == 0) | np.isnan(meanspec) | np.isinf(meanspec)
+    meanspec[bad] = 1
+
+    # If invalid data are inside the frequency mask, warn the user and exit.
+    # Otherwise, just go on with business as usual.
+    bad = bad & freqmask
+    if np.any(bad):
+        warnings.warn(
+            f"{os.path.splitext(os.path.basename(filename))[0]}: "
+            f"Bad channels in the data set. : {np.where(bad)[0] * df}. "
+            "Consider changing the channels included in the sum (--splat option)"
+        )
+
     spectral_var = (
         np.sqrt(np.sum((dynamical_spectrum - meanspec) ** 2, axis=0) / dynspec_len) / meanspec
     )
@@ -551,7 +564,7 @@ def plot_spectrum_cleaning_results(
     )
     ax_meanspec = plt.subplot(gs[0, 0])
     ax_dynspec = plt.subplot(gs[1, 0], sharex=ax_meanspec)
-    ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec)
+    ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec, sharey=ax_dynspec)
     ax_lc = plt.subplot(gs[1, 2], sharey=ax_dynspec)
     ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
     ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
@@ -773,7 +786,7 @@ def clean_scan_using_variability(
         )
         return None
 
-    dummy_file = f"{time.time() - 1570000000}_{np.random.randint(10**8)}.p"
+    dummy_file = f"{outfile}_{label}.p"
     spec_stats_ = _get_spectrum_stats(
         dynamical_spectrum,
         freqsplat,

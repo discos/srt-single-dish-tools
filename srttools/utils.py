@@ -58,13 +58,13 @@ def _generic_dummy_decorator(*args, **kwargs):
 
 
 try:
-    from numba import jit, vectorize
+    from numba import jit, njit, vectorize
 
     HAS_NUMBA = True
 except ImportError:
     warnings.warn("Numba not installed. Faking it")
 
-    jit = vectorize = _generic_dummy_decorator
+    jit = njit = vectorize = _generic_dummy_decorator
     HAS_NUMBA = False
 
 

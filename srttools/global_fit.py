@@ -9,7 +9,7 @@ try:
 except ImportError:
     HAS_MPL = False
 from .fit import contiguous_regions
-from .utils import jit, vectorize
+from .utils import njit, vectorize
 
 from .histograms import histogram2d
 import numpy as np
@@ -67,7 +67,7 @@ def _calculate_image(x, y, counts, bx, by, nsamp):
     return X, Y, mean.T, img_var.T
 
 
-@jit  # (nopython=True)
+@njit
 def _align_all(newd_t, newd_c, data_idx, par):
     ms = np.zeros_like(newd_c, dtype=np.float64)
     qs = np.zeros_like(newd_c, dtype=np.float64)

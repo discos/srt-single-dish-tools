@@ -107,6 +107,22 @@ class Test1_Scan(object):
         # No new pickle files have survived the cleaning!
         assert len(new_pickle_files) == 0
 
+    def test_clean_bad_thresh(self):
+        """Test that an incorrect noise threshold produces no good data."""
+
+        with pytest.warns(UserWarning, match="incorrect noise threshold"):
+            clean_scan_using_variability(
+                np.random.random((800, 1000)), 16, 512, debug_file_format="jpg", noise_threshold=-3
+            )
+
+    @pytest.mark.parametrize("bad_data", [0, np.nan, np.inf])
+    def test_clean_bad_data(self, bad_data):
+        """Test that an incorrect noise threshold produces no good data."""
+        data = np.random.random((800, 1000))
+        data[:, 500] = bad_data
+        with pytest.warns(UserWarning, match="Bad channels in the data set"):
+            clean_scan_using_variability(data, 16, 512)
+
     def test_bulk_change_hdr(self):
         dummyname = os.path.join(os.getcwd(), "dummyfile.fits")
         shutil.copyfile(self.fname, dummyname)
@@ -331,6 +347,7 @@ class Test2_Scan(object):
         assert np.any(
             ["No good channels found. A problem with the " in r.message.args[0] for r in record]
         )
+        assert np.any(["Bad channels in the data set" in r.message.args[0] for r in record])
         assert os.path.exists(
             os.path.join(
                 self.config["productdir"],
