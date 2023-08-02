@@ -2,7 +2,7 @@ import numpy as np
 from srttools.interactive_filter import ImageSelector, DataSelector
 from srttools.interactive_filter import select_data, HAS_MPL
 from srttools.interactive_filter import TestWarning, PlotWarning
-from astropy import log
+import logging
 import warnings
 import pytest
 
@@ -65,6 +65,7 @@ class TestDataSelector(object):
 
         gs = mpl.gridspec.GridSpec(2, 1)
 
+        plt.figure()
         klass.ax0 = plt.subplot(gs[0])
         klass.ax1 = plt.subplot(gs[1])
 
@@ -122,37 +123,34 @@ class TestDataSelector(object):
             self.selector.on_key(fake_event)
         assert np.any(["I plotted all" in r.message.args[0] for r in record])
 
-    def test_flag(self, capsys):
+    def test_flag(self, caplog):
         assert self.selector.info["scan1.fits"]["FLAG"] is None
         fake_event = type("event", (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ("x", 1, 3)
         self.selector.on_key(fake_event)
-        out, err = capsys.readouterr()
-        assert "Scan was flagged" in out
+        assert "Scan was flagged" in caplog.text
         assert self.selector.info["scan1.fits"]["FLAG"] is True
 
-    def test_flag_otherscan(self, capsys):
+    def test_flag_otherscan(self, caplog):
         self.selector.current = "scan2.fits"
         assert self.selector.info["scan2.fits"]["FLAG"] is None
         fake_event = type("event", (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ("x", 1, 3)
         with pytest.warns(PlotWarning) as record:
             self.selector.on_key(fake_event)
-            out, err = capsys.readouterr()
-            assert "Scan was flagged" in out
+            assert "Scan was flagged" in caplog.text
             fake_event.key, fake_event.xdata, fake_event.ydata = ("u", 1, 3)
             self.selector.on_key(fake_event)
         assert np.any(["I plotted all" in r.message.args[0] for r in record])
         assert self.selector.info["scan2.fits"]["FLAG"] is True
         self.selector.current = "scan1.fits"
 
-    def test_unflag(self, capsys):
+    def test_unflag(self, caplog):
         fake_event = type("event", (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ("v", 1, 3)
         with pytest.warns(PlotWarning) as record:
             self.selector.on_key(fake_event)
-            out, err = capsys.readouterr()
-            assert "Scan was unflagged" in out
+            assert "Scan was unflagged" in caplog.text
             fake_event.key, fake_event.xdata, fake_event.ydata = ("u", 1, 3)
             self.selector.on_key(fake_event)
         assert np.any(["I plotted all" in r.message.args[0] for r in record])
@@ -210,12 +208,11 @@ class TestDataSelector(object):
             self.selector.on_key(fake_event)
         assert np.any("I aligned all" in rec.message.args[0] for rec in record)
 
-    def test_quit(self, capsys):
+    def test_quit(self, caplog):
         fake_event = type("event", (), {})()
         fake_event.key, fake_event.xdata, fake_event.ydata = ("q", 1, 3)
         self.selector.on_key(fake_event)
-        out, err = capsys.readouterr()
-        assert "Closing all figures and quitting." in out
+        assert "Closing all figures and quitting." in caplog.text
 
     def test_select_data(self):
         info = select_data(self.xs, self.ys, test=True)

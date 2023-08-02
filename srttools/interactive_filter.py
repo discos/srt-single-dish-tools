@@ -3,7 +3,7 @@
 
 import copy
 import warnings
-from astropy import log
+import logging
 
 try:
     import matplotlib.pyplot as plt
@@ -263,7 +263,7 @@ Actions:
 
     def flag(self, value=True):
         self.info[self.current]["FLAG"] = value
-        log.info("Scan was {}flagged".format("un" if not value else ""))
+        logging.info("Scan was {}flagged".format("un" if not value else ""))
 
     def reset(self):
         for line in self.lines:
@@ -277,7 +277,7 @@ Actions:
         self.plot_all(silent=True)
 
     def quit(self):
-        log.info("Closing all figures and quitting.")
+        logging.info("Closing all figures and quitting.")
         for key in self.info.keys():
             if compare_anything(self.info[key], self.starting_info[key]):
                 self.info.pop(key)
@@ -440,7 +440,7 @@ Actions:
             )
 
         if self.current is not None:
-            log.info("Current scan is {}".format(self.current))
+            logging.info("Current scan is {}".format(self.current))
             key = self.current
             self.ax2.plot(
                 self.xs[key][good[key]],
@@ -551,12 +551,12 @@ class ImageSelector:
         """Do this when the keyboard is pressed."""
         x, y = event.xdata, event.ydata
         key = event.key
-        log.info("Pressed key {} at coords {},{}".format(key, x, y))
+        logging.info("Pressed key {} at coords {},{}".format(key, x, y))
 
         if key == "q":
             plt.close(self.ax.figure)
         elif x is None or y is None or x != x or y != y:
-            log.warning("Invalid choice. Is the window under focus?")
+            logging.warning("Invalid choice. Is the window under focus?")
             return
         elif self.fun is not None:
             plt.close(self.ax.figure)

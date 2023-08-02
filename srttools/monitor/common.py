@@ -2,7 +2,7 @@ import os
 import sys
 
 # Replace the default logging configuration with a custom one
-from astropy.logger import logging
+from srttools import logging
 
 log = logging.getLogger("SDTmonitor")
 log.propagate = False

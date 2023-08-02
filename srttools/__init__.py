@@ -16,6 +16,13 @@ except ImportError:
 import warnings
 import numpy as np
 
+
+def warning_on_one_line(message, category, filename, lineno, line=None):
+    return "%s:%s: %s: %s\n" % (filename, lineno, category.__name__, message)
+
+
+warnings.formatwarning = warning_on_one_line
+
 # warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
 # warnings.filterwarnings("error", ".*")
 warnings.filterwarnings("once", category=UserWarning)
@@ -24,3 +31,6 @@ warnings.filterwarnings("once", category=np.VisibleDeprecationWarning)
 warnings.filterwarnings("ignore", "table path was not set via the path= ")
 
 __all__ = []
+from .logging import logging, logger
+
+logger.setLevel(logging.INFO)

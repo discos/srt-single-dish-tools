@@ -13,7 +13,7 @@ from .io import mkdir_p, locations
 from .utils import tqdm, njit
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
-from astropy import log
+import logging
 
 try:
     import matplotlib.pyplot as plt
@@ -788,7 +788,7 @@ def simulate_map(
         fig = plt.figure()
 
     delta_decs = np.arange(-width_dec / 2, width_dec / 2 + spacing, spacing) / 60
-    log.info("Simulating dec scans...")
+    logging.info("Simulating dec scans...")
     for i_d, delta_dec in enumerate(tqdm(delta_decs)):
         start_dec = mean_dec + delta_dec
 
@@ -828,7 +828,7 @@ def simulate_map(
 
         fig = plt.figure()
     delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing, spacing) / 60
-    log.info("Simulating RA scans...")
+    logging.info("Simulating RA scans...")
     # RA scans
     for i_r, delta_ra in enumerate(tqdm(delta_ras)):
         start_ra = delta_ra / np.cos(np.radians(mean_dec)) + mean_ra
@@ -864,7 +864,7 @@ def simulate_map(
         fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
         plt.close(fig)
 
-    log.info("Creating summary...")
+    logging.info("Creating summary...")
     create_summary(
         os.path.join(outdir_ra, "summary.fits"),
         {

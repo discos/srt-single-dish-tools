@@ -6,7 +6,7 @@ import os
 import warnings
 import sys
 
-from astropy import log
+import logging
 import astropy.units as u
 import numpy as np
 from scipy.signal import medfilt
@@ -254,7 +254,7 @@ def object_or_pickle(obj, remove=False):
 
 def pickle_or_not(results, filename, test_data, min_MB=50):
     if sys.getsizeof(test_data) > min_MB * 1e6:
-        log.info("The data set is large. Using partial data dumps")
+        logging.info("The data set is large. Using partial data dumps")
         with open(filename, "wb") as fobj:
             pickle.dump(results, fobj)
             results = filename
@@ -814,7 +814,7 @@ def clean_scan_using_variability(
         for filename in [dummy_file, spec_stats_]:
             if isinstance(filename, str) and os.path.exists(filename):
                 os.unlink(filename)
-        log.debug("No plotting needs to be done.")
+        logging.debug("No plotting needs to be done.")
         return object_or_pickle(cleaning_res_file, remove=True)
 
     plot_spectrum_cleaning_results(
@@ -943,7 +943,7 @@ class Scan(Table):
                 if os.path.getmtime(h5name) > os.path.getmtime(data):
                     data = h5name
             if debug:
-                log.info("Loading file {}".format(data))
+                logging.info("Loading file {}".format(data))
             table = read_data(data)
             super().__init__(table, **kwargs)
             if not data.endswith("hdf5"):
@@ -968,11 +968,11 @@ class Scan(Table):
                 self.interactive_filter()
 
             if (("backsub" not in self.meta.keys() or not self.meta["backsub"])) and not nosub:
-                log.debug(f"Subtracting the baseline from " f'{self.meta["filename"]}')
+                logging.debug(f"Subtracting the baseline from " f'{self.meta["filename"]}')
                 try:
                     self.baseline_subtract(avoid_regions=avoid_regions, plot=debug)
                 except Exception as e:
-                    log.error(f"Baseline subtraction failed: {str(e)}")
+                    logging.error(f"Baseline subtraction failed: {str(e)}")
 
             if not nosave:
                 self.save()
@@ -1040,7 +1040,7 @@ class Scan(Table):
             :func:`clean_scan_using_variability`)
         """
         if debug:
-            log.debug("Noise threshold: {}".format(noise_threshold))
+            logging.debug("Noise threshold: {}".format(noise_threshold))
 
         if self.meta["filtering_factor"] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
@@ -1165,7 +1165,7 @@ class Scan(Table):
 
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
-        # log.info('Saving to {}'.format(fname))
+        # logging.info('Saving to {}'.format(fname))
 
         if fname.endswith(".hdf5"):
             kwargs["serialize_meta"] = kwargs.pop("serialize_meta", True)

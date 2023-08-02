@@ -54,7 +54,7 @@ import glob
 import astropy.units as u
 import shutil
 import pytest
-from astropy import log
+import logging
 import subprocess as sp
 import astropy
 from astropy.logger import logging

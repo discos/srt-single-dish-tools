@@ -18,7 +18,7 @@ import configparser
 import copy
 
 import numpy as np
-from astropy import log
+import logging
 import astropy.units as u
 from scipy.optimize import curve_fit
 from astropy.table import Table, Column
@@ -89,7 +89,6 @@ def read_calibrator_config():
     Examples
     --------
     >>> calibs = read_calibrator_config() # doctest: +ELLIPSIS
-    INFO...
     >>> calibs['DummyCal']['Kind']
     'CoeffTable'
     >>> 'coeffs' in calibs['DummyCal']['CoeffTable']
@@ -105,7 +104,7 @@ def read_calibrator_config():
         cparser = configparser.ConfigParser()
         cparser.read(cfile)
 
-        log.info(f"Reading {cfile}")
+        logging.info(f"Reading {cfile}")
         if "CoeffTable" not in list(cparser.sections()):
             configs[cparser.get("Info", "Name")] = {
                 "Kind": "FreqList",
@@ -141,7 +140,7 @@ def read_calibrator_config():
 def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
     global CALIBRATOR_CONFIG
 
-    log.info(f"Getting calibrator flux from {calibrator}")
+    logging.info(f"Getting calibrator flux from {calibrator}")
 
     if CALIBRATOR_CONFIG is None:
         CALIBRATOR_CONFIG = read_calibrator_config()
@@ -177,11 +176,11 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         # this
         scan = Scan(scan_path, norefilt=True, nosave=True, plot=plot, **kwargs)
     except KeyError as e:
-        log.warning("Missing key. Bad file? {}: {}".format(sname, str(e)))
+        logging.warning("Missing key. Bad file? {}: {}".format(sname, str(e)))
         return False, None
     except Exception as e:
-        log.warning("Error while processing {}: {}".format(sname, str(e)))
-        log.warning(traceback.format_exc())
+        logging.warning("Error while processing {}: {}".format(sname, str(e)))
+        logging.warning(traceback.format_exc())
         return False, None
 
     feeds = np.arange(scan["ra"].shape[1])
@@ -500,7 +499,7 @@ class CalibratorTable(Table):
 
         out_retval = False
         for i_s, s in enumerate(scan_list):
-            log.info("{}/{}: Loading {}".format(i_s + 1, nscan, s))
+            logging.info("{}/{}: Loading {}".format(i_s + 1, nscan, s))
 
             retval, rows = _treat_scan(
                 s, plot=plot, debug=debug, freqsplat=freqsplat, nofilt=nofilt
@@ -824,7 +823,7 @@ class CalibratorTable(Table):
             xbad = x_to_fit[bad]
             ybad = y_to_fit[bad]
             for xb, yb in zip(xbad, ybad):
-                log.warning("Outliers: {}, {}".format(xb, yb))
+                logging.warning("Outliers: {}, {}".format(xb, yb))
 
             good = np.logical_not(bad)
             x_to_fit = x_to_fit[good]
@@ -1306,7 +1305,7 @@ def main_cal(args=None):
         caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt, plot=args.show)
         caltable.write(outfile_unfilt)
     else:
-        log.info(
+        logging.info(
             f"Loading unfiltered calibration table from {outfile_unfilt} " f"(delete to reprocess)"
         )
         caltable = CalibratorTable.read(outfile_unfilt)
@@ -1315,7 +1314,7 @@ def main_cal(args=None):
     N = len(caltable)
     good = snr > args.snr_min
     caltable = caltable[good]
-    log.info(
+    logging.info(
         f"{len(caltable)} good calibrator observations found above " f"SNR={args.snr_min} (of {N})"
     )
     caltable.update()

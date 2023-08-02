@@ -4,7 +4,7 @@ from srttools.read_config import read_config
 from astropy.time import Time
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
-from astropy import log
+import logging
 import astropy.units as u
 import pytest
 
@@ -88,18 +88,17 @@ class Test1_Scan(object):
         if os.path.exists(h5file):
             os.unlink(h5file)
 
-    def test_clean_large_data(self):
+    def test_clean_large_data(self, caplog):
         """Test that large data sets needing pickling are handled correctly."""
 
         existing_pickle_files = glob.glob("*.p")
-        with log.log_to_list() as log_list:
-            clean_scan_using_variability(
-                np.random.random((16000, 1000)),
-                16,
-                512,
-                debug_file_format="jpg",
-            )
-        assert np.any(["data set is large" in l.message for l in log_list])
+        clean_scan_using_variability(
+            np.random.random((16000, 1000)),
+            16,
+            512,
+            debug_file_format="jpg",
+        )
+        assert "data set is large" in caplog.text
         new_pickle_files = glob.glob("*.p")
         for epf in existing_pickle_files:
             if epf in new_pickle_files:
