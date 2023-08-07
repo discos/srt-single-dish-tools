@@ -138,7 +138,7 @@ a larger value is better for sparse observations.
 Also, you might know already that some observations were bad. In this case,
 it's sufficient to take them out of the list above.
 
-.. _all projections in this list are supported: http://docs.astropy.org/en/stable/wcs/#supported-projections
+.. _all projections in this list are supported: https://docs.astropy.org/en/stable/wcs/supported_projections.html
 
 
 Preprocess the files

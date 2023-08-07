@@ -168,7 +168,7 @@ def mkdir_p(path):
     Notes
     -----
     Found at
-    http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+    https://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
     """
     import errno
 
