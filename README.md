@@ -34,11 +34,11 @@ Install the dependencies with pip (including a few optional but recommended):
 Clone the repository:
 
     (py3) $ cd /my/software/directory/
-    (py3) $ git clone https://github.com/matteobachetti/srt-single-dish-tools.git
+    (py3) $ git clone https://github.com/discos/srt-single-dish-tools.git
 
 or if you have deployed your SSH key to Github:
 
-    (py3) $ git clone git@github.com:matteobachetti/srt-single-dish-tools.git
+    (py3) $ git clone git@github.com:discos/srt-single-dish-tools.git
 
 Then:
 
@@ -71,5 +71,5 @@ First of all... **This code is under development!**... so, it might well be that
 If you used this software package to reduce data for a publication, please write in the acknowledgements something along these lines:
 
     This work makes use of the [SRT Single Dish Tools](https://github.com/discos/srt-single-dish-tools/) .
-    
+
 We will submit it to the [Astrophysics Source Code Library](www.ascl.net) soon, and update the text accordingly.

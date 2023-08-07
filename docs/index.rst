@@ -38,7 +38,7 @@ region.
    The first is able to produce images, the second is used to obtain quick
    flux measurements of point-like sources.
 
-.. _Github: https://github.com/matteobachetti/srt-single-dish-tools
+.. _Github: https://github.com/discos/srt-single-dish-tools
 
 Tentative Roadmap
 -----------------
@@ -72,7 +72,7 @@ Anaconda and virtual environment (recommended)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We strongly suggest to install the
-`Anaconda <https://www.anaconda.com/products/individual>`__ Python distribution.
+`Anaconda <https://www.anaconda.com/download>`__ Python distribution.
 Once the installation has finished, you should have a working ``conda``
 command in your shell. First of all, create a new environment:
 
@@ -116,13 +116,13 @@ Clone the repository:
 .. code-block:: console
 
     (py3) $ cd /my/software/directory/
-    (py3) $ git clone https://github.com/matteobachetti/srt-single-dish-tools.git
+    (py3) $ git clone https://github.com/discos/srt-single-dish-tools.git
 
 or if you have deployed your SSH key to Github:
 
 .. code-block:: console
 
-    (py3) $ git clone git@github.com:matteobachetti/srt-single-dish-tools.git
+    (py3) $ git clone git@github.com:discos/srt-single-dish-tools.git
 
 Then:
 

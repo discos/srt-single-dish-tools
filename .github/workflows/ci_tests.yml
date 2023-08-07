@@ -53,6 +53,11 @@ jobs:
             python: '3.8'
             toxenv: build_docs
 
+          - name: Test links of Sphinx docs
+            os: ubuntu-latest
+            python: '3.10'
+            toxenv: linkcheck
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2

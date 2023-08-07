@@ -44,10 +44,9 @@ def contiguous_regions(condition):
 
     Notes
     -----
-    From http://stackoverflow.com/questions/4494404/
-        find-large-number-of-consecutive-values-fulfilling-
-        condition-in-a-numpy-array
-    """  # NOQA
+    From https://stackoverflow.com/questions/4494404/find-large-number-of-consecutive-values-fulfilling-condition-in-a-numpy-array
+    """
+    # NOQA
     # Find the indicies of changes in "condition"
     diff = np.logical_xor(condition[1:], condition[:-1])
     (idx,) = diff.nonzero()
@@ -389,7 +388,7 @@ def _als(y, lam, p, niter=30):
     References
     ----------
     .. [eilers-2005] https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
-    .. [so-als] http://stackoverflow.com/questions/29156532/python-baseline-correction-library
+    .. [so-als] https://stackoverflow.com/questions/29156532/python-baseline-correction-library
     .. [Stingray] https://github.com/StingraySoftware/stingray/pull/725
 
     """
