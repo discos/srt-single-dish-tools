@@ -5,7 +5,7 @@ and the [Astropy coding guidelines](http://docs.astropy.org/en/stable/developmen
 Please use the tool `black` to standardize the code style:
 
 ```
-black -l 79 srttools
+black -l 100 srttools
 ```
 
 This software is written in Python 3.8+.
