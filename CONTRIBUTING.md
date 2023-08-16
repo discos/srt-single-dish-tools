@@ -8,5 +8,5 @@ Please use the tool `black` to standardize the code style:
 black -l 79 srttools
 ```
 
-This software is written in Python 3.6+.
+This software is written in Python 3.8+.
 Tests run at each commit during Pull Requests, so it is easy to single out points in the code that break this compatibility.
