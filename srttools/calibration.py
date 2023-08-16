@@ -151,6 +151,20 @@ def _match_calibrator_name(calibrator, calibrators, relax=False):
     -------
     calibrator : str
         Name of the calibrator in the config file.
+
+    Examples
+    --------
+    >>> calibrators = ['3C48', '3C286', '3C147', '3C138', '3C295', '3C196', '3C9']
+    >>> calibrator = '3C48'
+    >>> _match_calibrator_name(calibrator, calibrators)
+    '3C48'
+    >>> calibrator = '3C286a'
+    >>> cal = _match_calibrator_name(calibrator, calibrators)  # This should fail
+    >>> cal is None
+    True
+    >>> cal = _match_calibrator_name(calibrator, calibrators, relax=True)  # This should work
+    >>> cal
+    '3C286'
     """
     if relax:
         for cal in calibrators:
