@@ -137,6 +137,96 @@ def read_calibrator_config():
     return configs
 
 
+def _match_calibrator_name(calibrator, calibrators, relax=False):
+    """Match a calibrator name to the ones in the config file.
+
+    Parameters
+    ----------
+    calibrator : str
+        Name of the calibrator to match.
+    calibrators : list of str
+        List of calibrators in the config file.
+
+    Returns
+    -------
+    calibrator : str
+        Name of the calibrator in the config file.
+
+    Examples
+    --------
+    >>> calibrators = ['3C48', '3C286', '3C147', '3C138', '3C295', '3C196', '3C9']
+    >>> calibrator = '3C48'
+    >>> _match_calibrator_name(calibrator, calibrators)
+    '3C48'
+    >>> calibrator = '3C286a'
+    >>> cal = _match_calibrator_name(calibrator, calibrators)  # This should fail
+    >>> cal is None
+    True
+    >>> cal = _match_calibrator_name(calibrator, calibrators, relax=True)  # This should work
+    >>> cal
+    '3C286'
+    """
+    if relax:
+        for cal in calibrators:
+            if calibrator == cal or calibrator in cal or cal in calibrator:
+                return cal
+    else:
+        for cal in calibrators:
+            if calibrator == cal:
+                return cal
+    return None
+
+
+def find_calibrator_in_list(calibrator, calibrators):
+    """Find a calibrator in the config file.
+
+    Start by searching for the exact name, and if not present, look for
+    similar names.
+
+    Parameters
+    ----------
+    calibrator : str
+        Name of the calibrator to match.
+    calibrators : list of str
+        List of calibrators in the config file.
+
+    Returns
+    -------
+    calibrator : str
+        Name of the calibrator in the config file.
+
+    Examples
+    --------
+    >>> calibrators = ['3C48', '3C286', '3C147', '3C138', '3C295', '3C196', '3C9']
+    >>> calibrator = '3C48'
+    >>> find_calibrator_in_list(calibrator, calibrators)
+    '3C48'
+    >>> calibrator = '3C286a'
+    >>> cal = find_calibrator_in_list(calibrator, calibrators)
+    >>> cal
+    '3C286'
+    >>> calibrator = 'bla'
+    >>> cal = find_calibrator_in_list(calibrator, calibrators)
+    >>> cal is None
+    True
+    """
+
+    new_calibrator = _match_calibrator_name(calibrator, calibrators)
+
+    if new_calibrator is None:
+        logging.warning(
+            f"Calibrator {calibrator} not found with exact name in config file. Trying to relax the search."
+        )
+        new_calibrator = _match_calibrator_name(calibrator, calibrators, relax=True)
+
+        if new_calibrator is None:
+            logging.warning(f"Calibrator {calibrator} not found in config file.")
+        else:
+            logging.warning(f"Found similarly-named {new_calibrator} in config file.")
+
+    return new_calibrator
+
+
 def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
     global CALIBRATOR_CONFIG
 
@@ -146,15 +236,10 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         CALIBRATOR_CONFIG = read_calibrator_config()
 
     calibrators = CALIBRATOR_CONFIG.keys()
-
-    for cal in calibrators:
-        if cal == calibrator:
-            calibrator = cal
-            break
-    else:
+    new_calibrator_name = find_calibrator_in_list(calibrator, calibrators)
+    if new_calibrator_name is None:
         return None, None
-
-    conf = CALIBRATOR_CONFIG[calibrator]
+    conf = CALIBRATOR_CONFIG[new_calibrator_name]
 
     # find closest value among frequencies
     if conf["Kind"] == "FreqList":
