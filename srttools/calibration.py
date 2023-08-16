@@ -223,6 +223,8 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
 
     calibrators = CALIBRATOR_CONFIG.keys()
     new_calibrator_name = find_calibrator_in_list(calibrator, calibrators)
+    if new_calibrator_name is None:
+        return None, None
     conf = CALIBRATOR_CONFIG[new_calibrator_name]
 
     # find closest value among frequencies
