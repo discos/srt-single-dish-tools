@@ -30,6 +30,7 @@ from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, njit
+from .utils import remove_suffixes_and_prefixes
 
 from .io import chan_re, get_channel_feed, detect_data_kind
 from .fit import linear_fun
@@ -1473,7 +1474,11 @@ class ScanSet(Table):
                 headkey = f"HIERARCH {key}"
             header[headkey] = (val.value, val.unit)
 
-        header["SOURCE"] = self.meta["SOURCE"].replace("_RA", "").replace("_DEC", "")
+        header["SOURCE"] = remove_suffixes_and_prefixes(
+            self.meta["SOURCE"],
+            suffixes=self.meta["ignore_suffix"],
+            prefixes=self.meta["ignore_prefix"],
+        )
 
         header["CREATOR"] = "SDT"
         ut = Time(datetime.utcnow(), scale="utc")
