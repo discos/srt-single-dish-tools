@@ -1,6 +1,7 @@
 """Read the relevant information and link observations to calibrators."""
 
 import warnings
+from collections.abc import Iterable
 import numpy as np
 from astropy.table import Table, Column
 from astropy.time import Time
@@ -9,6 +10,7 @@ from .io import read_data, chan_re
 from .scan import list_scans
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
+from .utils import remove_suffixes_and_prefixes
 
 try:
     from ConfigParser import ConfigParser
@@ -23,7 +25,9 @@ __all__ = [
 ]
 
 
-def inspect_directories(directories, only_after=None, only_before=None):
+def inspect_directories(
+    directories, only_after=None, only_before=None, ignore_suffix=[], ignore_prefix=[]
+):
     import datetime
 
     info = Table()
@@ -94,7 +98,9 @@ def inspect_directories(directories, only_after=None, only_before=None):
                 chan = [ch for ch in data.colnames if chan_re.search(ch)][0]
                 frequency = data[chan].meta["frequency"]
                 bandwidth = data[chan].meta["bandwidth"]
-                source = data.meta["SOURCE"]
+                source = remove_suffixes_and_prefixes(
+                    data.meta["SOURCE"], suffixes=ignore_suffix, prefixes=ignore_prefix
+                )
 
                 info.add_row(
                     [
@@ -265,7 +271,10 @@ def dump_config_files(info, group_by_entries=None, options=None):
 
                 if options is not None:
                     for k in options.keys():
-                        config.set("analysis", k, str(options[k]))
+                        val = options[k]
+                        if isinstance(val, Iterable) and not isinstance(val, str):
+                            val = "\n" + "\n".join(val)
+                        config.set("analysis", k, val)
                 config.write(open(filename, "w"))
                 config_files.append(filename)
 
@@ -319,9 +328,34 @@ def main_inspector(args=None):
         "scans done before 11:10:20 UTC, May 10th, 2015",
     )
 
-    args = parser.parse_args(args)
+    parser.add_argument(
+        "--ignore-suffix",
+        default="",
+        help=(
+            "Suffix, or comma-separated list of suffixes, to be removed from source name. "
+            "E.g. --ignore-suffix _ra,_dec,_k"
+        ),
+    )
+    parser.add_argument(
+        "--ignore-prefix",
+        default="",
+        help=(
+            "Prefix, or comma-separated list of prefixes, to be removed from source name. "
+            "E.g. --ignore-prefix ra_,dec_,k_"
+        ),
+    )
 
-    info = inspect_directories(args.directories, args.only_after, args.only_before)
+    args = parser.parse_args(args)
+    ignore_suffix = args.ignore_suffix.split(",")
+    ignore_prefix = args.ignore_prefix.split(",")
+
+    info = inspect_directories(
+        args.directories,
+        args.only_after,
+        args.only_before,
+        ignore_suffix=ignore_suffix,
+        ignore_prefix=ignore_prefix,
+    )
     info.write("table.csv", overwrite=True)
 
     if len(info) == 0:
@@ -331,6 +365,11 @@ def main_inspector(args=None):
     if args.dump_config_files:
         if args.options is not None:
             args.options = ast.literal_eval(args.options)
+        else:
+            args.options = {}
+
+        args.options.update({"ignore_prefix": ignore_prefix, "ignore_suffix": ignore_suffix})
+
         config_files = dump_config_files(info, group_by_entries=args.group_by, options=args.options)
         logging.debug(config_files)
     else:
