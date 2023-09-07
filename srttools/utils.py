@@ -7,6 +7,8 @@ import os
 import time
 import warnings
 import re
+from typing import List
+
 
 from collections import OrderedDict
 from collections.abc import Iterable
@@ -111,7 +113,7 @@ except ImportError:
         return np.median((np.fabs(data - center)) / c, axis=axis)
 
 
-ListOfStrings = list[str]
+ListOfStrings = List[str]
 
 
 def remove_suffixes_and_prefixes(
