@@ -82,6 +82,10 @@ noise_threshold : 5
 
 pixel_size : 0.8
 
+ignore_suffix :
+    _RA
+    _Dec
+
 [debugging]
 
 debug_file_format : png
@@ -199,6 +203,7 @@ def prepare_simulated_data(simdir):
         srcname="Dummy",
         channel_ratio=0.8,
         baseline="flat",
+        radec_labels_in_srcname=True,
     )
 
     config_file = os.path.abspath(os.path.join(simdir, "test_config_sim_small.ini"))

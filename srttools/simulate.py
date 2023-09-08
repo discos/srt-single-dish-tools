@@ -727,6 +727,7 @@ def simulate_map(
     nbin=1,
     debug=False,
     start_time=0,
+    radec_labels_in_srcname=False,
 ):
     """Simulate a map.
 
@@ -757,6 +758,8 @@ def simulate_map(
         put RA and DEC scans in the two directories.
     channel_ratio : float
         Ratio between the counts in the two channels
+    radec_labels_in_srcname : bool
+        If True, add RA and Dec labels to source name
     """
 
     if isinstance(outdir, str):
@@ -787,6 +790,11 @@ def simulate_map(
     if HAS_MPL and debug:
         fig = plt.figure()
 
+    ralabel = declabel = ""
+    if radec_labels_in_srcname:
+        ralabel = "_RA"
+        declabel = "_Dec"
+
     delta_decs = np.arange(-width_dec / 2, width_dec / 2 + spacing, spacing) / 60
     logging.info("Simulating dec scans...")
     for i_d, delta_dec in enumerate(tqdm(delta_decs)):
@@ -815,7 +823,7 @@ def simulate_map(
             other_keywords=other_keywords,
             src_ra=mean_ra,
             src_dec=mean_dec,
-            srcname=srcname,
+            srcname=srcname + ralabel,
             counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio),
         )
         if HAS_MPL and debug:
@@ -853,7 +861,7 @@ def simulate_map(
             filename=os.path.join(outdir_dec, "Dec{}.fits".format(i_r)),
             src_ra=mean_ra,
             src_dec=mean_dec,
-            srcname=srcname,
+            srcname=srcname + declabel,
         )
 
         if HAS_MPL and debug:
