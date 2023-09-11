@@ -125,6 +125,8 @@ def read_config(fname=None):
     config_output["noise_threshold"] = "5"
     config_output["smooth_window"] = "0.05"
     config_output["debug_file_format"] = "jpg"
+    config_output["ignore_suffix"] = []
+    config_output["ignore_prefix"] = []
 
     # --------------------------------------------------------------------
 
@@ -184,6 +186,10 @@ def read_config(fname=None):
         ]  # This last instruction eliminates blank lines
     except Exception:
         warnings.warn("Invalid skydip_directories in config file")
+
+    for key in config_output.keys():
+        if isinstance(config_output[key], str) and "\n" in config_output[key]:
+            config_output[key] = [s for s in config_output[key].splitlines() if s.strip()]
 
     # If the list of directories is not specified, or if a '*' symbol is used,
     # use glob in the datadir to determine the list

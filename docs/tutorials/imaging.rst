@@ -42,7 +42,7 @@ of directories:
 
 Some of these observations might have been done in different bands, or using different
 receivers, and you might have lost the list of observations (or the user was not the observer).
-The script ``SDTinspector`` is there to help, dividing the observations in groups based
+The script ``SDTinspect`` is there to help, dividing the observations in groups based
 on observing time, backend, receiver, etc.:
 
 .. code-block:: console
@@ -83,6 +83,17 @@ a set of config files ready for the next step in the analysis:
     (py3) $ ls -alrt
     CCB_ROACH_Src1_Obs0.ini
     KKG_ROACH_Src1_Obs1.ini
+
+
+.. note ::
+
+    Many observation schedules add labels to the source name (e.g. ``_RA`` or ``_Dec`` to
+    indicate scans in a given direction, ``_K`` to indicate the band, etc). This is not ideal and should
+    always be avoided. However, to manage this use case it is sufficient to add the option
+    ``--ignore-suffix`` to ``SDTinspect``, followed by a list of comma-separated patterns to
+    be avoided. For example, if we want to avoid the suffixes ``_RA`` and ``_Dec`` we can run
+
+    ``(py3) $ SDTinspect --ignore-suffix _RA,_Dec (... other options)``
 
 Modify config files
 ~~~~~~~~~~~~~~~~~~~

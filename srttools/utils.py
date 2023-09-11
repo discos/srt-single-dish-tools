@@ -6,6 +6,10 @@ import shutil
 import os
 import time
 import warnings
+import re
+from typing import List
+
+
 from collections import OrderedDict
 from collections.abc import Iterable
 
@@ -107,6 +111,38 @@ except ImportError:
         else:
             center = np.median(data)
         return np.median((np.fabs(data - center)) / c, axis=axis)
+
+
+ListOfStrings = List[str]
+
+
+def remove_suffixes_and_prefixes(
+    name: str, suffixes: ListOfStrings = [], prefixes: ListOfStrings = []
+) -> str:
+    """Eliminate a list of prefixes and suffixes from names.
+
+    Additionaly, this will remove any trailing or leading underscores.
+
+    Examples
+    --------
+    >>> remove_suffixes_and_prefixes('bla_ra_dec', ["_ra", "_dec"])
+    'bla'
+    >>> remove_suffixes_and_prefixes('bla_RA_Dec_', ["_ra", "_dec"])
+    'bla'
+    >>> remove_suffixes_and_prefixes('_bla_ra_K', suffixes=["_ra", "_dec", "_k"])
+    'bla'
+    >>> remove_suffixes_and_prefixes('k_bla_ra', prefixes=["k_"])
+    'bla_ra'
+    """
+
+    name = name.strip("_")
+    regex = rf"({'|'.join(suffixes)})+$"
+    name = re.sub(regex, "", name, flags=re.IGNORECASE)
+
+    regex = rf"^({'|'.join(prefixes)})+"
+    name = re.sub(regex, "", name, flags=re.IGNORECASE)
+
+    return name.strip("_")
 
 
 def force_move_file(src, dst):

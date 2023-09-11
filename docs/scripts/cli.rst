@@ -15,9 +15,8 @@ SDTbulkchange
 
     options:
       -h, --help            show this help message and exit
-      -k KEY, --key KEY     Path to key or data column. E.g. "EXT,header,KEY" to change key KEY in the
-                            headerin extension EXT; EXT,data,COL to change columnCOL in the data of
-                            extension EXT
+      -k KEY, --key KEY     Path to key or data column. E.g. "EXT,header,KEY" to change key KEY in the headerin extension EXT; EXT,data,COL
+                            to change columnCOL in the data of extension EXT
       -v VALUE, --value VALUE
                             Value to be written
       --apply-cal-mark      Short for -k "DATA TABLE,data,flag_cal" -v 1
@@ -30,9 +29,7 @@ SDTcal
 
 .. code-block:: none
 
-    usage: SDTcal [-h] [--sample-config] [--nofilt] [-c CONFIG] [--splat SPLAT] [-o OUTPUT]
-                  [--snr-min SNR_MIN] [--show] [--check]
-                  [file]
+    usage: SDTcal [-h] [--sample-config] [--nofilt] [-c CONFIG] [--splat SPLAT] [-o OUTPUT] [--snr-min SNR_MIN] [--show] [--check] [file]
 
     Load a series of cross scans from a config file and use them as calibrators.
 
@@ -45,9 +42,8 @@ SDTcal
       --nofilt              Do not filter noisy channels
       -c CONFIG, --config CONFIG
                             Config file
-      --splat SPLAT         Spectral scans will be scrunched into a single channel containing data in
-                            the given frequency range, starting from the frequency of the first bin.
-                            E.g. '0:1000' indicates 'from the first bin of the spectrum up to 1000 MHz
+      --splat SPLAT         Spectral scans will be scrunched into a single channel containing data in the given frequency range, starting
+                            from the frequency of the first bin. E.g. '0:1000' indicates 'from the first bin of the spectrum up to 1000 MHz
                             above'. ':' or 'all' for all the channels.
       -o OUTPUT, --output OUTPUT
                             Output file containing the calibration
@@ -71,12 +67,10 @@ SDTconvert
     options:
       -h, --help            show this help message and exit
       -f FORMAT, --format FORMAT
-                            Format of output files (options: mbfits, indicating MBFITS v. 1.65; mbfitsw,
-                            indicating MBFITS v. 1.65 wrapped in asingle file for each FEBE; fitsmod
-                            (default), indicating a fitszilla with converted coordinates for feed number
-                            *n* in a separate COORDn extensions); classfits, indicating a FITS file
-                            readable into CLASS, calibrated when possible;sdfits, for the SDFITS
-                            convention
+                            Format of output files (options: mbfits, indicating MBFITS v. 1.65; mbfitsw, indicating MBFITS v. 1.65 wrapped
+                            in asingle file for each FEBE; fitsmod (default), indicating a fitszilla with converted coordinates for feed
+                            number *n* in a separate COORDn extensions); classfits, indicating a FITS file readable into CLASS, calibrated
+                            when possible;sdfits, for the SDFITS convention
       --test                Only to be used in tests!
       --detrend             Detrend data before converting to MBFITS
       --save-locally        Save all data in the current directory, notalongside the original data.
@@ -87,11 +81,9 @@ SDTfake
 
 .. code-block:: none
 
-    usage: SDTfake [-h] [-s SOURCE_FLUX] [-n NOISE_AMPLITUDE] [-b BASELINE]
-                   [-g GEOMETRY GEOMETRY GEOMETRY GEOMETRY] [--beam-width BEAM_WIDTH]
-                   [--spacing SPACING] [-o OUTDIR_ROOT] [--scan-speed SCAN_SPEED]
-                   [--integration-time INTEGRATION_TIME] [--spectral-bins SPECTRAL_BINS] [--no-cal]
-                   [--sun] [--debug]
+    usage: SDTfake [-h] [-s SOURCE_FLUX] [-n NOISE_AMPLITUDE] [-b BASELINE] [-g GEOMETRY GEOMETRY GEOMETRY GEOMETRY]
+                   [--beam-width BEAM_WIDTH] [--spacing SPACING] [-o OUTDIR_ROOT] [--scan-speed SCAN_SPEED]
+                   [--integration-time INTEGRATION_TIME] [--spectral-bins SPECTRAL_BINS] [--no-cal] [--sun] [--debug]
 
     Simulate a single scan or a map with a point source.
 
@@ -102,21 +94,18 @@ SDTfake
       -n NOISE_AMPLITUDE, --noise-amplitude NOISE_AMPLITUDE
                             White noise amplitude
       -b BASELINE, --baseline BASELINE
-                            Baseline kind: "flat", "slope" (linearly increasing/decreasing), "messy"
-                            (random walk) or a number (which gives an amplitude to the random-walk
-                            baseline, that would be 20 for "messy")
+                            Baseline kind: "flat", "slope" (linearly increasing/decreasing), "messy" (random walk) or a number (which gives
+                            an amplitude to the random-walk baseline, that would be 20 for "messy")
       -g GEOMETRY GEOMETRY GEOMETRY GEOMETRY, --geometry GEOMETRY GEOMETRY GEOMETRY GEOMETRY
-                            Geometry specification: length_ra, length_dec, width_ra, width_dec, in
-                            arcmins. A square map of 2 degrees would be specified as 120 120 120 120. A
-                            cross-like map, 2x2 degrees wide but only along 1-degree stripes, is
+                            Geometry specification: length_ra, length_dec, width_ra, width_dec, in arcmins. A square map of 2 degrees would
+                            be specified as 120 120 120 120. A cross-like map, 2x2 degrees wide but only along 1-degree stripes, is
                             specified as 120 120 60 60
       --beam-width BEAM_WIDTH
                             Gaussian beam width in arcminutes
       --spacing SPACING     Spacing between scans in arcminutes (default 0.5)
       -o OUTDIR_ROOT, --outdir-root OUTDIR_ROOT
-                            Output directory root. Here, source and calibrator scans/maps will be saved
-                            in outdir/gauss_ra, outdir/gauss_dec, outdir/calibrator1,
-                            outdir/calibrator2, where outdir is the outdir root
+                            Output directory root. Here, source and calibrator scans/maps will be saved in outdir/gauss_ra,
+                            outdir/gauss_dec, outdir/calibrator1, outdir/calibrator2, where outdir is the outdir root
       --scan-speed SCAN_SPEED
                             Scan speed in arcminutes/second
       --integration-time INTEGRATION_TIME
@@ -133,11 +122,10 @@ SDTimage
 
 .. code-block:: none
 
-    usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--altaz] [--sub] [--interactive]
-                    [--calibrate CALIBRATE] [--nofilt] [-g] [-e EXCLUDE [EXCLUDE ...]] [--chans CHANS]
-                    [-o OUTFILE] [-u UNIT] [--frame {icrs,altaz,sun}] [--destripe] [--npix-tol NPIX_TOL]
-                    [--debug] [--quick] [--scrunch-channels] [--nosave] [--noplot]
-                    [--bad-chans BAD_CHANS] [--splat SPLAT]
+    usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--altaz] [--sub] [--interactive] [--calibrate CALIBRATE] [--nofilt] [-g]
+                    [-e EXCLUDE [EXCLUDE ...]] [--chans CHANS] [-o OUTFILE] [-u UNIT] [--frame {icrs,altaz,sun}] [--destripe]
+                    [--npix-tol NPIX_TOL] [--debug] [--quick] [--scrunch-channels] [--nosave] [--noplot] [--bad-chans BAD_CHANS]
+                    [--splat SPLAT]
                     [file]
 
     Load a series of scans from a config file and produce a map.
@@ -159,35 +147,28 @@ SDTimage
       --nofilt              Do not filter noisy channels
       -g, --global-fit      Perform global fitting of baseline
       -e EXCLUDE [EXCLUDE ...], --exclude EXCLUDE [EXCLUDE ...]
-                            Exclude region from global fitting of baseline and baseline subtraction. It
-                            can be specified as X1, Y1, radius1, X2, Y2, radius2 in image coordinates or
-                            as a ds9-compatible region file in image or fk5 coordinates containing
-                            circular regions to be excluded. Currently, baseline subtraction only takes
-                            into account fk5 coordinates and global fitting image coordinates. This will
-                            change in the future.
-      --chans CHANS         Comma-separated channels to include in global fitting (Feed0_RCP, Feed0_LCP,
-                            ...)
+                            Exclude region from global fitting of baseline and baseline subtraction. It can be specified as X1, Y1, radius1,
+                            X2, Y2, radius2 in image coordinates or as a ds9-compatible region file in image or fk5 coordinates containing
+                            circular regions to be excluded. Currently, baseline subtraction only takes into account fk5 coordinates and
+                            global fitting image coordinates. This will change in the future.
+      --chans CHANS         Comma-separated channels to include in global fitting (Feed0_RCP, Feed0_LCP, ...)
       -o OUTFILE, --outfile OUTFILE
                             Save intermediate scanset to this file.
       -u UNIT, --unit UNIT  Unit of the calibrated image. Jy/beam or Jy/pixel
       --frame {icrs,altaz,sun}
                             Reference frame for the image. One of icrs, altaz, sun
       --destripe            Destripe the image
-      --npix-tol NPIX_TOL   Number of pixels with zero exposure to tolerate when destriping the image,
-                            or the full row or column is discarded. Default None, meaning that the image
-                            will be destriped as a whole
+      --npix-tol NPIX_TOL   Number of pixels with zero exposure to tolerate when destriping the image, or the full row or column is
+                            discarded. Default None, meaning that the image will be destriped as a whole
       --debug               Plot stuff and be verbose
-      --quick               Calibrate after image creation, for speed (bad when calibration depends on
-                            elevation)
+      --quick               Calibrate after image creation, for speed (bad when calibration depends on elevation)
       --scrunch-channels    Sum all the images from the single channels into one.
       --nosave              Do not save the hdf5 intermediate files whenloading subscans.
       --noplot              Do not produce diagnostic plots for data processing
       --bad-chans BAD_CHANS
-                            Channels to be discarded when scrunching, separated by a comma (e.g. --bad-
-                            chans Feed2_RCP,Feed3_RCP )
-      --splat SPLAT         Spectral scans will be scrunched into a single channel containing data in
-                            the given frequency range, starting from the frequency of the first bin.
-                            E.g. '0:1000' indicates 'from the first bin of the spectrum up to 1000 MHz
+                            Channels to be discarded when scrunching, separated by a comma (e.g. --bad-chans Feed2_RCP,Feed3_RCP )
+      --splat SPLAT         Spectral scans will be scrunched into a single channel containing data in the given frequency range, starting
+                            from the frequency of the first bin. E.g. '0:1000' indicates 'from the first bin of the spectrum up to 1000 MHz
                             above'. ':' or 'all' for all the channels.
 
 
@@ -196,12 +177,12 @@ SDTinspect
 
 .. code-block:: none
 
-    usage: SDTinspect [-h] [-g GROUP_BY [GROUP_BY ...]] [--options OPTIONS] [-d]
-                      [--only-after ONLY_AFTER] [--only-before ONLY_BEFORE]
+    usage: SDTinspect [-h] [-g GROUP_BY [GROUP_BY ...]] [--options OPTIONS] [-d] [--only-after ONLY_AFTER] [--only-before ONLY_BEFORE]
+                      [--ignore-suffix IGNORE_SUFFIX] [--ignore-prefix IGNORE_PREFIX]
                       directories [directories ...]
 
-    From a given list of directories, read the relevant information and link observations to
-    calibrators. A single file is read for each directory.
+    From a given list of directories, read the relevant information and link observations to calibrators. A single file is read for each
+    directory.
 
     positional arguments:
       directories           Directories to inspect
@@ -209,16 +190,19 @@ SDTinspect
     options:
       -h, --help            show this help message and exit
       -g GROUP_BY [GROUP_BY ...], --group-by GROUP_BY [GROUP_BY ...]
-      --options OPTIONS     Options to be written in config files; they have to be specified as a string
-                            defining a dictionary. For example,'{"pixel_size": 0.6, "noise_threshold":
-                            5}'
+      --options OPTIONS     Options to be written in config files; they have to be specified as a string defining a dictionary. For
+                            example,'{"pixel_size": 0.6, "noise_threshold": 5}'
       -d, --dump-config-files
       --only-after ONLY_AFTER
-                            Only after a certain date and time, e.g. ``--only-after 20150510-111020`` to
-                            indicate scans done after 11:10:20 UTC on May 10th, 2015
+                            Only after a certain date and time, e.g. ``--only-after 20150510-111020`` to indicate scans done after 11:10:20
+                            UTC on May 10th, 2015
       --only-before ONLY_BEFORE
-                            Only before a certain date and time, e.g. ``--only-before 20150510-111020``
-                            to indicate scans done before 11:10:20 UTC, May 10th, 2015
+                            Only before a certain date and time, e.g. ``--only-before 20150510-111020`` to indicate scans done before
+                            11:10:20 UTC, May 10th, 2015
+      --ignore-suffix IGNORE_SUFFIX
+                            Suffix, or comma-separated list of suffixes, to be removed from source name. E.g. --ignore-suffix _ra,_dec,_k
+      --ignore-prefix IGNORE_PREFIX
+                            Prefix, or comma-separated list of prefixes, to be removed from source name. E.g. --ignore-prefix ra_,dec_,k_
 
 
 SDTlcurve
@@ -226,9 +210,7 @@ SDTlcurve
 
 .. code-block:: none
 
-    usage: SDTlcurve [-h] [-s SOURCE [SOURCE ...]] [--sample-config] [--nofilt] [-c CONFIG]
-                     [--splat SPLAT] [-o OUTPUT]
-                     [file]
+    usage: SDTlcurve [-h] [-s SOURCE [SOURCE ...]] [--sample-config] [--nofilt] [-c CONFIG] [--splat SPLAT] [-o OUTPUT] [file]
 
     Load a series of cross scans from a config file and obtain a calibrated curve.
 
@@ -243,9 +225,8 @@ SDTlcurve
       --nofilt              Do not filter noisy channels
       -c CONFIG, --config CONFIG
                             Config file
-      --splat SPLAT         Spectral scans will be scrunched into a single channel containing data in
-                            the given frequency range, starting from the frequency of the first bin.
-                            E.g. '0:1000' indicates 'from the first bin of the spectrum up to 1000 MHz
+      --splat SPLAT         Spectral scans will be scrunched into a single channel containing data in the given frequency range, starting
+                            from the frequency of the first bin. E.g. '0:1000' indicates 'from the first bin of the spectrum up to 1000 MHz
                             above'. ':' or 'all' for all the channels.
       -o OUTPUT, --output OUTPUT
                             Output file containing the calibration
@@ -256,8 +237,9 @@ SDTmonitor
 
 .. code-block:: none
 
-    usage: SDTmonitor [-h] [-c CONFIG] [--polling] [-p PORT] [-v] [-w WORKERS]
-                      directories [directories ...]
+       > pip install watchdog
+
+    usage: SDTmonitor [-h] [-c CONFIG] [--polling] [-p PORT] [-v] [-w WORKERS] directories [directories ...]
 
     Run the SRT quicklook in a given directory.
 
@@ -317,8 +299,8 @@ SDTpreprocess
 
 .. code-block:: none
 
-    usage: SDTpreprocess [-h] [-c CONFIG] [--sub] [--interactive] [--nofilt] [--debug] [--plot]
-                         [--nosave] [--splat SPLAT] [-e EXCLUDE [EXCLUDE ...]]
+    usage: SDTpreprocess [-h] [-c CONFIG] [--sub] [--interactive] [--nofilt] [--debug] [--plot] [--nosave] [--splat SPLAT]
+                         [-e EXCLUDE [EXCLUDE ...]]
                          [files ...]
 
     Load a series of scans from a config file and preprocess them, or preprocess a single scan.
@@ -336,16 +318,13 @@ SDTpreprocess
       --debug               Be verbose
       --plot                Plot stuff
       --nosave              Do not save the hdf5 intermediate files whenloading subscans.
-      --splat SPLAT         Spectral scans will be scrunched into a single channel containing data in
-                            the given frequency range, starting from the frequency of the first bin.
-                            E.g. '0:1000' indicates 'from the first bin of the spectrum up to 1000 MHz
+      --splat SPLAT         Spectral scans will be scrunched into a single channel containing data in the given frequency range, starting
+                            from the frequency of the first bin. E.g. '0:1000' indicates 'from the first bin of the spectrum up to 1000 MHz
                             above'. ':' or 'all' for all the channels.
       -e EXCLUDE [EXCLUDE ...], --exclude EXCLUDE [EXCLUDE ...]
-                            Exclude region from global fitting of baseline and baseline subtraction. It
-                            can be specified as X1, Y1, radius1, X2, Y2, radius2 in image coordinates or
-                            as a ds9-compatible region file in image or fk5 coordinates containing
-                            circular regions to be excluded. Currently, baseline subtraction only takes
-                            into account fk5 coordinates and global fitting image coordinates. This will
-                            change in the future.
+                            Exclude region from global fitting of baseline and baseline subtraction. It can be specified as X1, Y1, radius1,
+                            X2, Y2, radius2 in image coordinates or as a ds9-compatible region file in image or fk5 coordinates containing
+                            circular regions to be excluded. Currently, baseline subtraction only takes into account fk5 coordinates and
+                            global fitting image coordinates. This will change in the future.
 
 
