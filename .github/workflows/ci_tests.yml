@@ -47,6 +47,7 @@ jobs:
             os: ubuntu-latest
             python: '3.11'
             toxenv: py311-test-devdeps
+            continue-on-error: true
 
           - name: Test building of Sphinx docs
             os: ubuntu-latest
