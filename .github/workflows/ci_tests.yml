@@ -20,8 +20,10 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     if: "!(contains(github.event.head_commit.message, '[skip ci]') || contains(github.event.head_commit.message, '[ci skip]'))"
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       matrix:
+        experimental: [false]
         include:
           - name: Code style checks with black
             os: ubuntu-latest
@@ -47,7 +49,7 @@ jobs:
             os: ubuntu-latest
             python: '3.11'
             toxenv: py311-test-devdeps
-            continue-on-error: true
+            experimental: true
 
           - name: Test building of Sphinx docs
             os: ubuntu-latest
