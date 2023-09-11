@@ -22,7 +22,7 @@ import glob
 from collections.abc import Iterable
 from scipy.interpolate import interp1d
 
-from .utils import force_move_file
+from .utils import force_move_file, TWOPI
 
 try:
     from sunpy.coordinates import frames, sun
@@ -236,16 +236,16 @@ def observing_angle(rest_angle, derot_angle):
 
     Examples
     --------
-    >>> observing_angle(0 * u.rad, 2 * np.pi * u.rad).to(u.rad).value
+    >>> observing_angle(0 * u.rad, TWOPI * u.rad).to(u.rad).value
     0.0
-    >>> observing_angle(0, 2 * np.pi).to(u.rad).value
+    >>> observing_angle(0, TWOPI).to(u.rad).value
     0.0
     """
     if not hasattr(rest_angle, "unit"):
         rest_angle *= u.rad
     if not hasattr(derot_angle, "unit"):
         derot_angle *= u.rad
-    return rest_angle + (2 * np.pi * u.rad - derot_angle)
+    return rest_angle + (TWOPI * u.rad - derot_angle)
 
 
 def _rest_angle_default(n_lat_feeds):
@@ -285,7 +285,7 @@ def get_rest_angle(xoffsets, yoffsets):
     xoffsets = np.asarray(xoffsets)
     yoffsets = np.asarray(yoffsets)
     n_lat_feeds = len(xoffsets) - 1
-    rest_angle_default = _rest_angle_default(n_lat_feeds) * 2 * np.pi * u.rad
+    rest_angle_default = _rest_angle_default(n_lat_feeds) * TWOPI * u.rad
     w_0 = np.where((xoffsets[1:] > 0) & (yoffsets[1:] == 0.0))[0][0]
     return np.concatenate(([0], np.roll(rest_angle_default.to(u.rad).value, w_0))) * u.rad
 

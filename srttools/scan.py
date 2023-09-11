@@ -28,7 +28,7 @@ from .read_config import read_config, get_config_file
 from .fit import ref_mad, contiguous_regions
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
-from .utils import get_circular_statistics, normalize_angle_mpPI
+from .utils import get_circular_statistics, normalize_angle_mpPI, TWOPI
 
 __all__ = [
     "Scan",
@@ -82,7 +82,7 @@ def angular_distance(angle0, angle1):
     >>> a1 = 0.05
     >>> np.isclose(angular_distance(a0, a1), dist)
     True
-    >>> a0 += 2 * np.pi
+    >>> a0 += TWOPI
     >>> np.isclose(angular_distance(a0, a1), dist)
     True
     >>> a1 += 6 * np.pi
@@ -92,18 +92,18 @@ def angular_distance(angle0, angle1):
     >>> a1 = np.pi + 0.5 * dist
     >>> np.isclose(angular_distance(a0, a1), dist)
     True
-    >>> a0 = 2 * np.pi - 0.5 * dist
-    >>> a1 = 2 * np.pi + 0.5 * dist
+    >>> a0 = TWOPI - 0.5 * dist
+    >>> a1 = TWOPI + 0.5 * dist
     >>> np.isclose(angular_distance(a0, a1), dist)
     True
     >>> np.all(np.isclose(
-    ...     angular_distance([0, np.pi, 2 * np.pi],
-    ...                      np.asarray([0, np.pi, 2 * np.pi]) + dist),
+    ...     angular_distance([0, np.pi, TWOPI],
+    ...                      np.asarray([0, np.pi, TWOPI]) + dist),
     ...                   dist))
     True
     """
-    angle0 = np.fmod(angle0, 2 * np.pi)
-    angle1 = np.fmod(angle1, 2 * np.pi)
+    angle0 = np.fmod(angle0, TWOPI)
+    angle1 = np.fmod(angle1, TWOPI)
 
     diff = angle1 - angle0
 

@@ -115,13 +115,13 @@ except ImportError:
 
 
 ListOfStrings = List[str]
+TWOPI = 2 * np.pi
 
 if HAS_NUMBA:
 
     @vectorize
     def normalize_angle_mpPI(angle):  # pragma: no cover
         """Normalize angle between minus pi and pi."""
-        TWOPI = 2 * np.pi
         angle = angle % TWOPI
         if angle > np.pi:
             angle -= TWOPI
@@ -134,7 +134,6 @@ else:
     def normalize_angle_mpPI(angle):
         """Normalize angle between minus pi and pi."""
         angle = np.asarray(angle)
-        TWOPI = 2 * np.pi
         angle = angle % TWOPI
         angle[angle >= np.pi] -= TWOPI
         angle[angle < -np.pi] += TWOPI
@@ -157,12 +156,12 @@ def get_circular_statistics(array):
     >>> res['max'] == 0.26
     True
     """
-    array = np.asarray(array) % (2 * np.pi)
+    array = np.asarray(array) % TWOPI
     mean_ = circmean(array)
     std_ = circstd(array)
     diff_ = array - mean_
-    diff_[diff_ > np.pi] -= 2 * np.pi
-    diff_[diff_ <= -np.pi] += 2 * np.pi
+    diff_[diff_ > np.pi] -= TWOPI
+    diff_[diff_ <= -np.pi] += TWOPI
     return dict(min=np.min(diff_) + mean_, max=np.max(diff_) + mean_, mean=mean_, std=std_)
 
 

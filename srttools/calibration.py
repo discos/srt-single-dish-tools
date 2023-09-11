@@ -27,7 +27,7 @@ from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
-from .utils import standard_byte
+from .utils import standard_byte, TWOPI
 from .utils import HAS_STATSM, calculate_moments, scantype
 
 try:
@@ -700,8 +700,8 @@ class CalibratorTable(Table):
 
         # Volume in a beam: For a 2-d Gaussian with amplitude A and sigmas sx
         # and sy, this is 2 pi A sx sy.
-        total = 2 * np.pi * counts * width**2
-        etotal = 2 * np.pi * ecounts * width**2
+        total = TWOPI * counts * width**2
+        etotal = TWOPI * ecounts * width**2
 
         flux_integral_over_counts = flux / total
         flux_integral_over_counts_err = (
