@@ -1492,7 +1492,7 @@ class ScanSet(Table):
         header["MAX_AZ"] = circstats["max"]
         header["MIN_AZ"] = circstats["min"]
         header["STD_AZ"] = circstats["std"]
-        if header["MIN_AZ"] < 0:
+        if (header["MIN_AZ"] < 0) or (header["MAX_AZ"] > 2 * np.pi):
             warnings.warn("Azimuth is wrapping around 0. Beware.")
 
         header["CREATOR"] = "SDT"
