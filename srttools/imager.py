@@ -30,7 +30,7 @@ from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, njit
-from .utils import remove_suffixes_and_prefixes
+from .utils import remove_suffixes_and_prefixes, get_circular_statistics
 
 from .io import chan_re, get_channel_feed, detect_data_kind
 from .fit import linear_fun
@@ -1479,6 +1479,21 @@ class ScanSet(Table):
             suffixes=self.meta["ignore_suffix"],
             prefixes=self.meta["ignore_prefix"],
         )
+
+        header["MEAN_EL"] = np.median(self["el"])
+        header["MAX_EL"] = np.max(self["el"])
+        header["MIN_EL"] = np.min(self["el"])
+        header["STD_EL"] = np.std(self["el"])
+
+        # the azimuth is in the range 0-2pi, this avoids problems with the
+        # wrapping of angles
+        circstats = get_circular_statistics(self["az"])
+        header["MEAN_AZ"] = circstats["mean"]
+        header["MAX_AZ"] = circstats["max"]
+        header["MIN_AZ"] = circstats["min"]
+        header["STD_AZ"] = circstats["std"]
+        if (header["MIN_AZ"] < 0) or (header["MAX_AZ"] > 2 * np.pi):
+            warnings.warn("Azimuth is wrapping around 0. Beware.")
 
         header["CREATOR"] = "SDT"
         ut = Time(datetime.utcnow(), scale="utc")

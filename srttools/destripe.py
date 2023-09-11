@@ -111,7 +111,7 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     elif isinstance(smooth_window, Iterable):
         img = gaussian_filter(img, np.array(smooth_window) / 5)
     else:
-        img = gaussian_filter1d(img, smooth_window / 5, axis=np.logical_not(direction))
+        img = gaussian_filter1d(img, smooth_window / 5, axis=int(np.logical_not(direction)))
     return img
 
 

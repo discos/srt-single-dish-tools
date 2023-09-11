@@ -208,7 +208,7 @@ def get_data_description_from_model_header(data_format=None):
         tform = header["TFORM" + n]
         tdim = "0"
         if header[k] in ["DATA", "FLAGGED"] and data_format is not None:
-            tform = "{}D".format(np.product(data_format))
+            tform = "{}D".format(np.prod(data_format))
             tdim = str(data_format)
         num.append(int(n))
         list_ttype.append(header[k])

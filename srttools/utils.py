@@ -15,6 +15,7 @@ from collections.abc import Iterable
 
 import numpy as np
 import logging
+from scipy.stats import circmean, circstd
 
 import scipy
 import scipy.stats
@@ -114,6 +115,62 @@ except ImportError:
 
 
 ListOfStrings = List[str]
+TWOPI = 2 * np.pi
+
+if HAS_NUMBA:
+
+    @vectorize
+    def normalize_angle_mpPI(angle):  # pragma: no cover
+        """Normalize angle between minus pi and pi."""
+        angle = angle % TWOPI
+        if angle > np.pi:
+            angle -= TWOPI
+        if angle < -np.pi:
+            angle += TWOPI
+        return angle
+
+else:
+
+    def _normalize_angle_mpPI_vec(angle):
+        """Normalize angle between minus pi and pi."""
+        angle = np.asarray(angle)
+        angle = angle % TWOPI
+        angle[angle >= np.pi] -= TWOPI
+        return angle
+
+    def normalize_angle_mpPI(angle):
+        """Normalize angle between minus pi and pi."""
+        if isinstance(angle, Iterable):
+            return _normalize_angle_mpPI_vec(angle)
+        angle = angle % TWOPI
+        if angle >= np.pi:
+            angle -= TWOPI
+        return angle
+
+
+def get_circular_statistics(array):
+    """Get min, max, mean, std of a circular array.
+
+    If the array wraps around 360/0, the min and max will be swapped.
+
+    Only valid for a reasonably small range around 2pi/0 degrees.
+
+    Examples
+    --------
+    >>> array = np.array([6.1, 6.2, 0.16, 0.26])
+    >>> res = get_circular_statistics(array)
+    >>> np.isclose(res['min'], 6.1 - 2*np.pi)
+    True
+    >>> res['max'] == 0.26
+    True
+    """
+    array = np.asarray(array) % TWOPI
+    mean_ = circmean(array)
+    std_ = circstd(array)
+    diff_ = array - mean_
+    diff_[diff_ > np.pi] -= TWOPI
+    diff_[diff_ <= -np.pi] += TWOPI
+    return dict(min=np.min(diff_) + mean_, max=np.max(diff_) + mean_, mean=mean_, std=std_)
 
 
 def remove_suffixes_and_prefixes(
@@ -402,7 +459,7 @@ def get_center_of_mass(im, radius=1, approx=None):
     ymin, ymax = max(0, approx[1] - npix), min(approx[1] + npix, im.shape[1])
     good_x = slice(xmin, xmax)
     good_y = slice(ymin, ymax)
-    cm = np.asarray(scipy.ndimage.measurements.center_of_mass(im[good_x, good_y]))
+    cm = np.asarray(scipy.ndimage.center_of_mass(im[good_x, good_y]))
     cm[0] += xmin
     cm[1] += ymin
     return cm

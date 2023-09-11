@@ -961,7 +961,7 @@ class TestLargeMap:
         s = Scan(sname)
 
         info = {sname: copy.copy(self.stdinfo)}
-        info[sname]["zap"].xs = [float(s["dec"][0]), float(s["dec"][10])]
+        info[sname]["zap"].xs = [float(s["dec"][0][0]), float(s["dec"][10][0])]
         sid = scan_ids[sname]
         mask = scanset["Scan_id"] == sid
         before = scanset["Feed0_RCP-filt"][mask]

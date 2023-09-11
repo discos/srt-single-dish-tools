@@ -20,6 +20,7 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     if: "!(contains(github.event.head_commit.message, '[skip ci]') || contains(github.event.head_commit.message, '[ci skip]'))"
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       matrix:
         include:
@@ -27,36 +28,43 @@ jobs:
             os: ubuntu-latest
             python: '3.10'
             toxenv: black
+            experimental: false
 
           - name: Python 3.10 with all optional dependencies and coverage checking
             os: ubuntu-latest
             python: '3.10'
             toxenv: py310-test-alldeps-cov
+            experimental: false
 
           - name: OS X - Python 3.8 with all optional dependencies
             os: macos-latest
             python: '3.8'
             toxenv: py38-test-alldeps
+            experimental: false
 
           - name: Windows - Python 3.10 with all optional dependencies
             os: windows-latest
             python: '3.10'
             toxenv: py310-test-alldeps
+            experimental: false
 
           - name: Python 3.11 with latest dev versions of key dependencies
             os: ubuntu-latest
             python: '3.11'
             toxenv: py311-test-devdeps
+            experimental: true
 
           - name: Test building of Sphinx docs
             os: ubuntu-latest
             python: '3.8'
             toxenv: build_docs
+            experimental: false
 
           - name: Test links of Sphinx docs
             os: ubuntu-latest
             python: '3.10'
             toxenv: linkcheck
+            experimental: false
 
     steps:
     - name: Checkout code

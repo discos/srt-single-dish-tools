@@ -10,7 +10,7 @@ import astropy.units as u
 from collections.abc import Iterable
 
 from .io import mkdir_p, locations
-from .utils import tqdm, njit
+from .utils import tqdm, njit, TWOPI
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 import logging
@@ -117,7 +117,7 @@ def _standard_source_spectrum(counts, nbin, bw=1000, sigma=1):
 
 def _standard_bkg_spectrum(counts, nbin, bw=1000):
     def spec_func(f):
-        sp = 1 + 0.1 * np.sin(2 * np.pi * 5 / bw * f) * (1 - f / bw)
+        sp = 1 + 0.1 * np.sin(TWOPI * 5 / bw * f) * (1 - f / bw)
         sp -= 0.5 * f / bw
         return sp
 
