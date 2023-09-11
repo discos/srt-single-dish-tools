@@ -28,7 +28,7 @@ from .read_config import read_config, get_config_file
 from .fit import ref_mad, contiguous_regions
 from .fit import baseline_rough, baseline_als, linear_fun
 from .interactive_filter import select_data
-from .utils import vectorize, HAS_NUMBA
+from .utils import get_circular_statistics, normalize_angle_mpPI
 
 __all__ = [
     "Scan",
@@ -36,35 +36,6 @@ __all__ = [
     "clean_scan_using_variability",
     "list_scans",
 ]
-
-
-if HAS_NUMBA:
-
-    @vectorize
-    def normalize_angle_mpPI(angle):  # pragma: no cover
-        """Normalize angle between minus pi and pi."""
-        TWOPI = 2 * np.pi
-        while angle > np.pi:
-            angle -= TWOPI
-        while angle < -np.pi:
-            angle += TWOPI
-        return angle
-
-else:
-
-    def normalize_angle_mpPI(angle):
-        """Normalize angle between minus pi and pi."""
-        angle = np.asarray(angle)
-        TWOPI = 2 * np.pi
-        gtpi = angle >= np.pi
-        while np.any(gtpi):
-            angle[gtpi] -= TWOPI
-            gtpi = angle >= np.pi
-        ltpi = angle < -np.pi
-        while np.any(ltpi):
-            angle[ltpi] += TWOPI
-            ltpi = angle < -np.pi
-        return angle
 
 
 def product_path_from_file_name(fname, workdir=".", productdir=None):
@@ -982,12 +953,15 @@ class Scan(Table):
         return get_chan_columns(self)
 
     def get_info_string(self, ch):
+        ra_stats = get_circular_statistics(self["ra"])
+        az_stats = get_circular_statistics(self["az"])
+
         infostr = "Target: {}\n".format(self.meta["SOURCE"])
         infostr += "SubScan ID: {}\n".format(self.meta["SubScanID"])
         infostr += "Channel: {}\n".format(ch)
-        infostr += "Mean RA: {:.2f} d\n".format(np.degrees(np.mean(self["ra"])))
+        infostr += "Mean RA: {:.2f} d\n".format(np.degrees(ra_stats["mean"]))
         infostr += "Mean Dec: {:.2f} d\n".format(np.degrees(np.mean(self["dec"])))
-        infostr += "Mean Az: {:.2f} d\n".format(np.degrees(np.mean(self["az"])))
+        infostr += "Mean Az: {:.2f} d\n".format(np.degrees(az_stats["mean"]))
         infostr += "Mean El: {:.2f} d\n".format(np.degrees(np.mean(self["el"])))
         infostr += "Receiver: {}\n".format(self.meta["receiver"])
         infostr += "Backend: {}\n".format(self.meta["backend"])
