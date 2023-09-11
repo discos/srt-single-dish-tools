@@ -16,6 +16,7 @@ class TestImageSelector(object):
         import matplotlib.pyplot as plt
 
         klass.data = np.zeros((100, 100))
+        klass.fig = plt.figure()
         klass.ax = plt.subplot()
 
         def fun(x, y, key):
@@ -49,6 +50,12 @@ class TestImageSelector(object):
         assert np.any(["It is working: 130, 30, b" in r.message.args[0] for r in record])
         assert retval == (130, 30, "b")
 
+    @classmethod
+    def teardown_class(klass):
+        import matplotlib.pyplot as plt
+
+        plt.close(klass.fig)
+
 
 @pytest.mark.skipif("not HAS_MPL")
 class TestDataSelector(object):
@@ -65,7 +72,7 @@ class TestDataSelector(object):
 
         gs = mpl.gridspec.GridSpec(2, 1)
 
-        plt.figure()
+        klass.fig = plt.figure()
         klass.ax0 = plt.subplot(gs[0])
         klass.ax1 = plt.subplot(gs[1])
 
@@ -218,3 +225,9 @@ class TestDataSelector(object):
         info = select_data(self.xs, self.ys, test=True)
         assert info["scan1.fits"]["zap"].xs == []
         assert info["scan1.fits"]["base"].xs == []
+
+    @classmethod
+    def teardown_class(klass):
+        import matplotlib.pyplot as plt
+
+        plt.close(klass.fig)

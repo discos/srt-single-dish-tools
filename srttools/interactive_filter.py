@@ -502,6 +502,7 @@ def select_data(xs, ys, masks=None, title=None, xlabel=None, test=False):
         title = 'Data selector (press "h" for help)'
 
     plt.figure(title)
+    plt.clf()
     gs = gridspec.GridSpec(2, 1, height_ratios=[3, 2], hspace=0)
 
     ax1 = plt.subplot(gs[0])
