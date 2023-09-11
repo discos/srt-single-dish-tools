@@ -131,12 +131,20 @@ if HAS_NUMBA:
 
 else:
 
-    def normalize_angle_mpPI(angle):
+    def _normalize_angle_mpPI_vec(angle):
         """Normalize angle between minus pi and pi."""
         angle = np.asarray(angle)
         angle = angle % TWOPI
         angle[angle >= np.pi] -= TWOPI
-        angle[angle < -np.pi] += TWOPI
+        return angle
+
+    def normalize_angle_mpPI(angle):
+        """Normalize angle between minus pi and pi."""
+        if isinstance(angle, Iterable):
+            return _normalize_angle_mpPI_vec(angle)
+        angle = angle % TWOPI
+        if angle >= np.pi:
+            angle -= TWOPI
         return angle
 
 
