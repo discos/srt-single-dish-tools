@@ -15,6 +15,7 @@ from datetime import datetime
 from collections.abc import Iterable
 
 from scipy.stats import binned_statistic_2d
+from scipy.stats import circmean, circstd
 import logging
 import numpy as np
 import astropy
@@ -1479,6 +1480,18 @@ class ScanSet(Table):
             suffixes=self.meta["ignore_suffix"],
             prefixes=self.meta["ignore_prefix"],
         )
+
+        header["MEAN_EL"] = np.median(self["el"])
+        header["MAX_EL"] = np.max(self["el"])
+        header["MIN_EL"] = np.min(self["el"])
+        header["STD_EL"] = np.std(self["el"])
+
+        # the azimuth is in the range 0-360, this avoids problems with the
+        # wrapping of angles
+        header["MEAN_AZ"] = circmean(self["az"])
+        header["MAX_AZ"] = np.max(self["az"])
+        header["MIN_AZ"] = np.min(self["az"])
+        header["STD_AZ"] = circstd(self["az"])
 
         header["CREATOR"] = "SDT"
         ut = Time(datetime.utcnow(), scale="utc")
