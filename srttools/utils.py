@@ -15,6 +15,7 @@ from collections.abc import Iterable
 
 import numpy as np
 import logging
+from scipy.stats import circmean, circstd
 
 import scipy
 import scipy.stats
@@ -114,6 +115,31 @@ except ImportError:
 
 
 ListOfStrings = List[str]
+
+
+def get_circular_statistics(array):
+    """Get min, max, mean, std of a circular array.
+
+    If the array wraps around 360/0, the min and max will be swapped.
+
+    Only valid for a reasonably small range around 2pi/0 degrees.
+
+    Examples
+    --------
+    >>> array = np.array([6.1, 6.2, 0.16, 0.26])
+    >>> res = get_circular_statistics(array)
+    >>> np.isclose(res['min'], 6.1 - 2*np.pi)
+    True
+    >>> res['max'] == 0.26
+    True
+    """
+    array = np.asarray(array) % (2 * np.pi)
+    mean_ = circmean(array)
+    std_ = circstd(array)
+    diff_ = array - mean_
+    diff_[diff_ > np.pi] -= 2 * np.pi
+    diff_[diff_ <= -np.pi] += 2 * np.pi
+    return dict(min=np.min(diff_) + mean_, max=np.max(diff_) + mean_, mean=mean_, std=std_)
 
 
 def remove_suffixes_and_prefixes(

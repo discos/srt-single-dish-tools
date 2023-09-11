@@ -15,7 +15,6 @@ from datetime import datetime
 from collections.abc import Iterable
 
 from scipy.stats import binned_statistic_2d
-from scipy.stats import circmean, circstd
 import logging
 import numpy as np
 import astropy
@@ -31,7 +30,7 @@ from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, njit
-from .utils import remove_suffixes_and_prefixes
+from .utils import remove_suffixes_and_prefixes, get_circular_statistics
 
 from .io import chan_re, get_channel_feed, detect_data_kind
 from .fit import linear_fun
@@ -1486,12 +1485,13 @@ class ScanSet(Table):
         header["MIN_EL"] = np.min(self["el"])
         header["STD_EL"] = np.std(self["el"])
 
-        # the azimuth is in the range 0-360, this avoids problems with the
+        # the azimuth is in the range 0-2pi, this avoids problems with the
         # wrapping of angles
-        header["MEAN_AZ"] = circmean(self["az"])
-        header["MAX_AZ"] = np.max(self["az"])
-        header["MIN_AZ"] = np.min(self["az"])
-        header["STD_AZ"] = circstd(self["az"])
+        circstats = get_circular_statistics(self["az"])
+        header["MEAN_AZ"] = circstats["mean"]
+        header["MAX_AZ"] = circstats["max"]
+        header["MIN_AZ"] = circstats["min"]
+        header["STD_AZ"] = circstats["std"]
 
         header["CREATOR"] = "SDT"
         ut = Time(datetime.utcnow(), scale="utc")
