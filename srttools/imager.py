@@ -1492,6 +1492,8 @@ class ScanSet(Table):
         header["MAX_AZ"] = circstats["max"]
         header["MIN_AZ"] = circstats["min"]
         header["STD_AZ"] = circstats["std"]
+        if header["MIN_AZ"] < 0:
+            warnings.warn("Azimuth is wrapping around 0. Beware.")
 
         header["CREATOR"] = "SDT"
         ut = Time(datetime.utcnow(), scale="utc")
