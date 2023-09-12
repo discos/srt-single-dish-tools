@@ -5,3 +5,49 @@ requires = ["setuptools",
             "wheel"]
 
 build-backend = 'setuptools.build_meta'
+
+[tool.towncrier]
+    package = "srttools"
+    filename = "CHANGELOG.rst"
+    directory = "docs/changes/"
+    issue_format = "`#{issue} <https://github.com/discos/srt-single-dish-tools/pull/{issue}>`__"
+    title_format = "v{version} ({project_date})"
+    underlines = "-^"
+
+    [[tool.towncrier.type]]
+        directory = "breaking"
+        name = "Breaking Changes"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+      directory = "deprecation"
+      name = "Deprecations"
+      showcontent = true
+
+    [[tool.towncrier.type]]
+      directory = "removal"
+      name = "Removals"
+      showcontent = true
+
+    [[tool.towncrier.type]]
+      directory = "feature"
+      name = "New Features"
+      showcontent = true
+
+    [[tool.towncrier.type]]
+      directory = "bugfix"
+      name = "Bug Fixes"
+      showcontent = true
+
+    [[tool.towncrier.type]]
+      directory = "doc"
+      name = "Documentation"
+      showcontent = true
+
+    [[tool.towncrier.type]]
+      directory = "trivial"
+      name = "Internal Changes"
+      showcontent = true
+
+[tool.black]
+line-length = 100
