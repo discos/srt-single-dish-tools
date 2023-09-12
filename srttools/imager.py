@@ -1547,6 +1547,14 @@ class ScanSet(Table):
 
 
 def _excluded_regions_from_args(args_exclude):
+    """Parse the exclusion regions from the command line.
+
+    Examples
+    --------
+    >>> regstr = "asdfaa;circle(30,30,1)"
+    >>> with open("region.reg", "w") as fobj: print(regstr, file=fobj)
+
+    """
     excluded_xy = None
     excluded_radec = None
     if args_exclude is not None and not len(args_exclude) == 1:
@@ -1560,24 +1568,40 @@ def _excluded_regions_from_args(args_exclude):
         excluded_xy = np.array([float(e) for e in args_exclude]).reshape((nexc // 3, 3))
         excluded_radec = None
     elif args_exclude is not None:
-        import pyregion
+        from regions import Regions
 
-        regions = pyregion.open(args_exclude[0])
+        regions = Regions.read(args_exclude[0]).regions
+
         nregs = len(regions)
+        if nregs == 0:
+            logging.warning("The region is in an unknown format")
+
         excluded_xy = []
         excluded_radec = []
         for i in range(nregs):
             region = regions[i]
-            if region.name != "circle":
-                logging.warning("Only circular regions are allowed!")
+            if "circle" not in str(type(regions[i])):
+                logging.warning("Only circular regions in fk5/icrs/image coords are allowed!")
                 continue
-            if region.coord_format == "fk5":
-                excluded_radec.append(np.radians(region.coord_list))
-            elif region.coord_format == "image":
-                excluded_xy.append(region.coord_list)
+            if hasattr(region.center, "to_pixel") and region.center.name in ["fk5", "icrs"]:
+                excluded_radec.append(
+                    [
+                        region.center.ra.to(u.rad).value,
+                        region.center.dec.to(u.rad).value,
+                        region.radius.to(u.rad).value,
+                    ]
+                )
+            elif hasattr(region.center, "to_sky"):
+                excluded_xy.append(
+                    [
+                        region.center.x,
+                        region.center.y,
+                        region.radius,
+                    ]
+                )
             else:
-                logging.warning("Only regions in fk5 or image coordinates are allowed!")
-                continue
+                logging.warning("Only regions in fk5/icrs or image coordinates are allowed!")
+
     return excluded_xy, excluded_radec
 
 

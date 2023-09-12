@@ -70,7 +70,7 @@ and install the dependencies (including a few optional but recommended):
 
 .. code-block:: console
 
-    $ pip install pyregion
+    $ pip install regions
 
 
 Other Python distributions
@@ -81,7 +81,7 @@ recommended):
 
 .. code-block:: console
 
-    $ pip install astropy>=3.8 scipy numpy matplotlib pyyaml h5py statsmodels numba pyregion
+    $ pip install astropy>=3.8 scipy numpy matplotlib pyyaml h5py statsmodels numba regions
 
 
 Cloning and installation

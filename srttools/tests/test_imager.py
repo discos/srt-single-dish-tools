@@ -19,7 +19,7 @@ except ImportError:
     HAS_MPL = False
 
 try:
-    import pyregion
+    import regions
 
     HAS_PYREGION = True
 except ImportError:
@@ -1035,12 +1035,21 @@ class TestLargeMap:
         os.unlink("region.reg")
 
     @pytest.mark.skipif("not HAS_PYREGION")
-    def test_global_fit_image_using_ds9_region_garbage_warns(self, logger, caplog):
-        regstr = "physical;circle(30,30,1)"
+    def test_global_fit_image_using_ds9_region_fk4_warns(self, logger, caplog):
+        regstr = "fk4;circle(30,30,1)"
         with open("region.reg", "w") as fobj:
             print(regstr, file=fobj)
         main_imager("test.hdf5 -g --noplot --exclude region.reg".split())
         assert "Only regions in fk5" in caplog.text
+        os.unlink("region.reg")
+
+    @pytest.mark.skipif("not HAS_PYREGION")
+    def test_global_fit_image_using_ds9_region_garbage_warns(self, logger, caplog):
+        regstr = "asdfafs;circle(30,30,1)"
+        with open("region.reg", "w") as fobj:
+            print(regstr, file=fobj)
+        main_imager("test.hdf5 -g --noplot --exclude region.reg".split())
+        assert "The region is in an unknown format" in caplog.text
         os.unlink("region.reg")
 
     @pytest.mark.skipif("not HAS_PYREGION")
