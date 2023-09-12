@@ -1551,9 +1551,27 @@ def _excluded_regions_from_args(args_exclude):
 
     Examples
     --------
-    >>> regstr = "asdfaa;circle(30,30,1)"
+    >>> regstr = "image;circle(30,30,1)"
     >>> with open("region.reg", "w") as fobj: print(regstr, file=fobj)
-
+    >>> ex_xy, ex_ra = _excluded_regions_from_args(["region.reg"])
+    >>> np.allclose(ex_xy[0], [30, 30, 1])
+    True
+    >>> regstr = "fk5;circle(30.0,30.0,1.0)"
+    >>> with open("region.reg", "w") as fobj: print(regstr, file=fobj)
+    >>> ex_xy, ex_ra = _excluded_regions_from_args(["region.reg"])
+    >>> np.allclose(ex_ra, (np.radians(30), np.radians(30), np.radians(1)))
+    True
+    >>> regstr = "physical;circle(30.0,30.0,1.0)"
+    >>> with open("region.reg", "w") as fobj: print(regstr, file=fobj)
+    >>> ex_xy, ex_ra = _excluded_regions_from_args(["region.reg"])
+    >>> len(ex_xy) == 0, len(ex_ra) == 0
+    (True, True)
+    >>> regstr = "fk4;circle(30.0,30.0,1.0)"
+    >>> with open("region.reg", "w") as fobj: print(regstr, file=fobj)
+    >>> ex_xy, ex_ra = _excluded_regions_from_args(["region.reg"])
+    >>> len(ex_xy) == 0, len(ex_ra) == 0
+    (True, True)
+    >>> os.unlink("region.reg")
     """
     excluded_xy = None
     excluded_radec = None
@@ -1594,8 +1612,8 @@ def _excluded_regions_from_args(args_exclude):
             elif hasattr(region.center, "to_sky"):
                 excluded_xy.append(
                     [
-                        region.center.x,
-                        region.center.y,
+                        region.center.x + 1,
+                        region.center.y + 1,
                         region.radius,
                     ]
                 )
