@@ -1,1 +1,1 @@
-Use towncrier for changelog; update test infrastructure
+Use towncrier for changelog; update test infrastructure; eliminate dependency on pyregion and use Astropy Regions instead
