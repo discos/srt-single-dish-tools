@@ -1,6 +1,6 @@
 # SRT Single dish tools #
 [![CI Tests](https://github.com/discos/srt-single-dish-tools/workflows/CI%20Tests/badge.svg)](https://github.com/discos/srt-single-dish-tools)
-[![codecov](https://img.shields.io/codecov/c/github/discos/srt-single-dish-tools/master.svg?maxAge=0)](https://codecov.io/gh/discos/srt-single-dish-tools)
+[![codecov](https://img.shields.io/codecov/c/github/discos/srt-single-dish-tools/main.svg?maxAge=0)](https://codecov.io/gh/discos/srt-single-dish-tools)
 [![Powered by Astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
 [![Documentation Status](https://readthedocs.org/projects/srt-single-dish-tools/badge/?version=latest)](http://srt-single-dish-tools.readthedocs.io/en/latest/?badge=latest)
 
