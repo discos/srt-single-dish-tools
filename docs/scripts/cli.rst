@@ -6,8 +6,6 @@ SDTbulkchange
 
 .. code-block:: none
 
-    [33m [W] 2023-09-12 11:48:34 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
-
     usage: SDTbulkchange [-h] [-k KEY] [-v VALUE] [--apply-cal-mark] [--recursive] [--debug] [files ...]
 
     Change all values of a given column or header keyword in fits files
@@ -30,8 +28,6 @@ SDTcal
 ------
 
 .. code-block:: none
-
-    [33m [W] 2023-09-12 11:48:35 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
 
     usage: SDTcal [-h] [--sample-config] [--nofilt] [-c CONFIG] [--splat SPLAT] [-o OUTPUT] [--snr-min SNR_MIN] [--show] [--check] [file]
 
@@ -60,8 +56,6 @@ SDTconvert
 
 .. code-block:: none
 
-    [33m [W] 2023-09-12 11:48:36 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
-
     usage: SDTconvert [-h] [-f FORMAT] [--test] [--detrend] [--save-locally] [files ...]
 
     Load a series of scans and convert them to variousformats
@@ -84,8 +78,6 @@ SDTfake
 -------
 
 .. code-block:: none
-
-    [33m [W] 2023-09-12 11:48:37 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
 
     usage: SDTfake [-h] [-s SOURCE_FLUX] [-n NOISE_AMPLITUDE] [-b BASELINE] [-g GEOMETRY GEOMETRY GEOMETRY GEOMETRY] [--beam-width BEAM_WIDTH] [--spacing SPACING] [-o OUTDIR_ROOT]
                    [--scan-speed SCAN_SPEED] [--integration-time INTEGRATION_TIME] [--spectral-bins SPECTRAL_BINS] [--no-cal] [--sun] [--debug]
@@ -125,8 +117,6 @@ SDTimage
 --------
 
 .. code-block:: none
-
-    [33m [W] 2023-09-12 11:48:37 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
 
     usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--altaz] [--sub] [--interactive] [--calibrate CALIBRATE] [--nofilt] [-g] [-e EXCLUDE [EXCLUDE ...]]
                     [--chans CHANS] [-o OUTFILE] [-u UNIT] [--frame {icrs,altaz,sun}] [--destripe] [--npix-tol NPIX_TOL] [--debug] [--quick] [--scrunch-channels] [--nosave]
@@ -180,8 +170,6 @@ SDTinspect
 
 .. code-block:: none
 
-    [33m [W] 2023-09-12 11:48:38 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
-
     usage: SDTinspect [-h] [-g GROUP_BY [GROUP_BY ...]] [--options OPTIONS] [-d] [--only-after ONLY_AFTER] [--only-before ONLY_BEFORE] [--ignore-suffix IGNORE_SUFFIX]
                       [--ignore-prefix IGNORE_PREFIX]
                       directories [directories ...]
@@ -212,8 +200,6 @@ SDTlcurve
 
 .. code-block:: none
 
-    [33m [W] 2023-09-12 11:48:39 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
-
     usage: SDTlcurve [-h] [-s SOURCE [SOURCE ...]] [--sample-config] [--nofilt] [-c CONFIG] [--splat SPLAT] [-o OUTPUT] [file]
 
     Load a series of cross scans from a config file and obtain a calibrated curve.
@@ -240,10 +226,6 @@ SDTmonitor
 
 .. code-block:: none
 
-    [33m [W] 2023-09-12 11:48:40 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
-
-    [33m [W] 2023-09-12 11:48:40 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/monitor/monitor.py:24: UserWarning: To use SDTmonitor, you need to install watchdog: 
-
        > pip install watchdog
 
     usage: SDTmonitor [-h] [-c CONFIG] [--polling] [-p PORT] [-v] [-w WORKERS] directories [directories ...]
@@ -268,8 +250,6 @@ SDTopacity
 ----------
 
 .. code-block:: none
-
-    [33m [W] 2023-09-12 11:48:41 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
 
     usage: SDTopacity [-h] [--tatm TATM] [--tau0 TAU0] [--t0 T0] files [files ...]
 
@@ -307,8 +287,6 @@ SDTpreprocess
 -------------
 
 .. code-block:: none
-
-    [33m [W] 2023-09-12 11:48:42 py.warnings:[0m /Users/meo/devel/srt-single-dish-tools/.tox/build_docs/lib/python3.10/site-packages/srttools/utils.py:70: UserWarning: Numba not installed. Faking it
 
     usage: SDTpreprocess [-h] [-c CONFIG] [--sub] [--interactive] [--nofilt] [--debug] [--plot] [--nosave] [--splat SPLAT] [-e EXCLUDE [EXCLUDE ...]] [files ...]
 
