@@ -1,3 +1,18 @@
+v0.6.4 (2023-10-03)
+-------------------
+
+New Features
+^^^^^^^^^^^^
+
+- Add AZ/El information to the header of images; create functions for circular statistics (`#235 <https://github.com/discos/srt-single-dish-tools/pull/235>`__)
+
+
+Internal Changes
+^^^^^^^^^^^^^^^^
+
+- Use towncrier for changelog; update test infrastructure; eliminate dependency on pyregion and use Astropy Regions instead (`#236 <https://github.com/discos/srt-single-dish-tools/pull/236>`__)
+
+
 v0.6.3 (2023-09-08)
 -------------------
 

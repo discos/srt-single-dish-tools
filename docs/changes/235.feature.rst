@@ -1,1 +1,0 @@
-Add AZ/El information to the header of images; create functions for circular statistics
