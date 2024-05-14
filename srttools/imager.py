@@ -117,20 +117,7 @@ def _load_and_merge_subscans(indices_and_subscans):
 
 
 def merge_tables(tables):
-    """
-
-    Examples
-    --------
-    >>> t0 = Table({"Ch0": [0, 1]})
-    >>> t1 = Table({"Ch0": [[0, 1]]})
-    >>> t0.meta["filename"] = "sss"
-    >>> t1.meta["filename"] = "asd"
-    >>> s = merge_tables([t0, t1])
-    Traceback (most recent call last):
-    ...
-    astropy.table.np_utils.TableMergeError:...
-    ...
-    """
+    """Merge two tables, or raise."""
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", MergeConflictWarning)

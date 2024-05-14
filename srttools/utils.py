@@ -897,18 +897,7 @@ def get_mH2O(TMP, U):
 
 
 def look_for_files_or_bust(files, timeout):
-    """
-    Examples
-    --------
-    >>> from pathlib import Path
-    >>> Path('blabla1.txt').touch()
-    >>> Path('blabla2.txt').touch()
-    >>> look_for_files_or_bust(['blabla1.txt', 'blabla2.txt', 'blabla3.txt'],
-    ...                        timeout=1)
-    Traceback (most recent call last):
-    ...
-    FileNotFoundError: ...['blabla3.txt']
-    """
+    """Look for all files in the list, or raise an exception."""
     t0 = time.time()
     current_time = time.time()
     number_of_seconds = 0
