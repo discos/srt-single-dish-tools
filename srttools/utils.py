@@ -906,7 +906,7 @@ def look_for_files_or_bust(files, timeout):
     >>> look_for_files_or_bust(['blabla1.txt', 'blabla2.txt', 'blabla3.txt'],
     ...                        timeout=1)
     Traceback (most recent call last):
-       ...
+    ...
     FileNotFoundError: ...['blabla3.txt']
     """
     t0 = time.time()
