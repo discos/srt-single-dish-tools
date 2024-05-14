@@ -37,11 +37,7 @@ from srttools.scan import Scan
 from srttools.calibration import CalibratorTable
 from srttools.calibration import HAS_STATSM
 from srttools.read_config import read_config
-from srttools.imager import (
-    main_imager,
-    main_preprocess,
-    _excluded_regions_from_args,
-)
+from srttools.imager import main_imager, main_preprocess, _excluded_regions_from_args, merge_tables
 from srttools.inspect_observations import main_inspector
 from srttools.simulate import simulate_sun
 from srttools.global_fit import display_intermediate
@@ -1099,3 +1095,14 @@ class TestLargeMap:
             for o in out_fits_files + out_hdf5_files:
                 os.unlink(o)
             shutil.rmtree(os.path.join(klass.config["productdir"], "sim"))
+
+
+def test_table_merge():
+    from astropy.table import Table
+
+    t0 = Table({"Ch0": [0, 1]})
+    t1 = Table({"Ch0": [[0, 1]]})
+    t0.meta["filename"] = "sss"
+    t1.meta["filename"] = "asd"
+    with pytest.raises(ValueError, match=".*ERROR while merging tables.*"):
+        s = merge_tables([t0, t1])

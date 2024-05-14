@@ -1,0 +1,1 @@
+Fix incompatibility with Astropy 6
