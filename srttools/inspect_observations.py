@@ -7,7 +7,7 @@ from astropy.table import Table, Column
 from astropy.time import Time
 import logging
 from .io import read_data, chan_re
-from .scan import list_scans
+from .scan import list_scans, _is_summary_file
 from .calibration import read_calibrator_config
 from .read_config import sample_config_file
 from .utils import remove_suffixes_and_prefixes
