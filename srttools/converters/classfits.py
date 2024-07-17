@@ -11,7 +11,7 @@ The conversion makes use of three types of pointings:
 
 The conversion is performed as follows:
 
-1. Load all subscans from a given scan (=a subdirectory with a summary.fits file)
+1. Load all subscans from a given scan (=a subdirectory with a summary file)
     and classify each of them as ON, OFF, CALON, CALOFF.
 
 2. Try to infer patterns in the observation of the kind nON, mOFF, rCAL, and
@@ -75,6 +75,7 @@ from srttools.io import (
 import glob
 from ..utils import get_mH2O
 from ..io import label_from_chan_name
+from ..scan import find_summary_file_in_dir
 from scipy.signal import medfilt
 import copy
 import warnings
@@ -478,7 +479,7 @@ class CLASSFITS_creator:
         ----------------
         scandir : str
             Input data directory (to be clear, the directory containing a set
-            of subscans plus a summary.fits file)
+            of subscans plus a summary file)
         average : bool, default True
             Average all spectra of a given configuration?
         use_calon : bool, default False
@@ -500,7 +501,7 @@ class CLASSFITS_creator:
             self.write_tables_to_disk()
 
     def fill_in_summary(self, summaryfile):
-        """Fill in the information contained in the summary.fits file."""
+        """Fill in the information contained in the summary file."""
         with fits.open(summaryfile) as hdul:
             self.summary.update(hdul[0].header)
 
@@ -515,7 +516,7 @@ class CLASSFITS_creator:
         ----------
         scandir : str
             Input data directory (to be clear, the directory containing a set
-            of subscans plus a summary.fits file)
+            of subscans plus a summary file)
 
         Other Parameters
         ----------------
@@ -527,7 +528,7 @@ class CLASSFITS_creator:
         tables
         """
         scandir = scandir.rstrip("/")
-        fname = os.path.join(scandir, "summary.fits")
+        fname = find_summary_file_in_dir(scandir)
         self.fill_in_summary(fname)
         for fname in sorted(glob.glob(os.path.join(scandir, "*.fits"))):
             if "summary" in fname:

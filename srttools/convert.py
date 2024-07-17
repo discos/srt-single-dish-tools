@@ -16,6 +16,7 @@ from .io import get_rest_angle, observing_angle, locations
 from .converters.mbfits import MBFITS_creator
 from .converters.classfits import CLASSFITS_creator
 from .converters.sdfits import SDFITS_creator
+from .scan import _is_summary_file, find_summary_file_in_dir
 
 
 def convert_to_complete_fitszilla(fname, outname):
@@ -94,7 +95,7 @@ def launch_convert_coords(name, label, save_locally=False):
         allfiles += [name]
 
     for fname in allfiles:
-        if fname.lower().startswith("sum"):
+        if _is_summary_file(fname):
             continue
         outroot = fname.replace(".fits", "_" + label)
         if save_locally:
@@ -115,12 +116,12 @@ def launch_mbfits_creator(name, label, test=False, wrap=False, detrend=False, sa
     name = name.rstrip("/")
     random_name = "tmp_" + str(np.random.random())
     mbfits = MBFITS_creator(random_name, test=test)
-    summary = os.path.join(name, "summary.fits")
+    summary = find_summary_file_in_dir(name)
     if os.path.exists(summary):
         mbfits.fill_in_summary(summary)
 
     for fname in sorted(glob.glob(os.path.join(name, "*.fits"))):
-        if fname.lower().startswith("sum"):
+        if _is_summary_file(fname):
             continue
         mbfits.add_subscan(fname, detrend=detrend)
 

@@ -48,6 +48,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         "*/tempfits/*",
         "*/*.fitstemp",
         "*/summary.fits",
+        "*/Sum_*.fits",
     ]
     patterns = ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
 

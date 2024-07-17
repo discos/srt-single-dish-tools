@@ -26,7 +26,7 @@ import astropy.units as u
 from astropy.table.np_utils import TableMergeError
 from astropy.time import Time
 
-from .scan import Scan, list_scans
+from .scan import Scan, list_scans, _is_summary_file
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, njit
@@ -441,7 +441,7 @@ class ScanSet(Table):
             return
 
         for s in scans:
-            if s.lower().startswith("sum"):
+            if _is_summary_file(s):
                 continue
             try:
                 results = calculate_opacity(s, plot=False)
