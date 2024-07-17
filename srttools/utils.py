@@ -159,10 +159,8 @@ def get_circular_statistics(array):
     --------
     >>> array = np.array([6.1, 6.2, 0.16, 0.26])
     >>> res = get_circular_statistics(array)
-    >>> np.isclose(res['min'], 6.1 - 2*np.pi)
-    True
-    >>> res['max'] == 0.26
-    True
+    >>> assert np.isclose(res['min'], 6.1 - 2*np.pi)
+    >>> assert res['max'] == 0.26
     """
     array = np.asarray(array) % TWOPI
     mean_ = circmean(array)
@@ -284,8 +282,7 @@ def compare_strings(s1, s2):
     True
     >>> import numpy as np
     >>> res = np.array([ True, False], dtype=bool)
-    >>> np.all(compare_strings(np.array(['a', 'b'], dtype='S'), u'a') == res)
-    True
+    >>> assert np.all(compare_strings(np.array(['a', 'b'], dtype='S'), u'a') == res)
     """
 
     s1 = standard_string(s1)
@@ -362,12 +359,10 @@ def interpolate_invalid_points_image(array, zeros_are_invalid=False):
     --------
     >>> img = np.ones((3, 3))
     >>> img[1, 1] = np.nan
-    >>> np.all(interpolate_invalid_points_image(img) == np.ones((3, 3)))
-    True
+    >>> assert np.all(interpolate_invalid_points_image(img) == np.ones((3, 3)))
     >>> img = np.ones((3, 3))
     >>> img[1, 1] = 0
-    >>> np.all(interpolate_invalid_points_image(img, True) == np.ones((3, 3)))
-    True
+    >>> assert np.all(interpolate_invalid_points_image(img, True) == np.ones((3, 3)))
     """
     from scipy import interpolate
 
@@ -429,8 +424,7 @@ def get_center_of_mass(im, radius=1, approx=None):
     ...                   [0,1,1,0],
     ...                   [0,1,1,0]))
     >>> cm = get_center_of_mass(image)
-    >>> np.all(cm == np.array([2.0, 1.5]))
-    True
+    >>> assert np.all(cm == np.array([2.0, 1.5]))
     >>> image = np.array(([0, 0,0,0,0, 0],
     ...                   [0, 0,0,0,0, 0],
     ...                   [0, 0,1,1,0, 0],
@@ -438,14 +432,11 @@ def get_center_of_mass(im, radius=1, approx=None):
     ...                   [0, 0,1,1,0, 0],
     ...                   [0, 0,0,0,0, 0]))
     >>> cm = get_center_of_mass(image, radius=0.4)
-    >>> np.all(cm == np.array([2.5, 2.5]))
-    False
+    >>> assert not np.all(cm == np.array([2.5, 2.5]))
     >>> cm = get_center_of_mass(image, radius=0.4, approx='max')
-    >>> np.all(cm == np.array([2.5, 2.5]))
-    True
+    >>> assert np.all(cm == np.array([2.5, 2.5]))
     >>> cm = get_center_of_mass(image)
-    >>> np.all(cm == np.array([3., 2.5]))
-    True
+    >>> assert np.all(cm == np.array([3., 2.5]))
     """
     import scipy.ndimage
 
@@ -750,8 +741,7 @@ def calculate_moments(y, imax=None, window_length=5):
     --------
     >>> y = np.exp(-np.linspace(-10, 10, 1101)**2/2)
     >>> mo = calculate_moments(y)
-    >>> np.all(np.isclose(mo['skewness'], 0))
-    True
+    >>> assert np.all(np.isclose(mo['skewness'], 0))
     """
     from scipy.signal import savgol_filter
 
@@ -798,8 +788,7 @@ def scantype(ra, dec, az=None, el=None):
     >>> els = np.linspace(0.5, 0.7, 100)
     >>> azs = np.linspace(0.5, 0.7, 100)
     >>> st = scantype(ras, decs, azs, els)
-    >>> np.all(st[0] == ras)
-    True
+    >>> assert np.all(st[0] == ras)
     >>> st[1] == 'RA>'
     True
     >>> # Opposite direction
@@ -818,8 +807,7 @@ def scantype(ra, dec, az=None, el=None):
     >>> els = list(zip(np.linspace(0.5, 0.7, 100), np.linspace(0.5, 0.7, 100)))
     >>> azs = list(zip(np.linspace(0.5, 0.7, 100), np.linspace(0.5, 0.7, 100)))
     >>> st = scantype(ras, decs, azs, els)
-    >>> np.all(st[0] == ras)
-    True
+    >>> assert np.all(st[0] == ras)
     >>> st[1] == 'RA>'
     True
     """
@@ -853,10 +841,8 @@ def median_diff(array, sorting=False):
 
     Examples
     --------
-    >>> median_diff([1, 2, 0, 4, -1, -2])
-    -1.0
-    >>> median_diff([1, 2, 0, 4, -1, -2], sorting=True)
-    1.0
+    >>> assert median_diff([1, 2, 0, 4, -1, -2]) == -1.0
+    >>> assert median_diff([1, 2, 0, 4, -1, -2], sorting=True) == 1.0
     """
     if len(array) == 0:
         return 0

@@ -23,11 +23,8 @@ def warning_on_one_line(message, category, filename, lineno, line=None):
 
 warnings.formatwarning = warning_on_one_line
 
-# warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
-# warnings.filterwarnings("error", ".*")
 warnings.filterwarnings("once", category=UserWarning)
 warnings.filterwarnings("once", category=DeprecationWarning)
-warnings.filterwarnings("once", category=np.VisibleDeprecationWarning)
 warnings.filterwarnings("ignore", "table path was not set via the path= ")
 
 __all__ = []

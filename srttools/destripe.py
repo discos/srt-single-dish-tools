@@ -32,18 +32,14 @@ def mask_zeros(image, expo=None, npix_tol=None):
     >>> import numpy as np
     >>> img = [[0, 1, 1], [0, 1, 1], [1, 1, 1]]
     >>> masked_image, mask = mask_zeros(img, expo=img, npix_tol=1)
-    >>> np.all(masked_image == [[1, 1], [1, 1], [1, 1]])
-    True
-    >>> np.all(mask == [[False, True, True], [False, True, True],
+    >>> assert np.all(masked_image == [[1, 1], [1, 1], [1, 1]])
+    >>> assert np.all(mask == [[False, True, True], [False, True, True],
     ...                 [False, True, True]])
-    True
     >>> masked_image, mask = mask_zeros(img, npix_tol=2)
-    >>> np.all(masked_image == img)
-    True
+    >>> assert np.all(masked_image == img)
     >>> img = [[0, 0, 0], [1, 1, 1], [1, 1, 1]]
     >>> masked_image, mask = mask_zeros(img, npix_tol=1)
-    >>> np.all(masked_image == [[1, 1, 1], [1, 1, 1]])
-    True
+    >>> assert np.all(masked_image == [[1, 1, 1], [1, 1, 1]])
     """
     image = np.asarray(image)
     mask = np.ones(image.shape, dtype=bool)
@@ -78,14 +74,11 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     Examples
     --------
     >>> img = np.zeros((2,2))
-    >>> np.all(clip_and_smooth(img, smooth_window=(5, 5)) == img)
-    True
+    >>> assert np.all(clip_and_smooth(img, smooth_window=(5, 5)) == img)
     >>> img = np.array([[0, 0], [1, 1]])
-    >>> np.all(clip_and_smooth(img, direction=0) == img)
-    True
+    >>> assert np.all(clip_and_smooth(img, direction=0) == img)
     >>> img = np.array([[0, 1], [0, 1]])
-    >>> np.all(clip_and_smooth(img, direction=1) == img)
-    True
+    >>> assert np.all(clip_and_smooth(img, direction=1) == img)
     >>> img = np.array([[1, 1.], [8., 1]])
     >>> np.allclose(clip_and_smooth(img, clip_sigma=1, smooth_window=0),
     ...             [[1, 1], [3.0310889132455352, 1]])

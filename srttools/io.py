@@ -1,4 +1,5 @@
 """Input/output functions."""
+
 import astropy.io.fits as fits
 from astropy.table import Table
 import numpy as np
@@ -236,9 +237,9 @@ def observing_angle(rest_angle, derot_angle):
 
     Examples
     --------
-    >>> observing_angle(0 * u.rad, TWOPI * u.rad).to(u.rad).value
+    >>> float(observing_angle(0 * u.rad, TWOPI * u.rad).to(u.rad).value)
     0.0
-    >>> observing_angle(0, TWOPI).to(u.rad).value
+    >>> float(observing_angle(0, TWOPI).to(u.rad).value)
     0.0
     """
     if not hasattr(rest_angle, "unit"):
@@ -375,10 +376,8 @@ def is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg):
     --------
     >>> ra, dec = 131.13535699 * u.deg, 18.08202663 * u.deg
     >>> obstime = Time("2017-08-01")
-    >>> is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg)
-    True
-    >>> is_close_to_sun(ra, dec + 4 * u.deg, obstime, tolerance=3 * u.deg)
-    False
+    >>> assert is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg)
+    >>> assert not is_close_to_sun(ra, dec + 4 * u.deg, obstime, tolerance=3 * u.deg)
     """
     coords = SkyCoord(ra=ra, dec=dec, frame=GCRS(obstime=obstime))
     sun_position = get_sun(obstime).transform_to(GCRS(obstime=obstime))
