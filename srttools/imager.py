@@ -122,7 +122,7 @@ def merge_tables(tables):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", MergeConflictWarning)
             scan_table = vstack(tables)
-    except TableMergeError as e:
+    except TableMergeError:
         raise TableMergeError(
             "ERROR while merging tables. "
             "Tables:\n" + "\n".join([t.meta["filename"] for t in tables])
@@ -320,7 +320,7 @@ class ScanSet(Table):
 
         super().__init__(data)
 
-        if data is not None and not "x" in self.colnames:
+        if data is not None and "x" not in self.colnames:
             self.convert_coordinates()
         self.current = None
         self._scan_list = None
