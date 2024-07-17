@@ -840,8 +840,10 @@ def find_summary_file_in_dir(directory, warn_if_absent=True):
 
     if len(summary_files) > 1:
         raise ValueError(f"Multiple summary files found: {summary_files}")
-    if warn_if_absent and len(summary_files) == 0:
+    elif warn_if_absent and len(summary_files) == 0:
         warnings.warn("No summary file in directory")
+    else:
+        summary_files = summary_files[0]
     return summary_files
 
 
