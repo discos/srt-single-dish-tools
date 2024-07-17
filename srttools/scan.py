@@ -828,8 +828,23 @@ def frequency_filter(dynamical_spectrum, mask):
 
 
 def _is_summary_file(fname):
-    """Check if a file name pattern is compatible with a summary file."""
-    return fname[:4].lower() in ["summ", "sum_"]
+    """Check if a file name pattern is compatible with a summary file.
+
+    Examples
+    --------
+    >>> _is_summary_file("summary.fits")
+    True
+    >>> _is_summary_file(os.path.join("bubub", "SuMmary.fits"))
+    True
+    >>> _is_summary_file("SuM_fae02ef0fajdasj.fits")
+    True
+    >>> _is_summary_file(os.path.join("bubub", "SuM_fae02ef0fajdasj.fits"))
+    True
+    >>> # Here "sum" is in the directory name
+    >>> _is_summary_file(os.path.join("Summ", "afaskdjgahga.fits"))
+    False
+    """
+    return os.path.basename(fname)[:4].lower() in ["summ", "sum_"]
 
 
 def find_summary_file_in_dir(directory, warn_if_absent=True):
