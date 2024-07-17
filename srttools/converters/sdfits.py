@@ -232,10 +232,8 @@ def _get_empty_array(length, dim):
     """
     Examples
     --------
-    >>> np.all(_get_empty_array(10, "0")[1].flatten() == np.zeros(10))
-    np.True_
-    >>> np.all(_get_empty_array(10, "(2,2)")[1].flatten() == np.zeros(40))
-    np.True_
+    >>> assert np.all(_get_empty_array(10, "0")[1].flatten() == np.zeros(10))
+    >>> assert np.all(_get_empty_array(10, "(2,2)")[1].flatten() == np.zeros(40))
 
     """
 

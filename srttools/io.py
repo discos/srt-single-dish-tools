@@ -376,10 +376,8 @@ def is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg):
     --------
     >>> ra, dec = 131.13535699 * u.deg, 18.08202663 * u.deg
     >>> obstime = Time("2017-08-01")
-    >>> is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg)
-    np.True_
-    >>> is_close_to_sun(ra, dec + 4 * u.deg, obstime, tolerance=3 * u.deg)
-    np.False_
+    >>> assert is_close_to_sun(ra, dec, obstime, tolerance=3 * u.deg)
+    >>> assert not is_close_to_sun(ra, dec + 4 * u.deg, obstime, tolerance=3 * u.deg)
     """
     coords = SkyCoord(ra=ra, dec=dec, frame=GCRS(obstime=obstime))
     sun_position = get_sun(obstime).transform_to(GCRS(obstime=obstime))

@@ -619,12 +619,9 @@ def _single_value_as_tuple(value, nvals=2):
 
     Examples
     --------
-    >>> np.all(_single_value_as_tuple(1) == (1, 1))
-    np.True_
-    >>> np.all(_single_value_as_tuple((1, 1, 1)) == (1, 1, 1))
-    np.True_
-    >>> np.all(_single_value_as_tuple(1, nvals=3) == (1, 1, 1))
-    np.True_
+    >>> assert np.all(_single_value_as_tuple(1) == (1, 1))
+    >>> assert np.all(_single_value_as_tuple((1, 1, 1)) == (1, 1, 1))
+    >>> assert np.all(_single_value_as_tuple(1, nvals=3) == (1, 1, 1))
     """
     if isinstance(value, Iterable):
         return value
