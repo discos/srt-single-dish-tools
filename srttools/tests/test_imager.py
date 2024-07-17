@@ -97,7 +97,7 @@ class TestSunImage(object):
         )
 
     @pytest.mark.skipif("not HAS_SUNPY")
-    def test_sun_map(self):
+    def test_sun_map_no_sunpy(self):
         files = main_inspector([os.path.join(self.simdir, "*"), "-d"])
         main_imager(["-c", files[0], "--frame", "sun"])
         for f in files:
