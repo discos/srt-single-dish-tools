@@ -458,12 +458,12 @@ class TestSummary:
 
     def test_summary_onefile(self):
         fname = os.path.join(self.testdir, "summary.fits")
-        Path.touch(fname)
+        Path(fname).touch()
         assert fname == find_summary_file_in_dir(self.testdir)
 
     def test_summary_multiple(self):
-        Path.touch(os.path.join(self.testdir, "summary.fits"))
-        Path.touch(os.path.join(self.testdir, "Sum_asdfhasldfjhal.fits"))
+        Path(os.path.join(self.testdir, "summary.fits")).touch()
+        Path(os.path.join(self.testdir, "Sum_asdfhasldfjhal.fits")).touch()
         with pytest.raises(ValueError, match="Multiple"):
             find_summary_file_in_dir(self.testdir)
 
