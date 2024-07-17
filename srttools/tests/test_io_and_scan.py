@@ -445,6 +445,7 @@ class Test2_Scan(object):
                 os.unlink(f)
             shutil.rmtree(os.path.join(klass.datadir, "out_spectrum_test"))
 
+
 class TestSummary:
     @classmethod
     def setup_class(cls):

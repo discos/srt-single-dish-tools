@@ -1,6 +1,5 @@
 """Read the configuration file."""
 
-
 import os
 import glob
 import warnings
