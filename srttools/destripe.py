@@ -33,17 +33,17 @@ def mask_zeros(image, expo=None, npix_tol=None):
     >>> img = [[0, 1, 1], [0, 1, 1], [1, 1, 1]]
     >>> masked_image, mask = mask_zeros(img, expo=img, npix_tol=1)
     >>> np.all(masked_image == [[1, 1], [1, 1], [1, 1]])
-    True
+    np.True_
     >>> np.all(mask == [[False, True, True], [False, True, True],
     ...                 [False, True, True]])
-    True
+    np.True_
     >>> masked_image, mask = mask_zeros(img, npix_tol=2)
     >>> np.all(masked_image == img)
-    True
+    np.True_
     >>> img = [[0, 0, 0], [1, 1, 1], [1, 1, 1]]
     >>> masked_image, mask = mask_zeros(img, npix_tol=1)
     >>> np.all(masked_image == [[1, 1, 1], [1, 1, 1]])
-    True
+    np.True_
     """
     image = np.asarray(image)
     mask = np.ones(image.shape, dtype=bool)
@@ -79,13 +79,13 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     --------
     >>> img = np.zeros((2,2))
     >>> np.all(clip_and_smooth(img, smooth_window=(5, 5)) == img)
-    True
+    np.True_
     >>> img = np.array([[0, 0], [1, 1]])
     >>> np.all(clip_and_smooth(img, direction=0) == img)
-    True
+    np.True_
     >>> img = np.array([[0, 1], [0, 1]])
     >>> np.all(clip_and_smooth(img, direction=1) == img)
-    True
+    np.True_
     >>> img = np.array([[1, 1.], [8., 1]])
     >>> np.allclose(clip_and_smooth(img, clip_sigma=1, smooth_window=0),
     ...             [[1, 1], [3.0310889132455352, 1]])

@@ -57,7 +57,6 @@ The conversion is performed as follows:
 
 """
 
-
 from astropy.io import fits
 from astropy.table import Table, vstack
 from astropy.time import Time
@@ -339,20 +338,20 @@ def find_cycles(table, list_of_keys):
     >>> new_table = find_cycles(table, list_of_keys) # doctest:+ELLIPSIS
     -etc-
     >>> np.all(new_table['CYCLE'] == [0, 0, 0, 0, 1, 1, 1, 1])
-    True
+    np.True_
     >>> table = Table(data=[[0, 0, 1, 1, 0, 0, 1, 1],
     ...                     [0, 1, 0, 1, 0, 1, 0, 1]], names=['A', 'B'])
     >>> list_of_keys = ['A', 'B']
     >>> new_table = find_cycles(table, list_of_keys) # doctest:+ELLIPSIS
     -etc-
     >>> np.all(new_table['CYCLE'] == [0, 0, 0, 0, 1, 1, 1, 1])
-    True
+    np.True_
     >>> table = Table(data=[[0, 1, 0, 1], [1, 0, 1, 0]], names=['A', 'B'])
     >>> list_of_keys = ['A', 'B']
     >>> new_table = find_cycles(table, list_of_keys) # doctest:+ELLIPSIS
     -etc-
     >>> np.all(new_table['CYCLE'] == [0, 0, 1, 1])
-    True
+    np.True_
     """
     binary_values = 10 ** np.arange(len(list_of_keys), dtype=int)
     table["BINARY_COL"] = np.zeros(len(table), dtype=int)

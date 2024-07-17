@@ -1,4 +1,5 @@
 """Scan class."""
+
 import time
 import pickle
 import glob
@@ -77,30 +78,30 @@ def angular_distance(angle0, angle1):
     >>> a0 = 1.
     >>> a1 = 1. + dist
     >>> np.isclose(angular_distance(a0, a1), dist)
-    True
+    np.True_
     >>> a0 = -0.05
     >>> a1 = 0.05
     >>> np.isclose(angular_distance(a0, a1), dist)
-    True
+    np.True_
     >>> a0 += TWOPI
     >>> np.isclose(angular_distance(a0, a1), dist)
-    True
+    np.True_
     >>> a1 += 6 * np.pi
     >>> np.isclose(angular_distance(a0, a1), dist)
-    True
+    np.True_
     >>> a0 = np.pi - 0.5 * dist
     >>> a1 = np.pi + 0.5 * dist
     >>> np.isclose(angular_distance(a0, a1), dist)
-    True
+    np.True_
     >>> a0 = TWOPI - 0.5 * dist
     >>> a1 = TWOPI + 0.5 * dist
     >>> np.isclose(angular_distance(a0, a1), dist)
-    True
+    np.True_
     >>> np.all(np.isclose(
     ...     angular_distance([0, np.pi, TWOPI],
     ...                      np.asarray([0, np.pi, TWOPI]) + dist),
     ...                   dist))
-    True
+    np.True_
     """
     angle0 = np.fmod(angle0, TWOPI)
     angle1 = np.fmod(angle1, TWOPI)

@@ -1,6 +1,5 @@
 """Functions to simulate scans and maps."""
 
-
 import numpy as np
 import numpy.random as ra
 import os
@@ -161,7 +160,7 @@ def _default_flat_shape(x):
 
     Examples
     --------
-    >>> _default_flat_shape(4314)
+    >>> float(_default_flat_shape(4314))
     100.0
     >>> np.allclose(_default_flat_shape(np.arange(3)),
     ...             np.array([100., 100., 100.]))
@@ -294,7 +293,7 @@ def _default_map_shape(x, y):
 
     Examples
     --------
-    >>> _default_map_shape(4314, 234)
+    >>> int(_default_map_shape(4314, 234))
     100
     >>> res = np.array([[ 100.,  100.,  100.,  100.],
     ...                 [ 100.,  100.,  100.,  100.],
@@ -621,11 +620,11 @@ def _single_value_as_tuple(value, nvals=2):
     Examples
     --------
     >>> np.all(_single_value_as_tuple(1) == (1, 1))
-    True
+    np.True_
     >>> np.all(_single_value_as_tuple((1, 1, 1)) == (1, 1, 1))
-    True
+    np.True_
     >>> np.all(_single_value_as_tuple(1, nvals=3) == (1, 1, 1))
-    True
+    np.True_
     """
     if isinstance(value, Iterable):
         return value

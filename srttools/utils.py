@@ -160,9 +160,9 @@ def get_circular_statistics(array):
     >>> array = np.array([6.1, 6.2, 0.16, 0.26])
     >>> res = get_circular_statistics(array)
     >>> np.isclose(res['min'], 6.1 - 2*np.pi)
-    True
+    np.True_
     >>> res['max'] == 0.26
-    True
+    np.True_
     """
     array = np.asarray(array) % TWOPI
     mean_ = circmean(array)
@@ -285,7 +285,7 @@ def compare_strings(s1, s2):
     >>> import numpy as np
     >>> res = np.array([ True, False], dtype=bool)
     >>> np.all(compare_strings(np.array(['a', 'b'], dtype='S'), u'a') == res)
-    True
+    np.True_
     """
 
     s1 = standard_string(s1)
@@ -363,11 +363,11 @@ def interpolate_invalid_points_image(array, zeros_are_invalid=False):
     >>> img = np.ones((3, 3))
     >>> img[1, 1] = np.nan
     >>> np.all(interpolate_invalid_points_image(img) == np.ones((3, 3)))
-    True
+    np.True_
     >>> img = np.ones((3, 3))
     >>> img[1, 1] = 0
     >>> np.all(interpolate_invalid_points_image(img, True) == np.ones((3, 3)))
-    True
+    np.True_
     """
     from scipy import interpolate
 
@@ -430,7 +430,7 @@ def get_center_of_mass(im, radius=1, approx=None):
     ...                   [0,1,1,0]))
     >>> cm = get_center_of_mass(image)
     >>> np.all(cm == np.array([2.0, 1.5]))
-    True
+    np.True_
     >>> image = np.array(([0, 0,0,0,0, 0],
     ...                   [0, 0,0,0,0, 0],
     ...                   [0, 0,1,1,0, 0],
@@ -439,13 +439,13 @@ def get_center_of_mass(im, radius=1, approx=None):
     ...                   [0, 0,0,0,0, 0]))
     >>> cm = get_center_of_mass(image, radius=0.4)
     >>> np.all(cm == np.array([2.5, 2.5]))
-    False
+    np.False_
     >>> cm = get_center_of_mass(image, radius=0.4, approx='max')
     >>> np.all(cm == np.array([2.5, 2.5]))
-    True
+    np.True_
     >>> cm = get_center_of_mass(image)
     >>> np.all(cm == np.array([3., 2.5]))
-    True
+    np.True_
     """
     import scipy.ndimage
 
@@ -751,7 +751,7 @@ def calculate_moments(y, imax=None, window_length=5):
     >>> y = np.exp(-np.linspace(-10, 10, 1101)**2/2)
     >>> mo = calculate_moments(y)
     >>> np.all(np.isclose(mo['skewness'], 0))
-    True
+    np.True_
     """
     from scipy.signal import savgol_filter
 
@@ -799,7 +799,7 @@ def scantype(ra, dec, az=None, el=None):
     >>> azs = np.linspace(0.5, 0.7, 100)
     >>> st = scantype(ras, decs, azs, els)
     >>> np.all(st[0] == ras)
-    True
+    np.True_
     >>> st[1] == 'RA>'
     True
     >>> # Opposite direction
@@ -819,7 +819,7 @@ def scantype(ra, dec, az=None, el=None):
     >>> azs = list(zip(np.linspace(0.5, 0.7, 100), np.linspace(0.5, 0.7, 100)))
     >>> st = scantype(ras, decs, azs, els)
     >>> np.all(st[0] == ras)
-    True
+    np.True_
     >>> st[1] == 'RA>'
     True
     """
@@ -853,10 +853,10 @@ def median_diff(array, sorting=False):
 
     Examples
     --------
-    >>> median_diff([1, 2, 0, 4, -1, -2])
-    -1.0
-    >>> median_diff([1, 2, 0, 4, -1, -2], sorting=True)
-    1.0
+    >>> median_diff([1, 2, 0, 4, -1, -2]) == -1.0
+    np.True_
+    >>> median_diff([1, 2, 0, 4, -1, -2], sorting=True) == 1.0
+    np.True_
     """
     if len(array) == 0:
         return 0
