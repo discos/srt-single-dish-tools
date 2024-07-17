@@ -75,7 +75,7 @@ def inspect_directories(
     for d in directories:
         fits_files = list_scans(".", [d])
         for f in fits_files:
-            if "summary.fits" in f:
+            if f.lower().startswith("sum"):
                 continue
             logging.info("Reading {}".format(f))
             try:

@@ -441,7 +441,7 @@ class ScanSet(Table):
             return
 
         for s in scans:
-            if "summary.fits" in s:
+            if s.lower().startswith("sum"):
                 continue
             try:
                 results = calculate_opacity(s, plot=False)

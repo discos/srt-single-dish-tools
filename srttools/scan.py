@@ -836,7 +836,7 @@ def list_scans(datadir, dirlist):
         list_of_files += glob.glob(os.path.join(datadir, d, "*.fits[0-9]"))
         list_of_files += glob.glob(os.path.join(datadir, d, "*.fits[0-9][0-9]"))
         for f in list_of_files:
-            if "summary.fits" in f:
+            if f.lower().startswith("sum"):
                 continue
             scan_list.append(f)
     return scan_list

@@ -94,7 +94,7 @@ def launch_convert_coords(name, label, save_locally=False):
         allfiles += [name]
 
     for fname in allfiles:
-        if "summary.fits" in fname:
+        if fname.lower().startswith("sum"):
             continue
         outroot = fname.replace(".fits", "_" + label)
         if save_locally:
@@ -120,7 +120,7 @@ def launch_mbfits_creator(name, label, test=False, wrap=False, detrend=False, sa
         mbfits.fill_in_summary(summary)
 
     for fname in sorted(glob.glob(os.path.join(name, "*.fits"))):
-        if "summary.fits" in fname:
+        if fname.lower().startswith("sum"):
             continue
         mbfits.add_subscan(fname, detrend=detrend)
 
