@@ -1499,7 +1499,7 @@ class ScanSet(Table):
             is_stokes = ("Q" in ch) or ("U" in ch)
 
             do_moments = not (is_sdev or is_expo or is_stokes or is_outl)
-            do_moments = do_moments and frame and HAS_MAHO
+            do_moments = do_moments and frame == "altaz" and HAS_MAHO
 
             if is_sdev and not save_sdev:
                 continue
