@@ -827,6 +827,41 @@ def frequency_filter(dynamical_spectrum, mask):
     return lc_corr
 
 
+def _is_summary_file(fname):
+    """Check if a file name pattern is compatible with a summary file.
+
+    Examples
+    --------
+    >>> _is_summary_file("summary.fits")
+    True
+    >>> _is_summary_file(os.path.join("bubub", "SuMmary.fits"))
+    True
+    >>> _is_summary_file("SuM_fae02ef0fajdasj.fits")
+    True
+    >>> _is_summary_file(os.path.join("bubub", "SuM_fae02ef0fajdasj.fits"))
+    True
+    >>> # Here "sum" is in the directory name
+    >>> _is_summary_file(os.path.join("Summ", "afaskdjgahga.fits"))
+    False
+    """
+    return os.path.basename(fname)[:4].lower() in ["summ", "sum_"]
+
+
+def find_summary_file_in_dir(directory, warn_if_absent=True):
+    """Find the summary file in an observation directory."""
+    summary_files = []
+    for pattern in ["summary.fits", "Sum_*.fits"]:
+        summary_files += glob.glob(os.path.join(directory, pattern))
+
+    if len(summary_files) > 1:
+        raise ValueError(f"Multiple summary files found: {summary_files}")
+    elif warn_if_absent and len(summary_files) == 0:
+        warnings.warn("No summary file in directory")
+    else:
+        summary_files = summary_files[0]
+    return summary_files
+
+
 def list_scans(datadir, dirlist):
     """List all scans contained in the directory listed in config."""
     scan_list = []
@@ -836,7 +871,7 @@ def list_scans(datadir, dirlist):
         list_of_files += glob.glob(os.path.join(datadir, d, "*.fits[0-9]"))
         list_of_files += glob.glob(os.path.join(datadir, d, "*.fits[0-9][0-9]"))
         for f in list_of_files:
-            if "summary.fits" in f:
+            if _is_summary_file(f):
                 continue
             scan_list.append(f)
     return scan_list

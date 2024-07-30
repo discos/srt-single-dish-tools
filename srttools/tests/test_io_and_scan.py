@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from pathlib import Path
 from srttools.read_config import read_config
 from astropy.time import Time
 from astropy.coordinates import SkyCoord
@@ -8,7 +9,12 @@ import logging
 import astropy.units as u
 import pytest
 
-from srttools.scan import Scan, HAS_MPL, clean_scan_using_variability
+from srttools.scan import (
+    Scan,
+    HAS_MPL,
+    clean_scan_using_variability,
+    find_summary_file_in_dir,
+)
 from srttools.io import print_obs_info_fitszilla, bulk_change, main_bulk_change
 from srttools.io import locations, read_data_fitszilla, mkdir_p
 from srttools.utils import compare_anything
@@ -438,3 +444,28 @@ class Test2_Scan(object):
             for f in glob.glob(os.path.join(klass.datadir, "spectrum", "*.hdf5")):
                 os.unlink(f)
             shutil.rmtree(os.path.join(klass.datadir, "out_spectrum_test"))
+
+
+class TestSummary:
+    @classmethod
+    def setup_class(cls):
+        cls.testdir = "tmp-fake-dir"
+        os.makedirs(cls.testdir)
+
+    def test_summary_nofiles(self):
+        with pytest.warns(UserWarning, match="No summary file"):
+            find_summary_file_in_dir(self.testdir)
+
+    def test_summary_onefile(self):
+        fname = os.path.join(self.testdir, "summary.fits")
+        Path(fname).touch()
+        assert fname == find_summary_file_in_dir(self.testdir)
+
+    def test_summary_multiple(self):
+        Path(os.path.join(self.testdir, "summary.fits")).touch()
+        Path(os.path.join(self.testdir, "Sum_asdfhasldfjhal.fits")).touch()
+        with pytest.raises(ValueError, match="Multiple"):
+            find_summary_file_in_dir(self.testdir)
+
+    def teardown_class(cls):
+        shutil.rmtree(cls.testdir)

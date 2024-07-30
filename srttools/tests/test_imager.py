@@ -97,14 +97,14 @@ class TestSunImage(object):
         )
 
     @pytest.mark.skipif("not HAS_SUNPY")
-    def test_sun_map(self):
+    def test_sun_map_sunpy(self):
         files = main_inspector([os.path.join(self.simdir, "*"), "-d"])
         main_imager(["-c", files[0], "--frame", "sun"])
         for f in files:
             os.unlink(f)
 
     @pytest.mark.skipif("HAS_SUNPY")
-    def test_sun_map(self):
+    def test_sun_map_no_sunpy(self):
         with pytest.raises(ValueError) as excinfo:
             _ = main_inspector([os.path.join(self.simdir, "*"), "-d"])
         assert "No valid observations found" in str(excinfo.value)

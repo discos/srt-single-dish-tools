@@ -1,6 +1,5 @@
 """Functions to clean images by fitting linear trends to the initial scans."""
 
-
 try:
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec

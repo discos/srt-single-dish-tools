@@ -26,7 +26,7 @@ import astropy.units as u
 from astropy.table.np_utils import TableMergeError
 from astropy.time import Time
 
-from .scan import Scan, list_scans
+from .scan import Scan, list_scans, _is_summary_file
 from .read_config import read_config, sample_config_file
 from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
 from .utils import compare_anything, ds9_like_log_scale, njit
@@ -122,7 +122,7 @@ def merge_tables(tables):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", MergeConflictWarning)
             scan_table = vstack(tables)
-    except TableMergeError as e:
+    except TableMergeError:
         raise TableMergeError(
             "ERROR while merging tables. "
             "Tables:\n" + "\n".join([t.meta["filename"] for t in tables])
@@ -320,7 +320,7 @@ class ScanSet(Table):
 
         super().__init__(data)
 
-        if data is not None and not "x" in self.colnames:
+        if data is not None and "x" not in self.colnames:
             self.convert_coordinates()
         self.current = None
         self._scan_list = None
@@ -441,7 +441,7 @@ class ScanSet(Table):
             return
 
         for s in scans:
-            if "summary.fits" in s:
+            if _is_summary_file(s):
                 continue
             try:
                 results = calculate_opacity(s, plot=False)
@@ -1499,7 +1499,7 @@ class ScanSet(Table):
             is_stokes = ("Q" in ch) or ("U" in ch)
 
             do_moments = not (is_sdev or is_expo or is_stokes or is_outl)
-            do_moments = do_moments and frame and HAS_MAHO
+            do_moments = do_moments and frame == "altaz" and HAS_MAHO
 
             if is_sdev and not save_sdev:
                 continue

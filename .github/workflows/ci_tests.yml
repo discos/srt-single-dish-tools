@@ -109,11 +109,17 @@ jobs:
             toxenv: py311-test-alldeps-cov
             experimental: false
 
-          - name: OS X - Python 3.8 with all optional dependencies at their 3.8-compatible versions
-            os: macos-latest
+          - name: Linux - Python 3.8 with all optional dependencies at their 3.8-compatible versions
+            os: ubuntu-latest
             python: '3.8'
             toxenv: py38-test-alldeps
-            experimental: false
+            experimental: true
+
+          - name: OS X - Python 3.10 with all optional dependencies
+            os: macos-latest
+            python: '3.10'
+            toxenv: py310-test-alldeps
+            experimental: true
 
           - name: Windows - Python 3.10 with all optional dependencies
             os: windows-latest

@@ -1,6 +1,5 @@
 """Interactive operations."""
 
-
 import copy
 import warnings
 import logging

@@ -448,8 +448,9 @@ def get_center_of_mass(im, radius=1, approx=None):
     npix = int(radius * min(im.shape))
     xmin, xmax = max(0, approx[0] - npix), min(approx[0] + npix, im.shape[0])
     ymin, ymax = max(0, approx[1] - npix), min(approx[1] + npix, im.shape[1])
-    good_x = slice(xmin, xmax)
-    good_y = slice(ymin, ymax)
+    good_x = slice(xmin, max(xmax, xmin + 1))
+    good_y = slice(ymin, max(ymax, ymin + 1))
+
     cm = np.asarray(scipy.ndimage.center_of_mass(im[good_x, good_y]))
     cm[0] += xmin
     cm[1] += ymin

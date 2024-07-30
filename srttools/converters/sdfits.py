@@ -12,6 +12,7 @@ from srttools.io import (
     classify_chan_columns,
     interpret_chan_name,
 )
+from srttools.scan import find_summary_file_in_dir
 import glob
 
 
@@ -292,7 +293,7 @@ class SDFITS_creator:
         ----------------
         scandir : str
             Input data directory (to be clear, the directory containing a set
-            of subscans plus a summary.fits file)
+            of subscans plus a summary file)
         average : bool, default True
             Average all spectra of a given configuration?
         use_calon : bool, default False
@@ -313,7 +314,7 @@ class SDFITS_creator:
             self.write_tables_to_disk()
 
     def fill_in_summary(self, summaryfile):
-        """Fill in the information contained in the summary.fits file."""
+        """Fill in the information contained in the summary file."""
         with fits.open(summaryfile) as hdul:
             self.summary.update(hdul[0].header)
 
@@ -328,7 +329,7 @@ class SDFITS_creator:
         ----------
         scandir : str
             Input data directory (to be clear, the directory containing a set
-            of subscans plus a summary.fits file)
+            of subscans plus a summary file)
 
         Other Parameters
         ----------------
@@ -340,7 +341,7 @@ class SDFITS_creator:
         tables
         """
         scandir = scandir.rstrip("/")
-        fname = os.path.join(scandir, "summary.fits")
+        fname = find_summary_file_in_dir(scandir)
         self.fill_in_summary(fname)
         for fname in sorted(glob.glob(os.path.join(scandir, "*.fits"))):
             if "summary" in fname:
