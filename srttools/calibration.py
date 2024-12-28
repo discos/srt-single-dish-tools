@@ -1423,10 +1423,18 @@ def main_cal(args=None):
     snr = caltable["Counts"] / caltable["Data Std"]
     N = len(caltable)
     good = snr > args.snr_min
+    chans = list(set(caltable["Chan"]))
+
     caltable = caltable[good]
     logging.info(
         f"{len(caltable)} good calibrator observations found above " f"SNR={args.snr_min} (of {N})"
     )
+    for chan in chans:
+        good_chan = caltable["Chan"] == chan
+        if not np.any(good_chan):
+            warnings.warn(
+                f"No good data for channel {chan}. Try using the --snr-min option with some value lower than {args.snr_min}"
+            )
     caltable.update()
 
     if args.check:
