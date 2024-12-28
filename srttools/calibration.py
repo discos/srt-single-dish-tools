@@ -27,7 +27,7 @@ from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
-from .utils import standard_byte, TWOPI
+from .utils import standard_byte, TWOPI, info_once
 from .utils import HAS_STATSM, calculate_moments, scantype
 
 try:
@@ -104,7 +104,7 @@ def read_calibrator_config():
         cparser = configparser.ConfigParser()
         cparser.read(cfile)
 
-        logging.info(f"Reading {cfile}")
+        info_once(logging, f"Reading {cfile}")
         if "CoeffTable" not in list(cparser.sections()):
             configs[cparser.get("Info", "Name")] = {
                 "Kind": "FreqList",
@@ -230,7 +230,7 @@ def find_calibrator_in_list(calibrator, calibrators):
 def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
     global CALIBRATOR_CONFIG
 
-    logging.info(f"Getting calibrator flux from {calibrator}")
+    info_once(logging, f"Getting calibrator flux from {calibrator}")
 
     if CALIBRATOR_CONFIG is None:
         CALIBRATOR_CONFIG = read_calibrator_config()
