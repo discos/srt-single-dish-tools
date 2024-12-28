@@ -820,6 +820,9 @@ class CalibratorTable(Table):
             good_mask = self["Flux"] > 0
 
         flux_quantity = _get_flux_quantity(map_unit)
+        if channel not in self["Chan"]:
+            warnings.warn("No calibration found for channel {}".format(channel))
+            return None, None
 
         if channel not in self.calibration.keys():
             self.compute_conversion_function(map_unit, good_mask=good_mask)
