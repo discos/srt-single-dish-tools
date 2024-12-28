@@ -758,6 +758,9 @@ class CalibratorTable(Table):
         channels = list(set(self["Chan"]))
         for channel in channels:
             good_chans = (self["Chan"] == channel) & good_mask
+            # N.B. doing this after checking the list of channels in the table, which
+            # might be some numpy string type
+            channel = str(channel)
 
             f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
             f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
@@ -782,7 +785,6 @@ class CalibratorTable(Table):
             # X = sm.add_constant(X)
             model = sm.RLM(y_to_fit, X, missing="drop")
             results = model.fit()
-
             self.calibration_coeffs[channel] = results.params
             self.calibration_uncerts[channel] = results.cov_params().diagonal() ** 0.5
             self.calibration[channel] = results
@@ -811,6 +813,7 @@ class CalibratorTable(Table):
         fce : float or array-like
             the uncertainties corresponding to each ``fc``
         """
+        channel = str(channel)
         use_rough = False
         if not HAS_STATSM:
             warnings.warn("No statsmodels found.")
@@ -826,12 +829,16 @@ class CalibratorTable(Table):
 
         if channel not in self.calibration.keys():
             self.compute_conversion_function(map_unit, good_mask=good_mask)
-
-        if elevation is None:
+        if elevation is None or self.valid_elevation == {}:
             warnings.warn("No elevation given.")
             use_rough = True
         elif channel is None:
             warnings.warn("No channel given.")
+            use_rough = True
+        elif self.valid_elevation == {}:
+            warnings.warn(
+                "No elevation info found in the calibration for channel {}".format(channel)
+            )
             use_rough = True
         else:
             elevation_range = self.valid_elevation[channel]
