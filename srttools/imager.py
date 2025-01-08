@@ -703,14 +703,18 @@ class ScanSet(Table):
                     final_unit,
                 ) = self._calculate_calibration_factors(map_unit)
 
-                (
-                    Jy_over_counts,
-                    Jy_over_counts_err,
-                ) = conversion_units * caltable.Jy_over_counts(
+                fc, fce = caltable.Jy_over_counts(
                     channel=ch,
                     map_unit=map_unit,
                     elevation=self["el"][:, feed][good],
                 )
+                if fc is None:
+                    logging.error(f"Calibration is invalid for channel {ch}")
+                    counts = counts * np.nan
+                    continue
+
+                Jy_over_counts = fc * conversion_units
+                Jy_over_counts_err = fce * conversion_units
 
                 counts = counts * u.ct * area_conversion * Jy_over_counts
                 counts = counts.to(final_unit).value

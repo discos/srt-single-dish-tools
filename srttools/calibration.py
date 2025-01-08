@@ -27,7 +27,7 @@ from .scan import Scan, list_scans
 from .read_config import read_config, sample_config_file, get_config_file
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
-from .utils import standard_byte, TWOPI
+from .utils import standard_byte, TWOPI, info_once
 from .utils import HAS_STATSM, calculate_moments, scantype
 
 try:
@@ -104,7 +104,7 @@ def read_calibrator_config():
         cparser = configparser.ConfigParser()
         cparser.read(cfile)
 
-        logging.info(f"Reading {cfile}")
+        info_once(logging, f"Reading {cfile}")
         if "CoeffTable" not in list(cparser.sections()):
             configs[cparser.get("Info", "Name")] = {
                 "Kind": "FreqList",
@@ -230,7 +230,7 @@ def find_calibrator_in_list(calibrator, calibrators):
 def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
     global CALIBRATOR_CONFIG
 
-    logging.info(f"Getting calibrator flux from {calibrator}")
+    info_once(logging, f"Getting calibrator flux from {calibrator}")
 
     if CALIBRATOR_CONFIG is None:
         CALIBRATOR_CONFIG = read_calibrator_config()
@@ -447,6 +447,8 @@ class CalibratorTable(Table):
         self.calibration_coeffs = {}
         self.calibration_uncerts = {}
         self.calibration = {}
+        self.valid_elevation = {}
+
         names = [
             "Dir",
             "File",
@@ -756,6 +758,9 @@ class CalibratorTable(Table):
         channels = list(set(self["Chan"]))
         for channel in channels:
             good_chans = (self["Chan"] == channel) & good_mask
+            # N.B. doing this after checking the list of channels in the table, which
+            # might be some numpy string type
+            channel = str(channel)
 
             f_c_ratio = self[flux_quantity + "/Counts"][good_chans]
             f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
@@ -780,10 +785,10 @@ class CalibratorTable(Table):
             # X = sm.add_constant(X)
             model = sm.RLM(y_to_fit, X, missing="drop")
             results = model.fit()
-
             self.calibration_coeffs[channel] = results.params
             self.calibration_uncerts[channel] = results.cov_params().diagonal() ** 0.5
             self.calibration[channel] = results
+            self.valid_elevation[channel] = [np.min(x_to_fit), np.max(x_to_fit)]
 
     def Jy_over_counts(self, channel=None, elevation=None, map_unit="Jy/beam", good_mask=None):
         """Compute the Jy/Counts conversion corresponding to a given map unit.
@@ -808,19 +813,50 @@ class CalibratorTable(Table):
         fce : float or array-like
             the uncertainties corresponding to each ``fc``
         """
-        rough = False
+        channel = str(channel)
+        use_rough = False
         if not HAS_STATSM:
-            rough = True
+            warnings.warn("No statsmodels found.")
+            use_rough = True
 
         if good_mask is None:
             good_mask = self["Flux"] > 0
 
         flux_quantity = _get_flux_quantity(map_unit)
+        if channel not in self["Chan"]:
+            warnings.warn("No calibration found for channel {}".format(channel))
+            return None, None
 
         if channel not in self.calibration.keys():
             self.compute_conversion_function(map_unit, good_mask=good_mask)
+        if elevation is None or self.valid_elevation == {}:
+            warnings.warn("No elevation given.")
+            use_rough = True
+        elif channel is None:
+            warnings.warn("No channel given.")
+            use_rough = True
+        elif self.valid_elevation == {}:
+            warnings.warn(
+                "No elevation info found in the calibration for channel {}".format(channel)
+            )
+            use_rough = True
+        else:
+            elevation_range = self.valid_elevation[channel]
+            elevation_span = elevation_range[1] - elevation_range[0]
+            tolerated_el_min, tolerated_el_max = (
+                elevation_range[0] - 0.5 * elevation_span,
+                elevation_range[1] + 0.5 * elevation_span,
+            )
 
-        if elevation is None or rough is True or channel is None:
+            elevation_out_of_range = np.any(elevation < tolerated_el_min) or np.any(
+                elevation > tolerated_el_max
+            )
+            if elevation_out_of_range:
+                warnings.warn("Some values of elevation are too far from the calibrated ones.")
+                use_rough = True
+
+        if use_rough:
+            logging.info("Using rough calibration (with no elevation dependence).")
             elevation = np.array(elevation)
             fc, fce = self.Jy_over_counts_rough(
                 channel=channel, map_unit=map_unit, good_mask=good_mask
@@ -831,11 +867,10 @@ class CalibratorTable(Table):
             return fc, fce
 
         X = np.column_stack((np.ones(np.array(elevation).size), np.array(elevation)))
-
         fc = self.calibration[channel].predict(X)
-
         goodch = self["Chan"] == channel
         good = good_mask & goodch
+
         fce = np.sqrt(np.mean(self[flux_quantity + "/Counts Err"][good] ** 2)) + np.zeros_like(fc)
 
         if len(fc) == 1:
@@ -1398,10 +1433,18 @@ def main_cal(args=None):
     snr = caltable["Counts"] / caltable["Data Std"]
     N = len(caltable)
     good = snr > args.snr_min
+    chans = list(set(caltable["Chan"]))
+
     caltable = caltable[good]
     logging.info(
         f"{len(caltable)} good calibrator observations found above " f"SNR={args.snr_min} (of {N})"
     )
+    for chan in chans:
+        good_chan = caltable["Chan"] == chan
+        if not np.any(good_chan):
+            warnings.warn(
+                f"No good data for channel {chan}. Try using the --snr-min option with some value lower than {args.snr_min}"
+            )
     caltable.update()
 
     if args.check:

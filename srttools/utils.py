@@ -8,7 +8,8 @@ import time
 import warnings
 import re
 from typing import List
-
+from functools import lru_cache
+from logging import Logger
 
 from collections import OrderedDict
 from collections.abc import Iterable
@@ -146,6 +147,16 @@ else:
         if angle >= np.pi:
             angle -= TWOPI
         return angle
+
+
+@lru_cache(10)
+def warn_once(logger: Logger, msg: str):
+    logger.warning(msg)
+
+
+@lru_cache(10)
+def info_once(logger: Logger, msg: str):
+    logger.info(msg)
 
 
 def get_circular_statistics(array):
