@@ -14,7 +14,7 @@ import functools
 from datetime import datetime, timezone
 from collections.abc import Iterable
 
-from scipy.stats import binned_statistic_2d
+from scipy.stats import binned_statistic, binned_statistic_2d
 import logging
 import numpy as np
 import astropy
@@ -297,6 +297,7 @@ class ScanSet(Table):
         self.images = None
         self.images_hor = None
         self.images_ver = None
+        self.crosses = None
         self.nofilt = nofilt
         self.nosub = nosub
         self.plot = plot
@@ -702,7 +703,7 @@ class ScanSet(Table):
                     area_conversion,
                     final_unit,
                 ) = self._calculate_calibration_factors(map_unit)
-
+                logging.info(f"Calibrating scans in units of {map_unit}")
                 fc, fce = caltable.Jy_over_counts(
                     channel=ch,
                     map_unit=map_unit,
@@ -772,6 +773,158 @@ class ScanSet(Table):
             )
 
         return images
+
+    def calculate_avg_cross(
+        self,
+        no_offsets=False,
+        frame="icrs",
+        calibration=None,
+        elevation=None,
+        map_unit="Jy/beam",
+        calibrate_scans=False,
+        direction=None,
+        onlychans=None,
+    ):
+        """Obtain image from all scans.
+
+        Other parameters
+        ----------------
+        no_offsets: bool
+            use positions from feed 0 for all feeds.
+        frame: str
+            One of ``icrs``, ``altaz``, ``sun``, ``galactic``, default ``icrs``
+        calibration: CalibratorTable
+            Optional Calibrator table for calibration, default ``None``
+        elevation: Angle
+            Optional elevation angle. Defaults to mean elevation
+        map_unit: str
+            Only used if ``calibration`` is not ``None``. One of ``Jy/beam``
+            or ``Jy/pixel``
+        calibrate_scans: bool
+            Calibrate from subscans instead of from the binned image. Slower
+            but more precise
+        direction: int
+            Optional: only select horizontal or vertical scans for this image.
+            0 if horizontal, 1 if vertical, defaults to ``None`` that means
+            that all scans will be used.
+        onlychans: List
+            List of channels for which images are calculated. If defaults to
+            all channels
+        """
+        if frame != self["x"].meta["frame"]:
+            self.convert_coordinates(frame)
+
+        avg_subscan = {}
+
+        xbins = np.linspace(0, self.meta["npix"][0], int(self.meta["npix"][0] + 1))
+        ybins = np.linspace(0, self.meta["npix"][1], int(self.meta["npix"][1] + 1))
+
+        for direction in [0, 1]:
+            dir_string = "horizontal" if direction == 1 else "vertical"
+            for ch in self.chan_columns:
+                logging.info("Calculating average in channel {}, {}".format(ch, dir_string))
+                if (
+                    onlychans is not None
+                    and ch not in onlychans
+                    and self.crosses is not None
+                    and ch in self.crosses.keys()
+                ):
+                    avg_subscan[f"{ch}-{direction}"] = self.crosses[ch]
+                    avg_subscan[f"{ch}-{direction}-Sdev"] = self.crosses["{}-Sdev".format(ch)]
+                    avg_subscan[f"{ch}-{direction}-EXPO"] = self.crosses["{}-EXPO".format(ch)]
+                    avg_subscan[f"{ch}-{direction}-Outliers".format(ch)] = self.crosses[
+                        "{}-Outliers".format(ch)
+                    ]
+                    continue
+
+                feed = get_channel_feed(ch)
+
+                if elevation is None:
+                    elevation = np.mean(self["el"][:, feed])
+
+                if "{}-filt".format(ch) in self.keys():
+                    good = self["{}-filt".format(ch)]
+                else:
+                    good = np.ones(len(self[ch]), dtype=bool)
+
+                if direction == 0:
+                    good = good & self["direction"]
+                    x_values = self["x"][:, feed][good]
+                    bins = xbins
+                elif direction == 1:
+                    good = good & np.logical_not(self["direction"])
+                    x_values = self["y"][:, feed][good]
+                    bins = ybins
+
+                expomap, _ = np.histogram(
+                    x_values,
+                    bins=bins,
+                )
+
+                counts = np.array(self[ch][good])
+
+                if calibration is not None and calibrate_scans:
+                    caltable, conversion_units = _load_calibration(calibration, map_unit)
+                    (
+                        area_conversion,
+                        final_unit,
+                    ) = self._calculate_calibration_factors(map_unit)
+                    logging.info(f"Calibrating scans in units of {map_unit}")
+                    fc, fce = caltable.Jy_over_counts(
+                        channel=ch,
+                        map_unit=map_unit,
+                        elevation=self["el"][:, feed][good],
+                    )
+                    if fc is None:
+                        logging.error(f"Calibration is invalid for channel {ch}")
+                        counts = counts * np.nan
+                        continue
+
+                    Jy_over_counts = fc * conversion_units
+                    Jy_over_counts_err = fce * conversion_units
+
+                    counts = counts * u.ct * area_conversion * Jy_over_counts
+                    counts = counts.to(final_unit).value
+
+                img, _ = np.histogram(x_values, bins=bins, weights=counts)
+
+                img_sq, _ = np.histogram(x_values, bins=bins, weights=counts**2)
+
+                img_outliers, _, _ = binned_statistic(
+                    x_values,
+                    counts,
+                    statistic=outlier_score,
+                    bins=bins,
+                )
+
+                good = expomap > 0
+                mean = img.copy()
+                mean[good] /= expomap[good]
+                # For Numpy vs FITS image conventions...
+                avg_subscan[f"{ch}-{direction}"] = mean
+                img_sdev = img_sq
+                img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
+
+                img_sdev[good] = np.sqrt(img_sdev[good])
+                if calibration is not None and calibrate_scans:
+                    cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
+                    img_sdev += mean * cal_rel_err
+
+                avg_subscan[f"{ch}-{direction}-Sdev"] = img_sdev
+                avg_subscan[f"{ch}-{direction}-EXPO"] = expomap
+                avg_subscan[f"{ch}-{direction}-Outliers"] = img_outliers
+
+            self.crosses = avg_subscan
+
+        if calibration is not None and not calibrate_scans:
+            self.calibrate_images(
+                calibration,
+                elevation=elevation,
+                map_unit=map_unit,
+                direction=direction,
+            )
+
+        return avg_subscan
 
     def destripe_images(self, niter=10, npix_tol=None, **kwargs):
         from .destripe import destripe_wrapper
@@ -964,6 +1117,59 @@ class ScanSet(Table):
             self.images_ver = images
         else:
             self.images = images
+
+    def calibrate_crosses(self, calibration, elevation=np.pi / 4, map_unit="Jy/beam"):
+        """Calibrate the images."""
+        for direction in [0, 1]:
+            if self.crosses is None:
+                self.calculate_avg_cross(direction=direction)
+
+            avg_subscan = self.crosses
+
+            caltable, conversion_units = _load_calibration(calibration, map_unit)
+
+            for ch in self.chan_columns:
+                Jy_over_counts, Jy_over_counts_err = (
+                    caltable.Jy_over_counts(channel=ch, map_unit=map_unit, elevation=elevation)
+                    * conversion_units
+                )
+
+                if np.isnan(Jy_over_counts):
+                    warnings.warn("The Jy/counts factor is nan")
+                    continue
+                A = avg_subscan[f"{ch}-{direction}"].copy() * u.ct
+                eA = avg_subscan[f"{ch}-{direction}-Sdev"].copy() * u.ct
+
+                avg_subscan[f"{ch}-{direction}-RAW"] = avg_subscan[f"{ch}-{direction}"].copy()
+                avg_subscan[f"{ch}-{direction}-RAW-Sdev"] = avg_subscan[
+                    f"{ch}-{direction}-Sdev"
+                ].copy()
+                avg_subscan[f"{ch}-{direction}-RAW-EXPO"] = avg_subscan[
+                    f"{ch}-{direction}-EXPO"
+                ].copy()
+                bad = eA != eA
+                A[bad] = 1 * u.ct
+                eA[bad] = 0 * u.ct
+
+                bad = np.logical_or(A == 0, A != A)
+                A[bad] = 1 * u.ct
+                eA[bad] = 0 * u.ct
+
+                B = Jy_over_counts
+                eB = Jy_over_counts_err
+
+                area_conversion, final_unit = self._calculate_calibration_factors(map_unit)
+
+                C = A * area_conversion * Jy_over_counts
+                C[bad] = 0
+
+                avg_subscan[ch] = C.to(final_unit).value
+
+                eC = C * (eA / A + eB / B)
+
+                avg_subscan[f"{ch}-{direction}-Sdev"] = eC.to(final_unit).value
+
+            self.crosses = avg_subscan
 
     def interactive_display(self, ch=None, recreate=False, test=False):
         """Modify original scans from the image display."""
@@ -1416,6 +1622,13 @@ class ScanSet(Table):
                 map_unit=map_unit,
                 calibrate_scans=calibrate_scans,
             )
+        avg_subscan = self.calculate_avg_cross(
+            no_offsets=no_offsets,
+            frame=frame,
+            calibration=calibration,
+            map_unit=map_unit,
+            calibrate_scans=calibrate_scans,
+        )
 
         if scrunch:
             self.scrunch_images(bad_chans=bad_chans)
@@ -1533,6 +1746,21 @@ class ScanSet(Table):
 
             hdu = fits.ImageHDU(images[ch], header=header_mod, name="IMG" + ch)
             hdulist.append(hdu)
+
+            if not (is_sdev or is_expo or is_outl):
+                for direction, dir_string in zip([0, 1], ["horizontal", "vertical"]):
+                    table = Table(
+                        {
+                            "flux": avg_subscan[f"{ch}-{direction}"],
+                            "sdev": avg_subscan[f"{ch}-{direction}-Sdev"],
+                            "expo": avg_subscan[f"{ch}-{direction}-EXPO"],
+                        }
+                    )
+                    print(table)
+                    hdu = fits.TableHDU(
+                        table.as_array(), header=header_mod, name=f"X_{ch}_{dir_string}"
+                    )
+                    hdulist.append(hdu)
 
         hdulist.writeto(fname, overwrite=True)
 
