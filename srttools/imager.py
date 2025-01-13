@@ -1762,7 +1762,6 @@ class ScanSet(Table):
 
             if save_crosses and not (is_sdev or is_expo or is_outl or is_stokes):
                 for direction, dir_string in zip([0, 1], ["horizontal", "vertical"]):
-
                     if f"{ch}-{direction}" not in avg_subscan:
                         continue
                     table = Table(
