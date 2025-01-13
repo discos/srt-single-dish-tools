@@ -1596,6 +1596,8 @@ class ScanSet(Table):
         destripe=False,
         npix_tol=None,
         bad_chans=[],
+        save_images=True,
+        save_crosses=True,
     ):
         """Save a ds9-compatible file with one image per extension."""
         if fname is None:
@@ -1610,7 +1612,7 @@ class ScanSet(Table):
                 tail = tail.replace(".fits", "_destripe.fits")
             fname = self.meta["config_file"].replace(".ini", tail)
 
-        if destripe:
+        if save_images and destripe:
             logging.info("Destriping....")
             images = self.destripe_images(
                 no_offsets=no_offsets,
@@ -1620,7 +1622,7 @@ class ScanSet(Table):
                 npix_tol=npix_tol,
                 calibrate_scans=calibrate_scans,
             )
-        else:
+        elif save_images:
             images = self.calculate_images(
                 no_offsets=no_offsets,
                 frame=frame,
@@ -1628,15 +1630,16 @@ class ScanSet(Table):
                 map_unit=map_unit,
                 calibrate_scans=calibrate_scans,
             )
-        avg_subscan = self.calculate_avg_cross(
-            no_offsets=no_offsets,
-            frame=frame,
-            calibration=calibration,
-            map_unit=map_unit,
-            calibrate_scans=calibrate_scans,
-        )
+        if save_crosses:
+            avg_subscan = self.calculate_avg_cross(
+                no_offsets=no_offsets,
+                frame=frame,
+                calibration=calibration,
+                map_unit=map_unit,
+                calibrate_scans=calibrate_scans,
+            )
 
-        if scrunch:
+        if save_images and scrunch:
             self.scrunch_images(bad_chans=bad_chans)
 
         self.create_wcs(frame)
@@ -1711,7 +1714,10 @@ class ScanSet(Table):
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
 
-        keys = list(images.keys())
+        if save_images:
+            keys = list(images.keys())
+        else:
+            keys = self.chan_columns
         keys.sort()
 
         header_mod = copy.deepcopy(header)
@@ -1727,7 +1733,7 @@ class ScanSet(Table):
             if is_sdev and not save_sdev:
                 continue
 
-            if do_moments:
+            if save_images and do_moments:
                 moments_dict = self.calculate_zernike_moments(
                     images[ch],
                     cm=None,
@@ -1750,10 +1756,11 @@ class ScanSet(Table):
                     logging.info("FOM_{}: {}".format(k, moments_dict[k]))
                     # header_mod['FOM_{}'.format(k)] = moments_dict[k]
 
-            hdu = fits.ImageHDU(images[ch], header=header_mod, name="IMG" + ch)
-            hdulist.append(hdu)
+            if save_images:
+                hdu = fits.ImageHDU(images[ch], header=header_mod, name="IMG" + ch)
+                hdulist.append(hdu)
 
-            if not (is_sdev or is_expo or is_outl or is_stokes):
+            if save_crosses and not (is_sdev or is_expo or is_outl or is_stokes):
                 for direction, dir_string in zip([0, 1], ["horizontal", "vertical"]):
 
                     if f"{ch}-{direction}" not in avg_subscan:
@@ -1875,6 +1882,18 @@ def main_imager(args=None):
         default=False,
         action="store_true",
         help="Open the interactive display",
+    )
+    parser.add_argument(
+        "--images-only",
+        default=False,
+        action="store_true",
+        help="Only save images (no cross scan results)",
+    )
+    parser.add_argument(
+        "--crosses-only",
+        default=False,
+        action="store_true",
+        help="Only save cross scan results (no images)",
     )
 
     parser.add_argument("--calibrate", type=str, default=None, help="Calibration file")
@@ -2079,6 +2098,8 @@ def main_imager(args=None):
         destripe=args.destripe,
         npix_tol=args.npix_tol,
         bad_chans=bad_chans,
+        save_images=not args.crosses_only,
+        save_crosses=not args.images_only,
     )
 
     scanset.write(outfile, overwrite=True)
