@@ -822,6 +822,10 @@ class ScanSet(Table):
         for direction in [0, 1]:
             dir_string = "horizontal" if direction == 1 else "vertical"
             for ch in self.chan_columns:
+                is_stokes = ("Q" in ch) or ("U" in ch)
+                if is_stokes:
+                    continue
+
                 logging.info("Calculating average in channel {}, {}".format(ch, dir_string))
                 if (
                     onlychans is not None
@@ -855,6 +859,8 @@ class ScanSet(Table):
                     good = good & np.logical_not(self["direction"])
                     x_values = self["y"][:, feed][good]
                     bins = ybins
+                if not np.any(good):
+                    continue
 
                 expomap, _ = np.histogram(
                     x_values,
@@ -886,11 +892,11 @@ class ScanSet(Table):
                     counts = counts * u.ct * area_conversion * Jy_over_counts
                     counts = counts.to(final_unit).value
 
-                img, _ = np.histogram(x_values, bins=bins, weights=counts)
+                subsc, _ = np.histogram(x_values, bins=bins, weights=counts)
 
-                img_sq, _ = np.histogram(x_values, bins=bins, weights=counts**2)
+                subsc_sq, _ = np.histogram(x_values, bins=bins, weights=counts**2)
 
-                img_outliers, _, _ = binned_statistic(
+                subsc_outliers, _, _ = binned_statistic(
                     x_values,
                     counts,
                     statistic=outlier_score,
@@ -898,11 +904,11 @@ class ScanSet(Table):
                 )
 
                 good = expomap > 0
-                mean = img.copy()
+                mean = subsc.copy()
                 mean[good] /= expomap[good]
                 # For Numpy vs FITS image conventions...
                 avg_subscan[f"{ch}-{direction}"] = mean
-                img_sdev = img_sq
+                img_sdev = subsc_sq
                 img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
 
                 img_sdev[good] = np.sqrt(img_sdev[good])
@@ -912,12 +918,12 @@ class ScanSet(Table):
 
                 avg_subscan[f"{ch}-{direction}-Sdev"] = img_sdev
                 avg_subscan[f"{ch}-{direction}-EXPO"] = expomap
-                avg_subscan[f"{ch}-{direction}-Outliers"] = img_outliers
+                avg_subscan[f"{ch}-{direction}-Outliers"] = subsc_outliers
 
             self.crosses = avg_subscan
 
         if calibration is not None and not calibrate_scans:
-            self.calibrate_images(
+            self.calibrate_crosses(
                 calibration,
                 elevation=elevation,
                 map_unit=map_unit,
@@ -1747,8 +1753,11 @@ class ScanSet(Table):
             hdu = fits.ImageHDU(images[ch], header=header_mod, name="IMG" + ch)
             hdulist.append(hdu)
 
-            if not (is_sdev or is_expo or is_outl):
+            if not (is_sdev or is_expo or is_outl or is_stokes):
                 for direction, dir_string in zip([0, 1], ["horizontal", "vertical"]):
+
+                    if f"{ch}-{direction}" not in avg_subscan:
+                        continue
                     table = Table(
                         {
                             "flux": avg_subscan[f"{ch}-{direction}"],
@@ -1756,7 +1765,6 @@ class ScanSet(Table):
                             "expo": avg_subscan[f"{ch}-{direction}-EXPO"],
                         }
                     )
-                    print(table)
                     hdu = fits.TableHDU(
                         table.as_array(), header=header_mod, name=f"X_{ch}_{dir_string}"
                     )
