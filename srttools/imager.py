@@ -1883,12 +1883,7 @@ def main_imager(args=None):
         action="store_true",
         help="Open the interactive display",
     )
-    parser.add_argument(
-        "--images-only",
-        default=False,
-        action="store_true",
-        help="Only save images (no cross scan results)",
-    )
+
     parser.add_argument(
         "--crosses-only",
         default=False,
@@ -2099,7 +2094,7 @@ def main_imager(args=None):
         npix_tol=args.npix_tol,
         bad_chans=bad_chans,
         save_images=not args.crosses_only,
-        save_crosses=not args.images_only,
+        save_crosses=args.crosses_only,
     )
 
     scanset.write(outfile, overwrite=True)
