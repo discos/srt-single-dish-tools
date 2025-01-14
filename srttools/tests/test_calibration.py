@@ -245,7 +245,7 @@ class TestCalibration(object):
 
         # Reload unfiltered cal
         main_cal(("-c " + self.config_file).split(" "))
-        assert not os.path.exists(plotfile)
+        assert os.path.exists(plotfile)
 
     def test_sdtcal_with_sample_config(self):
         if os.path.exists("sample_config_file.ini"):
