@@ -2037,7 +2037,7 @@ def main_imager(args=None):
 
     if args.sample_config:
         sample_config_file()
-        sys.exit()
+        return
 
     if args.bad_chans == "":
         bad_chans = []

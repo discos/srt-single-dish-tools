@@ -1397,12 +1397,12 @@ def main_cal(args=None):
 
     if args.sample_config:
         sample_config_file()
-        sys.exit()
+        return
 
     if args.file is not None:
         caltable = CalibratorTable().read(args.file)
-        caltable.show()
-        sys.exit()
+        caltable.show(filename=args.file.replace(".hdf5", ".jpg"))
+        return
 
     if args.config is None:
         raise ValueError("Please specify the config file!")
@@ -1524,7 +1524,7 @@ def main_lcurve(args=None):
 
     if args.sample_config:
         sample_config_file()
-        sys.exit()
+        return
 
     if args.file is not None:
         caltable = CalibratorTable.read(args.file)
