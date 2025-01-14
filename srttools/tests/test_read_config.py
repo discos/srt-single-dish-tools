@@ -30,5 +30,5 @@ class TestConfig(object):
 
         config = read_config(fname)
 
-        np.testing.assert_almost_equal(config["pixel_size"].to(u.rad).value, np.radians(1 / 60))
+        assert config["pixel_size"] == "auto"
         assert config["interpolation"] == "linear"
