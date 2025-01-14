@@ -23,6 +23,7 @@ from astropy.table import Table, vstack, Column
 from astropy.utils.metadata import MergeConflictWarning
 import astropy.io.fits as fits
 import astropy.units as u
+import astropy.constants as c
 from astropy.table.np_utils import TableMergeError
 from astropy.time import Time
 
@@ -559,6 +560,18 @@ class ScanSet(Table):
         """Create a wcs object from the pointing information."""
         hor, ver = _coord_names(frame)
         pixel_size = self.meta["pixel_size"]
+
+        if not hasattr(pixel_size, "value") and not pixel_size in ["auto", None]:
+            warnings.warn("Pixel size not understood. Using 'auto' instead.")
+
+        if pixel_size == "auto" or pixel_size is None:
+            firstchan = self.chan_columns[0]
+            mid_freq = self[firstchan].meta["frequency"] + 0.5 * self[firstchan].meta["bandwidth"]
+            beam_size = (1.22 * c.c / mid_freq / (64 * u.m)).to("") * u.rad
+            logging.info(f"Expected bin size: {beam_size.to(u.arcmin):.2f} at {mid_freq}")
+            pixel_size = beam_size / 3
+            logging.info(f"Pixel size set at {pixel_size.to(u.arcmin):g}")
+
         self.wcs = wcs.WCS(naxis=2)
 
         if "max_" + hor not in self.meta:

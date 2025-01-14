@@ -59,9 +59,10 @@ smooth_window : 0.05
 ;    reference_ra : 10.5
 ;    reference_dec : 5.3
 
-;; Pixel size in arcminutes
+;; Pixel size in arcminutes. If set to 'auto', the pixel size will be calculated
+;; as approximately the size of the beam divided by 3.
 
-pixel_size : 1
+pixel_size : auto
 
 ;; Channels to save from RFI filtering. It might indicate known strong spectral
 ;; lines
@@ -118,7 +119,7 @@ def read_config(fname=None):
     config_output["list_of_directories"] = "*"
     config_output["calibrator_directories"] = []
     config_output["skydip_directories"] = []
-    config_output["pixel_size"] = "1"
+    config_output["pixel_size"] = "auto"
     config_output["goodchans"] = None
     config_output["filtering_factor"] = "0"
     config_output["noise_threshold"] = "5"
@@ -200,7 +201,10 @@ def read_config(fname=None):
             if os.path.isdir(f)
         ]  # only if it's a directory
 
-    config_output["pixel_size"] = float(np.radians(float(config_output["pixel_size"]) / 60)) * u.rad
+    if config_output["pixel_size"] != "auto":
+        config_output["pixel_size"] = (
+            float(np.radians(float(config_output["pixel_size"]) / 60)) * u.rad
+        )
 
     if config_output["goodchans"] is not None:
         config_output["goodchans"] = [int(n) for n in config_output["goodchans"]]
