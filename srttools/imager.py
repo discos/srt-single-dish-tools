@@ -330,7 +330,7 @@ class ScanSet(Table):
 
     @property
     def chan_columns(self):
-        if self._chan_columns is None:
+        if not hasattr(self, "_chan_columns") or self._chan_columns is None:
             self._chan_columns = np.array([i for i in self.columns if chan_re.match(i)])
         return self._chan_columns
 
@@ -764,7 +764,7 @@ class ScanSet(Table):
             img_sdev[good] = np.sqrt(img_sdev[good])
             if calibration is not None and calibrate_scans:
                 cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
-                img_sdev += mean * cal_rel_err
+                img_sdev *= 1 + cal_rel_err
 
             images["{}-Sdev".format(ch)] = img_sdev.T
             images["{}-EXPO".format(ch)] = expomap.T
@@ -927,7 +927,7 @@ class ScanSet(Table):
                 img_sdev[good] = np.sqrt(img_sdev[good])
                 if calibration is not None and calibrate_scans:
                     cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
-                    img_sdev += mean * cal_rel_err
+                    img_sdev *= 1 + cal_rel_err
 
                 avg_subscan[f"{ch}-{direction}-Sdev"] = img_sdev
                 avg_subscan[f"{ch}-{direction}-EXPO"] = expomap

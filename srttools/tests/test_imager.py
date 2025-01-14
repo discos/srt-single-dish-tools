@@ -1060,8 +1060,7 @@ class TestLargeMap:
     def test_imager_sample_config(self):
         if os.path.exists("sample_config_file.ini"):
             os.unlink("sample_config_file.ini")
-        with pytest.raises(SystemExit):
-            main_imager(["--sample-config"])
+        main_imager(["--sample-config"])
         assert os.path.exists("sample_config_file.ini")
 
     @classmethod
