@@ -832,12 +832,29 @@ class ScanSet(Table):
         xbins = np.linspace(0, self.meta["npix"][0], int(self.meta["npix"][0] + 1))
         ybins = np.linspace(0, self.meta["npix"][1], int(self.meta["npix"][1] + 1))
 
-        for direction in [0, 1]:
-            dir_string = "horizontal" if direction == 1 else "vertical"
-            for ch in self.chan_columns:
-                is_stokes = ("Q" in ch) or ("U" in ch)
-                if is_stokes:
-                    continue
+        for ch in self.chan_columns:
+            is_stokes = ("Q" in ch) or ("U" in ch)
+            if is_stokes:
+                continue
+            if "{}-filt".format(ch) in self.keys():
+                good_quality = self["{}-filt".format(ch)]
+            else:
+                good_quality = np.ones(len(self[ch]), dtype=bool)
+
+            from scipy.stats import median_abs_deviation as mad
+
+            ref_std = mad(np.diff(self[ch][good_quality]))
+            diff_indicator = np.diff(np.abs(self[ch]))
+            up_spike = (diff_indicator[:-1] > 5 * ref_std) & (diff_indicator[1:] < 5 * ref_std)
+            down_spike = (diff_indicator[:-1] < -5 * ref_std) & (diff_indicator[1:] > -5 * ref_std)
+            is_spike = np.concatenate(([False], up_spike | down_spike, [False]))
+
+            good_quality = good_quality & ~is_spike
+            if np.any(is_spike):
+                logging.info(f"Found {np.sum(is_spike)} spikes in channel {ch}")
+
+            for direction in [0, 1]:
+                dir_string = "horizontal" if direction == 1 else "vertical"
 
                 logging.info("Calculating average in channel {}, {}".format(ch, dir_string))
                 if (
@@ -859,17 +876,12 @@ class ScanSet(Table):
                 if elevation is None:
                     elevation = np.mean(self["el"][:, feed])
 
-                if "{}-filt".format(ch) in self.keys():
-                    good = self["{}-filt".format(ch)]
-                else:
-                    good = np.ones(len(self[ch]), dtype=bool)
-
                 if direction == 0:
-                    good = good & self["direction"]
+                    good = good_quality & self["direction"]
                     x_values = self["x"][:, feed][good]
                     bins = xbins
                 elif direction == 1:
-                    good = good & np.logical_not(self["direction"])
+                    good = good_quality & np.logical_not(self["direction"])
                     x_values = self["y"][:, feed][good]
                     bins = ybins
                 if not np.any(good):
@@ -889,6 +901,7 @@ class ScanSet(Table):
                         final_unit,
                     ) = self._calculate_calibration_factors(map_unit)
                     logging.info(f"Calibrating scans in units of {map_unit}")
+
                     fc, fce = caltable.Jy_over_counts(
                         channel=ch,
                         map_unit=map_unit,
@@ -898,12 +911,14 @@ class ScanSet(Table):
                         logging.error(f"Calibration is invalid for channel {ch}")
                         counts = counts * np.nan
                         continue
-
+                    if ch + "_cal" not in self.colnames:
+                        self[ch + "_cal"] = np.zeros_like(self[ch])
                     Jy_over_counts = fc * conversion_units
                     Jy_over_counts_err = fce * conversion_units
 
                     counts = counts * u.ct * area_conversion * Jy_over_counts
                     counts = counts.to(final_unit).value
+                    self[ch + "_cal"][good] = counts
 
                 subsc, _ = np.histogram(x_values, bins=bins, weights=counts)
 
@@ -928,7 +943,6 @@ class ScanSet(Table):
                 if calibration is not None and calibrate_scans:
                     cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
                     img_sdev *= 1 + cal_rel_err
-
                 avg_subscan[f"{ch}-{direction}-Sdev"] = img_sdev
                 avg_subscan[f"{ch}-{direction}-EXPO"] = expomap
                 avg_subscan[f"{ch}-{direction}-Outliers"] = subsc_outliers
@@ -1782,6 +1796,7 @@ class ScanSet(Table):
                             "flux": avg_subscan[f"{ch}-{direction}"],
                             "sdev": avg_subscan[f"{ch}-{direction}-Sdev"],
                             "expo": avg_subscan[f"{ch}-{direction}-EXPO"],
+                            "outliers": avg_subscan[f"{ch}-{direction}-Outliers"],
                         }
                     )
                     hdu = fits.TableHDU(
@@ -2093,7 +2108,6 @@ def main_imager(args=None):
 
     if args.global_fit:
         scanset.fit_full_images(chans=args.chans, frame=args.frame, excluded=excluded_xy)
-    scanset.write(outfile, overwrite=True)
 
     scanset.save_ds9_images(
         save_sdev=True,
