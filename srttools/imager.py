@@ -569,8 +569,8 @@ class ScanSet(Table):
             mid_freq = self[firstchan].meta["frequency"] + 0.5 * self[firstchan].meta["bandwidth"]
             beam_size = (1.22 * c.c / mid_freq / (64 * u.m)).to("") * u.rad
             logging.info(f"Expected bin size: {beam_size.to(u.arcmin):.2f} at {mid_freq}")
-            pixel_size = beam_size / 3
-            logging.info(f"Pixel size set at {pixel_size.to(u.arcmin):g}")
+            pixel_size = beam_size / 4
+            logging.info(f"Pixel size set at 1/4 beam: {pixel_size.to(u.arcmin):g}")
 
         self.wcs = wcs.WCS(naxis=2)
 
