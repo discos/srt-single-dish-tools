@@ -491,7 +491,7 @@ def _baseline_als(
     if not isinstance(outlier_purging, Iterable):
         outlier_purging = (outlier_purging, outlier_purging)
     if lam is None:
-        lam = 1e11
+        lam = 10 ** (7 * (x.size / 1000))
     if p is None:
         p = 0.001
 
