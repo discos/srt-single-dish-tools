@@ -34,7 +34,7 @@ from .utils import compare_anything, ds9_like_log_scale, njit
 from .utils import remove_suffixes_and_prefixes, get_circular_statistics
 
 from .io import chan_re, get_channel_feed, detect_data_kind
-from .fit import linear_fun
+from .fit import linear_fun, eliminate_spiky_outliers
 from .interactive_filter import select_data
 from .calibration import CalibratorTable
 from .opacity import calculate_opacity
@@ -797,6 +797,7 @@ class ScanSet(Table):
         calibrate_scans=False,
         direction=None,
         onlychans=None,
+        aggressive_detrend=False,
     ):
         """Obtain image from all scans.
 
@@ -833,6 +834,7 @@ class ScanSet(Table):
         ybins = np.linspace(0, self.meta["npix"][1], int(self.meta["npix"][1] + 1))
 
         for ch in self.chan_columns:
+            logging.info("Calculating average in channel {}".format(ch))
             is_stokes = ("Q" in ch) or ("U" in ch)
             if is_stokes:
                 continue
@@ -841,17 +843,7 @@ class ScanSet(Table):
             else:
                 good_quality = np.ones(len(self[ch]), dtype=bool)
 
-            from scipy.stats import median_abs_deviation as mad
-
-            ref_std = mad(np.diff(self[ch][good_quality]))
-            diff_indicator = np.diff(np.abs(self[ch]))
-            up_spike = (diff_indicator[:-1] > 5 * ref_std) & (diff_indicator[1:] < 5 * ref_std)
-            down_spike = (diff_indicator[:-1] < -5 * ref_std) & (diff_indicator[1:] > -5 * ref_std)
-            is_spike = np.concatenate(([False], up_spike | down_spike, [False]))
-
-            good_quality = good_quality & ~is_spike
-            if np.any(is_spike):
-                logging.info(f"Found {np.sum(is_spike)} spikes in channel {ch}")
+            self[ch][good_quality] = eliminate_spiky_outliers(self[ch][good_quality], nsigma=5)
 
             for direction in [0, 1]:
                 dir_string = "horizontal" if direction == 1 else "vertical"
