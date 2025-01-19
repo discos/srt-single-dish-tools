@@ -314,6 +314,14 @@ def _get_spectrum_stats(
     threshold_low = baseline - noise_threshold * stdref
     mask = mask & (spectral_var > threshold_low)
 
+    # Extend large, contiguous, bad regions by 20%
+    regs = contiguous_regions(~mask)
+    for r in regs:
+        reg_size = r[1] - r[0]
+        if reg_size > 5:
+            delta = int(np.rint(reg_size * 0.1))
+            mask[r[0] - delta : r[1] + 1 + delta] = False
+
     if not np.any(mask):
         warnings.warn(
             "No good channels found. A problem with the data or " "incorrect noise threshold?"
