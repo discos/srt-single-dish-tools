@@ -3,6 +3,7 @@
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
 import numpy as np
+from numba import njit
 import traceback
 import warnings
 import copy
@@ -25,6 +26,40 @@ __all__ = [
     "total_variance",
     "align",
 ]
+
+
+@njit
+def find_trend_change(data, nmax=-1):
+    """Find trend changes in a series of data.
+
+    Examples
+    --------
+    >>> data = np.array([1, 2, 3, 2, 1, 2, 3, 4, 5, 4, 3, 2, 1])
+    >>> find_trend_change(data)
+    [3, 5, 9]
+    """
+    n = data.size
+    if nmax < 0:
+        nmax = n
+    trend_edges = []
+    previous_sign = np.sign(data[1] - data[0])
+    previous_data = data[0]
+    nchanges = 0
+    for i, d in enumerate(data):
+        if i == 0:
+            continue
+
+        local_sign = np.sign(d - previous_data)
+        previous_data = d
+
+        if local_sign != previous_sign:
+            trend_edges.append(i)
+            previous_sign = local_sign
+            nchanges += 1
+            if nchanges > nmax:
+                break
+
+    return trend_edges
 
 
 def contiguous_regions(condition):
