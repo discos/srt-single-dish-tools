@@ -935,7 +935,7 @@ class Scan(Table):
         """
         if config_file is None:
             config_file = get_config_file()
-
+        need_for_cleaning = True
         if isinstance(data, Table):
             super().__init__(data, **kwargs)
         elif data is None:
@@ -951,6 +951,8 @@ class Scan(Table):
                 # original file (e.g. the fits file was not modified later)
                 if os.path.getmtime(h5name) > os.path.getmtime(data):
                     data = h5name
+                    nosave = True
+                    need_for_cleaning = False
             if debug:
                 logging.info("Loading file {}".format(data))
             table = read_data(data)
@@ -963,15 +965,16 @@ class Scan(Table):
                 self.meta["debug_file_format"] = debug_file_format
 
             self.check_order()
-
-            self.clean_and_splat(
-                freqsplat=freqsplat,
-                nofilt=nofilt,
-                noise_threshold=self.meta["noise_threshold"],
-                debug=debug,
-                save_spectrum=save_spectrum,
-                plot=plot,
-            )
+            if need_for_cleaning:
+                self.clean_and_splat(
+                    freqsplat=freqsplat,
+                    bad_intervals=bad_intervals,
+                    nofilt=nofilt,
+                    noise_threshold=self.meta["noise_threshold"],
+                    debug=debug,
+                    save_spectrum=save_spectrum,
+                    plot=plot,
+                )
 
             if interactive:
                 self.interactive_filter()
