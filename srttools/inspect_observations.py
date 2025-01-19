@@ -41,19 +41,10 @@ def inspect_directories(
         "Frequency",
         "Bandwidth",
         "is_skydip",
+        "Attenuation",
     ]
 
-    dtype = [
-        "S200",
-        "S200",
-        "S200",
-        "S200",
-        "S200",
-        np.double,
-        float,
-        float,
-        bool,
-    ]
+    dtype = ["S200", "S200", "S200", "S200", "S200", np.double, float, float, bool, str]
 
     for n, d in zip(names, dtype):
         if n not in info.keys():
@@ -95,6 +86,7 @@ def inspect_directories(
 
                 backend = data.meta["backend"]
                 receiver = data.meta["receiver"]
+                attenuation = data.meta["attenuations"]
                 chan = [ch for ch in data.colnames if chan_re.search(ch)][0]
                 frequency = data[chan].meta["frequency"]
                 bandwidth = data[chan].meta["bandwidth"]
@@ -113,6 +105,7 @@ def inspect_directories(
                         frequency,
                         bandwidth,
                         is_skydip,
+                        attenuation,
                     ]
                 )
                 break
@@ -132,7 +125,7 @@ def split_observation_table(
     save_calibrator_config=False,
 ):
     if group_by_entries is None:
-        group_by_entries = ["Receiver", "Backend"]
+        group_by_entries = ["Receiver", "Backend", "Attenuation", "Frequency", "Bandwidth"]
     grouped_table = info.group_by(group_by_entries)
 
     indices = grouped_table.groups.indices
@@ -141,8 +134,7 @@ def split_observation_table(
     for i, ind in enumerate(zip(indices[:-1], indices[1:])):
         start_row = grouped_table[ind[0]]
         logging.info(
-            "Group {}, Backend = {}, "
-            "Receiver = {}".format(i, start_row["Backend"], start_row["Receiver"])
+            f"Group {i}, Backend = {start_row['Backend']}, Receiver = {start_row['Receiver']}"
         )
         s = split_by_source(
             grouped_table[ind[0] : ind[1]],
