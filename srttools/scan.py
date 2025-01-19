@@ -431,6 +431,7 @@ def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
     results.freqmax = freqmax * u.MHz
     results.mask = wholemask
     results.dynspec = cleaned_dynamical_spectrum
+    results.allbins = spec_stats.allbins
 
     results = pickle_or_not(results, filename, cleaned_dynamical_spectrum)
     return results
@@ -1077,7 +1078,14 @@ class Scan(Table):
             if results is None:
                 continue
 
-            mask = mask & results.mask
+            bad_chan_dict = None
+            if not np.all(results.mask):
+                bad_mask = ~results.mask
+                bad_data = results.allbins[bad_mask]
+                bad_chan = np.arange(results.allbins.size)[bad_mask]
+                bad_chan_dict = dict(zip(bad_chan, bad_data))
+
+            mask = results.mask
             lc_corr = results.lc
             freqmin, freqmax = results.freqmin, results.freqmax
 
@@ -1090,6 +1098,7 @@ class Scan(Table):
                 self.remove_column(ch)
             self[ch + "TEMP"].name = ch
             self[ch].meta["bandwidth"] = freqmax - freqmin
+            self[ch].meta["bad_chans"] = bad_chan_dict
 
         if is_polarized:
             for ic, ch in enumerate(chans):
