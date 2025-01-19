@@ -618,6 +618,8 @@ def _read_data_fitszilla(lchdulist):
     frequencies_rf = get_value_with_units(rf_input_data, "frequency")
     bandwidths_rf = get_value_with_units(rf_input_data, "bandWidth")
     local_oscillator = get_value_with_units(rf_input_data, "localOscillator")
+    attenuation = get_value_with_units(rf_input_data, "attenuation")
+
     try:
         cal_mark_temp = get_value_with_units(rf_input_data, "calibrationMark")
     except KeyError:
@@ -812,6 +814,7 @@ def _read_data_fitszilla(lchdulist):
     new_table.meta["Dec"] = dec
     new_table.meta["channels"] = nbin_per_chan
     new_table.meta["VLSR"] = new_table.meta["VLSR"] * u.Unit("km/s")
+    new_table.meta["attenuations"] = ",".join([str(int(a.value)) for a in attenuation])
 
     for i, off in zip(
         "ra,dec,el,az".split(","),
@@ -888,6 +891,7 @@ def _read_data_fitszilla(lchdulist):
         b = bandwidths[i]
         lo = local_oscillator[i]
         cal = cal_mark_temp[i]
+        att = attenuation[i]
 
         c = s
         if is_single_channel:
@@ -913,6 +917,7 @@ def _read_data_fitszilla(lchdulist):
             "sample_rate": sample_rate[s],
             "sample_time": (1 / (sample_rate[s].to(u.Hz))).to("s"),
             "local_oscillator": lo.to("MHz"),
+            "attenuation": att,
             "cal_mark_temp": cal.to("K"),
             "integration_time": integration_time.to("s"),
             "xoffset": xoffsets[f].to(u.rad),
@@ -947,6 +952,7 @@ def _read_data_fitszilla(lchdulist):
                     "sample_rate": sample_rate[s],
                     "sample_time": sample_time.to("s"),
                     "local_oscillator": local_oscillator[2 * s].to("MHz"),
+                    "attenuation": attenuation[2 * s],
                     "cal_mark_temp": cal_mark_temp[2 * s].to("K"),
                     "integration_time": integration_time.to("s"),
                     "xoffset": xoffsets[feed].to(u.rad),
