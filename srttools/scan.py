@@ -234,6 +234,7 @@ def _get_spectrum_stats(
     smoothing_window,
     noise_threshold,
     good_mask=None,
+    bad_intervals=None,
     length=1,
     filename="stats.p",
 ):
@@ -250,6 +251,10 @@ def _get_spectrum_stats(
     freqmin, freqmax, binmin, binmax = interpret_frequency_range(freqsplat, bandwidth, nbin)
     freqmask[0:binmin] = False
     freqmask[binmax:] = False
+    if bad_intervals is not None:
+        for b in bad_intervals:
+            freqmin, freqmax, binmin, binmax = interpret_frequency_range(b, bandwidth, nbin)
+            freqmask[binmin:binmax] = False
     results.freqmask = freqmask
     results.freqmin = freqmin
     results.freqmax = freqmax
@@ -655,6 +660,7 @@ def clean_scan_using_variability(
     length,
     bandwidth,
     good_mask=None,
+    bad_intervals=None,
     freqsplat=None,
     noise_threshold=5.0,
     debug=True,
@@ -696,6 +702,8 @@ def clean_scan_using_variability(
     good_mask : boolean array
         this mask specifies channels that should never be discarded as
         RFI, for example because they contain spectral lines
+    bad_intervals : list of str
+        bad frequency intervals, specified with the same syntax as freqsplat
     freqsplat : str
         List of frequencies to be merged into one. See
         :func:`srttools.scan.interpret_frequency_range`
@@ -769,6 +777,7 @@ def clean_scan_using_variability(
         noise_threshold,
         length=length,
         good_mask=good_mask,
+        bad_intervals=bad_intervals,
         filename=dummy_file,
     )
     if spec_stats_ is None:
@@ -898,6 +907,7 @@ class Scan(Table):
         nosave=False,
         debug=False,
         plot=False,
+        bad_intervals=None,
         freqsplat=None,
         nofilt=False,
         nosub=False,
@@ -921,6 +931,8 @@ class Scan(Table):
         norefilt : bool
             If an HDF5 archive is present with the same basename as the input
             FITS file, do not re-run the filtering (default True)
+        bad_intervals : list of str
+            bad frequency intervals, specified with the same syntax as freqsplat
         freqsplat : str
             See :class:`srttools.scan.interpret_frequency_range`
         nofilt : bool
@@ -1013,6 +1025,7 @@ class Scan(Table):
     def clean_and_splat(
         self,
         good_mask=None,
+        bad_intervals=None,
         freqsplat=None,
         noise_threshold=5,
         debug=True,
@@ -1029,6 +1042,8 @@ class Scan(Table):
         good_mask : boolean array
             this mask specifies intervals that should never be discarded as
             RFI, for example because they contain spectral lines
+        bad_intervals : list of str
+            bad frequency intervals, specified with the same syntax as freqsplat
         freqsplat : str
             List of frequencies to be merged into one. See
             :func:`srttools.scan.interpret_frequency_range`
@@ -1074,6 +1089,7 @@ class Scan(Table):
                 86400 * (self["time"][-1] - self["time"][0]),
                 self[ch].meta["bandwidth"],
                 good_mask=good_mask,
+                bad_intervals=bad_intervals,
                 freqsplat=freqsplat,
                 noise_threshold=noise_threshold,
                 debug=debug,
