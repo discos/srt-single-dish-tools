@@ -38,6 +38,7 @@ def find_trend_change(data, nmax=-1):
     >>> find_trend_change(data)
     [3, 5, 9]
     """
+
     n = data.size
     if nmax < 0:
         nmax = n
@@ -45,16 +46,21 @@ def find_trend_change(data, nmax=-1):
     previous_sign = np.sign(data[1] - data[0])
     previous_data = data[0]
     nchanges = 0
+    previous_change = -1
     for i, d in enumerate(data):
         if i == 0:
             continue
 
         local_sign = np.sign(d - previous_data)
+        if i == previous_change + 1:
+            previous_sign = local_sign
+            continue
         previous_data = d
 
         if local_sign != previous_sign:
             trend_edges.append(i)
             previous_sign = local_sign
+            previous_change = i
             nchanges += 1
             if nchanges > nmax:
                 break
