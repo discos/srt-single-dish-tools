@@ -250,6 +250,7 @@ class ScanSet(Table):
         data=None,
         norefilt=True,
         config_file=None,
+        bad_intervals=None,
         freqsplat=None,
         nofilt=False,
         nosub=False,
@@ -275,6 +276,8 @@ class ScanSet(Table):
             directories containing the image and calibration data
         norefilt : bool
             See :class:`srttools.scan.Scan`
+        bad_intervals : list of str
+            See :class:`srttools.scan.clean_scan_using_variability`
         freqsplat : str
             See :class:`srttools.scan.interpret_frequency_range`
         nofilt : bool
@@ -294,6 +297,7 @@ class ScanSet(Table):
         True
         """
         self.norefilt = norefilt
+        self.bad_intervals = bad_intervals
         self.freqsplat = freqsplat
         self.images = None
         self.images_hor = None
@@ -354,6 +358,7 @@ class ScanSet(Table):
         indices_and_subscans = self.load_scans(
             scan_list,
             debug=self.debug,
+            bad_intervals=self.bad_intervals,
             freqsplat=self.freqsplat,
             nofilt=self.nofilt,
             nosub=self.nosub,
@@ -451,7 +456,9 @@ class ScanSet(Table):
             except KeyError as e:
                 logging.warning("Error while processing {}: Missing key: {}".format(s, str(e)))
 
-    def load_scans(self, scan_list, freqsplat=None, nofilt=False, debug=False, **kwargs):
+    def load_scans(
+        self, scan_list, freqsplat=None, bad_intervals=None, nofilt=False, debug=False, **kwargs
+    ):
         """Load the scans in the list one by ones."""
         for i, f in enumerate(show_progress(scan_list)):
             try:
@@ -459,6 +466,7 @@ class ScanSet(Table):
                     f,
                     norefilt=self.norefilt,
                     debug=debug,
+                    bad_intervals=bad_intervals,
                     freqsplat=freqsplat,
                     nofilt=nofilt,
                     **kwargs,
