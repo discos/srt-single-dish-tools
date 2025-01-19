@@ -278,6 +278,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
     rows = []
     for feed, nch in zip(F, N):
         channel = chans[nch]
+        if channel[-1:] in ["Q", "U"]:
+            continue
 
         ras = np.degrees(scan["ra"][:, feed])
         decs = np.degrees(scan["dec"][:, feed])
@@ -305,12 +307,11 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         model, fit_info = fit_baseline_plus_bell(x, y, kind="gauss")
 
         std = np.std(np.diff(y)) / np.sqrt(2)
-
         try:
             uncert = fit_info["param_cov"].diagonal() ** 0.5
         except Exception:
             message = fit_info["message"]
-            warnings.warn("Fit failed in scan {s}: {m}".format(s=sname, m=message))
+            warnings.warn(f"Fit failed in {sname}, {channel}: {message}")
             continue
         bell = model["Bell"]
         baseline = model["Baseline"]
