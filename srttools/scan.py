@@ -252,9 +252,14 @@ def _get_spectrum_stats(
     freqmask[0:binmin] = False
     freqmask[binmax:] = False
     if bad_intervals is not None:
+        if isinstance(bad_intervals, str):
+            bad_intervals = bad_intervals.split(",")
         for b in bad_intervals:
-            freqmin, freqmax, binmin, binmax = interpret_frequency_range(b, bandwidth, nbin)
-            freqmask[binmin:binmax] = False
+            loc_freqmin, loc_freqmax, loc_binmin, loc_binmax = interpret_frequency_range(
+                b, bandwidth, nbin
+            )
+            freqmask[loc_binmin : loc_binmax + 1] = False
+
     results.freqmask = freqmask
     results.freqmin = freqmin
     results.freqmax = freqmax
@@ -297,7 +302,6 @@ def _get_spectrum_stats(
 
     # median_spectral_var = np.median(mod_spectral_var[freqmask])
     stdref = ref_mad(mod_spectral_var[freqmask], 20)
-
     # Calculate baseline of spectral var ---------------
     # Empyrical formula, with no physical meaning
 
@@ -702,7 +706,7 @@ def clean_scan_using_variability(
     good_mask : boolean array
         this mask specifies channels that should never be discarded as
         RFI, for example because they contain spectral lines
-    bad_intervals : list of str
+    bad_intervals : list of str or comma-separated str
         bad frequency intervals, specified with the same syntax as freqsplat
     freqsplat : str
         List of frequencies to be merged into one. See
@@ -780,6 +784,7 @@ def clean_scan_using_variability(
         bad_intervals=bad_intervals,
         filename=dummy_file,
     )
+
     if spec_stats_ is None:
         if isinstance(dummy_file, str) and os.path.exists(dummy_file):
             os.unlink(dummy_file)
@@ -1043,7 +1048,9 @@ class Scan(Table):
             this mask specifies intervals that should never be discarded as
             RFI, for example because they contain spectral lines
         bad_intervals : list of str
-            bad frequency intervals, specified with the same syntax as freqsplat
+            bad frequency intervals, specified with the same syntax as freqsplat, and
+            separated by commas. Here, however, the frequencies are observing frequencies,
+            not frequencies from the local oscillator (as in freqsplat).
         freqsplat : str
             List of frequencies to be merged into one. See
             :func:`srttools.scan.interpret_frequency_range`
@@ -1079,6 +1086,15 @@ class Scan(Table):
         chans = self.chan_columns()
         is_polarized = False
         mask = True
+
+        if bad_intervals is not None:
+            bad_intervals_list = []
+            ref_f = self[chans[0]].meta["frequency"].to(u.MHz).value
+            for f_int in bad_intervals.split(","):
+                f0, f1 = (float(f) for f in f_int.split(":"))
+                bad_intervals_list.append(f"{f0 - ref_f}:{f1 - ref_f}")
+            bad_intervals = bad_intervals_list
+
         for ic, ch in enumerate(chans):
             if "_Q" in ch or "_U" in ch:
                 is_polarized = True

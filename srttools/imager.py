@@ -2060,7 +2060,17 @@ def main_imager(args=None):
             "or 'all' for all the channels."
         ),
     )
-
+    parser.add_argument(
+        "--bad-intervals",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated list of frequencies to avoid in the analysis, e.g."
+            " '5000:5100,5500:5550' will avoid the frequency intervals 5000-5100"
+            " and 5500-5550 MHz. Note: if data were already filtered, you need"
+            " to specify --refilt as well"
+        ),
+    )
     args = parser.parse_args(args)
 
     if args.sample_config:
@@ -2097,6 +2107,7 @@ def main_imager(args=None):
             avoid_regions=excluded_radec,
             nosave=args.nosave,
             plot=not args.noplot,
+            bad_intervals=args.bad_intervals,
         )
         infile = args.config
 
@@ -2191,6 +2202,17 @@ def main_preprocess(args=None):
             "or 'all' for all the channels."
         ),
     )
+    parser.add_argument(
+        "--bad-intervals",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated list of frequencies to avoid in the analysis, e.g."
+            " '5000:5100,5500:5550' will avoid the frequency intervals 5000-5100"
+            " and 5500-5550 MHz.Note: if data were already filtered, you need"
+            " to specify --refilt as well"
+        ),
+    )
 
     parser.add_argument(
         "-e",
@@ -2233,6 +2255,7 @@ def main_preprocess(args=None):
                 avoid_regions=excluded_radec,
                 config_file=args.config,
                 nosave=args.nosave,
+                bad_intervals=args.bad_intervals,
             )
     else:
         if args.config is None:
@@ -2248,5 +2271,6 @@ def main_preprocess(args=None):
             interactive=args.interactive,
             avoid_regions=excluded_radec,
             nosave=args.nosave,
+            bad_intervals=args.bad_intervals,
         )
     return 0
