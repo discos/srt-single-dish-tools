@@ -173,11 +173,12 @@ github_issues_url = "https://github.com/{0}/issues/".format(setup_cfg["github_pr
 if not ON_RTD and not ON_TRAVIS:
     scripts = dict(conf.items("options.entry_points"))["console_scripts"].split("\n")
     import subprocess as sp
+    import re
 
     os.environ["PYTHONWARNINGS"] = "ignore"
     cols = os.getenv("COLUMNS")
     os.environ["COLUMNS"] = "80"
-
+    logging_re = re.compile(r"\[([EWID])\]\s2[0-9]{3}")
     with open(os.path.join(os.getcwd(), "scripts", "cli.rst"), "w") as fobj:
         print("""Command line interface""", file=fobj)
         print("""======================\n""", file=fobj)
@@ -194,6 +195,8 @@ if not ON_RTD and not ON_TRAVIS:
             print(file=fobj)
             lines = sp.check_output([cl, "--help"]).decode().split("\n")
             for l in lines:
+                if logging_re.search(l):
+                    continue
                 if l.strip() == "":
                     print(file=fobj)
                 else:
