@@ -164,11 +164,12 @@ def main(args=None):
             bad_intervals_str = ""
             for r in regs:
                 logging.info(f"{stat_bins[r[0]]}--{stat_bins[min(r[1], stat_bins.size - 1)]}")
+                bad_intervals_str += (
+                    f"{stat_bins[r[0]]}:{stat_bins[min(r[1], stat_bins.size - 1)]},"
+                )
                 for ax in ax_row:
                     ax.axhspan(stat_bins[r[0]], stat_bins[r[1]], color="g", alpha=0.2)
-                    bad_intervals_str += (
-                        f"{stat_bins[r[0]]}:{stat_bins[min(r[1], stat_bins.size - 1)]},"
-                    )
+
             bad_intervals_str = bad_intervals_str.rstrip(",")
             ax_hist.axvline(threshold, color="r")
             logging.info(f"Cleaning string from {outfile}: {bad_intervals_str}")
