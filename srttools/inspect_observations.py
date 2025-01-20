@@ -44,7 +44,7 @@ def inspect_directories(
         "Attenuation",
     ]
 
-    dtype = ["S200", "S200", "S200", "S200", "S200", np.double, float, float, bool, str]
+    dtype = ["S200", "S200", "S200", "S200", "S200", np.double, str, str, bool, str]
 
     for n, d in zip(names, dtype):
         if n not in info.keys():
@@ -88,8 +88,8 @@ def inspect_directories(
                 receiver = data.meta["receiver"]
                 attenuation = data.meta["attenuations"]
                 chan = [ch for ch in data.colnames if chan_re.search(ch)][0]
-                frequency = data[chan].meta["frequency"]
-                bandwidth = data[chan].meta["bandwidth"]
+                frequency = f"{data[chan].meta['frequency'].to('MHz').value:g}"
+                bandwidth = f"{data[chan].meta['bandwidth'].to('MHz').value:g}"
                 source = remove_suffixes_and_prefixes(
                     data.meta["SOURCE"], suffixes=ignore_suffix, prefixes=ignore_prefix
                 )
@@ -143,7 +143,7 @@ def split_observation_table(
             save_calibrator_config=save_calibrator_config,
         )
 
-        label = ",".join([start_row[e] for e in group_by_entries])
+        label = ",".join([str(start_row[e]) for e in group_by_entries])
 
         groups[label] = s
 
