@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from astropy.time import Time
-import matplotlib.pyplot as plt
+
 from astropy.table import Table, vstack
 from astropy.io import fits
 import astropy.units as u
@@ -10,6 +10,14 @@ from . import logging
 from .fit import contiguous_regions, find_trend_change
 
 import sys
+
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
 
 
 def load_data(fnames, outroot=None):
@@ -75,7 +83,7 @@ def main(args=None):
         type=str,
     )
     parser.add_argument(
-        "--threshold", help=r"Threshold (% from maximum) for RFI flagging", default=10, type=float
+        "--threshold", help=r"Threshold (%% from maximum) for RFI flagging", default=10, type=float
     )
     parser.add_argument("--outroot", help="Root for output files", default=None, type=str)
     args = parser.parse_args(args)
@@ -96,6 +104,9 @@ def main(args=None):
         if receiver not in receiver_class_data:
             receiver_class_data[receiver] = []
         receiver_class_data[receiver].append(fname)
+
+    if not HAS_MPL:
+        raise ImportError("Matplotlib is required for this function.")
 
     for receiver, outfiles in receiver_class_data.items():
         logging.info(f"Treating data from {receiver}")

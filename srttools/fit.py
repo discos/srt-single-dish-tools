@@ -3,12 +3,11 @@
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
 import numpy as np
-from numba import njit
 import traceback
 import warnings
 import copy
 from collections.abc import Iterable
-from .utils import mad, HAS_MPL
+from .utils import mad, HAS_MPL, njit
 
 
 __all__ = [

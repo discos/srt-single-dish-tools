@@ -174,6 +174,10 @@ if not ON_RTD and not ON_TRAVIS:
     scripts = dict(conf.items("options.entry_points"))["console_scripts"].split("\n")
     import subprocess as sp
 
+    os.environ["PYTHONWARNINGS"] = "ignore"
+    cols = os.getenv("COLUMNS")
+    os.environ["COLUMNS"] = "80"
+
     with open(os.path.join(os.getcwd(), "scripts", "cli.rst"), "w") as fobj:
         print("""Command line interface""", file=fobj)
         print("""======================\n""", file=fobj)

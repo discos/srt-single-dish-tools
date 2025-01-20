@@ -135,6 +135,7 @@ Tutorials
 
   tutorials/imaging
   tutorials/converters
+  tutorials/rfi
 
 Command line interface
 ----------------------
