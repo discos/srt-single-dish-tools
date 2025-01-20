@@ -2,11 +2,11 @@ Dealing with strong RFI
 -----------------------
 Some observations might be plagued by strong RFI.
 SDT has a few tools to help you deal with this. First of all,
-as we have seen in section :ref:`_preprocess`, SDT tries to automatically
+as we have seen in the imaging tutorial, SDT tries to automatically
 filter particularly noisy frequency channels. This information is saved in
 the HDF5 files containing the preprocessed data.
 
-The new (as of version 0.7.0) script `SDTrfistat` can be used to generate a
+The new (as of version 0.7.0) script ``SDTrfistat`` can be used to generate a
 report on frequency intervals that are systematically noisy.
 
 Let us consider the following example: we analyzed a noisy dataset with SDTpreprocess (note: ``--splat all`` is used to analyze the full band):
@@ -25,7 +25,7 @@ The script will have generated a number of HDF5 files (named like the original F
    :alt: Noisy CCB data
    :align: center
 
-Now, we can use the `SDTrfistat` script to generate a report on the noisy frequency intervals:
+Now, we can use the ``SDTrfistat`` script to generate a report on the noisy frequency intervals:
 
 .. code-block:: bash
 
