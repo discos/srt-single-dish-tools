@@ -152,6 +152,8 @@ it's sufficient to take them out of the list above.
 .. _all projections in this list are supported: https://docs.astropy.org/en/stable/wcs/supported_projections.html
 
 
+.. _preprocess:
+
 Preprocess the files
 ~~~~~~~~~~~~~~~~~~~~
 
