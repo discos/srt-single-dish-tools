@@ -135,7 +135,7 @@ def main(args=None):
                 axs[0][0].scatter(time, t["az"][:, 0], s=2, alpha=0.2, color="r")
                 axs[0][1].axis("off")
 
-            ax_scatter.scatter(time, data, color="r", s=2, alpha=0.2)
+            ax_scatter.scatter(time, data, color="k", s=2, alpha=0.2)
             ax_scatter.set_xlabel(f"Time (hours since MJD {central_mjd})")
 
             ax_scatter.set_ylabel("Frequency (MHz)")
@@ -149,15 +149,13 @@ def main(args=None):
             stat_bins = np.linspace(
                 data.min() - 0.0001, data.max() + 0.0001, freq_chans.max() - freq_chans.min() + 1
             )
-            data_hist = np.histogram(
-                data,
-                bins=stat_bins,
-            )[0]
-            data_hist = data_hist / data_hist.max()
-            ax_hist.plot(data_hist, stat_bins[:-1], label="RFI", color="r")
+            data_hist, _, _ = ax_hist.hist(
+                data, bins=stat_bins, orientation="horizontal", label="RFI", color="k"
+            )
+            # ax_hist.plot(data_hist, stat_bins[:-1], label="RFI", color="k")
             ax_hist.grid(True)
 
-            threshold = args.threshold / 100
+            threshold = args.threshold / 100 * data_hist.max()
 
             regs = contiguous_regions(data_hist > threshold)
             logging.info("Bad intervals:")
@@ -168,7 +166,7 @@ def main(args=None):
                     f"{stat_bins[r[0]]}:{stat_bins[min(r[1], stat_bins.size - 1)]},"
                 )
                 for ax in ax_row:
-                    ax.axhspan(stat_bins[r[0]], stat_bins[r[1]], color="g", alpha=0.2)
+                    ax.axhspan(stat_bins[r[0]], stat_bins[r[1]], color="r", alpha=0.3, zorder=10)
 
             bad_intervals_str = bad_intervals_str.rstrip(",")
             ax_hist.axvline(threshold, color="r")
