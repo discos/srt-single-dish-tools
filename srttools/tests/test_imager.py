@@ -304,6 +304,9 @@ class TestScanSet(object):
     def test_use_command_line_config(self):
         main_imager(["-c", self.config_file, "--noplot"])
 
+    def test_use_command_line_cross(self):
+        main_imager(["-c", self.config_file, "--crosses-only"])
+
     def test_get_opacity(self):
         scanset = ScanSet("test.hdf5")
         scanset.get_opacity()
