@@ -263,7 +263,7 @@ class TestScanSet(object):
         main_preprocess(["-c", self.config_file])
 
     def test_rfi_config(self):
-        config_file = os.path.abspath(os.path.join(self.datadir, "spectrum.ini"))
+        config_file = os.path.abspath(os.path.join(self.datadir, "nodding_xarcos.ini"))
 
         main_preprocess(["-c", config_file])
         for f in glob.glob("rfi*jpg") + glob.glob("*rfi.hdf5"):
