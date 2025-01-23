@@ -125,7 +125,7 @@ def split_observation_table(
     save_calibrator_config=False,
 ):
     if group_by_entries is None:
-        group_by_entries = ["Receiver", "Backend", "Attenuation", "Frequency", "Bandwidth"]
+        group_by_entries = ["Receiver", "Backend"]
     grouped_table = info.group_by(group_by_entries)
 
     indices = grouped_table.groups.indices
