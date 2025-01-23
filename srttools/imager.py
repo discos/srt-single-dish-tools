@@ -119,14 +119,15 @@ def _load_and_merge_subscans(indices_and_subscans):
 
 def merge_tables(tables):
     """Merge two tables, or raise."""
+
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", MergeConflictWarning)
             scan_table = vstack(tables)
-    except TableMergeError:
+    except TableMergeError as e:
         raise TableMergeError(
-            "ERROR while merging tables. "
-            "Tables:\n" + "\n".join([t.meta["filename"] for t in tables])
+            f"ERROR while merging tables: {print(str(e))}"
+            "Tables:\n" + "\n".join([t.meta["filename"] for t in tables if "filename" in t.meta])
         )
 
     return scan_table

@@ -63,8 +63,11 @@ def load_data(fnames, outroot=None):
 
     outfiles = []
     for label in tables.keys():
+        local_tables = tables[label]
+        if len(local_tables) == 0:
+            continue
         outfile = f"{outroot}{label}_rfi.hdf5"
-        table = vstack(tables[label])
+        table = vstack(local_tables)
         table.write(outfile, path="data", overwrite=True)
         outfiles.append(outfile)
     return outfiles
