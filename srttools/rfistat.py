@@ -7,6 +7,7 @@ from astropy.io import fits
 import astropy.units as u
 import glob
 from . import logging
+from .read_config import read_config
 from .fit import contiguous_regions, find_trend_change
 
 import sys
@@ -70,7 +71,7 @@ def load_data(fnames, outroot=None):
     return outfiles
 
 
-def main(args=None):
+def main_rfistat(args=None):
     import argparse
 
     description = "Calculate statistics on the RFI filtered out by SDTpreprocess."
@@ -81,21 +82,30 @@ def main(args=None):
         "files",
         nargs="*",
         help="List of files produced by SDTimage or SDTpreprocess (HDF5 format).",
-        default=None,
         type=str,
     )
     parser.add_argument(
         "--threshold", help=r"Threshold (%% from maximum) for RFI flagging", default=10, type=float
     )
+    parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
+
     parser.add_argument("--outroot", help="Root for output files", default=None, type=str)
     args = parser.parse_args(args)
 
-    calfiles = args.files
+    preproc_files = args.files
 
-    if len(calfiles) == 0:
+    if len(preproc_files) == 0 and args.config is not None:
+        config = read_config(args.config)
+        datadir = config["datadir"]
+        dirlist = config["list_of_directories"]
+        preproc_files = []
+        for d in dirlist:
+            preproc_files.extend(glob.glob(os.path.join(datadir, d, "*.hdf5")))
+
+    if len(preproc_files) == 0:
         outfiles = glob.glob("*rfi.hdf5")
     else:
-        outfiles = load_data(calfiles)
+        outfiles = load_data(preproc_files)
 
     receiver_class_data = {}
     for fname in outfiles:

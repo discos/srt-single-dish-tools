@@ -44,6 +44,7 @@ from srttools.global_fit import display_intermediate
 from srttools.io import mkdir_p
 from srttools.interactive_filter import intervals
 from srttools.utils import on_CI
+from srttools.rfistat import main_rfistat
 import copy
 import os
 import glob
@@ -260,6 +261,22 @@ class TestScanSet(object):
 
     def test_preprocess_config(self):
         main_preprocess(["-c", self.config_file])
+
+    def test_rfi_config(self):
+        config_file = os.path.abspath(os.path.join(self.datadir, "spectrum.ini"))
+
+        main_preprocess(["-c", config_file])
+        for f in glob.glob("rfi*jpg") + glob.glob("*rfi.hdf5"):
+            os.unlink(f)
+        main_rfistat(["-c", config_file])
+        assert len(glob.glob("rfi*jpg")) > 0
+        assert len(glob.glob("*rfi.hdf5")) > 0
+        for f in glob.glob("rfi*jpg") + glob.glob("*rfi.hdf5"):
+            os.unlink(f)
+        files = glob.glob(os.path.join(os.path.join(self.datadir, "spectrum"), "*.hdf5"))
+        main_rfistat(files)
+        assert len(glob.glob("rfi*jpg")) > 0
+        assert len(glob.glob("*rfi.hdf5")) > 0
 
     def test_imager_no_config(self):
         with pytest.raises(ValueError) as excinfo:
