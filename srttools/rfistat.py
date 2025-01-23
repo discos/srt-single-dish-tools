@@ -29,7 +29,6 @@ def load_data(fnames, outroot=None):
     tables = {}
 
     for fname in sorted(fnames):
-
         full_table = Table.read(fname)
         backend = full_table.meta["backend"]
         if backend == "TP":
