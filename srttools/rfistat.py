@@ -31,13 +31,15 @@ def load_data(fnames, outroot=None):
 
         full_table = Table.read(fname)
         backend = full_table.meta["backend"]
-        if backend != "SARDARA":
-            logging.info(f"Skipping {fname} because it is not a SARDARA file.")
+        if backend == "TP":
+            logging.info(f"Skipping {fname} because it is a total power dataset.")
             continue
 
         receiver = full_table.meta["receiver"]
 
-        for ch in ["Feed0_LCP", "Feed0_RCP"]:
+        channels = [col for col in full_table.colnames if col.startswith("Feed")]
+
+        for ch in channels:
             label = f"{receiver}_{backend}_{ch}"
             logging.info(f"{fname} - {label}")
             if label not in tables:
@@ -46,9 +48,9 @@ def load_data(fnames, outroot=None):
                 continue
             start_freq = full_table[ch].meta["frequency"].to(u.MHz).value
 
-            bad_chans = np.array([f for f in full_table["Feed0_LCP"].meta["bad_chans"].keys()])
-            bad_freqs = np.array([f for f in full_table["Feed0_LCP"].meta["bad_chans"].values()])
-            times = [Time(full_table["Feed0_LCP"].meta["DATE"]).mjd] * len(bad_freqs)
+            bad_chans = np.array([f for f in full_table[ch].meta["bad_chans"].keys()])
+            bad_freqs = np.array([f for f in full_table[ch].meta["bad_chans"].values()])
+            times = [Time(full_table[ch].meta["DATE"]).mjd] * len(bad_freqs)
             new_tab = {
                 "time": times,
                 "freq_chans": bad_chans,

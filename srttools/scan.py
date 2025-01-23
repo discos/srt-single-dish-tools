@@ -269,17 +269,20 @@ def _get_spectrum_stats(
     results.df = df
     results.length = length
 
+    do_filtering = True
     if dynspec_len < 10:
         warnings.warn("Very few data in the dataset. " "Skipping spectral filtering.")
-        return results
+
+        do_filtering = False
 
     bad = (meanspec == 0) | np.isnan(meanspec) | np.isinf(meanspec)
-    meanspec[bad] = 1
+    if do_filtering:
+        meanspec[bad] = 1
 
     # If invalid data are inside the frequency mask, warn the user and exit.
     # Otherwise, just go on with business as usual.
     bad = bad & freqmask
-    if np.any(bad):
+    if np.any(bad) and do_filtering:
         warnings.warn(
             f"{os.path.splitext(os.path.basename(filename))[0]}: "
             f"Bad channels in the data set. : {np.where(bad)[0] * df}. "
@@ -295,8 +298,9 @@ def _get_spectrum_stats(
     # Set up corrected spectral var
 
     mod_spectral_var = spectral_var.copy()
-    mod_spectral_var[0:binmin] = spectral_var[binmin]
-    mod_spectral_var[binmax:] = spectral_var[binmax]
+    if do_filtering:
+        mod_spectral_var[0:binmin] = spectral_var[binmin]
+        mod_spectral_var[binmax:] = spectral_var[binmax]
 
     # Some statistical information on spectral var
 
@@ -317,19 +321,24 @@ def _get_spectrum_stats(
         )
     )
 
-    # Set threshold
-    threshold_high = baseline + noise_threshold * stdref
-    mask = spectral_var < threshold_high
-    threshold_low = baseline - noise_threshold * stdref
-    mask = mask & (spectral_var > threshold_low)
+    if do_filtering:
+        # Set threshold
+        threshold_high = baseline + noise_threshold * stdref
+        mask = spectral_var < threshold_high
+        threshold_low = baseline - noise_threshold * stdref
+        mask = mask & (spectral_var > threshold_low)
 
-    # Extend large, contiguous, bad regions by 20%
-    regs = contiguous_regions(~mask)
-    for r in regs:
-        reg_size = r[1] - r[0]
-        if reg_size > 5:
-            delta = int(np.rint(reg_size * 0.1))
-            mask[r[0] - delta : r[1] + 1 + delta] = False
+        # Extend large, contiguous, bad regions by 20%
+        regs = contiguous_regions(~mask)
+        for r in regs:
+            reg_size = r[1] - r[0]
+            if reg_size > 5:
+                delta = int(np.rint(reg_size * 0.1))
+                mask[r[0] - delta : r[1] + 1 + delta] = False
+    else:
+        mask = np.ones_like(spectral_var, dtype=bool)
+        threshold_high = np.zeros_like(spectral_var) + np.inf
+        threshold_low = np.zeros_like(spectral_var) - np.inf
 
     if not np.any(mask):
         warnings.warn(
@@ -528,11 +537,11 @@ def plot_spectrum_cleaning_results(
         plot_all_spectra(
             allbins,
             dynamical_spectrum,
-            outfile="out",
-            label="",
+            outfile=outfile,
+            label=label,
             debug_file_format=debug_file_format,
-            dpi=100,
-            info_string="Empty info string",
+            dpi=dpi,
+            info_string=info_string,
             fig=fig,
         )
         return cleaning_results
