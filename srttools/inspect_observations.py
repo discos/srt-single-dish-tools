@@ -125,7 +125,11 @@ def inspect_directories(
 
 
 def split_observation_table(
-    info, max_calibrator_delay=0.4, max_source_delay=0.2, group_by_entries=None
+    info,
+    max_calibrator_delay=0.4,
+    max_source_delay=0.2,
+    group_by_entries=None,
+    save_calibrator_config=False,
 ):
     if group_by_entries is None:
         group_by_entries = ["Receiver", "Backend"]
@@ -144,6 +148,7 @@ def split_observation_table(
             grouped_table[ind[0] : ind[1]],
             max_calibrator_delay=max_calibrator_delay,
             max_source_delay=max_source_delay,
+            save_calibrator_config=save_calibrator_config,
         )
 
         label = ",".join([start_row[e] for e in group_by_entries])
@@ -153,7 +158,9 @@ def split_observation_table(
     return groups
 
 
-def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
+def split_by_source(
+    info, max_calibrator_delay=0.4, max_source_delay=0.2, save_calibrator_config=False
+):
     cal_config = read_calibrator_config()
     calibrators = cal_config.keys()
 
@@ -161,7 +168,7 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
     # Find observation blocks of a given source
     retval = {}
     for s in sources:
-        if s in calibrators:
+        if s in calibrators and not save_calibrator_config:
             continue
         condition = info["Source"] == s
         filtered_table = info[condition]
@@ -230,8 +237,10 @@ def split_by_source(info, max_calibrator_delay=0.4, max_source_delay=0.2):
     return retval
 
 
-def dump_config_files(info, group_by_entries=None, options=None):
-    observation_dict = split_observation_table(info, group_by_entries=group_by_entries)
+def dump_config_files(info, group_by_entries=None, options=None, save_calibrator_config=False):
+    observation_dict = split_observation_table(
+        info, group_by_entries=group_by_entries, save_calibrator_config=save_calibrator_config
+    )
     config_files = []
     for label in observation_dict.keys():
         group = observation_dict[label]
@@ -344,6 +353,12 @@ def main_inspector(args=None):
             "E.g. --ignore-prefix ra_,dec_,k_"
         ),
     )
+    parser.add_argument(
+        "--save-calibrator-config",
+        action="store_true",
+        default=False,
+        help="Save calibrator config files as if they were targets",
+    )
 
     args = parser.parse_args(args)
     ignore_suffix = args.ignore_suffix.split(",")
@@ -370,9 +385,18 @@ def main_inspector(args=None):
 
         args.options.update({"ignore_prefix": ignore_prefix, "ignore_suffix": ignore_suffix})
 
-        config_files = dump_config_files(info, group_by_entries=args.group_by, options=args.options)
+        config_files = dump_config_files(
+            info,
+            group_by_entries=args.group_by,
+            options=args.options,
+            save_calibrator_config=args.save_calibrator_config,
+        )
         logging.debug(config_files)
     else:
-        groups = split_observation_table(info, group_by_entries=args.group_by)
+        groups = split_observation_table(
+            info,
+            group_by_entries=args.group_by,
+            save_calibrator_config=args.save_calibrator_config,
+        )
         logging.debug(groups)
     return config_files

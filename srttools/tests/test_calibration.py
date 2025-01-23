@@ -227,26 +227,30 @@ class TestCalibration(object):
 
     @pytest.mark.skipif("not HAS_MPL")
     def test_sdtcal_with_calfile(self):
-        if os.path.exists("calibration_summary.png"):
-            os.unlink("calibration_summary.png")
-        with pytest.raises(SystemExit):
-            main_cal([self.calfile])
-        assert os.path.exists("calibration_summary.png")
-        os.unlink("calibration_summary.png")
+        plotfile = self.calfile.replace("hdf5", "jpg")
+        if os.path.exists(plotfile):
+            os.unlink(plotfile)
+        main_cal([self.calfile])
+        assert os.path.exists(plotfile)
+        os.unlink(plotfile)
 
     @pytest.mark.skipif("not HAS_MPL")
     def test_sdtcal_show_with_config(self):
         main_cal(("-c " + self.config_file + " --check --show").split(" "))
-        assert os.path.exists(self.config_file.replace(".ini", "_cal.hdf5"))
-        assert os.path.exists("calibration_summary.png")
+        outfile = self.config_file.replace(".ini", "_cal.hdf5")
+        plotfile = outfile.replace("ini", "jpg")
+        assert os.path.exists(outfile)
+        assert os.path.exists(plotfile)
+        os.unlink(plotfile)
+
         # Reload unfiltered cal
         main_cal(("-c " + self.config_file).split(" "))
+        assert os.path.exists(plotfile)
 
     def test_sdtcal_with_sample_config(self):
         if os.path.exists("sample_config_file.ini"):
             os.unlink("sample_config_file.ini")
-        with pytest.raises(SystemExit):
-            main_cal(["--sample-config"])
+        main_cal(["--sample-config"])
         assert os.path.exists("sample_config_file.ini")
 
     def test_sdtcal_no_config(self):
@@ -276,8 +280,8 @@ class TestCalibration(object):
     def teardown_class(klass):
         """Clean up the mess."""
         if HAS_MPL:
-            if os.path.exists("calibration_summary.png"):
-                os.unlink("calibration_summary.png")
+            for f in glob.glob("*.jpg"):
+                os.unlink(f)
         for d in klass.config["list_of_directories"]:
             hfiles = glob.glob(os.path.join(klass.config["datadir"], d, "*.hdf5"))
             for h in hfiles:

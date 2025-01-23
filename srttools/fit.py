@@ -5,6 +5,7 @@ from scipy.signal import medfilt
 import numpy as np
 import traceback
 import warnings
+import copy
 from collections.abc import Iterable
 from .utils import mad, HAS_MPL
 
@@ -280,6 +281,65 @@ def baseline_rough(x, y, start_pars=None, return_baseline=False, mask=None):
         return lc
 
 
+def eliminate_spiky_outliers(data, nsigma=5, inplace=False):
+    """Remove spiky outliers.
+
+    Spikes are found as the points that are ``nsigma`` median absolute deviations (MAD) above both
+    neighboring points.
+
+    :math:`x_{i}` is a spike if :math:`x_{i} - x_{i - 1} > 5 \times \text{MAD}`
+    and :math:`x_{i} - x_{i + 1} > 5 \times \text{MAD}`.
+
+    Spikes get replaced with the average of the neighboring points.
+
+    Parameters
+    ----------
+    data : array-like
+        The data to be cleaned
+    nsigma : float
+        Number of MADs above which a point is considered a spike
+    inplace : bool
+        If True, the data is cleaned in place
+
+    Returns
+    -------
+    data : array-like
+        The cleaned data
+    """
+    if not inplace:
+        data = copy.deepcopy(data)
+
+    ref_std = mad(np.diff(data))
+    diff_indicator = np.diff(np.abs(data))
+    up_spike = (diff_indicator[:-1] > nsigma * ref_std) & (diff_indicator[1:] < nsigma * ref_std)
+    down_spike = (diff_indicator[:-1] < -nsigma * ref_std) & (
+        diff_indicator[1:] > -nsigma * ref_std
+    )
+    outliers = np.concatenate(([False], up_spike | down_spike, [False]))
+
+    if np.any(outliers):
+        warnings.warn(f"Found {np.sum(outliers)} spikes")
+
+    if not np.any(outliers):
+        return data
+
+    bad = contiguous_regions(outliers)
+    for b in bad:
+        if b[0] == 0:
+            data[b[0]] = data[b[1]]
+        elif b[1] >= len(data):
+            data[b[0] :] = data[b[0] - 1]
+        else:
+            previous = data[b[0] - 1]
+            next_bin = data[b[1]]
+            dx = b[1] - b[0]
+            data[b[0] : b[1]] = (next_bin - previous) / (dx + 1) * np.arange(
+                1, b[1] - b[0] + 1
+            ) + previous
+
+    return data
+
+
 def outlier_from_median_filt(y, window_size, down=True, up=True):
     y_medfilt = medfilt(y, window_size)
     diffs = y - y_medfilt
@@ -491,7 +551,7 @@ def _baseline_als(
     if not isinstance(outlier_purging, Iterable):
         outlier_purging = (outlier_purging, outlier_purging)
     if lam is None:
-        lam = 1e11
+        lam = 10**9 * (x.size / 1000) ** 2
     if p is None:
         p = 0.001
 

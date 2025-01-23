@@ -1154,14 +1154,15 @@ class CalibratorTable(Table):
             plt.show()
         return x_to_plot, y_to_plot
 
-    def show(self):
+    def show(self, filename=None):
         """Show a summary of the calibration."""
 
         from matplotlib import cm
 
         # TODO: this is meant to become interactive. I will make different
         # panels linked to each other.
-
+        if filename is None:
+            filename = "calibration_summary.png"
         fig = plt.figure("Summary", figsize=(16, 16))
         plt.suptitle("Summary")
         gs = GridSpec(2, 2, hspace=0)
@@ -1253,7 +1254,7 @@ class CalibratorTable(Table):
         ax11.set_xlabel("Azimuth")
         ax00.set_ylabel("Flux / Counts")
         ax10.set_ylabel("Pointing error (arcmin)")
-        plt.savefig("calibration_summary.png")
+        plt.savefig(filename)
         plt.close(fig)
 
 
@@ -1396,12 +1397,12 @@ def main_cal(args=None):
 
     if args.sample_config:
         sample_config_file()
-        sys.exit()
+        return
 
     if args.file is not None:
         caltable = CalibratorTable().read(args.file)
-        caltable.show()
-        sys.exit()
+        caltable.show(filename=args.file.replace(".hdf5", ".jpg"))
+        return
 
     if args.config is None:
         raise ValueError("Please specify the config file!")
@@ -1451,7 +1452,7 @@ def main_cal(args=None):
         for chan in list(set(caltable["Chan"])):
             caltable.check_consistency(chan)
     if args.show:
-        caltable.show()
+        caltable.show(filename=outfile.replace(".hdf5", ".jpg"))
 
     caltable.write(outfile, overwrite=True)
     caltable.write(outfile.replace(".hdf5", ".csv"), overwrite=True)
@@ -1523,7 +1524,7 @@ def main_lcurve(args=None):
 
     if args.sample_config:
         sample_config_file()
-        sys.exit()
+        return
 
     if args.file is not None:
         caltable = CalibratorTable.read(args.file)
