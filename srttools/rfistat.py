@@ -1,4 +1,5 @@
 import os
+import warnings
 import numpy as np
 from astropy.time import Time
 
@@ -120,7 +121,8 @@ def main_rfistat(args=None):
         receiver_class_data[receiver].append(fname)
 
     if not HAS_MPL:
-        raise ImportError("Matplotlib is required for this function.")
+        warnings.warn("Matplotlib is required for this function.")
+        return
 
     for receiver, outfiles in receiver_class_data.items():
         logging.info(f"Treating data from {receiver}")
