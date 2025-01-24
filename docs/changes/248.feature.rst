@@ -1,1 +1,0 @@
-New script to analyze RFI content of observations, and way to apply filters
