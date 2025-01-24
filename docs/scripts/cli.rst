@@ -6,7 +6,6 @@ SDTbulkchange
 
 .. code-block:: none
 
-
     usage: SDTbulkchange [-h] [-k KEY] [-v VALUE] [--apply-cal-mark] [--recursive]
                          [--debug]
                          [files ...]
@@ -33,7 +32,6 @@ SDTcal
 ------
 
 .. code-block:: none
-
 
     usage: SDTcal [-h] [--sample-config] [--nofilt] [-c CONFIG] [--splat SPLAT]
                   [-o OUTPUT] [--snr-min SNR_MIN] [--show] [--check]
@@ -68,7 +66,6 @@ SDTconvert
 
 .. code-block:: none
 
-
     usage: SDTconvert [-h] [-f FORMAT] [--test] [--detrend] [--save-locally]
                       [files ...]
 
@@ -98,7 +95,6 @@ SDTfake
 -------
 
 .. code-block:: none
-
 
     usage: SDTfake [-h] [-s SOURCE_FLUX] [-n NOISE_AMPLITUDE] [-b BASELINE]
                    [-g GEOMETRY GEOMETRY GEOMETRY GEOMETRY]
@@ -148,7 +144,6 @@ SDTimage
 --------
 
 .. code-block:: none
-
 
     usage: SDTimage [-h] [--sample-config] [-c CONFIG] [--refilt] [--altaz]
                     [--sub] [--interactive] [--crosses-only]
@@ -229,7 +224,6 @@ SDTinspect
 
 .. code-block:: none
 
-
     usage: SDTinspect [-h] [-g GROUP_BY [GROUP_BY ...]] [--options OPTIONS] [-d]
                       [--only-after ONLY_AFTER] [--only-before ONLY_BEFORE]
                       [--ignore-suffix IGNORE_SUFFIX]
@@ -274,7 +268,6 @@ SDTlcurve
 
 .. code-block:: none
 
-
     usage: SDTlcurve [-h] [-s SOURCE [SOURCE ...]] [--sample-config] [--nofilt]
                      [-c CONFIG] [--splat SPLAT] [-o OUTPUT]
                      [file]
@@ -306,10 +299,6 @@ SDTmonitor
 
 .. code-block:: none
 
-
-
-       > pip install watchdog
-
     usage: SDTmonitor [-h] [-c CONFIG] [--polling] [-p PORT] [-v] [-w WORKERS]
                       directories [directories ...]
 
@@ -333,7 +322,6 @@ SDTopacity
 ----------
 
 .. code-block:: none
-
 
     usage: SDTopacity [-h] [--tatm TATM] [--tau0 TAU0] [--t0 T0] files [files ...]
 
@@ -371,7 +359,6 @@ SDTpreprocess
 -------------
 
 .. code-block:: none
-
 
     usage: SDTpreprocess [-h] [-c CONFIG] [--sub] [--interactive] [--nofilt]
                          [--debug] [--plot] [--nosave] [--splat SPLAT]
@@ -423,8 +410,8 @@ SDTrfistat
 
 .. code-block:: none
 
-
-    usage: SDTrfistat [-h] [--threshold THRESHOLD] [--outroot OUTROOT] [files ...]
+    usage: SDTrfistat [-h] [--threshold THRESHOLD] [-c CONFIG] [--outroot OUTROOT]
+                      [files ...]
 
     Calculate statistics on the RFI filtered out by SDTpreprocess.
 
@@ -436,6 +423,8 @@ SDTrfistat
       -h, --help            show this help message and exit
       --threshold THRESHOLD
                             Threshold (% from maximum) for RFI flagging
+      -c CONFIG, --config CONFIG
+                            Config file
       --outroot OUTROOT     Root for output files
 
 

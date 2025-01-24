@@ -198,11 +198,12 @@ if not ON_RTD and not ON_TRAVIS:
         print("""Command line interface""", file=fobj)
         print("""======================\n""", file=fobj)
 
-        for script in sorted(scripts):
-            try:
-                cl, fun = [val.strip() for val in script.split("=")]
-            except ValueError:
-                continue
+        for cl in sorted(scripts.keys()):
+            print(f"Writing help for {cl}")
+            # try:
+            #     cl, fun = [val.strip() for val in script.split("=")]
+            # except ValueError:
+            #     continue
             print(cl.strip(), file=fobj)
             print("-" * len(cl), file=fobj)
             print(file=fobj)
