@@ -26,6 +26,8 @@
 # be accessible, and the documentation will not build correctly.
 
 import os
+import re
+import subprocess as sp
 import sys
 import datetime
 from importlib import import_module
@@ -36,16 +38,21 @@ except ImportError:
     print("ERROR: the documentation requires the sphinx-astropy package to be installed")
     sys.exit(1)
 
+try:
+    import tomllib
+except ImportError:
+    # Help users on older alphas
+    import tomli as tomllib
+from pathlib import Path
+
 ON_RTD = os.environ.get("READTHEDOCS") == "True"
 ON_TRAVIS = os.environ.get("TRAVIS") == "true"
 
-# Get configuration information from setup.cfg
-from configparser import ConfigParser
 
-conf = ConfigParser()
+# Grab minversion from pyproject.toml
+with (Path(__file__).parents[1] / "pyproject.toml").open("rb") as f:
+    pyproject = tomllib.load(f)
 
-conf.read([os.path.join(os.path.dirname(__file__), "..", "setup.cfg")])
-setup_cfg = dict(conf.items("metadata"))
 
 # -- General configuration ----------------------------------------------------
 
@@ -72,16 +79,16 @@ rst_epilog += """
 # -- Project information ------------------------------------------------------
 
 # This does not *have* to match the package name, but typically does
-project = setup_cfg["name"]
-author = setup_cfg["author"]
-copyright = "{0}, {1}".format(datetime.datetime.now().year, setup_cfg["author"])
+project = pyproject["project"]["name"]
+author = ",".join(pyproject["project"]["authors"][0]["name"])
+copyright = "{0}, {1}".format(datetime.datetime.now().year, pyproject["project"]["authors"])
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 
-import_module(setup_cfg["name"])
-package = sys.modules[setup_cfg["name"]]
+import_module(pyproject["project"]["name"])
+package = sys.modules[pyproject["project"]["name"]]
 
 # The short X.Y version.
 version = package.__version__.split("-", 1)[0]
@@ -156,30 +163,38 @@ latex_documents = [("index", project + ".tex", project + " Documentation", autho
 man_pages = [("index", project.lower(), project + " Documentation", [author], 1)]
 
 
+extensions += ["sphinx_toolbox.collapse"]
 # -- Options for the edit_on_github extension ---------------------------------
 
-if setup_cfg.get("edit_on_github").lower() == "true":
-    extensions += ["sphinx_astropy.ext.edit_on_github"]
+# Trust the links from these sites, even if they might have Client errors or other minor issues
+linkcheck_ignore = [
+    r"https://doi.org/",
+    r"https://arxiv.org/",
+    r"https://.*adsabs.harvard.edu/",
+    r"https://zenodo.org/",
+]
 
-    edit_on_github_project = setup_cfg["github_project"]
-    edit_on_github_branch = "main"
+# -- Options for the edit_on_github extension ---------------------------------
 
-    edit_on_github_source_root = ""
-    edit_on_github_doc_root = "docs"
+edit_on_github_branch = "main"
+
 
 # -- Resolving issue number to links in changelog -----------------------------
-github_issues_url = "https://github.com/{0}/issues/".format(setup_cfg["github_project"])
-
+github_issues_url = "https://github.com/{0}/issues/".format(
+    pyproject["project"]["urls"]["repository"]
+)
 if not ON_RTD and not ON_TRAVIS:
-    scripts = dict(conf.items("options.entry_points"))["console_scripts"].split("\n")
-    import subprocess as sp
-    import re
+    # scripts = dict(conf.items("options.entry_points"))["console_scripts"]
+    scripts = pyproject["project"]["scripts"]
+    pwarn = os.getenv("PYTHONWARNINGS")
 
     os.environ["PYTHONWARNINGS"] = "ignore"
     cols = os.getenv("COLUMNS")
     os.environ["COLUMNS"] = "80"
     logging_re = re.compile(r"\[([EWID])\]\s2[0-9]{3}")
-    with open(os.path.join(os.getcwd(), "scripts", "cli.rst"), "w") as fobj:
+    cli_file = os.path.join(os.getcwd(), "scripts", "cli.rst")
+
+    with open(cli_file, "w") as fobj:
         print("""Command line interface""", file=fobj)
         print("""======================\n""", file=fobj)
 
@@ -203,6 +218,15 @@ if not ON_RTD and not ON_TRAVIS:
                     print("    " + l, file=fobj)
             print(file=fobj)
 
+    if cols is not None:
+        os.environ["COLUMNS"] = cols
+    else:
+        del os.environ["COLUMNS"]
+
+    if pwarn is not None:
+        os.environ["PYTHONWARNINGS"] = pwarn
+    else:
+        del os.environ["PYTHONWARNINGS"]
 
 # -- Options for linkcheck output -------------------------------------------
 linkcheck_retry = 5
