@@ -18,6 +18,7 @@ import numpy as np
 import scipy
 import scipy.stats
 from scipy.stats import circmean, circstd
+from typing import List
 
 try:
     from mahotas.features import zernike_moments
@@ -112,7 +113,7 @@ except ImportError:
         return np.median((np.fabs(data - center)) / c, axis=axis)
 
 
-ListOfStrings = list[str]
+ListOfStrings = List[str]
 TWOPI = 2 * np.pi
 
 if HAS_NUMBA:
