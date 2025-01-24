@@ -1,28 +1,32 @@
-# -*- coding: utf-8 -*-
-
+import glob
+import os
+import shutil
 from pathlib import Path
-from srttools.read_config import read_config
-from astropy.time import Time
-from astropy.coordinates import SkyCoord
-from astropy.io import fits
-import logging
-import astropy.units as u
+
+import numpy as np
 import pytest
 
+import astropy.units as u
+from astropy.coordinates import SkyCoord
+from astropy.io import fits
+from astropy.logger import logging
+from astropy.time import Time
+from srttools.io import (
+    bulk_change,
+    locations,
+    main_bulk_change,
+    mkdir_p,
+    print_obs_info_fitszilla,
+    read_data_fitszilla,
+)
+from srttools.read_config import read_config
 from srttools.scan import (
-    Scan,
     HAS_MPL,
+    Scan,
     clean_scan_using_variability,
     find_summary_file_in_dir,
 )
-from srttools.io import print_obs_info_fitszilla, bulk_change, main_bulk_change
-from srttools.io import locations, read_data_fitszilla, mkdir_p
 from srttools.utils import compare_anything
-import os
-import numpy as np
-import glob
-from astropy.logger import logging
-import shutil
 
 try:
     import contextlib2 as contextlib
@@ -40,7 +44,7 @@ except ImportError:
     HAS_SUNPY = False
 
 
-@pytest.fixture()
+@pytest.fixture
 def logger():
     logger = logging.getLogger("Some.Logger")
     logger.setLevel(logging.INFO)
@@ -48,7 +52,7 @@ def logger():
     return logger
 
 
-class Test1_Sun(object):
+class Test1_Sun:
     @classmethod
     def setup_class(klass):
         import os
@@ -73,10 +77,10 @@ class Test1_Sun(object):
     @pytest.mark.skipif("not HAS_SUNPY")
     def test_read_no_sun(self):
         scan = read_data_fitszilla(self.nosun)
-        assert not "hpln" in scan.colnames
+        assert "hpln" not in scan.colnames
 
 
-class Test1_Scan(object):
+class Test1_Scan:
     @classmethod
     def setup_class(klass):
         import os
@@ -296,7 +300,7 @@ class Test1_Scan(object):
             os.unlink(f)
 
 
-class Test2_Scan(object):
+class Test2_Scan:
     @classmethod
     def setup_class(klass):
         klass.curdir = os.path.dirname(__file__)

@@ -1,16 +1,23 @@
-import numpy as np
-from srttools.interactive_filter import ImageSelector, DataSelector
-from srttools.interactive_filter import select_data, HAS_MPL
-from srttools.interactive_filter import TestWarning, PlotWarning
 import logging
 import warnings
+
+import numpy as np
 import pytest
+
+from srttools.interactive_filter import (
+    HAS_MPL,
+    DataSelector,
+    ImageSelector,
+    PlotWarning,
+    TestWarning,
+    select_data,
+)
 
 np.random.seed(1241347)
 
 
 @pytest.mark.skipif("not HAS_MPL")
-class TestImageSelector(object):
+class TestImageSelector:
     @classmethod
     def setup_class(klass):
         import matplotlib.pyplot as plt
@@ -20,7 +27,7 @@ class TestImageSelector(object):
         klass.ax = plt.subplot()
 
         def fun(x, y, key):
-            warnings.warn("It is working: {}, {}, {}".format(x, y, key), TestWarning)
+            warnings.warn(f"It is working: {x}, {y}, {key}", TestWarning)
 
         klass.selector = ImageSelector(klass.data, klass.ax, test=True, fun=fun)
 
@@ -58,11 +65,11 @@ class TestImageSelector(object):
 
 
 @pytest.mark.skipif("not HAS_MPL")
-class TestDataSelector(object):
+class TestDataSelector:
     @classmethod
     def setup_class(klass):
-        import matplotlib.pyplot as plt
         import matplotlib as mpl
+        import matplotlib.pyplot as plt
 
         chans = ["scan1.fits", "scan2.fits"]
         klass.xs = {c: np.arange(30) for c in chans}

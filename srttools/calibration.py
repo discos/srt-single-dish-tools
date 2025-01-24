@@ -8,27 +8,26 @@ counts into a density flux value in Jy.
 
 """
 
-import os
-import sys
-import glob
-import re
-import warnings
-import traceback
 import configparser
 import copy
+import glob
+import logging
+import os
+import re
+import traceback
+import warnings
 
 import numpy as np
-import logging
-import astropy.units as u
 from scipy.optimize import curve_fit
-from astropy.table import Table, Column
 
-from .scan import Scan, list_scans
-from .read_config import read_config, sample_config_file, get_config_file
+import astropy.units as u
+from astropy.table import Column, Table
+
 from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
-from .utils import standard_byte, TWOPI, info_once
-from .utils import HAS_STATSM, calculate_moments, scantype
+from .read_config import get_config_file, read_config, sample_config_file
+from .scan import Scan, list_scans
+from .utils import HAS_STATSM, TWOPI, calculate_moments, info_once, scantype, standard_byte
 
 try:
     import matplotlib.pyplot as plt
@@ -60,8 +59,7 @@ def _get_flux_quantity(map_unit):
         return FLUX_QUANTITIES[map_unit]
     except Exception:
         raise ValueError(
-            "Incorrect map_unit for flux conversion. Use one "
-            "of {}".format(list(FLUX_QUANTITIES.keys()))
+            "Incorrect map_unit for flux conversion. Use one " f"of {list(FLUX_QUANTITIES.keys())}"
         )
 
 
@@ -210,7 +208,6 @@ def find_calibrator_in_list(calibrator, calibrators):
     >>> cal is None
     True
     """
-
     new_calibrator = _match_calibrator_name(calibrator, calibrators)
 
     if new_calibrator is None:
@@ -261,10 +258,10 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         # this
         scan = Scan(scan_path, norefilt=True, nosave=True, plot=plot, **kwargs)
     except KeyError as e:
-        logging.warning("Missing key. Bad file? {}: {}".format(sname, str(e)))
+        logging.warning(f"Missing key. Bad file? {sname}: {str(e)}")
         return False, None
     except Exception as e:
-        logging.warning("Error while processing {}: {}".format(sname, str(e)))
+        logging.warning(f"Error while processing {sname}: {str(e)}")
         logging.warning(traceback.format_exc())
         return False, None
 
@@ -278,6 +275,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
     rows = []
     for feed, nch in zip(F, N):
         channel = chans[nch]
+        if channel[-1:] in ["Q", "U"]:
+            continue
 
         ras = np.degrees(scan["ra"][:, feed])
         decs = np.degrees(scan["dec"][:, feed])
@@ -305,12 +304,11 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         model, fit_info = fit_baseline_plus_bell(x, y, kind="gauss")
 
         std = np.std(np.diff(y)) / np.sqrt(2)
-
         try:
             uncert = fit_info["param_cov"].diagonal() ** 0.5
         except Exception:
             message = fit_info["message"]
-            warnings.warn("Fit failed in scan {s}: {m}".format(s=sname, m=message))
+            warnings.warn(f"Fit failed in {sname}, {channel}: {message}")
             continue
         bell = model["Bell"]
         baseline = model["Baseline"]
@@ -401,7 +399,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax0.plot(
                 x,
                 bell(x),
-                label="Fit: Amp: {}, Wid: {}".format(counts, fit_width),
+                label=f"Fit: Amp: {counts}, Wid: {fit_width}",
             )
             ax1.plot(x, y - bell(x))
 
@@ -414,7 +412,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
             ax0.legend()
 
-            plt.savefig(os.path.join(outdir, "Feed{}_chan{}.png".format(feed, nch)))
+            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch}.png"))
             plt.close(fig)
             fig = plt.figure("Fit information - temperature")
             gs = GridSpec(2, 1, height_ratios=(3, 1))
@@ -432,7 +430,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1.set_ylabel("Residual (cts)")
 
             ax0.legend()
-            plt.savefig(os.path.join(outdir, "Feed{}_chan{}_temp.png".format(feed, nch)))
+            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch}_temp.png"))
             plt.close(fig)
 
     return True, rows
@@ -548,7 +546,7 @@ class CalibratorTable(Table):
         config_file : str
             File containing the configuration (list of directories etc.)
 
-        Other parameters
+        Other Parameters
         ----------------
         debug : bool
             Throw debug information
@@ -570,7 +568,6 @@ class CalibratorTable(Table):
         --------
         srttools.scan.interpret_frequency_range
         """
-
         if debug is True:
             plot = True
 
@@ -586,7 +583,7 @@ class CalibratorTable(Table):
 
         out_retval = False
         for i_s, s in enumerate(scan_list):
-            logging.info("{}/{}: Loading {}".format(i_s + 1, nscan, s))
+            logging.info(f"{i_s + 1}/{nscan}: Loading {s}")
 
             retval, rows = _treat_scan(
                 s, plot=plot, debug=debug, freqsplat=freqsplat, nofilt=nofilt
@@ -603,9 +600,9 @@ class CalibratorTable(Table):
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
         if fname.endswith(".hdf5"):
-            super(CalibratorTable, self).write(fname, *args, **kwargs)
+            super().write(fname, *args, **kwargs)
         else:
-            super(CalibratorTable, self).write(fname, *args, **kwargs)
+            super().write(fname, *args, **kwargs)
 
     def check_not_empty(self):
         """Check that table is not empty.
@@ -824,7 +821,7 @@ class CalibratorTable(Table):
 
         flux_quantity = _get_flux_quantity(map_unit)
         if channel not in self["Chan"]:
-            warnings.warn("No calibration found for channel {}".format(channel))
+            warnings.warn(f"No calibration found for channel {channel}")
             return None, None
 
         if channel not in self.calibration.keys():
@@ -836,9 +833,7 @@ class CalibratorTable(Table):
             warnings.warn("No channel given.")
             use_rough = True
         elif self.valid_elevation == {}:
-            warnings.warn(
-                "No elevation info found in the calibration for channel {}".format(channel)
-            )
+            warnings.warn(f"No elevation info found in the calibration for channel {channel}")
             use_rough = True
         else:
             elevation_range = self.valid_elevation[channel]
@@ -881,7 +876,7 @@ class CalibratorTable(Table):
     def Jy_over_counts_rough(self, channel=None, map_unit="Jy/beam", good_mask=None):
         """Get the conversion from counts to Jy.
 
-        Other parameters
+        Other Parameters
         ----------------
         channel : str
             Name of the data channel
@@ -899,7 +894,6 @@ class CalibratorTable(Table):
         fce : float
             uncertainty on ``fc``
         """
-
         self.check_up_to_date()
 
         flux_quantity = _get_flux_quantity(map_unit)
@@ -943,7 +937,7 @@ class CalibratorTable(Table):
             xbad = x_to_fit[bad]
             ybad = y_to_fit[bad]
             for xb, yb in zip(xbad, ybad):
-                logging.warning("Outliers: {}, {}".format(xb, yb))
+                logging.warning(f"Outliers: {xb}, {yb}")
 
             good = np.logical_not(bad)
             x_to_fit = x_to_fit[good]
@@ -990,18 +984,18 @@ class CalibratorTable(Table):
         non_source = np.logical_not(good_source)
 
         if channel is None:
-            channels = [s for s in set(self["Chan"])]
+            channels = list(set(self["Chan"]))
         else:
             channels = [channel]
 
         mean_flux = []
         mean_flux_err = []
-        for channel in channels:
-            good_chan = self["Chan"] == channel
+        for ch in channels:
+            good_chan = self["Chan"] == ch
             good = good_source & good_chan
             elevation = np.radians(self["Elevation"][good])
             fc, fce = self.Jy_over_counts(
-                channel=channel,
+                channel=ch,
                 elevation=elevation,
                 map_unit=map_unit,
                 good_mask=non_source,
@@ -1063,7 +1057,7 @@ class CalibratorTable(Table):
             cons,
         ) in zip(names, times, biblio_fluxes, calc_fluxes, consistent):
             if not cons:
-                warnings.warn("{}, MJD {}: Expected {}, " "measured {}".format(n, t, b, c))
+                warnings.warn(f"{n}, MJD {t}: Expected {b}, " f"measured {c}")
 
         return consistent
 
@@ -1111,7 +1105,7 @@ class CalibratorTable(Table):
         """Plot the data corresponding to two given columns."""
         showit = False
         if ax is None:
-            plt.figure("{} vs {}".format(xcol, ycol))
+            plt.figure(f"{xcol} vs {ycol}")
             ax = plt.gca()
             showit = True
 
@@ -1120,7 +1114,7 @@ class CalibratorTable(Table):
         label = ""
         if channel is not None:
             mask = self["Chan"] == channel
-            label = "_{}".format(channel)
+            label = f"_{channel}"
 
         good = good & mask
         x_to_plot = np.array(self[xcol][good]) * xfactor
@@ -1156,7 +1150,6 @@ class CalibratorTable(Table):
 
     def show(self, filename=None):
         """Show a summary of the calibration."""
-
         from matplotlib import cm
 
         # TODO: this is meant to become interactive. I will make different
@@ -1544,7 +1537,7 @@ def main_lcurve(args=None):
 
     sources = args.source
     if args.source is None:
-        sources = [s for s in set(caltable["Source"])]
+        sources = list(set(caltable["Source"]))
 
     for s in sources:
         caltable.calculate_src_flux(source=s)

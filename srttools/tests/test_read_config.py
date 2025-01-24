@@ -1,14 +1,12 @@
-# -*- coding: utf-8 -*-
-
+import os
 
 import numpy as np
 
-from srttools.read_config import read_config
-import os
 import astropy.units as u
+from srttools.read_config import read_config
 
 
-class TestConfig(object):
+class TestConfig:
     @classmethod
     def setup_class(cls):
         cls.curdir = os.path.abspath(os.path.dirname(__file__))

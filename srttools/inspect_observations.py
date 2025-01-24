@@ -1,15 +1,18 @@
 """Read the relevant information and link observations to calibrators."""
 
+import logging
 import warnings
 from collections.abc import Iterable
+
 import numpy as np
-from astropy.table import Table, Column
+
+from astropy.table import Column, Table
 from astropy.time import Time
-import logging
-from .io import read_data, chan_re
-from .scan import list_scans, _is_summary_file
+
 from .calibration import read_calibrator_config
+from .io import chan_re, read_data
 from .read_config import sample_config_file
+from .scan import _is_summary_file, list_scans
 from .utils import remove_suffixes_and_prefixes
 
 try:
@@ -18,10 +21,10 @@ except ImportError:
     from configparser import ConfigParser
 
 __all__ = [
-    "inspect_directories",
-    "split_observation_table",
-    "split_by_source",
     "dump_config_files",
+    "inspect_directories",
+    "split_by_source",
+    "split_observation_table",
 ]
 
 
@@ -41,19 +44,10 @@ def inspect_directories(
         "Frequency",
         "Bandwidth",
         "is_skydip",
+        "Attenuation",
     ]
 
-    dtype = [
-        "S200",
-        "S200",
-        "S200",
-        "S200",
-        "S200",
-        np.double,
-        float,
-        float,
-        bool,
-    ]
+    dtype = ["S200", "S200", "S200", "S200", "S200", np.double, str, str, bool, str]
 
     for n, d in zip(names, dtype):
         if n not in info.keys():
@@ -61,23 +55,27 @@ def inspect_directories(
 
     if only_after is not None:
         only_after = Time(
-            datetime.datetime.strptime(only_after, "%Y%m%d-%H%M%S"),
+            datetime.datetime.strptime(only_after, "%Y%m%d-%H%M%S").astimezone(
+                datetime.timezone.utc
+            ),
             scale="utc",
         ).mjd
-        logging.info("Filtering out observations before " "MJD {}".format(only_after))
+        logging.info("Filtering out observations before " f"MJD {only_after}")
     if only_before is not None:
         only_before = Time(
-            datetime.datetime.strptime(only_before, "%Y%m%d-%H%M%S"),
+            datetime.datetime.strptime(only_before, "%Y%m%d-%H%M%S").astimezone(
+                datetime.timezone.utc
+            ),
             scale="utc",
         ).mjd
-        logging.info("Filtering out observations after " "MJD {}".format(only_before))
+        logging.info("Filtering out observations after " f"MJD {only_before}")
 
     for d in directories:
         fits_files = list_scans(".", [d])
         for f in fits_files:
             if _is_summary_file(f):
                 continue
-            logging.info("Reading {}".format(f))
+            logging.info(f"Reading {f}")
             try:
                 data = read_data(f)
                 time_start = data[0]["time"]
@@ -95,9 +93,10 @@ def inspect_directories(
 
                 backend = data.meta["backend"]
                 receiver = data.meta["receiver"]
-                chan = [ch for ch in data.colnames if chan_re.search(ch)][0]
-                frequency = data[chan].meta["frequency"]
-                bandwidth = data[chan].meta["bandwidth"]
+                attenuation = data.meta["attenuations"]
+                chan = next(ch for ch in data.colnames if chan_re.search(ch))
+                frequency = f"{data[chan].meta['frequency'].to('MHz').value:g}"
+                bandwidth = f"{data[chan].meta['bandwidth'].to('MHz').value:g}"
                 source = remove_suffixes_and_prefixes(
                     data.meta["SOURCE"], suffixes=ignore_suffix, prefixes=ignore_prefix
                 )
@@ -113,11 +112,12 @@ def inspect_directories(
                         frequency,
                         bandwidth,
                         is_skydip,
+                        attenuation,
                     ]
                 )
                 break
             except Exception as e:
-                warnings.warn("Errors while opening {}".format(f))
+                warnings.warn(f"Errors while opening {f}")
                 warnings.warn(str(e))
                 continue
 
@@ -141,8 +141,7 @@ def split_observation_table(
     for i, ind in enumerate(zip(indices[:-1], indices[1:])):
         start_row = grouped_table[ind[0]]
         logging.info(
-            "Group {}, Backend = {}, "
-            "Receiver = {}".format(i, start_row["Backend"], start_row["Receiver"])
+            f"Group {i}, Backend = {start_row['Backend']}, Receiver = {start_row['Receiver']}"
         )
         s = split_by_source(
             grouped_table[ind[0] : ind[1]],
@@ -151,7 +150,7 @@ def split_observation_table(
             save_calibrator_config=save_calibrator_config,
         )
 
-        label = ",".join([start_row[e] for e in group_by_entries])
+        label = ",".join([str(start_row[e]) for e in group_by_entries])
 
         groups[label] = s
 
@@ -174,7 +173,6 @@ def split_by_source(
         filtered_table = info[condition]
         if np.any(filtered_table["is_skydip"]):
             continue
-        s = s
         retval[s] = {}
 
         start_idxs = []
@@ -191,23 +189,23 @@ def split_by_source(
         contiguous = list(zip(start_idxs, end_idxs))
 
         for i, cont in enumerate(contiguous):
-            retval[s]["Obs{}".format(i)] = {}
+            retval[s][f"Obs{i}"] = {}
             print("---------------")
-            print("{}, observation {}\n".format(s, i + 1))
+            print(f"{s}, observation {i + 1}\n")
             ft = filtered_table[cont[0] : cont[1]]
 
             observation_start = ft[0]["Time"]
             observation_end = ft[-1]["Time"]
 
             print("Source observations:")
-            retval[s]["Obs{}".format(i)]["Src"] = []
+            retval[s][f"Obs{i}"]["Src"] = []
             for c in range(cont[0], cont[1]):
                 print(filtered_table[c]["Dir"])
-                retval[s]["Obs{}".format(i)]["Src"].append(filtered_table[c]["Dir"])
+                retval[s][f"Obs{i}"]["Src"].append(filtered_table[c]["Dir"])
 
-            print("")
+            print()
             print("Calibrator observations:")
-            retval[s]["Obs{}".format(i)]["Cal"] = []
+            retval[s][f"Obs{i}"]["Cal"] = []
 
             condition1 = np.abs(info["Time"] - observation_start) < max_calibrator_delay
             condition2 = np.abs(info["Time"] - observation_end) < max_calibrator_delay
@@ -216,12 +214,12 @@ def split_by_source(
             for row in info[condition]:
                 if row["Source"] in calibrators:
                     print(row["Dir"])
-                    retval[s]["Obs{}".format(i)]["Cal"].append(row["Dir"])
+                    retval[s][f"Obs{i}"]["Cal"].append(row["Dir"])
 
-            print("")
+            print()
             print("Skydip observations:")
 
-            retval[s]["Obs{}".format(i)]["Skydip"] = []
+            retval[s][f"Obs{i}"]["Skydip"] = []
 
             condition1 = np.abs(info["Time"] - observation_start) < max_calibrator_delay
             condition2 = np.abs(info["Time"] - observation_end) < max_calibrator_delay
@@ -230,9 +228,9 @@ def split_by_source(
             for row in info[condition]:
                 if row["is_skydip"]:
                     print(row["Dir"])
-                    retval[s]["Obs{}".format(i)]["Skydip"].append(row["Dir"])
+                    retval[s][f"Obs{i}"]["Skydip"].append(row["Dir"])
 
-            print("")
+            print()
             print("---------------\n")
     return retval
 
@@ -291,8 +289,8 @@ def dump_config_files(info, group_by_entries=None, options=None, save_calibrator
 
 
 def main_inspector(args=None):
-    import ast
     import argparse
+    import ast
 
     description = (
         "From a given list of directories, read the relevant "

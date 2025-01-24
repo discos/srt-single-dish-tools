@@ -1,21 +1,27 @@
-from astropy.io import fits
-import astropy.units as u
-from astropy.time import Time
-from astropy.table import Table
-import numpy as np
 import copy
-import warnings
-import os
 import glob
+import os
 import shutil
+import warnings
 
+import numpy as np
+
+import astropy.units as u
+from astropy.io import fits
+from astropy.table import Table
+from astropy.time import Time
 from astropy.utils.exceptions import AstropyWarning
 
-from .io import get_coords_from_altaz_offset, correct_offsets
-from .io import get_rest_angle, observing_angle, locations
-from .converters.mbfits import MBFITS_creator
 from .converters.classfits import CLASSFITS_creator
+from .converters.mbfits import MBFITS_creator
 from .converters.sdfits import SDFITS_creator
+from .io import (
+    correct_offsets,
+    get_coords_from_altaz_offset,
+    get_rest_angle,
+    locations,
+    observing_angle,
+)
 from .scan import _is_summary_file, find_summary_file_in_dir
 
 
@@ -83,7 +89,7 @@ def _convert_to_complete_fitszilla(lchdulist, outname):
         el = fits.Column(array=el, name="el", format="1D")
         az = fits.Column(array=az, name="az", format="1D")
         new_data_extension = fits.BinTableHDU.from_columns([ra, dec, el, az])
-        new_data_extension.name = "Coord{}".format(i)
+        new_data_extension.name = f"Coord{i}"
         lchdulist.append(new_data_extension)
 
 
@@ -268,12 +274,7 @@ def main_convert(args=None):
             if matchobj:
                 date = matchobj.group(1)
 
-                new_name = "{site}_{date}_{scanno:04d}_{febe}".format(
-                    site=mbfits.site.strip().upper(),
-                    date=date,
-                    scanno=mbfits.obsid,
-                    febe=list(mbfits.FEBE.keys())[0],
-                )
+                new_name = f"{mbfits.site.strip().upper()}_{date}_{mbfits.obsid:04d}_{next(iter(mbfits.FEBE.keys()))}"
                 if os.path.exists(new_name):
                     shutil.rmtree(new_name)
                 shutil.move(outname, new_name)

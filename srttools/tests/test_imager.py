@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
-
+import hashlib
 
 import numpy as np
-import hashlib
 
 try:
     import contextlib2 as contextlib
@@ -32,28 +30,34 @@ try:
 except ImportError:
     HAS_SUNPY = False
 
-from srttools.imager import ScanSet
-from srttools.scan import Scan
-from srttools.calibration import CalibratorTable
-from srttools.calibration import HAS_STATSM
-from srttools.read_config import read_config
-from srttools.imager import main_imager, main_preprocess, _excluded_regions_from_args, merge_tables
-from srttools.inspect_observations import main_inspector
-from srttools.simulate import simulate_sun
-from srttools.global_fit import display_intermediate
-from srttools.io import mkdir_p
-from srttools.interactive_filter import intervals
-from srttools.utils import on_CI
 import copy
-import os
 import glob
-import astropy.units as u
+import os
 import shutil
-import pytest
-import logging
 import subprocess as sp
+
+import pytest
+
 import astropy
+import astropy.units as u
 from astropy.logger import logging
+from srttools.calibration import HAS_STATSM, CalibratorTable
+from srttools.global_fit import display_intermediate
+from srttools.imager import (
+    ScanSet,
+    _excluded_regions_from_args,
+    main_imager,
+    main_preprocess,
+    merge_tables,
+)
+from srttools.inspect_observations import main_inspector
+from srttools.interactive_filter import intervals
+from srttools.io import mkdir_p
+from srttools.read_config import read_config
+from srttools.rfistat import main_rfistat
+from srttools.scan import Scan
+from srttools.simulate import simulate_sun
+from srttools.utils import on_CI
 
 try:
     from tqdm import tqdm
@@ -63,7 +67,7 @@ except ImportError:
         return x
 
 
-@pytest.fixture()
+@pytest.fixture
 def logger():
     logger = logging.getLogger("Some.Logger")
     logger.setLevel(logging.INFO)
@@ -81,7 +85,7 @@ def _md5(file):
     return hashlib.md5(string).hexdigest()
 
 
-class TestSunImage(object):
+class TestSunImage:
     @classmethod
     def setup_class(klass):
         import os
@@ -114,14 +118,14 @@ class TestSunImage(object):
         shutil.rmtree(klass.simdir)
 
 
-class TestBasicScanset(object):
+class TestBasicScanset:
     def test_invalid_value(data):
         with pytest.raises(ValueError) as excinfo:
             ScanSet(1)
         assert "Invalid data:" in str(excinfo.value)
 
 
-class TestScanSet(object):
+class TestScanSet:
     @classmethod
     def setup_class(klass):
         import os
@@ -187,8 +191,8 @@ class TestScanSet(object):
             basename = os.path.splitext(os.path.basename(scan_str))[0]
             return int(basename.replace("Dec", "").replace("Ra", ""))
 
-        klass.dec_scans = dict([(scan_no(s), s) for s in klass.scanset.scan_list if "Dec" in s])
-        klass.ra_scans = dict([(scan_no(s), s) for s in klass.scanset.scan_list if "Ra" in s])
+        klass.dec_scans = {scan_no(s): s for s in klass.scanset.scan_list if "Dec" in s}
+        klass.ra_scans = {scan_no(s): s for s in klass.scanset.scan_list if "Ra" in s}
         klass.n_ra_scans = max(list(klass.ra_scans.keys()))
         klass.n_dec_scans = max(list(klass.dec_scans.keys()))
 
@@ -212,10 +216,10 @@ class TestScanSet(object):
         assert sorted(scanset.meta.keys()) == sorted(self.scanset.meta.keys())
         assert scanset.scan_list == self.scanset.scan_list
         assert sorted(scanset.meta["calibrator_directories"]) == sorted(
-            list(set(scanset.meta["calibrator_directories"]))
+            set(scanset.meta["calibrator_directories"])
         )
         assert sorted(scanset.meta["list_of_directories"]) == sorted(
-            list(set(scanset.meta["list_of_directories"]))
+            set(scanset.meta["list_of_directories"])
         )
 
     def test_roundtrip(self):
@@ -270,9 +274,12 @@ class TestScanSet(object):
         from astropy.table import Table
 
         table = Table.read("test.hdf5")
+        print(table.meta)
         scanset = ScanSet(table, config_file=self.config_file)
-        for k in self.config.keys():
-            assert scanset.meta[k] == self.config[k]
+        print(scanset.meta)
+        for k, val in self.config.items():
+            print(k, val)
+            assert scanset.meta[k] == val
 
     def test_raonly(self):
         scanset = ScanSet(self.raonly, plot=False)
@@ -296,13 +303,16 @@ class TestScanSet(object):
         main_imager(
             (
                 "test.hdf5 -u Jy/beam --noplot "
-                + "--calibrate {}".format(self.calfile)
-                + " -o bubu.hdf5 --debug --scrunch-channels"
+                f"--calibrate {self.calfile}"
+                " -o bubu.hdf5 --debug --scrunch-channels"
             ).split(" ")
         )
 
     def test_use_command_line_config(self):
         main_imager(["-c", self.config_file, "--noplot"])
+
+    def test_use_command_line_cross(self):
+        main_imager(["-c", self.config_file, "--crosses-only"])
 
     def test_get_opacity(self):
         scanset = ScanSet("test.hdf5")
@@ -539,8 +549,8 @@ class TestLargeMap:
             basename = os.path.splitext(os.path.basename(scan_str))[0]
             return int(basename.replace("Dec", "").replace("Ra", ""))
 
-        klass.dec_scans = dict([(scan_no(s), s) for s in klass.scanset.scan_list if "Dec" in s])
-        klass.ra_scans = dict([(scan_no(s), s) for s in klass.scanset.scan_list if "Ra" in s])
+        klass.dec_scans = {scan_no(s): s for s in klass.scanset.scan_list if "Dec" in s}
+        klass.ra_scans = {scan_no(s): s for s in klass.scanset.scan_list if "Ra" in s}
         klass.n_ra_scans = max(list(klass.ra_scans.keys()))
         klass.n_dec_scans = max(list(klass.dec_scans.keys()))
 
@@ -953,7 +963,7 @@ class TestLargeMap:
             coord,
         ) = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
 
-        sname = sorted(list(dec_xs.keys()))[0]
+        sname = sorted(dec_xs.keys())[0]
         s = Scan(sname)
 
         info = {sname: copy.copy(self.stdinfo)}
@@ -1003,7 +1013,7 @@ class TestLargeMap:
         images = scanset.calculate_images()
         nx, ny = images["Feed0_RCP"].shape
 
-        regstr = "image;circle({},{},{})".format(nx // 2, ny // 2, nx // 4)
+        regstr = f"image;circle({nx // 2},{ny // 2},{nx // 4})"
         with open("region.reg", "w") as fobj:
             print(regstr, file=fobj)
 
@@ -1016,9 +1026,7 @@ class TestLargeMap:
         with open("region.reg", "w") as fobj:
             print(regstr, file=fobj)
 
-        main_imager(
-            ("-c {} --refilt ".format(self.config_file) + "--sub --exclude region.reg").split()
-        )
+        main_imager((f"-c {self.config_file} --refilt " + "--sub --exclude region.reg").split())
         os.unlink("region.reg")
 
     @pytest.mark.skipif("not HAS_PYREGION")
@@ -1027,7 +1035,7 @@ class TestLargeMap:
         with open("region.reg", "w") as fobj:
             print(regstr, file=fobj)
 
-        main_preprocess(("-c {} ".format(self.config_file) + "--sub --exclude region.reg").split())
+        main_preprocess((f"-c {self.config_file} " + "--sub --exclude region.reg").split())
         os.unlink("region.reg")
 
     @pytest.mark.skipif("not HAS_PYREGION")

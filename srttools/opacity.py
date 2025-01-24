@@ -1,9 +1,12 @@
-from astropy.io import fits
+import logging
+
 import numpy as np
 from scipy.optimize import curve_fit
-from .utils import HAS_MPL
+
+from astropy.io import fits
+
 from .io import adjust_temperature_size
-import logging
+from .utils import HAS_MPL
 
 if HAS_MPL:
     import matplotlib.pyplot as plt
@@ -27,7 +30,7 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
     plot : bool
         Plot diagnostics about the fit
 
-    Other parameters
+    Other Parameters
     ----------------
     tatm : float
         Atmospheric temperature (fixed in the fit). The default value is
@@ -101,7 +104,7 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
             plt.xlabel("Airmass")
             plt.ylabel("T (K)")
             plt.title("T_atm: {:.2f}; tau: {:.4f}; t0: {:.2f}".format(*par))
-            plt.savefig(file.replace(".fits", "_fit_{}.png".format(ch)))
+            plt.savefig(file.replace(".fits", f"_fit_{ch}.png"))
             plt.close(fig)
 
         results[ch] = par[1]

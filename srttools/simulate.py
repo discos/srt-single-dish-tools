@@ -1,18 +1,20 @@
 """Functions to simulate scans and maps."""
 
-import numpy as np
-import numpy.random as ra
+import logging
 import os
-from astropy.io import fits
-from astropy.table import Table, vstack
-import astropy.units as u
 from collections.abc import Iterable
 
-from .io import mkdir_p, locations
-from .utils import tqdm, njit, TWOPI
+import numpy as np
+import numpy.random as ra
+
+import astropy.units as u
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
+from astropy.table import Table, vstack
 from astropy.time import Time
-import logging
+
+from .io import locations, mkdir_p
+from .utils import TWOPI, njit, tqdm
 
 try:
     import matplotlib.pyplot as plt
@@ -21,7 +23,7 @@ try:
 except ImportError:
     HAS_MPL = False
 
-__all__ = ["simulate_scan", "save_scan", "simulate_map"]
+__all__ = ["save_scan", "simulate_map", "simulate_scan"]
 
 
 DEFAULT_PEAK_COUNTS = 100
@@ -137,7 +139,7 @@ def create_summary(filename, key_dict=None):
 
 
 def _is_number(x):
-    """ "Test if a string or other is a number
+    """Test if a string or other is a number
 
     Examples
     --------
@@ -150,9 +152,10 @@ def _is_number(x):
     """
     try:
         float(x)
-        return True
     except (ValueError, TypeError):
         return False
+    else:
+        return True
 
 
 def _default_flat_shape(x):
@@ -231,7 +234,7 @@ def sim_crossscans(
             ras,
             decs,
             {"Ch0": scan0, "Ch1": scan1 * channel_ratio},
-            filename=os.path.join(caldir, "{}_Ra.fits".format(i)),
+            filename=os.path.join(caldir, f"{i}_Ra.fits"),
             src_ra=src_ra,
             src_dec=src_dec,
             srcname=srcname,
@@ -270,7 +273,7 @@ def sim_crossscans(
             ras,
             decs,
             {"Ch0": scan0, "Ch1": scan1 * channel_ratio},
-            filename=os.path.join(caldir, "{}_Dec.fits".format(i)),
+            filename=os.path.join(caldir, f"{i}_Dec.fits"),
             src_ra=src_ra,
             src_dec=src_dec,
             srcname=srcname,
@@ -341,7 +344,7 @@ def sim_position_switching(
             ras,
             decs,
             {"Ch0": on, "Ch1": on},
-            filename=os.path.join(caldir, "ON_{}.fits".format(n_on)),
+            filename=os.path.join(caldir, f"ON_{n_on}.fits"),
             src_ra=src_ra,
             src_dec=src_dec,
             srcname=srcname,
@@ -368,7 +371,7 @@ def sim_position_switching(
             ras + offset,
             decs,
             {"Ch0": off, "Ch1": off},
-            filename=os.path.join(caldir, "OFF_{}.fits".format(n_off)),
+            filename=os.path.join(caldir, f"OFF_{n_off}.fits"),
             src_ra=src_ra,
             src_dec=src_dec,
             srcname=srcname,
@@ -408,7 +411,7 @@ def sim_position_switching(
             ras + offset,
             decs,
             {"Ch0": cal, "Ch1": cal},
-            filename=os.path.join(caldir, "CAL_{}.fits".format(n_cal)),
+            filename=os.path.join(caldir, f"CAL_{n_cal}.fits"),
             src_ra=src_ra,
             src_dec=src_dec,
             srcname=srcname,
@@ -538,7 +541,7 @@ def save_scan(
         counts_to_K = counts_to_K * np.ones(len(list(channels.keys())))
     # If it's a list, make it into a dict
     if not hasattr(counts_to_K, "keys"):
-        counts_to_K = dict([(ch, counts_to_K[i]) for i, ch in enumerate(channels.keys())])
+        counts_to_K = {ch: counts_to_K[i] for (i, ch) in enumerate(channels.keys())}
 
     curdir = os.path.abspath(os.path.dirname(__file__))
     template = os.path.abspath(os.path.join(curdir, "data", "scan_template.fits"))
@@ -757,7 +760,6 @@ def simulate_map(
     radec_labels_in_srcname : bool
         If True, add RA and Dec labels to source name
     """
-
     if isinstance(outdir, str):
         outdir = (outdir, outdir)
     outdir_ra = outdir[0]
@@ -808,7 +810,7 @@ def simulate_map(
 
         if i_d % 2 != 0:
             actual_ra = actual_ra[::-1]
-        fname = os.path.join(outdir_ra, "Ra{}.fits".format(i_d))
+        fname = os.path.join(outdir_ra, f"Ra{i_d}.fits")
         other_keywords = {"HIERARCH Declination Offset": delta_dec}
         save_scan(
             times_ra,
@@ -854,7 +856,7 @@ def simulate_map(
             dec_array + mean_dec,
             {"Ch0": counts0, "Ch1": counts1 * channel_ratio},
             other_keywords=other_keywords,
-            filename=os.path.join(outdir_dec, "Dec{}.fits".format(i_r)),
+            filename=os.path.join(outdir_dec, f"Dec{i_r}.fits"),
             src_ra=mean_ra,
             src_dec=mean_dec,
             srcname=srcname + declabel,

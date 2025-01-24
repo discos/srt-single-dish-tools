@@ -1,3 +1,27 @@
+v0.7.0 (2025-01-24)
+-------------------
+
+New Features
+^^^^^^^^^^^^
+
+- Save average cross scans in FITS extensions, with uncertainties (`#247 <https://github.com/discos/srt-single-dish-tools/pull/247>`__)
+- New script to analyze RFI content of observations, and way to apply filters (`#248 <https://github.com/discos/srt-single-dish-tools/pull/248>`__)
+
+
+Bug Fixes
+^^^^^^^^^
+
+- Fix incompatibility with Astropy 6+ (`#238 <https://github.com/discos/srt-single-dish-tools/pull/238>`__)
+- Support new naming for summary file (`#242 <https://github.com/discos/srt-single-dish-tools/pull/242>`__)
+- Use rough calibration if the calibrator's elevation was too far from the source's. This avoids a bug where a linear calibration vs elevation curve was extrapolated too far (and even gave negative values in some cases) (`#246 <https://github.com/discos/srt-single-dish-tools/pull/246>`__)
+
+
+Internal Changes
+^^^^^^^^^^^^^^^^
+
+- Update dependencies (`#241 <https://github.com/discos/srt-single-dish-tools/pull/241>`__)
+
+
 v0.6.4 (2023-10-03)
 -------------------
 

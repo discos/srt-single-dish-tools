@@ -1,20 +1,21 @@
-from astropy.io import fits
-from astropy.time import Time
-from astropy.io.fits.column import _parse_tdim
-import astropy.units as u
+import glob
 import os
+
 import numpy as np
+
+import astropy.units as u
+from astropy.io import fits
+from astropy.io.fits.column import _parse_tdim
+from astropy.time import Time
 from srttools.io import (
-    mkdir_p,
-    locations,
-    read_data_fitszilla,
-    get_chan_columns,
     classify_chan_columns,
+    get_chan_columns,
     interpret_chan_name,
+    locations,
+    mkdir_p,
+    read_data_fitszilla,
 )
 from srttools.scan import find_summary_file_in_dir
-import glob
-
 
 model_primary_header = """
 SIMPLE  =                    T
@@ -209,7 +210,7 @@ def get_data_description_from_model_header(data_format=None):
         tform = header["TFORM" + n]
         tdim = "0"
         if header[k] in ["DATA", "FLAGGED"] and data_format is not None:
-            tform = "{}D".format(np.prod(data_format))
+            tform = f"{np.prod(data_format)}D"
             tdim = str(data_format)
         num.append(int(n))
         list_ttype.append(header[k])
@@ -237,7 +238,6 @@ def _get_empty_array(length, dim):
     >>> assert np.all(_get_empty_array(10, "(2,2)")[1].flatten() == np.zeros(40))
 
     """
-
     dim = _parse_tdim(dim)
     if dim == ():
         return dim, np.zeros(length)
@@ -377,7 +377,7 @@ class SDFITS_creator:
                 crval3 = subscan["ra"][:, f].to(u.deg).value
                 crval4 = subscan["dec"][:, f].to(u.deg).value
 
-                columns_allbase = [a for a in allcolumns if a.startswith("Feed{}".format(f))]
+                columns_allbase = [a for a in allcolumns if a.startswith(f"Feed{f}")]
 
                 basebands = [interpret_chan_name(ch)[2] for ch in columns_allbase]
 
@@ -386,9 +386,7 @@ class SDFITS_creator:
                         baseband = 0
                         columns = columns_allbase
                     else:
-                        columns = [
-                            ch for ch in columns_allbase if ch.endswith("{}".format(baseband))
-                        ]
+                        columns = [ch for ch in columns_allbase if ch.endswith(f"{baseband}")]
 
                     data_matrix = np.stack(list(zip(*[subscan[ch] for ch in columns])))
                     shape = data_matrix[0].shape
@@ -401,7 +399,7 @@ class SDFITS_creator:
                     nbin = subscan.meta["channels"]
 
                     bandwidth = array.meta["bandwidth"]
-                    restfreq_label = "RESTFREQ{}".format(baseband + 1)
+                    restfreq_label = f"RESTFREQ{baseband + 1}"
                     if restfreq_label not in self.summary:
                         restfreq_label = "RESTFREQ1"
                     restfreq = self.summary[restfreq_label] * u.MHz
@@ -466,7 +464,7 @@ class SDFITS_creator:
                     header["RESTFREQ"] = restfreq.to(u.Hz).value
                     header["MAXIS1"] = channels[0]
 
-                    filekey = os.path.basename(scandir) + "_all_feed{}_bband{}".format(f, baseband)
+                    filekey = os.path.basename(scandir) + f"_all_feed{f}_bband{baseband}"
 
                     if filekey in list(self.tables.keys()):
                         hdul = self.tables[filekey]
@@ -486,5 +484,5 @@ class SDFITS_creator:
     def write_tables_to_disk(self):
         """Write all HDU lists produced until now in separate FITS files."""
         for filekey, table in self.tables.items():
-            outfile = os.path.join(self.dirname, "{}.fits".format(filekey))
+            outfile = os.path.join(self.dirname, f"{filekey}.fits")
             table.writeto(outfile, overwrite=True)

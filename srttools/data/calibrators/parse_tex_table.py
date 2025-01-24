@@ -1,5 +1,5 @@
-import sys
 import re
+import sys
 
 
 def main():
@@ -12,7 +12,7 @@ def main():
     delimiters = r"&", r"$\pm$"
     regexPattern = "|".join(map(re.escape, delimiters))
 
-    for line in file.readlines():
+    for line in file:
         match = good_line.match(line.rstrip())
         #    print(l)
         if not match:

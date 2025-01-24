@@ -2,25 +2,24 @@
 Random utilities
 """
 
-import shutil
+from __future__ import annotations
+
+import logging
 import os
+import re
+import shutil
 import time
 import warnings
-import re
-from typing import List
-from functools import lru_cache
-from logging import Logger
-
 from collections import OrderedDict
 from collections.abc import Iterable
+from functools import lru_cache
+from logging import Logger
+from typing import List
 
 import numpy as np
-import logging
-from scipy.stats import circmean, circstd
-
 import scipy
 import scipy.stats
-
+from scipy.stats import circmean, circstd
 
 try:
     from mahotas.features import zernike_moments
@@ -37,9 +36,9 @@ else:
     DEFAULT_MPL_BACKEND = "Agg"
 
 try:
-    import matplotlib
+    import matplotlib as mpl
 
-    matplotlib.use(DEFAULT_MPL_BACKEND)
+    mpl.use(DEFAULT_MPL_BACKEND)
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
 
@@ -75,18 +74,18 @@ except ImportError:
 
 
 __all__ = [
-    "mad",
-    "standard_string",
-    "standard_byte",
-    "compare_strings",
-    "tqdm",
-    "jit",
-    "vectorize",
-    "interpolate_invalid_points_image",
-    "get_center_of_mass",
-    "calculate_zernike_moments",
     "calculate_beam_fom",
+    "calculate_zernike_moments",
+    "compare_strings",
     "ds9_like_log_scale",
+    "get_center_of_mass",
+    "interpolate_invalid_points_image",
+    "jit",
+    "mad",
+    "standard_byte",
+    "standard_string",
+    "tqdm",
+    "vectorize",
 ]
 
 
@@ -99,7 +98,7 @@ except ImportError:
 
 
 try:
-    from statsmodels.robust import mad as mad  # pylint: disable=unused-import
+    from statsmodels.robust import mad  # pylint: disable=unused-import
 
     HAS_STATSM = True
 except ImportError:
@@ -200,7 +199,6 @@ def remove_suffixes_and_prefixes(
     >>> remove_suffixes_and_prefixes('k_bla_ra', prefixes=["k_"])
     'bla_ra'
     """
-
     name = name.strip("_")
     regex = rf"({'|'.join(suffixes)})+$"
     name = re.sub(regex, "", name, flags=re.IGNORECASE)
@@ -295,7 +293,6 @@ def compare_strings(s1, s2):
     >>> res = np.array([ True, False], dtype=bool)
     >>> assert np.all(compare_strings(np.array(['a', 'b'], dtype='S'), u'a') == res)
     """
-
     s1 = standard_string(s1)
     s2 = standard_string(s2)
     return s1 == s2
@@ -408,7 +405,7 @@ def ds9_like_log_scale(im_to_analyze, a=1000):
     im_to_analyze : 2d array
         The image to rescale
 
-    Other parameters
+    Other Parameters
     ----------------
     a : float
         The scale parameter, default 1000
@@ -490,7 +487,7 @@ def calculate_zernike_moments(
     im : 2-d array
         The image to be analyzed
 
-    Other parameters
+    Other Parameters
     ----------------
     cm : [int, int]
         'Center of mass' of the image
@@ -538,7 +535,7 @@ def calculate_zernike_moments(
     moments = zernike_moments(im_to_analyze, radius_pix, norder, cm=cm)
     count = 0
     moments_dict = {}
-    description_string = "Zernike moments (cm: {}, radius: {}):\n".format(cm, radius_pix)
+    description_string = f"Zernike moments (cm: {cm}, radius: {radius_pix}):\n"
 
     if HAS_MPL:
         fig = plt.figure("Zernike moments", figsize=(10, 10))
@@ -559,7 +556,7 @@ def calculate_zernike_moments(
         moments_dict[i] = {}
         for j in range(i + 1):
             if (i - j) % 2 == 0:
-                description_string += "{}/{} {:.1e} ".format(i, j, moments[count])
+                description_string += f"{i}/{j} {moments[count]:.1e} "
                 moments_dict[i][j] = moments[count]
                 count += 1
         description_string += "\n"
@@ -602,7 +599,7 @@ def calculate_beam_fom(im, cm=None, radius=0.3, label=None, use_log=False, show_
     im : 2-d array
         The image to be analyzed
 
-    Other parameters
+    Other Parameters
     ----------------
     cm : [int, int]
         'Center of mass' of the image
@@ -643,7 +640,7 @@ def calculate_beam_fom(im, cm=None, radius=0.3, label=None, use_log=False, show_
     radius_pix = int(np.min(im.shape) * radius)
 
     moments_dict = {}
-    description_string = "Figures of Merit (cm: {}, radius: {}):\n".format(cm, radius_pix)
+    description_string = f"Figures of Merit (cm: {cm}, radius: {radius_pix}):\n"
 
     img_max = np.unravel_index(im.argmax(), im.shape)
     npix = int(radius * min(im.shape))
@@ -735,7 +732,7 @@ def calculate_moments(y, imax=None, window_length=5):
     y : array-like
         The curve to be analyzed
 
-    Other parameters
+    Other Parameters
     ----------------
     imax : int, default None
         The index of the center of the curve to be analyzed. If None, the
@@ -869,8 +866,8 @@ def median_diff(array, sorting=False):
 def get_mH2O(TMP, U):
     """Get the meters of H2O, using the formula from old converter.
 
-    Unsure if this is correct in all cases"""
-
+    Unsure if this is correct in all cases
+    """
     RS = 8.314472
     mw = 0.018015
     md = 0.0289644
@@ -916,5 +913,5 @@ def look_for_files_or_bust(files, timeout):
         missing_files = [fname for exists, fname in zip(all_exist, files) if not exists]
 
         raise FileNotFoundError(
-            ("One or more of the expected files" " were not found: {}").format(missing_files)
+            "One or more of the expected files" f" were not found: {missing_files}"
         )

@@ -5,41 +5,46 @@ on-the-fly map, is able to calculate the map and save it in FITS format after
 cleaning the data.
 """
 
-import os
-import sys
-import warnings
-import traceback
 import copy
 import functools
-from datetime import datetime, timezone
-from collections.abc import Iterable
-
-from scipy.stats import binned_statistic, binned_statistic_2d
 import logging
+import os
+import traceback
+import warnings
+from collections.abc import Iterable
+from datetime import datetime, timezone
+
 import numpy as np
+from scipy.stats import binned_statistic, binned_statistic_2d
+
 import astropy
-from astropy import wcs
-from astropy.table import Table, vstack, Column
-from astropy.utils.metadata import MergeConflictWarning
+import astropy.constants as c
 import astropy.io.fits as fits
 import astropy.units as u
-import astropy.constants as c
+from astropy import wcs
+from astropy.table import Column, Table, vstack
 from astropy.table.np_utils import TableMergeError
 from astropy.time import Time
+from astropy.utils.metadata import MergeConflictWarning
 
-from .scan import Scan, list_scans, _is_summary_file
-from .read_config import read_config, sample_config_file
-from .utils import calculate_zernike_moments, calculate_beam_fom, HAS_MAHO
-from .utils import compare_anything, ds9_like_log_scale, njit
-from .utils import remove_suffixes_and_prefixes, get_circular_statistics
-
-from .io import chan_re, get_channel_feed, detect_data_kind
-from .fit import linear_fun, eliminate_spiky_outliers
-from .interactive_filter import select_data
 from .calibration import CalibratorTable
-from .opacity import calculate_opacity
+from .fit import eliminate_spiky_outliers, linear_fun
 from .global_fit import fit_full_image
-from .interactive_filter import create_empty_info
+from .interactive_filter import create_empty_info, select_data
+from .io import chan_re, detect_data_kind, get_channel_feed
+from .opacity import calculate_opacity
+from .read_config import read_config, sample_config_file
+from .scan import Scan, _is_summary_file, list_scans
+from .utils import (
+    HAS_MAHO,
+    calculate_beam_fom,
+    calculate_zernike_moments,
+    compare_anything,
+    ds9_like_log_scale,
+    get_circular_statistics,
+    njit,
+    remove_suffixes_and_prefixes,
+)
 
 try:
     from tqdm import tqdm as show_progress
@@ -81,8 +86,8 @@ def _load_and_merge_subscans(indices_and_subscans):
     """
     tables = []
     for i_s, s in indices_and_subscans:
-        if "FLAG" in s.meta and s.meta["FLAG"]:
-            logging.info("{} is flagged".format(s.meta["filename"]))
+        if s.meta.get("FLAG"):
+            logging.info("%s is flagged", s.meta["filename"])
             continue
         s["Scan_id"] = i_s + np.zeros(len(s["time"]), dtype=int)
 
@@ -109,6 +114,8 @@ def _load_and_merge_subscans(indices_and_subscans):
             "ra_offset",
             "RightAscension Offset",
             "Declination Offset",
+            "ignore_suffix",
+            "ignore_prefix",
         ]:
             if key in s.meta:
                 s.meta.pop(key)
@@ -123,10 +130,10 @@ def merge_tables(tables):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", MergeConflictWarning)
             scan_table = vstack(tables)
-    except TableMergeError:
+    except TableMergeError as e:
         raise TableMergeError(
-            "ERROR while merging tables. "
-            "Tables:\n" + "\n".join([t.meta["filename"] for t in tables])
+            f"ERROR while merging tables: {print(str(e))}"
+            "Tables:\n" + "\n".join([t.meta["filename"] for t in tables if "filename" in t.meta])
         )
 
     return scan_table
@@ -250,6 +257,7 @@ class ScanSet(Table):
         data=None,
         norefilt=True,
         config_file=None,
+        bad_intervals=None,
         freqsplat=None,
         nofilt=False,
         nosub=False,
@@ -275,6 +283,8 @@ class ScanSet(Table):
             directories containing the image and calibration data
         norefilt : bool
             See :class:`srttools.scan.Scan`
+        bad_intervals : list of str
+            See :class:`srttools.scan.clean_scan_using_variability`
         freqsplat : str
             See :class:`srttools.scan.interpret_frequency_range`
         nofilt : bool
@@ -294,6 +304,7 @@ class ScanSet(Table):
         True
         """
         self.norefilt = norefilt
+        self.bad_intervals = bad_intervals
         self.freqsplat = freqsplat
         self.images = None
         self.images_hor = None
@@ -354,6 +365,7 @@ class ScanSet(Table):
         indices_and_subscans = self.load_scans(
             scan_list,
             debug=self.debug,
+            bad_intervals=self.bad_intervals,
             freqsplat=self.freqsplat,
             nofilt=self.nofilt,
             nosub=self.nosub,
@@ -449,9 +461,11 @@ class ScanSet(Table):
                 results = calculate_opacity(s, plot=False)
                 self.opacities[results["time"]] = np.mean([results["Ch0"], results["Ch1"]])
             except KeyError as e:
-                logging.warning("Error while processing {}: Missing key: {}".format(s, str(e)))
+                logging.warning(f"Error while processing {s}: Missing key: {str(e)}")
 
-    def load_scans(self, scan_list, freqsplat=None, nofilt=False, debug=False, **kwargs):
+    def load_scans(
+        self, scan_list, freqsplat=None, bad_intervals=None, nofilt=False, debug=False, **kwargs
+    ):
         """Load the scans in the list one by ones."""
         for i, f in enumerate(show_progress(scan_list)):
             try:
@@ -459,16 +473,17 @@ class ScanSet(Table):
                     f,
                     norefilt=self.norefilt,
                     debug=debug,
+                    bad_intervals=bad_intervals,
                     freqsplat=freqsplat,
                     nofilt=nofilt,
                     **kwargs,
                 )
                 yield i, s
             except KeyError as e:
-                logging.warning("Error while processing {}: Missing key: {}".format(f, str(e)))
+                logging.warning(f"Error while processing {f}: Missing key: {str(e)}")
             except Exception as e:
                 logging.warning(traceback.format_exc())
-                logging.warning("Error while processing {}: {}".format(f, str(e)))
+                logging.warning(f"Error while processing {f}: {str(e)}")
 
     def get_coordinates(self, frame="icrs"):
         """Give the coordinates as pairs of RA, DEC."""
@@ -561,7 +576,7 @@ class ScanSet(Table):
         hor, ver = _coord_names(frame)
         pixel_size = self.meta["pixel_size"]
 
-        if not hasattr(pixel_size, "value") and not pixel_size in ["auto", None]:
+        if not hasattr(pixel_size, "value") and pixel_size not in ["auto", None]:
             warnings.warn("Pixel size not understood. Using 'auto' instead.")
 
         if pixel_size == "auto" or pixel_size is None:
@@ -637,7 +652,7 @@ class ScanSet(Table):
     ):
         """Obtain image from all scans.
 
-        Other parameters
+        Other Parameters
         ----------------
         no_offsets: bool
             use positions from feed 0 for all feeds.
@@ -671,10 +686,10 @@ class ScanSet(Table):
 
         for ch in self.chan_columns:
             if direction is None:
-                logging.info("Calculating image in channel {}".format(ch))
+                logging.info(f"Calculating image in channel {ch}")
             else:
                 dir_string = "horizontal" if direction == 1 else "vertical"
-                logging.info("Calculating image in channel {}, {}".format(ch, dir_string))
+                logging.info(f"Calculating image in channel {ch}, {dir_string}")
             if (
                 onlychans is not None
                 and ch not in onlychans
@@ -682,9 +697,9 @@ class ScanSet(Table):
                 and ch in self.images.keys()
             ):
                 images[ch] = self.images[ch]
-                images["{}-Sdev".format(ch)] = self.images["{}-Sdev".format(ch)]
-                images["{}-EXPO".format(ch)] = self.images["{}-EXPO".format(ch)]
-                images["{}-Outliers".format(ch)] = self.images["{}-Outliers".format(ch)]
+                images[f"{ch}-Sdev"] = self.images[f"{ch}-Sdev"]
+                images[f"{ch}-EXPO"] = self.images[f"{ch}-EXPO"]
+                images[f"{ch}-Outliers"] = self.images[f"{ch}-Outliers"]
                 continue
 
             feed = get_channel_feed(ch)
@@ -692,8 +707,8 @@ class ScanSet(Table):
             if elevation is None:
                 elevation = np.mean(self["el"][:, feed])
 
-            if "{}-filt".format(ch) in self.keys():
-                good = self["{}-filt".format(ch)]
+            if f"{ch}-filt" in self.keys():
+                good = self[f"{ch}-filt"]
             else:
                 good = np.ones(len(self[ch]), dtype=bool)
 
@@ -766,9 +781,9 @@ class ScanSet(Table):
                 cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
                 img_sdev *= 1 + cal_rel_err
 
-            images["{}-Sdev".format(ch)] = img_sdev.T
-            images["{}-EXPO".format(ch)] = expomap.T
-            images["{}-Outliers".format(ch)] = img_outliers.T
+            images[f"{ch}-Sdev"] = img_sdev.T
+            images[f"{ch}-EXPO"] = expomap.T
+            images[f"{ch}-Outliers"] = img_outliers.T
 
         if direction is None:
             self.images = images
@@ -795,13 +810,12 @@ class ScanSet(Table):
         elevation=None,
         map_unit="Jy/beam",
         calibrate_scans=False,
-        direction=None,
         onlychans=None,
         aggressive_detrend=False,
     ):
         """Obtain image from all scans.
 
-        Other parameters
+        Other Parameters
         ----------------
         no_offsets: bool
             use positions from feed 0 for all feeds.
@@ -817,10 +831,6 @@ class ScanSet(Table):
         calibrate_scans: bool
             Calibrate from subscans instead of from the binned image. Slower
             but more precise
-        direction: int
-            Optional: only select horizontal or vertical scans for this image.
-            0 if horizontal, 1 if vertical, defaults to ``None`` that means
-            that all scans will be used.
         onlychans: List
             List of channels for which images are calculated. If defaults to
             all channels
@@ -834,12 +844,12 @@ class ScanSet(Table):
         ybins = np.linspace(0, self.meta["npix"][1], int(self.meta["npix"][1] + 1))
 
         for ch in self.chan_columns:
-            logging.info("Calculating average in channel {}".format(ch))
+            logging.info(f"Calculating average in channel {ch}")
             is_stokes = ("Q" in ch) or ("U" in ch)
             if is_stokes:
                 continue
-            if "{}-filt".format(ch) in self.keys():
-                good_quality = self["{}-filt".format(ch)]
+            if f"{ch}-filt" in self.keys():
+                good_quality = self[f"{ch}-filt"]
             else:
                 good_quality = np.ones(len(self[ch]), dtype=bool)
 
@@ -848,7 +858,7 @@ class ScanSet(Table):
             for direction in [0, 1]:
                 dir_string = "horizontal" if direction == 1 else "vertical"
 
-                logging.info("Calculating average in channel {}, {}".format(ch, dir_string))
+                logging.info(f"Calculating average in channel {ch}, {dir_string}")
                 if (
                     onlychans is not None
                     and ch not in onlychans
@@ -856,10 +866,10 @@ class ScanSet(Table):
                     and ch in self.crosses.keys()
                 ):
                     avg_subscan[f"{ch}-{direction}"] = self.crosses[ch]
-                    avg_subscan[f"{ch}-{direction}-Sdev"] = self.crosses["{}-Sdev".format(ch)]
-                    avg_subscan[f"{ch}-{direction}-EXPO"] = self.crosses["{}-EXPO".format(ch)]
+                    avg_subscan[f"{ch}-{direction}-Sdev"] = self.crosses[f"{ch}-Sdev"]
+                    avg_subscan[f"{ch}-{direction}-EXPO"] = self.crosses[f"{ch}-EXPO"]
                     avg_subscan[f"{ch}-{direction}-Outliers".format(ch)] = self.crosses[
-                        "{}-Outliers".format(ch)
+                        f"{ch}-Outliers"
                     ]
                     continue
 
@@ -992,8 +1002,8 @@ class ScanSet(Table):
                 label=ch,
             )
 
-        for ch in destriped:
-            self.images[ch] = destriped[ch]
+        for ch, val in destriped.items():
+            self.images[ch] = val
 
         return self.images
 
@@ -1006,10 +1016,10 @@ class ScanSet(Table):
         lower_bad_chans = all_lower(bad_chans)
         for ch in self.chan_columns:
             if ch.lower() in lower_bad_chans:
-                logging.info("Discarding {}".format(ch))
+                logging.info(f"Discarding {ch}")
                 continue
-            total_expo += self.images["{}-EXPO".format(ch)]
-            total_sdev += self.images["{}-Sdev".format(ch)] ** 2
+            total_expo += self.images[f"{ch}-EXPO"]
+            total_sdev += self.images[f"{ch}-Sdev"] ** 2
             total_img += self.images[ch]
             count += 1
         total_sdev = total_sdev**0.5 / count
@@ -1039,7 +1049,6 @@ class ScanSet(Table):
 
         Fit a linear trend to each scan to minimize the scatter in an image
         """
-
         if self.images is None:
             self.calculate_images(
                 no_offsets=no_offsets,
@@ -1054,7 +1063,7 @@ class ScanSet(Table):
             chans = self.chan_columns
 
         for ch in chans:
-            logging.info("Fitting channel {}".format(ch))
+            logging.info(f"Fitting channel {ch}")
             feed = get_channel_feed(ch)
             self[ch + "_save"] = self[ch].copy()
             self[ch] = Column(fit_full_image(self, chan=ch, feed=feed, excluded=excluded, par=par))
@@ -1109,11 +1118,11 @@ class ScanSet(Table):
                 warnings.warn("The Jy/counts factor is nan")
                 continue
             A = images[ch].copy() * u.ct
-            eA = images["{}-Sdev".format(ch)].copy() * u.ct
+            eA = images[f"{ch}-Sdev"].copy() * u.ct
 
-            images["{}-RAW".format(ch)] = images["{}".format(ch)].copy()
-            images["{}-RAW-Sdev".format(ch)] = images["{}-Sdev".format(ch)].copy()
-            images["{}-RAW-EXPO".format(ch)] = images["{}-EXPO".format(ch)].copy()
+            images[f"{ch}-RAW"] = images[f"{ch}"].copy()
+            images[f"{ch}-RAW-Sdev"] = images[f"{ch}-Sdev"].copy()
+            images[f"{ch}-RAW-EXPO"] = images[f"{ch}-EXPO"].copy()
             bad = eA != eA
             A[bad] = 1 * u.ct
             eA[bad] = 0 * u.ct
@@ -1134,7 +1143,7 @@ class ScanSet(Table):
 
             eC = C * (eA / A + eB / B)
 
-            images["{}-Sdev".format(ch)] = eC.to(final_unit).value
+            images[f"{ch}-Sdev"] = eC.to(final_unit).value
 
         if direction == 0:
             self.images_hor = images
@@ -1236,26 +1245,26 @@ class ScanSet(Table):
         if test:
             chs = ["Feed0_RCP"]
 
-        for ch in chs:
+        for local_ch in chs:
             if recreate:
-                self.calculate_images(onlychans=ch)
-            fig = plt.figure("Imageactive Display - " + ch)
+                self.calculate_images(onlychans=local_ch)
+            fig = plt.figure("Imageactive Display - " + local_ch)
             gs = GridSpec(1, 2)
             ax = fig.add_subplot(gs[0])
             ax.set_title("Outlier plot")
             ax2 = fig.add_subplot(gs[1])
             ax2.set_title("Draft image")
-            imgch = ch
+            imgch = local_ch
 
-            expo = np.mean(self.images["{}-EXPO".format(ch)])
+            expo = np.mean(self.images[f"{local_ch}-EXPO"])
             mean_expo = np.mean(expo[expo > 0])
 
             stats_for_outliers = "Outliers" if mean_expo > 6 else "Sdev"
-            sdevch = "{}-{}".format(ch, stats_for_outliers)
-            if "{}-RAW".format(ch) in self.images.keys():
-                imgch = "{}-RAW".format(ch)
+            sdevch = f"{local_ch}-{stats_for_outliers}"
+            if f"{local_ch}-RAW" in self.images.keys():
+                imgch = f"{local_ch}-RAW"
                 if stats_for_outliers == "Sdev":
-                    sdevch = "{}-RAW-{}".format(ch, stats_for_outliers)
+                    sdevch = f"{local_ch}-RAW-{stats_for_outliers}"
             img = ds9_like_log_scale(self.images[imgch])
             ax2.imshow(
                 img,
@@ -1266,7 +1275,7 @@ class ScanSet(Table):
             )
 
             img = self.images[sdevch].copy()
-            self.current = ch
+            self.current = local_ch
             bad = np.logical_or(img == 0, img != img)
             img[bad] = np.mean(img[np.logical_not(bad)])
             fun = functools.partial(self.rerun_scan_analysis, test=test)
@@ -1276,7 +1285,7 @@ class ScanSet(Table):
 
     def rerun_scan_analysis(self, x, y, key, test=False):
         """Rerun the analysis of single scans."""
-        logging.debug("{} {} {}".format(x, y, key))
+        logging.debug(f"{x} {y} {key}")
         if key == "a":
             self.reprocess_scans_through_pixel(x, y, test=test)
         elif key == "h":
@@ -1379,10 +1388,10 @@ class ScanSet(Table):
             try:
                 s = Scan(sname)
             except Exception:
-                logging.warning("Errors while opening scan {}".format(sname))
+                logging.warning(f"Errors while opening scan {sname}")
                 continue
             try:
-                chan_mask = s["{}-filt".format(ch)]
+                chan_mask = s[f"{ch}-filt"]
             except Exception:
                 chan_mask = np.zeros_like(s[ch])
 
@@ -1424,10 +1433,10 @@ class ScanSet(Table):
         feed = get_channel_feed(ch)
         mask = self["Scan_id"] == sid
         try:
-            logging.info("Updating scan {}".format(sname))
+            logging.info(f"Updating scan {sname}")
             s = Scan(sname)
         except Exception as e:
-            warnings.warn("Impossible to write to scan {}".format(sname))
+            warnings.warn(f"Impossible to write to scan {sname}")
             warnings.warn(str(e))
             return
 
@@ -1441,8 +1450,8 @@ class ScanSet(Table):
                 for i in intervals:
                     i = sorted(i)
                     good[np.logical_and(s[dim][:, feed] >= i[0], s[dim][:, feed] <= i[1])] = False
-            s["{}-filt".format(ch)] = good
-            self["{}-filt".format(ch)][mask] = good
+            s[f"{ch}-filt"] = good
+            self[f"{ch}-filt"][mask] = good
 
         if len(fit_info) > 1:
             resave = True
@@ -1458,8 +1467,8 @@ class ScanSet(Table):
             s.meta["FLAG"] = flag_info
             flag_array = np.zeros(len(s[dim]), dtype=bool) + flag_info
             for c in self.chan_columns:
-                self["{}-filt".format(c)][mask] = np.logical_not(flag_array)
-                s["{}-filt".format(c)] = np.logical_not(flag_array)
+                self[f"{c}-filt"][mask] = np.logical_not(flag_array)
+                s[f"{c}-filt"] = np.logical_not(flag_array)
 
         if resave:
             s.save()
@@ -1472,12 +1481,11 @@ class ScanSet(Table):
 
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
-
         self.update_meta_with_images()
 
         try:
             kwargs["serialize_meta"] = kwargs.pop("serialize_meta", True)
-            super(ScanSet, self).write(fname, *args, **kwargs)
+            super().write(fname, *args, **kwargs)
         except astropy.io.registry.IORegistryError as e:
             raise astropy.io.registry.IORegistryError(fname + ": " + str(e))
 
@@ -1494,7 +1502,7 @@ class ScanSet(Table):
 
     def read_images_from_meta(self):
         for key in self.meta.keys():
-            logging.info("Caught key press: {}".format(key))
+            logging.info(f"Caught key press: {key}")
             if IMG_STR in key:
                 self.images = {}
                 self.images[key.replace(IMG_STR, "")] = self.meta[key]
@@ -1568,7 +1576,7 @@ class ScanSet(Table):
         im : 2-d array
             The image to be analyzed
 
-        Other parameters
+        Other Parameters
         ----------------
         cm : [int, int]
             'Center of mass' of the image
@@ -1765,14 +1773,14 @@ class ScanSet(Table):
                     if k == "Description":
                         continue
                     for k1 in moments_dict[k].keys():
-                        header_mod["ZK_{:02d}_{:02d}".format(k, k1)] = moments_dict[k][k1]
+                        header_mod[f"ZK_{k:02d}_{k1:02d}"] = moments_dict[k][k1]
                 moments_dict = self.calculate_beam_fom(
                     images[ch], cm=None, radius=0.3, label=ch, use_log=True
                 )
                 for k in moments_dict.keys():
                     if k == "Description":
                         continue
-                    logging.info("FOM_{}: {}".format(k, moments_dict[k]))
+                    logging.info(f"FOM_{k}: {moments_dict[k]}")
                     # header_mod['FOM_{}'.format(k)] = moments_dict[k]
 
             if save_images:
@@ -2052,7 +2060,17 @@ def main_imager(args=None):
             "or 'all' for all the channels."
         ),
     )
-
+    parser.add_argument(
+        "--bad-intervals",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated list of frequencies to avoid in the analysis, e.g."
+            " '5000:5100,5500:5550' will avoid the frequency intervals 5000-5100"
+            " and 5500-5550 MHz. Note: if data were already filtered, you need"
+            " to specify --refilt as well"
+        ),
+    )
     args = parser.parse_args(args)
 
     if args.sample_config:
@@ -2089,6 +2107,7 @@ def main_imager(args=None):
             avoid_regions=excluded_radec,
             nosave=args.nosave,
             plot=not args.noplot,
+            bad_intervals=args.bad_intervals,
         )
         infile = args.config
 
@@ -2183,6 +2202,17 @@ def main_preprocess(args=None):
             "or 'all' for all the channels."
         ),
     )
+    parser.add_argument(
+        "--bad-intervals",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated list of frequencies to avoid in the analysis, e.g."
+            " '5000:5100,5500:5550' will avoid the frequency intervals 5000-5100"
+            " and 5500-5550 MHz.Note: if data were already filtered, you need"
+            " to specify --refilt as well"
+        ),
+    )
 
     parser.add_argument(
         "-e",
@@ -2207,7 +2237,7 @@ def main_preprocess(args=None):
     if args.files is not None and args.files:
         for f in args.files:
             if not os.path.exists(f):
-                warnings.warn("File {} does not exist".format(f))
+                warnings.warn(f"File {f} does not exist")
                 continue
 
             kind = detect_data_kind(f)
@@ -2225,6 +2255,7 @@ def main_preprocess(args=None):
                 avoid_regions=excluded_radec,
                 config_file=args.config,
                 nosave=args.nosave,
+                bad_intervals=args.bad_intervals,
             )
     else:
         if args.config is None:
@@ -2240,5 +2271,6 @@ def main_preprocess(args=None):
             interactive=args.interactive,
             avoid_regions=excluded_radec,
             nosave=args.nosave,
+            bad_intervals=args.bad_intervals,
         )
     return 0

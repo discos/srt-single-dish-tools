@@ -1,17 +1,17 @@
 """Scan class."""
 
-import time
-import pickle
 import glob
-import os
-import warnings
-import sys
-
 import logging
-import astropy.units as u
+import os
+import pickle
+import sys
+import warnings
+
 import numpy as np
 from scipy.signal import medfilt
-from astropy.table import Table, Column
+
+import astropy.units as u
+from astropy.table import Column, Table
 
 # from memory_profiler import profile
 
@@ -23,18 +23,16 @@ try:
 except ImportError:
     HAS_MPL = False
 
-from .io import read_data, root_name, get_chan_columns, get_channel_feed
-from .io import mkdir_p
-from .read_config import read_config, get_config_file
-from .fit import ref_mad, contiguous_regions
-from .fit import baseline_rough, baseline_als, linear_fun
+from .fit import baseline_als, baseline_rough, contiguous_regions, linear_fun, ref_mad
 from .interactive_filter import select_data
-from .utils import get_circular_statistics, normalize_angle_mpPI, TWOPI
+from .io import get_chan_columns, get_channel_feed, mkdir_p, read_data, root_name
+from .read_config import get_config_file, read_config
+from .utils import TWOPI, get_circular_statistics, normalize_angle_mpPI
 
 __all__ = [
     "Scan",
-    "interpret_frequency_range",
     "clean_scan_using_variability",
+    "interpret_frequency_range",
     "list_scans",
 ]
 
@@ -149,7 +147,6 @@ def interpret_frequency_range(freqsplat, bandwidth, nbin):
     >>> interpret_frequency_range('200:800', 1024, 512)
     (200.0, 800.0, 100, 399)
     """
-
     if freqsplat is None or freqsplat == "default":
         freqmin, freqmax = bandwidth / 10, bandwidth * 0.9
     elif freqsplat in ["all", ":"]:
@@ -234,6 +231,7 @@ def _get_spectrum_stats(
     smoothing_window,
     noise_threshold,
     good_mask=None,
+    bad_intervals=None,
     length=1,
     filename="stats.p",
 ):
@@ -250,6 +248,15 @@ def _get_spectrum_stats(
     freqmin, freqmax, binmin, binmax = interpret_frequency_range(freqsplat, bandwidth, nbin)
     freqmask[0:binmin] = False
     freqmask[binmax:] = False
+    if bad_intervals is not None:
+        if isinstance(bad_intervals, str):
+            bad_intervals = bad_intervals.split(",")
+        for b in bad_intervals:
+            loc_freqmin, loc_freqmax, loc_binmin, loc_binmax = interpret_frequency_range(
+                b, bandwidth, nbin
+            )
+            freqmask[loc_binmin : loc_binmax + 1] = False
+
     results.freqmask = freqmask
     results.freqmin = freqmin
     results.freqmax = freqmax
@@ -259,17 +266,20 @@ def _get_spectrum_stats(
     results.df = df
     results.length = length
 
+    do_filtering = True
     if dynspec_len < 10:
         warnings.warn("Very few data in the dataset. " "Skipping spectral filtering.")
-        return results
+
+        do_filtering = False
 
     bad = (meanspec == 0) | np.isnan(meanspec) | np.isinf(meanspec)
-    meanspec[bad] = 1
+    if do_filtering:
+        meanspec[bad] = 1
 
     # If invalid data are inside the frequency mask, warn the user and exit.
     # Otherwise, just go on with business as usual.
     bad = bad & freqmask
-    if np.any(bad):
+    if np.any(bad) and do_filtering:
         warnings.warn(
             f"{os.path.splitext(os.path.basename(filename))[0]}: "
             f"Bad channels in the data set. : {np.where(bad)[0] * df}. "
@@ -285,14 +295,14 @@ def _get_spectrum_stats(
     # Set up corrected spectral var
 
     mod_spectral_var = spectral_var.copy()
-    mod_spectral_var[0:binmin] = spectral_var[binmin]
-    mod_spectral_var[binmax:] = spectral_var[binmax]
+    if do_filtering:
+        mod_spectral_var[0:binmin] = spectral_var[binmin]
+        mod_spectral_var[binmax:] = spectral_var[binmax]
 
     # Some statistical information on spectral var
 
     # median_spectral_var = np.median(mod_spectral_var[freqmask])
     stdref = ref_mad(mod_spectral_var[freqmask], 20)
-
     # Calculate baseline of spectral var ---------------
     # Empyrical formula, with no physical meaning
 
@@ -308,11 +318,24 @@ def _get_spectrum_stats(
         )
     )
 
-    # Set threshold
-    threshold_high = baseline + noise_threshold * stdref
-    mask = spectral_var < threshold_high
-    threshold_low = baseline - noise_threshold * stdref
-    mask = mask & (spectral_var > threshold_low)
+    if do_filtering:
+        # Set threshold
+        threshold_high = baseline + noise_threshold * stdref
+        mask = spectral_var < threshold_high
+        threshold_low = baseline - noise_threshold * stdref
+        mask = mask & (spectral_var > threshold_low)
+
+        # Extend large, contiguous, bad regions by 20%
+        regs = contiguous_regions(~mask)
+        for r in regs:
+            reg_size = r[1] - r[0]
+            if reg_size > 5:
+                delta = int(np.rint(reg_size * 0.1))
+                mask[r[0] - delta : r[1] + 1 + delta] = False
+    else:
+        mask = np.ones_like(spectral_var, dtype=bool)
+        threshold_high = np.zeros_like(spectral_var) + np.inf
+        threshold_low = np.zeros_like(spectral_var) - np.inf
 
     if not np.any(mask):
         warnings.warn(
@@ -347,7 +370,7 @@ def plot_light_curve(
     info_string="Empty info string",
 ):
     times = length * np.arange(lc.size) / lc.size
-    fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+    fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
     plt.plot(times, lc)
     plt.xlabel("Time")
     plt.ylabel("Counts")
@@ -360,7 +383,7 @@ def plot_light_curve(
         transform=plt.gca().transAxes,
         fontsize=19,
     )
-    plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format), dpi=dpi)
+    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
     plt.close(fig)
 
 
@@ -375,7 +398,7 @@ def plot_all_spectra(
     fig=None,
 ):
     if fig is None:
-        fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+        fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
 
     for i in dynamical_spectrum:
         plt.plot(allbins[1:], i[1:])
@@ -395,7 +418,7 @@ def plot_all_spectra(
         transform=ax.transAxes,
         fontsize=19,
     )
-    plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format), dpi=dpi)
+    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
     plt.close(fig)
 
 
@@ -431,6 +454,7 @@ def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
     results.freqmax = freqmax * u.MHz
     results.mask = wholemask
     results.dynspec = cleaned_dynamical_spectrum
+    results.allbins = spec_stats.allbins
 
     results = pickle_or_not(results, filename, cleaned_dynamical_spectrum)
     return results
@@ -504,17 +528,17 @@ def plot_spectrum_cleaning_results(
 
     bandwidth_unit = cleaning_results.freqmin.unit
 
-    fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+    fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
 
     if len(lc_corr) < 10:
         plot_all_spectra(
             allbins,
             dynamical_spectrum,
-            outfile="out",
-            label="",
+            outfile=outfile,
+            label=label,
             debug_file_format=debug_file_format,
-            dpi=100,
-            info_string="Empty info string",
+            dpi=dpi,
+            info_string=info_string,
             fig=fig,
         )
         return cleaning_results
@@ -541,7 +565,7 @@ def plot_spectrum_cleaning_results(
     ax_dynspec.set_ylabel("Sample")
     ax_cleanspec.set_ylabel("Sample")
     ax_var.set_ylabel("r.m.s.")
-    ax_var.set_xlabel("Frequency from LO ({})".format(bandwidth_unit))
+    ax_var.set_xlabel(f"Frequency from LO ({bandwidth_unit})")
     ax_cleanlc.set_xlabel("Counts")
 
     # Plot mean spectrum
@@ -637,7 +661,7 @@ def plot_spectrum_cleaning_results(
 
     fig.tight_layout()
 
-    plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format), dpi=dpi)
+    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
     plt.close(fig)
 
 
@@ -646,6 +670,7 @@ def clean_scan_using_variability(
     length,
     bandwidth,
     good_mask=None,
+    bad_intervals=None,
     freqsplat=None,
     noise_threshold=5.0,
     debug=True,
@@ -682,11 +707,13 @@ def clean_scan_using_variability(
     bandwidth : float
         Bandwidth in MHz
 
-    Other parameters
+    Other Parameters
     ----------------
     good_mask : boolean array
         this mask specifies channels that should never be discarded as
         RFI, for example because they contain spectral lines
+    bad_intervals : list of str or comma-separated str
+        bad frequency intervals, specified with the same syntax as freqsplat
     freqsplat : str
         List of frequencies to be merged into one. See
         :func:`srttools.scan.interpret_frequency_range`
@@ -760,8 +787,10 @@ def clean_scan_using_variability(
         noise_threshold,
         length=length,
         good_mask=good_mask,
+        bad_intervals=bad_intervals,
         filename=dummy_file,
     )
+
     if spec_stats_ is None:
         if isinstance(dummy_file, str) and os.path.exists(dummy_file):
             os.unlink(dummy_file)
@@ -889,6 +918,7 @@ class Scan(Table):
         nosave=False,
         debug=False,
         plot=False,
+        bad_intervals=None,
         freqsplat=None,
         nofilt=False,
         nosub=False,
@@ -912,6 +942,8 @@ class Scan(Table):
         norefilt : bool
             If an HDF5 archive is present with the same basename as the input
             FITS file, do not re-run the filtering (default True)
+        bad_intervals : list of str
+            bad frequency intervals, specified with the same syntax as freqsplat
         freqsplat : str
             See :class:`srttools.scan.interpret_frequency_range`
         nofilt : bool
@@ -926,7 +958,7 @@ class Scan(Table):
         """
         if config_file is None:
             config_file = get_config_file()
-
+        need_for_cleaning = True
         if isinstance(data, Table):
             super().__init__(data, **kwargs)
         elif data is None:
@@ -942,8 +974,10 @@ class Scan(Table):
                 # original file (e.g. the fits file was not modified later)
                 if os.path.getmtime(h5name) > os.path.getmtime(data):
                     data = h5name
+                    nosave = True
+                    need_for_cleaning = False
             if debug:
-                logging.info("Loading file {}".format(data))
+                logging.info(f"Loading file {data}")
             table = read_data(data)
             super().__init__(table, **kwargs)
             if not data.endswith("hdf5"):
@@ -954,25 +988,26 @@ class Scan(Table):
                 self.meta["debug_file_format"] = debug_file_format
 
             self.check_order()
-
-            self.clean_and_splat(
-                freqsplat=freqsplat,
-                nofilt=nofilt,
-                noise_threshold=self.meta["noise_threshold"],
-                debug=debug,
-                save_spectrum=save_spectrum,
-                plot=plot,
-            )
+            if need_for_cleaning:
+                self.clean_and_splat(
+                    freqsplat=freqsplat,
+                    bad_intervals=bad_intervals,
+                    nofilt=nofilt,
+                    noise_threshold=self.meta["noise_threshold"],
+                    debug=debug,
+                    save_spectrum=save_spectrum,
+                    plot=plot,
+                )
 
             if interactive:
                 self.interactive_filter()
 
-            if (("backsub" not in self.meta.keys() or not self.meta["backsub"])) and not nosub:
+            if ("backsub" not in self.meta.keys() or not self.meta["backsub"]) and not nosub:
                 logging.debug(f"Subtracting the baseline from " f'{self.meta["filename"]}')
                 try:
                     self.baseline_subtract(avoid_regions=avoid_regions, plot=debug)
-                except Exception as e:
-                    logging.error(f"Baseline subtraction failed: {str(e)}")
+                except Exception:
+                    logging.exception("Baseline subtraction failed")
 
             if not nosave:
                 self.save()
@@ -987,7 +1022,7 @@ class Scan(Table):
 
         infostr = "Target: {}\n".format(self.meta["SOURCE"])
         infostr += "SubScan ID: {}\n".format(self.meta["SubScanID"])
-        infostr += "Channel: {}\n".format(ch)
+        infostr += f"Channel: {ch}\n"
         infostr += "Mean RA: {:.2f} d\n".format(np.degrees(ra_stats["mean"]))
         infostr += "Mean Dec: {:.2f} d\n".format(np.degrees(np.mean(self["dec"])))
         infostr += "Mean Az: {:.2f} d\n".format(np.degrees(az_stats["mean"]))
@@ -1001,6 +1036,7 @@ class Scan(Table):
     def clean_and_splat(
         self,
         good_mask=None,
+        bad_intervals=None,
         freqsplat=None,
         noise_threshold=5,
         debug=True,
@@ -1017,6 +1053,10 @@ class Scan(Table):
         good_mask : boolean array
             this mask specifies intervals that should never be discarded as
             RFI, for example because they contain spectral lines
+        bad_intervals : list of str
+            bad frequency intervals, specified with the same syntax as freqsplat, and
+            separated by commas. Here, however, the frequencies are observing frequencies,
+            not frequencies from the local oscillator (as in freqsplat).
         freqsplat : str
             List of frequencies to be merged into one. See
             :func:`srttools.scan.interpret_frequency_range`
@@ -1030,7 +1070,7 @@ class Scan(Table):
             this dictionary contains, for each detector/polarization, True
             values for good spectral channels, and False for bad channels.
 
-        Other parameters
+        Other Parameters
         ----------------
         save_spectrum : bool, default False
             Save the spectrum into a 'ChX_spec' column
@@ -1043,7 +1083,7 @@ class Scan(Table):
             :func:`clean_scan_using_variability`)
         """
         if debug:
-            logging.debug("Noise threshold: {}".format(noise_threshold))
+            logging.debug(f"Noise threshold: {noise_threshold}")
 
         if self.meta["filtering_factor"] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
@@ -1052,6 +1092,15 @@ class Scan(Table):
         chans = self.chan_columns()
         is_polarized = False
         mask = True
+
+        if bad_intervals is not None:
+            bad_intervals_list = []
+            ref_f = self[chans[0]].meta["frequency"].to(u.MHz).value
+            for f_int in bad_intervals.split(","):
+                f0, f1 = (float(f) for f in f_int.split(":"))
+                bad_intervals_list.append(f"{f0 - ref_f}:{f1 - ref_f}")
+            bad_intervals = bad_intervals_list
+
         for ic, ch in enumerate(chans):
             if "_Q" in ch or "_U" in ch:
                 is_polarized = True
@@ -1062,13 +1111,14 @@ class Scan(Table):
                 86400 * (self["time"][-1] - self["time"][0]),
                 self[ch].meta["bandwidth"],
                 good_mask=good_mask,
+                bad_intervals=bad_intervals,
                 freqsplat=freqsplat,
                 noise_threshold=noise_threshold,
                 debug=debug,
                 plot=plot,
                 nofilt=nofilt,
                 outfile=self.root_name(self.meta["filename"]),
-                label="{}".format(ic),
+                label=f"{ic}",
                 smoothing_window=self.meta["smooth_window"],
                 debug_file_format=self.meta["debug_file_format"],
                 info_string=self.get_info_string(ch),
@@ -1077,7 +1127,14 @@ class Scan(Table):
             if results is None:
                 continue
 
-            mask = mask & results.mask
+            bad_chan_dict = None
+            if not np.all(results.mask):
+                bad_mask = ~results.mask
+                bad_data = results.allbins[bad_mask]
+                bad_chan = np.arange(results.allbins.size)[bad_mask]
+                bad_chan_dict = dict(zip(bad_chan, bad_data))
+
+            mask = results.mask
             lc_corr = results.lc
             freqmin, freqmax = results.freqmin, results.freqmax
 
@@ -1090,6 +1147,7 @@ class Scan(Table):
                 self.remove_column(ch)
             self[ch + "TEMP"].name = ch
             self[ch].meta["bandwidth"] = freqmax - freqmin
+            self[ch].meta["bad_chans"] = bad_chan_dict
 
         if is_polarized:
             for ic, ch in enumerate(chans):
@@ -1117,7 +1175,7 @@ class Scan(Table):
             (lam=1e11). If 'rough', use
             :func:`srttools.fit.baseline_rough` instead.
 
-        Other parameters
+        Other Parameters
         ----------------
         plot : bool
             Plot diagnostic information in an image with the same basename as
@@ -1155,14 +1213,14 @@ class Scan(Table):
 
             if plot and HAS_MPL:
                 plt.plot(self["time"], self[ch])
-                out = root_name(self.meta["filename"]) + "_{}.png".format(ch)
+                out = root_name(self.meta["filename"]) + f"_{ch}.png"
                 plt.savefig(out)
                 plt.close(fig)
         self.meta["backsub"] = True
 
     def __repr__(self):
         """Give the print() function something to print."""
-        reprstring = "\n\n----Scan from file {0} ----\n".format(self.meta["filename"])
+        reprstring = "\n\n----Scan from file {} ----\n".format(self.meta["filename"])
         reprstring += repr(Table(self))
         return reprstring
 
@@ -1172,7 +1230,7 @@ class Scan(Table):
 
         if fname.endswith(".hdf5"):
             kwargs["serialize_meta"] = kwargs.pop("serialize_meta", True)
-            super(Scan, self).write(fname, *args, **kwargs)
+            super().write(fname, *args, **kwargs)
 
         else:
             raise TypeError("Saving to anything else than HDF5 is not " "supported at the moment")
@@ -1222,7 +1280,7 @@ class Scan(Table):
                             self[dim][:, feed] <= i[1],
                         )
                     ] = False
-            self["{}-filt".format(ch)] = good
+            self[f"{ch}-filt"] = good
 
             if len(info["Ch"]["fitpars"]) > 1:
                 self[ch] -= linear_fun(self[dim][:, feed], *info["Ch"]["fitpars"])

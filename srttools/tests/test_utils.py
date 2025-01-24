@@ -1,6 +1,7 @@
-import pytest
 import numpy as np
-from ..utils import HAS_MAHO, calculate_zernike_moments, look_for_files_or_bust
+import pytest
+
+from srttools.utils import HAS_MAHO, calculate_zernike_moments, look_for_files_or_bust
 
 
 @pytest.mark.skipif("not HAS_MAHO")

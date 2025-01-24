@@ -1,30 +1,69 @@
 """Useful fitting functions."""
 
+import copy
+import warnings
+from collections.abc import Iterable
+
+import numpy as np
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
-import numpy as np
-import traceback
-import warnings
-import copy
-from collections.abc import Iterable
-from .utils import mad, HAS_MPL
 
+from .utils import HAS_MPL, mad, njit
 
 __all__ = [
+    "align",
+    "baseline_als",
+    "baseline_rough",
     "contiguous_regions",
-    "ref_std",
-    "ref_mad",
-    "linear_fun",
+    "fit_baseline_plus_bell",
     "linear_fit",
+    "linear_fun",
     "offset",
     "offset_fit",
-    "baseline_rough",
     "purge_outliers",
-    "baseline_als",
-    "fit_baseline_plus_bell",
+    "ref_mad",
+    "ref_std",
     "total_variance",
-    "align",
 ]
+
+
+@njit
+def find_trend_change(data, nmax=-1):
+    """Find trend changes in a series of data.
+
+    Examples
+    --------
+    >>> data = np.array([1, 2, 3, 2, 1, 2, 3, 4, 5, 4, 3, 2, 1])
+    >>> find_trend_change(data)
+    [3, 5, 9]
+    """
+    n = data.size
+    if nmax < 0:
+        nmax = n
+    trend_edges = []
+    previous_sign = np.sign(data[1] - data[0])
+    previous_data = data[0]
+    nchanges = 0
+    previous_change = -1
+    for i, d in enumerate(data):
+        if i == 0:
+            continue
+
+        local_sign = np.sign(d - previous_data)
+        if i == previous_change + 1:
+            previous_sign = local_sign
+            continue
+        previous_data = d
+
+        if local_sign != previous_sign:
+            trend_edges.append(i)
+            previous_sign = local_sign
+            previous_change = i
+            nchanges += 1
+            if nchanges > nmax:
+                break
+
+    return trend_edges
 
 
 def contiguous_regions(condition):
@@ -47,7 +86,6 @@ def contiguous_regions(condition):
     -----
     From https://stackoverflow.com/questions/4494404/find-large-number-of-consecutive-values-fulfilling-condition-in-a-numpy-array
     """
-    # NOQA
     # Find the indicies of changes in "condition"
     diff = np.logical_xor(condition[1:], condition[:-1])
     (idx,) = diff.nonzero()
@@ -65,18 +103,12 @@ def contiguous_regions(condition):
     return idx
 
 
-def _rolling_window(a, window):
+def _rolling_window(a, window, **kwargs):
     """A smart rolling window.
 
     Found at http://www.rigtorp.se/2011/01/01/rolling-statistics-numpy.html
     """
-    try:
-        shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
-        strides = a.strides + (a.strides[-1],)
-        return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
-    except Exception:
-        warnings.warn(traceback.format_exc())
-        raise
+    return np.lib.stride_tricks.sliding_window_view(a, window, **kwargs)
 
 
 def ref_std(array, window=1):
@@ -99,7 +131,6 @@ def ref_std(array, window=1):
     ref_std : float
         The reference Standard Deviation
     """
-
     return np.std(np.diff(array)) / np.sqrt(2)
 
 
@@ -123,7 +154,6 @@ def ref_mad(array, window=1):
     ref_std : float
         The reference MAD
     """
-
     return mad(np.diff(array)) / np.sqrt(2)
 
 
@@ -379,15 +409,16 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None, plot=False):
 
     Noutliers = len(local_outliers[local_outliers])
     if Noutliers > 0:
-        warnings.warn("Found {} outliers".format(Noutliers), UserWarning)
+        warnings.warn(f"Found {Noutliers} outliers", UserWarning)
 
     outliers = np.logical_or(local_outliers, bad_mask)
     if not np.any(outliers):
         return y
 
     bad = contiguous_regions(outliers)
+
     for b in bad:
-        if b[0] == 0:
+        if b[0] == 0 and b[1] < len(y):
             y[b[0]] = y[b[1]]
         elif b[1] >= len(y):
             y[b[0] :] = y[b[0] - 1]
@@ -435,7 +466,7 @@ def _als(y, lam, p, niter=30):
         slope tollerated for the baseline. A higher value correspond to a
         higher possible slope
 
-    Other parameters
+    Other Parameters
     ----------------
     niter : int
         The number of iterations to perform
@@ -641,7 +672,7 @@ def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
     y : array-like
         the data series corresponding to x
 
-    Other parameters
+    Other Parameters
     ----------------
     ye : array-like
         the errors on the data series
@@ -657,7 +688,7 @@ def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
     """
     if kind not in ["gauss", "lorentz"]:
         raise ValueError("kind has to be one of: gauss, lorentz")
-    from astropy.modeling import models, fitting
+    from astropy.modeling import fitting, models
 
     approx_m = (np.median(y[-20:]) - np.median(y[:20])) / (np.mean(x[-20:]) - np.mean(x[:20]))
 

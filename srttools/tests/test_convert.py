@@ -1,20 +1,21 @@
-from srttools.convert import convert_to_complete_fitszilla, main_convert
-from srttools.scan import Scan
-import numpy as np
-import os
-import pytest
-import subprocess as sp
-import shutil
 import glob
+import os
+import shutil
+import subprocess as sp
+
+import numpy as np
+import pytest
+
 from astropy.io import fits
+from astropy.utils.exceptions import AstropyWarning
+from srttools.convert import convert_to_complete_fitszilla, main_convert
 from srttools.io import locations
+from srttools.scan import Scan
 from srttools.simulate import (
     DEFAULT_CAL_OFFSET,
-    DEFAULT_PEAK_COUNTS,
     DEFAULT_CAL_TEMP,
+    DEFAULT_PEAK_COUNTS,
 )
-from astropy.utils.exceptions import AstropyWarning
-
 
 try:
     import matplotlib.pyplot as plt
@@ -27,7 +28,7 @@ CI = os.getenv("CI") is not None
 CI_MPL = CI and HAS_MPL
 
 
-class Test1_Scan(object):
+class Test1_Scan:
     @classmethod
     def setup_class(klass):
         import os

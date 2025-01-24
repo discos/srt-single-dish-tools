@@ -1,19 +1,18 @@
 import glob
-import shutil
 import os
+import shutil
 import subprocess as sp
 
-from srttools.calibration import CalibratorTable
-from srttools.calibration import main_lcurve, _get_flux_quantity, main_cal
+import numpy as np
+import pytest
+
+from astropy.logger import logging
+from srttools.calibration import CalibratorTable, _get_flux_quantity, main_cal, main_lcurve
+from srttools.io import mkdir_p
 from srttools.read_config import read_config
 from srttools.scan import list_scans
-from srttools.simulate import sim_crossscans, _2d_gauss
-from srttools.io import mkdir_p
-from srttools.utils import compare_strings, HAS_MPL
-import pytest
-import logging
-from astropy.logger import logging
-import numpy as np
+from srttools.simulate import _2d_gauss, sim_crossscans
+from srttools.utils import HAS_MPL, compare_strings
 
 try:
     from tqdm import tqdm
@@ -23,7 +22,7 @@ except ImportError:
         return x
 
 
-@pytest.fixture()
+@pytest.fixture
 def logger():
     logger = logging.getLogger("Some.Logger")
     logger.setLevel(logging.DEBUG)
@@ -34,7 +33,7 @@ def logger():
 np.random.seed(124137)
 
 
-class TestCalibration(object):
+class TestCalibration:
     @classmethod
     def setup_class(klass):
         import os
@@ -260,7 +259,7 @@ class TestCalibration(object):
             assert "Please specify the config file!" in str(excinfo.value)
 
     def test_sdtcal_no_config_dir(self):
-        ValueError("No calibrators specified in config file")
+        # ValueError("No calibrators specified in config file")
         with pytest.raises(ValueError) as excinfo:
             main_cal(["-c", self.config_file_empty])
             assert "No calibrators specified in config file" in str(excinfo.value)

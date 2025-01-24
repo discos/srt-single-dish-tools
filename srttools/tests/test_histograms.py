@@ -1,10 +1,11 @@
-from srttools import histograms as hist
 import numpy as np
+
+from srttools import histograms as hist
 
 np.random.seed(1742956)
 
 
-class TestHist(object):
+class TestHist:
     @classmethod
     def setup_class(klass):
         klass.N = 10000

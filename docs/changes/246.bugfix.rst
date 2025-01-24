@@ -1,1 +1,0 @@
-Use rough calibration if the calibrator's elevation was too far from the source's. This avoids a bug where a linear calibration vs elevation curve was extrapolated too far (and even gave negative values in some cases)

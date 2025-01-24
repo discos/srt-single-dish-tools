@@ -1,8 +1,10 @@
+import os
 import xml.etree.ElementTree as ET
+
+import numpy as np
+
 from astropy.table import Table
 from astropy.time import Time
-import os
-import numpy as np
 
 
 def load_acs_log_file(fname, full=False):

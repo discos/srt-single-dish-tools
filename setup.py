@@ -1,11 +1,10 @@
-#!/usr/bin/env python
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 # NOTE: The configuration for the package, including the name, version, and
-# other information are set in the setup.cfg file.
+# other information are set in the pyproject.toml file.
 
-import os
 import sys
+from pathlib import Path
 
 from setuptools import setup
 
@@ -30,7 +29,7 @@ directly with::
 
 For more information, see:
 
-  http://docs.astropy.org/en/latest/development/testguide.html#running-tests
+  https://docs.astropy.org/en/latest/development/testguide.html#running-tests
 """
 
 if "test" in sys.argv:
@@ -55,7 +54,7 @@ You can also build the documentation with Sphinx directly using::
 
 For more information, see:
 
-  http://docs.astropy.org/en/latest/install.html#builddocs
+  https://docs.astropy.org/en/latest/install.html#builddocs
 """
 
 if "build_docs" in sys.argv or "build_sphinx" in sys.argv:
@@ -75,7 +74,7 @@ except Exception:
 
 setup(
     use_scm_version={
-        "write_to": os.path.join("srttools", "version.py"),
+        "write_to": Path("srttools", "version.py"),
         "write_to_template": VERSION_TEMPLATE,
     }
 )
