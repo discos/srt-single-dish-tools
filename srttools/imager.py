@@ -1351,7 +1351,7 @@ class ScanSet(Table):
                     )
 
         # Only recreate images if there were changes!
-        display = self.interactive_display(c=ch, recreate=(dec_xs != {} or ra_xs != {}), test=test)
+        display = self.interactive_display(ch=ch, recreate=(dec_xs != {} or ra_xs != {}), test=test)
         return display
 
     def find_scans_through_pixel(self, x, y, test=False):
