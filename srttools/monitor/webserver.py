@@ -230,9 +230,7 @@ class WebServer:
         try:
             self.web_server.listen(self.port)
         except OSError:
-            raise OSError(
-                f"Port {self.port} is already being used, choose a different one!"
-            )
+            raise OSError(f"Port {self.port} is already being used, choose a different one!")
 
     def start(self):
         self._asyncioloop = None

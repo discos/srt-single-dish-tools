@@ -386,9 +386,7 @@ class SDFITS_creator:
                         baseband = 0
                         columns = columns_allbase
                     else:
-                        columns = [
-                            ch for ch in columns_allbase if ch.endswith(f"{baseband}")
-                        ]
+                        columns = [ch for ch in columns_allbase if ch.endswith(f"{baseband}")]
 
                     data_matrix = np.stack(list(zip(*[subscan[ch] for ch in columns])))
                     shape = data_matrix[0].shape

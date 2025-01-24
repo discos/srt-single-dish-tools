@@ -174,9 +174,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
     for i in arange(D):
         if isscalar(bins[i]):
             if bins[i] < 1:
-                raise ValueError(
-                    f"Element at index {i} in `bins` should be a positive " "integer."
-                )
+                raise ValueError(f"Element at index {i} in `bins` should be a positive integer.")
             nbin[i] = bins[i] + 2  # +2 for outlier bins
             edges[i] = linspace(smin[i], smax[i], int(nbin[i]) - 1)
         else:
