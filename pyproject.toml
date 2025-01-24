@@ -147,6 +147,7 @@ write_to = "srttools/_version.py"
 
 [tool.pytest.ini_options]
 minversion = 7.0
+asyncio_default_fixture_loop_scope = "function"
 testpaths = [
     "srttools",
     "docs",
