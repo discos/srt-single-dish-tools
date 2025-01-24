@@ -275,8 +275,8 @@ class TestScanSet:
 
         table = Table.read("test.hdf5")
         scanset = ScanSet(table, config_file=self.config_file)
-        for k in self.config.keys():
-            assert scanset.meta[k] == self.config[k]
+        for k, val in self.config.items():
+            assert scanset.meta[k] == val
 
     def test_raonly(self):
         scanset = ScanSet(self.raonly, plot=False)

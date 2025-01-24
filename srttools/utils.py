@@ -3,6 +3,7 @@ Random utilities
 """
 
 from __future__ import annotations
+
 import logging
 import os
 import re
@@ -13,12 +14,12 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from functools import lru_cache
 from logging import Logger
+from typing import List
 
 import numpy as np
 import scipy
 import scipy.stats
 from scipy.stats import circmean, circstd
-from typing import List
 
 try:
     from mahotas.features import zernike_moments
