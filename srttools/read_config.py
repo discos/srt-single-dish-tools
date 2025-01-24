@@ -189,7 +189,7 @@ def read_config(fname=None):
     except Exception:
         warnings.warn("Invalid skydip_directories in config file")
 
-    for key, val in config_output.keys():
+    for key, val in config_output.items():
         if isinstance(val, str) and "\n" in val:
             config_output[key] = [s for s in val.splitlines() if s.strip()]
 

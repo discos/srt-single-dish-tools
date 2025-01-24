@@ -951,7 +951,7 @@ class CalibratorTable(Table):
 
         return fc, fce
 
-    def calculate_src_flux(self, ch=None, map_unit="Jy/beam", source=None):
+    def calculate_src_flux(self, channel=None, map_unit="Jy/beam", source=None):
         """Calculate source flux and error, pointing by pointing.
 
         Uses the conversion factors calculated from the tabulated fluxes for
@@ -983,19 +983,19 @@ class CalibratorTable(Table):
 
         non_source = np.logical_not(good_source)
 
-        if ch is None:
+        if channel is None:
             channels = list(set(self["Chan"]))
         else:
-            channels = [ch]
+            channels = [channel]
 
         mean_flux = []
         mean_flux_err = []
-        for c in channels:
-            good_chan = self["Chan"] == c
+        for ch in channels:
+            good_chan = self["Chan"] == ch
             good = good_source & good_chan
             elevation = np.radians(self["Elevation"][good])
             fc, fce = self.Jy_over_counts(
-                channel=c,
+                channel=ch,
                 elevation=elevation,
                 map_unit=map_unit,
                 good_mask=non_source,
@@ -1035,7 +1035,7 @@ class CalibratorTable(Table):
         is_cal = (~np.isnan(self["Flux"])) & (self["Flux"] > 0)
         calibrators = list(set(self["Source"][is_cal]))
         for cal in calibrators:
-            self.calculate_src_flux(c=channel, source=cal)
+            self.calculate_src_flux(channel=channel, source=cal)
 
         if channel is None:
             good_chan = np.ones_like(self["Chan"], dtype=bool)
