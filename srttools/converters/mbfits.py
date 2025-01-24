@@ -1,20 +1,22 @@
+import logging
+import os
+import warnings
+
+import numpy as np
+
+import astropy.units as u
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
-import astropy.units as u
-import os
-import numpy as np
-from srttools.io import (
-    mkdir_p,
-    locations,
-    read_data_fitszilla,
-    get_chan_columns,
-    classify_chan_columns,
-)
-from srttools.utils import scantype, force_move_file, minmax, median_diff
 from srttools.fit import detrend_spectroscopic_data
-import warnings
-import logging
+from srttools.io import (
+    classify_chan_columns,
+    get_chan_columns,
+    locations,
+    mkdir_p,
+    read_data_fitszilla,
+)
+from srttools.utils import force_move_file, median_diff, minmax, scantype
 
 
 def default_scan_info_table():
@@ -456,7 +458,6 @@ def pack_data(scan, polar_dict, detrend=False):
     ...                   [[ 1.,  1.,  1.,  1.], [ 0.,  0.,  0.,  0.]]])
     True
     """
-
     polar_list = list(polar_dict.keys())
     if "LCP" in polar_list:
         data = [scan[polar_dict["LCP"]], scan[polar_dict["RCP"]]]
@@ -535,7 +536,7 @@ class MBFITS_creator:
         self.lst = 1e32
 
     def fill_in_summary(self, summaryfile):
-        logging.info("Loading {}".format(summaryfile))
+        logging.info(f"Loading {summaryfile}")
         with fits.open(summaryfile, memmap=False) as hdul:
             header = hdul[0].header
             hdudict = dict(header.items())
@@ -558,9 +559,9 @@ class MBFITS_creator:
         with fits.open(os.path.join(self.dirname, self.GROUPING), memmap=False) as grouphdul:
             groupheader = grouphdul[0].header
             groupdict = dict(groupheader.items())
-            for key in hdudict.keys():
+            for key, val in hdudict.items():
                 if key in groupdict:
-                    groupheader[key] = hdudict[key]
+                    groupheader[key] = val
             groupheader["RA"] = self.ra
             groupheader["DEC"] = self.dec
             groupheader["DATE-OBS"] = self.date_obs.value
@@ -573,12 +574,12 @@ class MBFITS_creator:
         with fits.open(os.path.join(self.dirname, self.SCAN), memmap=False) as scanhdul:
             scanheader = reset_all_keywords(scanhdul[1].header)
             scandict = dict(scanheader.items())
-            for key in hdudict.keys():
+            for key, val in hdudict.items():
                 if key[:5] in ["NAXIS", "PGCOU", "GCOUN"]:
                     continue
                 if key in scandict:
-                    scanheader[key] = hdudict[key]
-            # Todo: update with correct keywords
+                    scanheader[key] = val
+            # TODO: update with correct keywords
             scanheader["DATE-OBS"] = self.date_obs.value
             scanheader["MJD"] = self.date_obs.mjd
             scanheader["SCANNUM"] = self.obsid
@@ -587,7 +588,7 @@ class MBFITS_creator:
         force_move_file("tmp.fits", os.path.join(self.dirname, self.SCAN))
 
     def add_subscan(self, scanfile, detrend=False):
-        logging.info("Loading {}".format(scanfile))
+        logging.info(f"Loading {scanfile}")
 
         subscan = read_data_fitszilla(scanfile)
         subscan_info = get_subscan_info(subscan)
@@ -608,7 +609,7 @@ class MBFITS_creator:
             self.nfeeds = len(combinations.keys())
 
         for feed in combinations:
-            felabel = subscan.meta["receiver"] + "{}".format(feed)
+            felabel = subscan.meta["receiver"] + f"{feed}"
             febe = felabel + "-" + subscan.meta["backend"]
 
             datapar = os.path.join(self.template_dir, "1", "FLASH460L-XFFTS-DATAPAR.fits")
@@ -683,7 +684,7 @@ class MBFITS_creator:
             bands = list(combinations[feed].keys())
             for baseband in combinations[feed]:
                 nbands = np.max(bands)
-                ch = list(combinations[feed][baseband].values())[0]
+                ch = next(iter(combinations[feed][baseband].values()))
 
                 packed_data = pack_data(subscan, combinations[feed][baseband], detrend=detrend)
                 # ------------- Update ARRAYDATA -------------
@@ -709,9 +710,9 @@ class MBFITS_creator:
 
                     new_header["FREQRES"] = bandwidth / new_header["CHANNELS"]
 
-                    # Todo: check sideband
+                    # TODO: check sideband
                     new_header["SIDEBAND"] = "USB"
-                    # Todo: check all these strange keywords. These are
+                    # TODO: check all these strange keywords. These are
                     # probably NOT the rest frequencies!
                     new_header["1CRVL2F"] = new_header["RESTFREQ"]
                     new_header["1CRVL2S"] = new_header["RESTFREQ"]
@@ -725,7 +726,7 @@ class MBFITS_creator:
                     newhdu = fits.table_to_hdu(newtable)
                     subs_template[1].data = newhdu.data
 
-                    subname = febe + "-ARRAYDATA-{}.fits".format(baseband)
+                    subname = febe + f"-ARRAYDATA-{baseband}.fits"
                     new_sub = os.path.join(outdir, subname)
                     subs_template.writeto("tmp.fits", overwrite=True)
 
@@ -752,14 +753,14 @@ class MBFITS_creator:
                         febe, combinations, feed, subscan[ch].meta, bands=bands
                     )
 
-                    grouping[0].header["FEBE{}".format(nfebe)] = febe
-                    grouping[0].header["FREQ{}".format(nfebe)] = (
+                    grouping[0].header[f"FEBE{nfebe}"] = febe
+                    grouping[0].header[f"FREQ{nfebe}"] = (
                         subscan[ch].meta["frequency"].to("Hz").value
                     )
-                    grouping[0].header["BWID{}".format(nfebe)] = (
+                    grouping[0].header[f"BWID{nfebe}"] = (
                         subscan[ch].meta["bandwidth"].to("Hz").value
                     )
-                    grouping[0].header["LINE{}".format(nfebe)] = ""
+                    grouping[0].header[f"LINE{nfebe}"] = ""
 
                     newtable.add_row(
                         [
@@ -868,7 +869,7 @@ class MBFITS_creator:
 
         with fits.open(os.path.join(self.dirname, self.SCAN), memmap=False) as scanhdul:
             scanheader = scanhdul[1].header
-            # Todo: update with correct keywords
+            # TODO: update with correct keywords
             scanheader["CTYPE"] = info.ctype
             scanheader["CTYPE1"] = "RA---GLS"
             scanheader["CTYPE2"] = "DEC--GLS"

@@ -1,29 +1,29 @@
 """Useful fitting functions."""
 
+import copy
+import warnings
+from collections.abc import Iterable
+
+import numpy as np
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
-import numpy as np
-import traceback
-import warnings
-import copy
-from collections.abc import Iterable
-from .utils import mad, HAS_MPL, njit
 
+from .utils import HAS_MPL, mad, njit
 
 __all__ = [
+    "align",
+    "baseline_als",
+    "baseline_rough",
     "contiguous_regions",
-    "ref_std",
-    "ref_mad",
-    "linear_fun",
+    "fit_baseline_plus_bell",
     "linear_fit",
+    "linear_fun",
     "offset",
     "offset_fit",
-    "baseline_rough",
     "purge_outliers",
-    "baseline_als",
-    "fit_baseline_plus_bell",
+    "ref_mad",
+    "ref_std",
     "total_variance",
-    "align",
 ]
 
 
@@ -37,7 +37,6 @@ def find_trend_change(data, nmax=-1):
     >>> find_trend_change(data)
     [3, 5, 9]
     """
-
     n = data.size
     if nmax < 0:
         nmax = n
@@ -87,7 +86,6 @@ def contiguous_regions(condition):
     -----
     From https://stackoverflow.com/questions/4494404/find-large-number-of-consecutive-values-fulfilling-condition-in-a-numpy-array
     """
-    # NOQA
     # Find the indicies of changes in "condition"
     diff = np.logical_xor(condition[1:], condition[:-1])
     (idx,) = diff.nonzero()
@@ -133,7 +131,6 @@ def ref_std(array, window=1):
     ref_std : float
         The reference Standard Deviation
     """
-
     return np.std(np.diff(array)) / np.sqrt(2)
 
 
@@ -157,7 +154,6 @@ def ref_mad(array, window=1):
     ref_std : float
         The reference MAD
     """
-
     return mad(np.diff(array)) / np.sqrt(2)
 
 
@@ -413,7 +409,7 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None, plot=False):
 
     Noutliers = len(local_outliers[local_outliers])
     if Noutliers > 0:
-        warnings.warn("Found {} outliers".format(Noutliers), UserWarning)
+        warnings.warn(f"Found {Noutliers} outliers", UserWarning)
 
     outliers = np.logical_or(local_outliers, bad_mask)
     if not np.any(outliers):
@@ -469,7 +465,7 @@ def _als(y, lam, p, niter=30):
         slope tollerated for the baseline. A higher value correspond to a
         higher possible slope
 
-    Other parameters
+    Other Parameters
     ----------------
     niter : int
         The number of iterations to perform
@@ -675,7 +671,7 @@ def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
     y : array-like
         the data series corresponding to x
 
-    Other parameters
+    Other Parameters
     ----------------
     ye : array-like
         the errors on the data series
@@ -691,7 +687,7 @@ def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
     """
     if kind not in ["gauss", "lorentz"]:
         raise ValueError("kind has to be one of: gauss, lorentz")
-    from astropy.modeling import models, fitting
+    from astropy.modeling import fitting, models
 
     approx_m = (np.median(y[-20:]) - np.median(y[:20])) / (np.mean(x[-20:]) - np.mean(x[:20]))
 

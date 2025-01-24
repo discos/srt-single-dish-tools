@@ -1,22 +1,23 @@
+import asyncio
+import base64
+import json
 import os
+import shutil
+import socket
 import subprocess as sp
 import threading
 import time
-import pytest
 import urllib
-import shutil
-import socket
-import asyncio
-import json
-import base64
+
 import numpy as np
+import pytest
 
 from srttools.read_config import read_config
 
 try:
-    from srttools.monitor import MAX_FEEDS
-    from srttools.monitor import Monitor
     from tornado.websocket import websocket_connect
+
+    from srttools.monitor import MAX_FEEDS, Monitor
 
     HAS_DEPENDENCIES = True
 except ImportError:
@@ -52,7 +53,7 @@ def compare_images(received_string, image_file):
     assert received_string == image_string
 
 
-class WebSocketClient(object):
+class WebSocketClient:
     def __init__(self, url):
         self._url = url
         self._ws = None
@@ -80,7 +81,7 @@ class WebSocketClient(object):
         return messages
 
 
-class TestMonitor(object):
+class TestMonitor:
     @classmethod
     def setup_class(klass):
         import os
@@ -283,10 +284,10 @@ class TestMonitor(object):
     @pytest.mark.xfail(strict=False)
     @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_delete_old_images(self):
-        files = ["latest_{}.png".format(i) for i in range(8)]
+        files = [f"latest_{i}.png" for i in range(8)]
 
         for fname in files[2:]:
-            sp.check_call("touch {}".format(fname).split())
+            sp.check_call(f"touch {fname}".split())
 
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], port=port)
@@ -316,7 +317,7 @@ class TestMonitor(object):
         shutil.copy(self.file_empty_init, self.file_empty)
 
         # Check that index.html is provided by the HTTP server
-        url = "http://127.0.0.1:{}/".format(port)
+        url = f"http://127.0.0.1:{port}/"
         r = urllib.request.urlopen(url, timeout=5)
         assert r.code == 200
 
@@ -335,9 +336,9 @@ class TestMonitor(object):
         self.monitor = Monitor([self.datadir], port=port)
         self.monitor.start()
 
-        time.sleep(1)
+        await asyncio.sleep(1)
 
-        ws_url = "ws://localhost:{}/images".format(port)
+        ws_url = f"ws://localhost:{port}/images"
         async with WebSocketClient(ws_url) as ws:
             # Retrieve the starting images, they should be 14 blanks,
             # we ask for 15 and make sure they are actually 14

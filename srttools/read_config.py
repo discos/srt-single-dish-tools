@@ -1,9 +1,11 @@
 """Read the configuration file."""
 
-import os
 import glob
+import os
 import warnings
+
 import numpy as np
+
 import astropy.units as u
 
 # For Python 2 and 3 compatibility
@@ -13,7 +15,7 @@ except ImportError:
     import ConfigParser as configparser
 
 
-__all__ = ["sample_config_file", "get_config_file", "read_config"]
+__all__ = ["get_config_file", "read_config", "sample_config_file"]
 
 
 SRT_tools_config_file = None
@@ -187,9 +189,9 @@ def read_config(fname=None):
     except Exception:
         warnings.warn("Invalid skydip_directories in config file")
 
-    for key in config_output.keys():
-        if isinstance(config_output[key], str) and "\n" in config_output[key]:
-            config_output[key] = [s for s in config_output[key].splitlines() if s.strip()]
+    for key, val in config_output.keys():
+        if isinstance(val, str) and "\n" in val:
+            config_output[key] = [s for s in val.splitlines() if s.strip()]
 
     # If the list of directories is not specified, or if a '*' symbol is used,
     # use glob in the datadir to determine the list

@@ -24,23 +24,23 @@ Therefore repeated computations are prevented.
 
 import numpy as np
 from numpy import (
-    atleast_2d,
-    asarray,
-    zeros,
-    ones,
-    array,
-    atleast_1d,
     arange,
-    isscalar,
-    linspace,
+    around,
+    array,
+    asarray,
+    atleast_1d,
+    atleast_2d,
+    bincount,
     diff,
     empty,
-    around,
-    where,
-    bincount,
-    sort,
+    isscalar,
+    linspace,
     log10,
+    ones,
     searchsorted,
+    sort,
+    where,
+    zeros,
 )
 
 __all__ = ["histogram2d", "histogramdd"]
@@ -101,7 +101,6 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
     ((5, 8, 4), 6, 9, 5)
 
     """
-
     try:
         # Sample is an ND-array.
         N, D = sample.shape
@@ -176,7 +175,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
         if isscalar(bins[i]):
             if bins[i] < 1:
                 raise ValueError(
-                    "Element at index %s in `bins` should be a positive " "integer." % i
+                    f"Element at index {i} in `bins` should be a positive " "integer."
                 )
             nbin[i] = bins[i] + 2  # +2 for outlier bins
             edges[i] = linspace(smin[i], smax[i], int(nbin[i]) - 1)

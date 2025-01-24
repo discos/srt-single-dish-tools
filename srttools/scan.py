@@ -1,17 +1,17 @@
 """Scan class."""
 
-import time
-import pickle
 import glob
-import os
-import warnings
-import sys
-
 import logging
-import astropy.units as u
+import os
+import pickle
+import sys
+import warnings
+
 import numpy as np
 from scipy.signal import medfilt
-from astropy.table import Table, Column
+
+import astropy.units as u
+from astropy.table import Column, Table
 
 # from memory_profiler import profile
 
@@ -23,18 +23,16 @@ try:
 except ImportError:
     HAS_MPL = False
 
-from .io import read_data, root_name, get_chan_columns, get_channel_feed
-from .io import mkdir_p
-from .read_config import read_config, get_config_file
-from .fit import ref_mad, contiguous_regions
-from .fit import baseline_rough, baseline_als, linear_fun
+from .fit import baseline_als, baseline_rough, contiguous_regions, linear_fun, ref_mad
 from .interactive_filter import select_data
-from .utils import get_circular_statistics, normalize_angle_mpPI, TWOPI
+from .io import get_chan_columns, get_channel_feed, mkdir_p, read_data, root_name
+from .read_config import get_config_file, read_config
+from .utils import TWOPI, get_circular_statistics, normalize_angle_mpPI
 
 __all__ = [
     "Scan",
-    "interpret_frequency_range",
     "clean_scan_using_variability",
+    "interpret_frequency_range",
     "list_scans",
 ]
 
@@ -149,7 +147,6 @@ def interpret_frequency_range(freqsplat, bandwidth, nbin):
     >>> interpret_frequency_range('200:800', 1024, 512)
     (200.0, 800.0, 100, 399)
     """
-
     if freqsplat is None or freqsplat == "default":
         freqmin, freqmax = bandwidth / 10, bandwidth * 0.9
     elif freqsplat in ["all", ":"]:
@@ -373,7 +370,7 @@ def plot_light_curve(
     info_string="Empty info string",
 ):
     times = length * np.arange(lc.size) / lc.size
-    fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+    fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
     plt.plot(times, lc)
     plt.xlabel("Time")
     plt.ylabel("Counts")
@@ -386,7 +383,7 @@ def plot_light_curve(
         transform=plt.gca().transAxes,
         fontsize=19,
     )
-    plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format), dpi=dpi)
+    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
     plt.close(fig)
 
 
@@ -401,7 +398,7 @@ def plot_all_spectra(
     fig=None,
 ):
     if fig is None:
-        fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+        fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
 
     for i in dynamical_spectrum:
         plt.plot(allbins[1:], i[1:])
@@ -421,7 +418,7 @@ def plot_all_spectra(
         transform=ax.transAxes,
         fontsize=19,
     )
-    plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format), dpi=dpi)
+    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
     plt.close(fig)
 
 
@@ -531,7 +528,7 @@ def plot_spectrum_cleaning_results(
 
     bandwidth_unit = cleaning_results.freqmin.unit
 
-    fig = plt.figure("{}_{}".format(outfile, label), figsize=(15, 15))
+    fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
 
     if len(lc_corr) < 10:
         plot_all_spectra(
@@ -568,7 +565,7 @@ def plot_spectrum_cleaning_results(
     ax_dynspec.set_ylabel("Sample")
     ax_cleanspec.set_ylabel("Sample")
     ax_var.set_ylabel("r.m.s.")
-    ax_var.set_xlabel("Frequency from LO ({})".format(bandwidth_unit))
+    ax_var.set_xlabel(f"Frequency from LO ({bandwidth_unit})")
     ax_cleanlc.set_xlabel("Counts")
 
     # Plot mean spectrum
@@ -664,7 +661,7 @@ def plot_spectrum_cleaning_results(
 
     fig.tight_layout()
 
-    plt.savefig("{}_{}.{}".format(outfile, label, debug_file_format), dpi=dpi)
+    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
     plt.close(fig)
 
 
@@ -710,7 +707,7 @@ def clean_scan_using_variability(
     bandwidth : float
         Bandwidth in MHz
 
-    Other parameters
+    Other Parameters
     ----------------
     good_mask : boolean array
         this mask specifies channels that should never be discarded as
@@ -980,7 +977,7 @@ class Scan(Table):
                     nosave = True
                     need_for_cleaning = False
             if debug:
-                logging.info("Loading file {}".format(data))
+                logging.info(f"Loading file {data}")
             table = read_data(data)
             super().__init__(table, **kwargs)
             if not data.endswith("hdf5"):
@@ -1005,12 +1002,12 @@ class Scan(Table):
             if interactive:
                 self.interactive_filter()
 
-            if (("backsub" not in self.meta.keys() or not self.meta["backsub"])) and not nosub:
+            if ("backsub" not in self.meta.keys() or not self.meta["backsub"]) and not nosub:
                 logging.debug(f"Subtracting the baseline from " f'{self.meta["filename"]}')
                 try:
                     self.baseline_subtract(avoid_regions=avoid_regions, plot=debug)
-                except Exception as e:
-                    logging.error(f"Baseline subtraction failed: {str(e)}")
+                except Exception:
+                    logging.exception("Baseline subtraction failed")
 
             if not nosave:
                 self.save()
@@ -1025,7 +1022,7 @@ class Scan(Table):
 
         infostr = "Target: {}\n".format(self.meta["SOURCE"])
         infostr += "SubScan ID: {}\n".format(self.meta["SubScanID"])
-        infostr += "Channel: {}\n".format(ch)
+        infostr += f"Channel: {ch}\n"
         infostr += "Mean RA: {:.2f} d\n".format(np.degrees(ra_stats["mean"]))
         infostr += "Mean Dec: {:.2f} d\n".format(np.degrees(np.mean(self["dec"])))
         infostr += "Mean Az: {:.2f} d\n".format(np.degrees(az_stats["mean"]))
@@ -1073,7 +1070,7 @@ class Scan(Table):
             this dictionary contains, for each detector/polarization, True
             values for good spectral channels, and False for bad channels.
 
-        Other parameters
+        Other Parameters
         ----------------
         save_spectrum : bool, default False
             Save the spectrum into a 'ChX_spec' column
@@ -1086,7 +1083,7 @@ class Scan(Table):
             :func:`clean_scan_using_variability`)
         """
         if debug:
-            logging.debug("Noise threshold: {}".format(noise_threshold))
+            logging.debug(f"Noise threshold: {noise_threshold}")
 
         if self.meta["filtering_factor"] > 0.5:
             warnings.warn("Don't use filtering factors > 0.5. Skipping.")
@@ -1121,7 +1118,7 @@ class Scan(Table):
                 plot=plot,
                 nofilt=nofilt,
                 outfile=self.root_name(self.meta["filename"]),
-                label="{}".format(ic),
+                label=f"{ic}",
                 smoothing_window=self.meta["smooth_window"],
                 debug_file_format=self.meta["debug_file_format"],
                 info_string=self.get_info_string(ch),
@@ -1178,7 +1175,7 @@ class Scan(Table):
             (lam=1e11). If 'rough', use
             :func:`srttools.fit.baseline_rough` instead.
 
-        Other parameters
+        Other Parameters
         ----------------
         plot : bool
             Plot diagnostic information in an image with the same basename as
@@ -1216,14 +1213,14 @@ class Scan(Table):
 
             if plot and HAS_MPL:
                 plt.plot(self["time"], self[ch])
-                out = root_name(self.meta["filename"]) + "_{}.png".format(ch)
+                out = root_name(self.meta["filename"]) + f"_{ch}.png"
                 plt.savefig(out)
                 plt.close(fig)
         self.meta["backsub"] = True
 
     def __repr__(self):
         """Give the print() function something to print."""
-        reprstring = "\n\n----Scan from file {0} ----\n".format(self.meta["filename"])
+        reprstring = "\n\n----Scan from file {} ----\n".format(self.meta["filename"])
         reprstring += repr(Table(self))
         return reprstring
 
@@ -1233,7 +1230,7 @@ class Scan(Table):
 
         if fname.endswith(".hdf5"):
             kwargs["serialize_meta"] = kwargs.pop("serialize_meta", True)
-            super(Scan, self).write(fname, *args, **kwargs)
+            super().write(fname, *args, **kwargs)
 
         else:
             raise TypeError("Saving to anything else than HDF5 is not " "supported at the moment")
@@ -1283,7 +1280,7 @@ class Scan(Table):
                             self[dim][:, feed] <= i[1],
                         )
                     ] = False
-            self["{}-filt".format(ch)] = good
+            self[f"{ch}-filt"] = good
 
             if len(info["Ch"]["fitpars"]) > 1:
                 self[ch] -= linear_fun(self[dim][:, feed], *info["Ch"]["fitpars"])

@@ -1,21 +1,19 @@
+import glob
 import os
 import warnings
+
 import numpy as np
+
+import astropy.units as u
+from astropy.table import Table, vstack
 from astropy.time import Time
 
-from astropy.table import Table, vstack
-from astropy.io import fits
-import astropy.units as u
-import glob
 from . import logging
+from .fit import contiguous_regions
 from .read_config import read_config
-from .fit import contiguous_regions, find_trend_change
-
-import sys
 
 try:
     import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
 
     HAS_MPL = True
 except ImportError:
@@ -49,8 +47,8 @@ def load_data(fnames, outroot=None):
                 continue
             start_freq = full_table[ch].meta["frequency"].to(u.MHz).value
 
-            bad_chans = np.array([f for f in full_table[ch].meta["bad_chans"].keys()])
-            bad_freqs = np.array([f for f in full_table[ch].meta["bad_chans"].values()])
+            bad_chans = np.array(list(full_table[ch].meta["bad_chans"].keys()))
+            bad_freqs = np.array(list(full_table[ch].meta["bad_chans"].values()))
             times = [Time(full_table[ch].meta["DATE"]).mjd] * len(bad_freqs)
             new_tab = {
                 "time": times,
@@ -63,8 +61,7 @@ def load_data(fnames, outroot=None):
             tables[label].extend(Table(new_tab))
 
     outfiles = []
-    for label in tables.keys():
-        local_tables = tables[label]
+    for label, local_tables in tables.items():
         if len(local_tables) == 0:
             continue
         outfile = f"{outroot}{label}_rfi.hdf5"

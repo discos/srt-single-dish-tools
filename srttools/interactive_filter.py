@@ -1,8 +1,8 @@
 """Interactive operations."""
 
 import copy
-import warnings
 import logging
+import warnings
 
 try:
     import matplotlib.pyplot as plt
@@ -13,19 +13,18 @@ except ImportError:
     HAS_MPL = False
 
 import numpy as np
-from .fit import linear_fit, linear_fun, align
 
+from .fit import align, linear_fit, linear_fun
 from .utils import compare_anything
 
-
 __all__ = [
-    "TestWarning",
-    "PlotWarning",
-    "mask",
-    "intervals",
     "DataSelector",
     "ImageSelector",
+    "PlotWarning",
+    "TestWarning",
     "create_empty_info",
+    "intervals",
+    "mask",
     "select_data",
 ]
 
@@ -119,7 +118,6 @@ class DataSelector:
 
     def __init__(self, xs, ys, ax1, ax2, masks=None, xlabel=None, title=None, test=False):
         """Initialize."""
-
         self.instructions = """
 -------------------------------------------------------------
 
@@ -191,7 +189,6 @@ Actions:
 
     def on_click(self, event):
         """Dummy function, in case I want to do something with a click."""
-        pass
 
     def zap(self, event):
         """Create a zap interval."""
@@ -211,7 +208,7 @@ Actions:
         plt.draw()
         if self.test:
             warnings.warn(
-                "I select a zap interval at {}".format(event.xdata),
+                f"I select a zap interval at {event.xdata}",
                 TestWarning,
             )
 
@@ -232,7 +229,7 @@ Actions:
         self.lines.append(line)
         plt.draw()
         if self.test:
-            warnings.warn("I put a baseline mark at {}".format(event.xdata), TestWarning)
+            warnings.warn(f"I put a baseline mark at {event.xdata}", TestWarning)
 
     def on_key(self, event):
         """Do something when the keyboard is used."""
@@ -264,7 +261,8 @@ Actions:
 
     def flag(self, value=True):
         self.info[self.current]["FLAG"] = value
-        logging.info("Scan was {}flagged".format("un" if not value else ""))
+        label = "un" if not value else ""
+        logging.info("Scan was %sflagged", label)
 
     def reset(self):
         for line in self.lines:
@@ -311,7 +309,6 @@ Actions:
 
     def align_all(self):
         """Given the selected scan, aligns all the others to that."""
-
         reference = self.current
 
         x = np.array(self.xs[reference])
@@ -442,7 +439,7 @@ Actions:
             )
 
         if self.current is not None:
-            logging.info("Current scan is {}".format(self.current))
+            logging.info(f"Current scan is {self.current}")
             key = self.current
             self.ax2.plot(
                 self.xs[key][good[key]],
@@ -554,7 +551,7 @@ class ImageSelector:
         """Do this when the keyboard is pressed."""
         x, y = event.xdata, event.ydata
         key = event.key
-        logging.info("Pressed key {} at coords {},{}".format(key, x, y))
+        logging.info(f"Pressed key {key} at coords {x},{y}")
 
         if key == "q":
             plt.close(plt.gcf())

@@ -1,6 +1,8 @@
-import os
 import glob
+import os
+
 import pytest
+
 from srttools.imager import main_preprocess
 from srttools.rfistat import main_rfistat
 from srttools.utils import HAS_MPL

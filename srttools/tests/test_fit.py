@@ -1,12 +1,18 @@
-# -*- coding: utf-8 -*-
-
-
-from srttools.fit import fit_baseline_plus_bell, purge_outliers, align
-from srttools.fit import baseline_rough, ref_mad, ref_std, _rolling_window
-from srttools.fit import linear_fit, offset_fit, detrend_spectroscopic_data
-
 import numpy as np
 import pytest
+
+from srttools.fit import (
+    _rolling_window,
+    align,
+    baseline_rough,
+    detrend_spectroscopic_data,
+    fit_baseline_plus_bell,
+    linear_fit,
+    offset_fit,
+    purge_outliers,
+    ref_mad,
+    ref_std,
+)
 
 np.random.seed(1231636)
 
@@ -28,7 +34,7 @@ list_of_par_pairs = [
 ]
 
 
-class TestStuff(object):
+class TestStuff:
     @pytest.mark.parametrize("nx,ny", list_of_par_pairs)
     def test_detrend_spectroscopic_data(self, nx, ny):
         x, spectrum = _setup_spectra(nx, ny)
@@ -48,7 +54,7 @@ class TestStuff(object):
         assert np.all(detr == spectrum)
 
 
-class TestFit(object):
+class TestFit:
     @classmethod
     def setup_class(cls):
         cls.series = np.random.normal(0, 0.1, 1000)
@@ -170,7 +176,7 @@ class TestFit(object):
         ms = [0, 0.3, -0.8]
 
         for ix, x in enumerate(xs):
-            ys[ix] = ys[ix] + qs[ix] + ms[ix] * xs[ix]
+            ys[ix] = ys[ix] + qs[ix] + ms[ix] * x
 
         qs, ms = align(xs, ys)
 
@@ -178,7 +184,7 @@ class TestFit(object):
         np.testing.assert_allclose(ms, [0.3, -0.8], atol=0.05)
 
     def test_rolling_window_invalid(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             _rolling_window(1, 5)
 
     def test_ref_std_small_array(self):

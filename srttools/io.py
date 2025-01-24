@@ -1,29 +1,31 @@
 """Input/output functions."""
 
-import astropy.io.fits as fits
-from astropy.table import Table
+import copy
+import glob
+import logging
+import os
+import re
+import warnings
+from collections.abc import Iterable
+
 import numpy as np
+from scipy.interpolate import interp1d
+
+import astropy.io.fits as fits
 import astropy.units as u
 from astropy.coordinates import (
-    EarthLocation,
+    GCRS,
+    ICRS,
     AltAz,
     Angle,
-    ICRS,
-    GCRS,
+    EarthLocation,
     SkyCoord,
     get_sun,
 )
-import os
+from astropy.table import Table
 from astropy.time import Time
-import warnings
-import logging
-import copy
-import re
-import glob
-from collections.abc import Iterable
-from scipy.interpolate import interp1d
 
-from .utils import force_move_file, TWOPI
+from .utils import TWOPI, force_move_file
 
 try:
     from sunpy.coordinates import frames, sun
@@ -34,16 +36,16 @@ except ImportError:
 
 
 __all__ = [
-    "mkdir_p",
-    "detect_data_kind",
     "correct_offsets",
-    "observing_angle",
-    "get_rest_angle",
-    "print_obs_info_fitszilla",
-    "read_data_fitszilla",
-    "read_data",
-    "root_name",
+    "detect_data_kind",
     "get_chan_columns",
+    "get_rest_angle",
+    "mkdir_p",
+    "observing_angle",
+    "print_obs_info_fitszilla",
+    "read_data",
+    "read_data_fitszilla",
+    "root_name",
 ]
 
 
@@ -69,6 +71,7 @@ def interpret_chan_name(chan_name):
     """Get feed, polarization and baseband info from chan name.
 
     Examples
+    --------
     >>> feed, polar, baseband = interpret_chan_name('blablabal')
     >>> feed  # None
     >>> polar  # None
@@ -196,7 +199,7 @@ def detect_data_kind(fname):
     elif "fits" in fname:
         return "fitszilla"
     else:
-        warnings.warn("File {} is not in a known format".format(fname))
+        warnings.warn(f"File {fname} is not in a known format")
         return None
 
 
@@ -323,7 +326,7 @@ def get_sun_coords_from_radec(obstimes, ra, dec, sun_frame=None):
 def update_table_with_sun_coords(new_table, feeds=None, sun_frame=None):
     lon_str, lat_str = "hpln", "hplt"
 
-    if not ("dsun" in new_table.colnames):
+    if "dsun" not in new_table.colnames:
         new_table[lon_str] = np.zeros_like(new_table["el"])
         new_table[lat_str] = np.zeros_like(new_table["az"])
         new_table["dsun"] = np.zeros(len(new_table["az"]))
@@ -393,7 +396,7 @@ def update_table_with_offsets(
 
     lon_str, lat_str = "ra", "dec"
 
-    if not (lon_str in new_table.colnames):
+    if lon_str not in new_table.colnames:
         new_table[lon_str] = np.zeros_like(new_table["el"])
         new_table[lat_str] = np.zeros_like(new_table["az"])
 
@@ -455,9 +458,9 @@ def print_obs_info_fitszilla(fname):
 
 def _chan_name(f, p, c=None):
     if c is not None:
-        return "Feed{}_{}_{}".format(f, p, c)
+        return f"Feed{f}_{p}_{c}"
     else:
-        return "Feed{}_{}".format(f, p)
+        return f"Feed{f}_{p}"
 
 
 def read_data_fitszilla(fname):
@@ -588,7 +591,7 @@ def _read_data_fitszilla(lchdulist):
         raise ValueError(
             "Only datasets with the same nbin per channel are " "supported at the moment"
         )
-    nbin_per_chan = list(set(nbin_per_chan))[0]
+    nbin_per_chan = next(iter(set(nbin_per_chan)))
     types = get_value_with_units(section_table_data, "type")
     if "stokes" in types:
         is_polarized = True
@@ -688,7 +691,6 @@ def _read_data_fitszilla(lchdulist):
         except Exception:  # pragma: no cover
             warnings.warn("Temperature format not supported", UserWarning)
             unsupported_temperature = True
-            pass
 
     existing_columns = [chn for chn in data_table_data.colnames if chn.startswith("ch")]
     if existing_columns == []:
@@ -701,7 +703,7 @@ def _read_data_fitszilla(lchdulist):
     good = np.ones(len(feeds), dtype=bool)
 
     for i, s in enumerate(sections):
-        section_name = "ch{}".format(s)
+        section_name = f"ch{s}"
         if section_name not in existing_columns:
             good[i] = False
     allfeeds = feeds
@@ -741,15 +743,15 @@ def _read_data_fitszilla(lchdulist):
         ):
             raise ValueError(
                 "Something wrong with channel subdivision: "
-                "{} bins/channel, {} channels, "
-                "{} total bins".format(nbin_per_chan, nchan, nbins)
+                f"{nbin_per_chan} bins/channel, {nchan} channels, "
+                f"{nbins} total bins"
             )
 
         for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
             c = s
             if is_single_channel:
                 c = None
-            section_name = "ch{}".format(s)
+            section_name = f"ch{s}"
             ch = _chan_name(f, p, c)
             start, end = ic * nbin_per_chan, (ic + 1) * nbin_per_chan
             data_table_data[ch] = data_table_data[section_name][:, start:end]
@@ -762,7 +764,7 @@ def _read_data_fitszilla(lchdulist):
                 if is_single_channel:
                     c = None
 
-                section_name = "ch{}".format(s)
+                section_name = f"ch{s}"
                 qname, uname = _chan_name(f, "Q", c), _chan_name(f, "U", c)
                 qstart, qend = 2 * nbin_per_chan, 3 * nbin_per_chan
                 ustart, uend = 3 * nbin_per_chan, 4 * nbin_per_chan
@@ -772,12 +774,12 @@ def _read_data_fitszilla(lchdulist):
                 chan_names += [qname, uname]
 
         for f, ic, p, s in zip(feeds, IFs, polarizations, sections):
-            section_name = "ch{}".format(s)
+            section_name = f"ch{s}"
             if section_name in data_table_data.colnames:
                 data_table_data.remove_column(section_name)
     else:
         for ic, ch in enumerate(chan_names):
-            data_table_data[ch] = data_table_data["ch{}".format(chan_ids[ic])]
+            data_table_data[ch] = data_table_data[f"ch{chan_ids[ic]}"]
 
     # ----------- Read temperature data, if possible ----------------
     for ic, ch in enumerate(chan_names):
@@ -849,7 +851,7 @@ def _read_data_fitszilla(lchdulist):
     else:
         for i in range(len(xoffsets)):
             try:
-                ext = lchdulist["Coord{}".format(i)]
+                ext = lchdulist[f"Coord{i}"]
                 extdata = ext.data
                 ra, dec = extdata["raj2000"], extdata["decj2000"]
                 el, az = extdata["el"], extdata["az"]
@@ -1048,7 +1050,6 @@ def bulk_change(file, path, value):
     value : any acceptable type
         Value to be filled in
     """
-
     with fits.open(file, memmap=False) as hdul:
         ext, attr, key = path.split(",")
         ext = _try_type(ext, int)
@@ -1121,7 +1122,7 @@ def main_bulk_change(args=None):
         if args.recursive:
             if not fname == os.path.basename(fname):
                 raise ValueError(
-                    "Options recursive requires a file name, not " "a full path: {}".format(fname)
+                    "Options recursive requires a file name, not " f"a full path: {fname}"
                 )
 
             fs = glob.glob(os.path.join("**", fname), recursive=True)

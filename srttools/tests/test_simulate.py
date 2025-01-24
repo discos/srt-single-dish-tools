@@ -1,21 +1,25 @@
-import numpy as np
-import shutil
 import os
-import pytest
+import shutil
 import subprocess as sp
+
+import numpy as np
+import pytest
+
 from astropy.io import fits
 from srttools.io import mkdir_p
 from srttools.simulate import (
-    simulate_map,
-    simulate_sun,
-    simulate_scan,
-    sim_position_switching,
+    _default_map_shape,
+    main_simulate,
+    save_scan,
     sim_crossscans,
+    sim_position_switching,
+    simulate_map,
+    simulate_scan,
+    simulate_sun,
 )
-from srttools.simulate import _default_map_shape, save_scan, main_simulate
 
 
-class TestSimulate(object):
+class TestSimulate:
     @classmethod
     def setup_class(cls):
         cls.outdir = os.path.join("sim")

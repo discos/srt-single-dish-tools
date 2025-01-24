@@ -12,7 +12,7 @@ from srttools.destripe import basket_weaving, destripe_wrapper
 np.random.seed(450720239)
 
 
-class TestScanSet(object):
+class TestScanSet:
     @classmethod
     def setup_class(klass):
         x = np.linspace(-1, 1, 101)

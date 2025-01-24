@@ -1,24 +1,24 @@
-import time
-import signal
-import os
-import shutil
-import sys
-import warnings
 import glob
-import threading
-import queue
 import multiprocessing as mp
+import os
+import queue
+import shutil
+import signal
+import sys
+import threading
+import time
+import warnings
 
+from srttools.imager import main_preprocess
+from srttools.monitor.common import MAX_FEEDS, exit_function, log
 from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
-from srttools.imager import main_preprocess
-
-from srttools.monitor.common import MAX_FEEDS, log, exit_function
 
 try:
+    from watchdog.events import FileMovedEvent, PatternMatchingEventHandler
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserver
-    from watchdog.events import PatternMatchingEventHandler, FileMovedEvent
+
     from srttools.monitor.webserver import WebServer
 except ImportError:
     warnings.warn(
@@ -36,7 +36,7 @@ except ImportError:
 
 
 def create_dummy_config(filename="monitor_config.ini", extension="png"):
-    config_str = """[local]\n[analysis]\n[debugging]\ndebug_file_format : {}""".format(extension)
+    config_str = f"""[local]\n[analysis]\n[debugging]\ndebug_file_format : {extension}"""
     with open(filename, "w") as fobj:
         print(config_str, file=fobj)
     return filename
@@ -50,7 +50,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         "*/summary.fits",
         "*/Sum_*.fits",
     ]
-    patterns = ["*/*.fits"] + ["*/*.fits{}".format(x) for x in range(MAX_FEEDS)]
+    patterns = ["*/*.fits"] + [f"*/*.fits{x}" for x in range(MAX_FEEDS)]
 
     def __init__(self, observer):
         self._observer = observer
@@ -84,7 +84,7 @@ class MyEventHandler(PatternMatchingEventHandler):
         self._observer._timers[infile].start()
 
 
-class Monitor(object):
+class Monitor:
     def __init__(
         self,
         directories,
@@ -141,7 +141,7 @@ class Monitor(object):
         self._worker_thread.start()
         self._observer.start()
         self._web_server.start()
-        log.info("SDTmonitor started, process id: {}".format(os.getpid()))
+        log.info(f"SDTmonitor started, process id: {os.getpid()}")
 
     def stop(self):
         # Stop the worker thread
@@ -169,7 +169,7 @@ class Monitor(object):
                 pass
             except queue.Empty:
                 break
-        log.info("SDTmonitor stopped, process id: {}".format(os.getpid()))
+        log.info(f"SDTmonitor stopped, process id: {os.getpid()}")
 
     def _worker_method(self):
         while not self._stop:
@@ -203,7 +203,8 @@ class Monitor(object):
     def _process(pp_args, verbosity):
         """Calls the main_preprocess function as a separate process, so that
         multiple processes can run concurrently speeding up the whole operation
-        when receiving separate feeds files."""
+        when receiving separate feeds files.
+        """
         exit_code = 0
         try:
             with warnings.catch_warnings():
@@ -236,7 +237,7 @@ class Monitor(object):
         if self._stop:
             return
         p.start()
-        log.info("Loading file {}, pid {}".format(infile, p.pid))
+        log.info(f"Loading file {infile}, pid {p.pid}")
 
         # While the process executes, we retrieve
         # information regarding original and new files
@@ -252,9 +253,7 @@ class Monitor(object):
             offset = 2 * int(feed_idx)
 
         paths = {
-            "{}{}_{}.{}".format(root, feed_idx, i, self._extension): "latest_{}.{}".format(
-                i + offset, self._extension
-            )
+            f"{root}{feed_idx}_{i}.{self._extension}": f"latest_{i + offset}.{self._extension}"
             for i in range(2 if feed_idx else MAX_FEEDS * 2)
         }
 
@@ -268,7 +267,7 @@ class Monitor(object):
         # They will be overwritten when new images come out
         oldfiles = []
         if not feed_idx:
-            oldfiles = glob.glob("latest*.{}".format(self._extension))
+            oldfiles = glob.glob(f"latest*.{self._extension}")
 
         p.join(60)  # Wait a minute for process completion
         if p.is_alive():  # Process timed out
@@ -279,13 +278,13 @@ class Monitor(object):
                 pass
         elif p.exitcode == 0:  # Completed successfully
             self._files.put((paths, oldfiles, prodpath))
-            log.info("Completed file {}, pid {}".format(infile, p.pid))
+            log.info(f"Completed file {infile}, pid {p.pid}")
         elif p.exitcode == 1:  # Aborted
-            log.info("Aborted file {}, pid {}".format(infile, p.pid))
+            log.info(f"Aborted file {infile}, pid {p.pid}")
         elif p.exitcode == 15:  # Forcefully terminated
-            log.info("Forcefully terminated process {}, file {}".format(p.pid, infile))
+            log.info(f"Forcefully terminated process {p.pid}, file {infile}")
         else:  # Unexpected code
-            log.info("Process {} exited with unexpected code {}".format(p.pid, p.exitcode))
+            log.info(f"Process {p.pid} exited with unexpected code {p.exitcode}")
 
         # Eventually notify that the queue is not full anymore
         try:

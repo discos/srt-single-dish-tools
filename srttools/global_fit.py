@@ -7,13 +7,13 @@ try:
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
-from .fit import contiguous_regions
-from .utils import njit, vectorize
-
-from .histograms import histogram2d
 import numpy as np
 
-__all__ = ["fit_full_image", "display_intermediate"]
+from .fit import contiguous_regions
+from .histograms import histogram2d
+from .utils import njit, vectorize
+
+__all__ = ["display_intermediate", "fit_full_image"]
 
 
 @vectorize("(float64(float64,float64,float64,float64))", nopython=True)
@@ -105,7 +105,7 @@ def _save_iteration(par):
     iteration = next(ITERATION_COUNT)
     print(iteration, end="\r")
     if iteration % 2 == 0:
-        _save_intermediate("out_iter_{}_{:03d}.txt".format(CURR_CHANNEL, iteration), par)
+        _save_intermediate(f"out_iter_{CURR_CHANNEL}_{iteration:03d}.txt", par)
 
 
 def _obj_fun(par, data, data_idx, excluded, bx, by):
@@ -126,7 +126,6 @@ def _obj_fun(par, data, data_idx, excluded, bx, by):
         that might alter the total rms)
 
     """
-
     newd_t, _, newd_x, newd_y, newd_c, newd_e = data
 
     newd_c_new = _align_all(newd_t, newd_c, data_idx, par)
@@ -224,7 +223,7 @@ def fit_full_image(scanset, chan="Feed0_RCP", feed=0, excluded=None, par=None):
     scanset : a :class:``ScanSet`` instance
         The scanset to be fit
 
-    Other parameters
+    Other Parameters
     ----------------
     chan : str
         channel of the scanset to be fit. Defaults to ``"Feed0_RCP"``
@@ -318,7 +317,7 @@ def display_intermediate(scanset, chan="Feed0_RCP", feed=0, excluded=None, parfi
     scanset : a :class:``ScanSet`` instance
         The scanset to be fit
 
-    Other parameters
+    Other Parameters
     ----------------
     chan : str
         channel of the scanset to be fit. Defaults to ``"Feed0_RCP"``

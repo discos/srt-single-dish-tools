@@ -1,9 +1,11 @@
-from srttools.opacity import calculate_opacity, main_opacity, HAS_MPL
-import numpy as np
 import os
 
+import numpy as np
 
-class TestOpacity(object):
+from srttools.opacity import HAS_MPL, calculate_opacity, main_opacity
+
+
+class TestOpacity:
     @classmethod
     def setup_class(klass):
         import os

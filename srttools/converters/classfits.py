@@ -57,31 +57,32 @@ The conversion is performed as follows:
 
 """
 
+import copy
+import glob
+import logging
+import os
+import warnings
+from collections.abc import Iterable
+
+import numpy as np
+from scipy.signal import medfilt
+
+import astropy.constants as c
+import astropy.units as u
 from astropy.io import fits
 from astropy.table import Table, vstack
 from astropy.time import Time
-import astropy.units as u
-import astropy.constants as c
-import os
-import numpy as np
 from srttools.io import (
-    mkdir_p,
-    locations,
-    read_data_fitszilla,
-    get_chan_columns,
     classify_chan_columns,
+    get_chan_columns,
     interpret_chan_name,
+    label_from_chan_name,
+    locations,
+    mkdir_p,
+    read_data_fitszilla,
 )
-import glob
-from ..utils import get_mH2O
-from ..io import label_from_chan_name
-from ..scan import find_summary_file_in_dir
-from scipy.signal import medfilt
-import copy
-import warnings
-from collections.abc import Iterable
-import logging
-
+from srttools.scan import find_summary_file_in_dir
+from srttools.utils import get_mH2O
 
 model_primary_header = """
 SIMPLE  =                    T
@@ -270,7 +271,7 @@ def create_variable_length_column(values, max_length=2048, name="SPECTRUM", unit
     >>> isinstance(col, fits.Column)
     True
     """
-    format_str = "PJ({})".format(max_length)
+    format_str = f"PJ({max_length})"
     column = fits.Column(array=values, name=name, unit=unit, format=format_str)
     return column
 
@@ -575,7 +576,7 @@ class CLASSFITS_creator:
                 crval2 = subscan["ra"][:, f].to(u.deg).value
                 crval3 = subscan["dec"][:, f].to(u.deg).value
 
-                columns = [a for a in allcolumns if a.startswith("Feed{}".format(f))]
+                columns = [a for a in allcolumns if a.startswith(f"Feed{f}")]
 
                 data_matrix = []
                 for ch in columns:
@@ -596,7 +597,7 @@ class CLASSFITS_creator:
                     array=data_matrix,
                     name="SPECTRUM",
                     unit="K",
-                    format="{}D".format(channels[0]),
+                    format=f"{channels[0]}D",
                 )
 
                 newhdu = get_model_HDUlist(additional_columns=[newcol])
@@ -608,9 +609,7 @@ class CLASSFITS_creator:
                 for ch in columns:
                     feed, polar, baseband = interpret_chan_name(ch)
                     if feed != f:
-                        warnings.warn(
-                            "Problem interpreting chan name: {} " "instead of {}".format(feed, f)
-                        )
+                        warnings.warn(f"Problem interpreting chan name: {feed} " f"instead of {f}")
                     if baseband is None:
                         baseband = 1
                     array = subscan[ch]
@@ -624,7 +623,7 @@ class CLASSFITS_creator:
                     nbin = array.meta["channels"]
 
                     bandwidth = array.meta["bandwidth"]
-                    restfreq_label = "RESTFREQ{}".format(baseband + 1)
+                    restfreq_label = f"RESTFREQ{baseband + 1}"
                     if restfreq_label not in self.summary:
                         restfreq_label = "RESTFREQ1"
                     restfreq = self.summary[restfreq_label] * u.MHz
@@ -640,7 +639,7 @@ class CLASSFITS_creator:
                     is_on = cal_is_on(subscan)
                     if isinstance(is_on, Iterable) and average:
                         if len(list(set(is_on))) != 1:
-                            raise ValueError("flag_cal is inconsistent " "in {}".format(fname))
+                            raise ValueError("flag_cal is inconsistent " f"in {fname}")
                         is_on = is_on[0]
                     data["CAL_IS_ON"][id0:id1] = is_on
                     data["CALTEMP"][id0:id1] = array.meta["cal_mark_temp"].to("K").value
@@ -685,7 +684,7 @@ class CLASSFITS_creator:
                 header["RESTFREQ"] = restfreq.to(u.Hz).value
                 header["MAXIS1"] = channels[0]
 
-                filekey = os.path.basename(scandir) + "_all_feed{}".format(f)
+                filekey = os.path.basename(scandir) + f"_all_feed{f}"
 
                 if filekey in list(self.tables.keys()):
                     hdul = self.tables[filekey]
@@ -781,15 +780,13 @@ class CLASSFITS_creator:
     def write_tables_to_disk(self):
         """Write all HDU lists produced until now in separate FITS files."""
         for filekey, table in self.tables.items():
-            outfile = os.path.join(self.dirname, "{}.fits".format(filekey))
+            outfile = os.path.join(self.dirname, f"{filekey}.fits")
             table.writeto(outfile, overwrite=True)
 
-            outscript = os.path.join(self.dirname, "{}_class_script.txt".format(filekey))
+            outscript = os.path.join(self.dirname, f"{filekey}_class_script.txt")
             with open(outscript, "w") as fobj:
-                string = """
-file out {file}.gdf multiple /overwrite
-fits read {file}.fits
-                """.format(
-                    file=filekey
-                )
+                string = f"""
+file out {filekey}.gdf multiple /overwrite
+fits read {filekey}.fits
+                """
                 print(string, file=fobj)

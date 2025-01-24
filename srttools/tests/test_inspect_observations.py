@@ -1,14 +1,13 @@
-from srttools.inspect_observations import split_observation_table
-from srttools.inspect_observations import dump_config_files
-from srttools.inspect_observations import main_inspector
-from astropy.table import Table, Column
-import numpy as np
-import os
 import glob
+import os
+import subprocess as sp
+
+import numpy as np
 import pytest
 
 from astropy.logger import logging
-import subprocess as sp
+from astropy.table import Column, Table
+from srttools.inspect_observations import dump_config_files, main_inspector, split_observation_table
 
 try:
     from ConfigParser import ConfigParser
@@ -16,7 +15,7 @@ except ImportError:
     from configparser import ConfigParser
 
 
-@pytest.fixture()
+@pytest.fixture
 def logger():
     logger = logging.getLogger("Some.Logger")
     logger.setLevel(logging.WARN)
@@ -24,7 +23,7 @@ def logger():
     return logger
 
 
-class TestInspect(object):
+class TestInspect:
     @classmethod
     def setup_class(klass):
         klass.curdir = os.path.dirname(__file__)
@@ -73,12 +72,12 @@ class TestInspect(object):
         for i, t in enumerate(times):
             info.add_row(
                 [
-                    "{}_{:.1f}_{}".format(sources[i], times[i], receivers[i]),
+                    f"{sources[i]}_{t:.1f}_{receivers[i]}",
                     files[i],
                     sources[i],
                     receivers[i],
                     backends[i],
-                    times[i],
+                    t,
                     frequency[i],
                     bandwidth[i],
                     False,
@@ -174,7 +173,7 @@ class TestInspect(object):
                 os.unlink(f)
 
 
-class TestRun(object):
+class TestRun:
     @classmethod
     def setup_class(klass):
         klass.curdir = os.path.dirname(__file__)

@@ -1,8 +1,8 @@
+import asyncio
+import base64
+import json
 import threading
 import warnings
-import asyncio
-import json
-import base64
 
 try:
     import tornado.web
@@ -160,7 +160,7 @@ class WSHandler(WebSocketHandler):
         return True
 
     def open(self):
-        log.info("Got connection from {}".format(self.request.remote_ip))
+        log.info(f"Got connection from {self.request.remote_ip}")
         self.connected_clients.add(self)
         # Send all the images to new clients
         keys = self.images.keys()
@@ -183,16 +183,16 @@ class WSHandler(WebSocketHandler):
     def _close(self):
         if self in self.connected_clients:
             self.connected_clients.remove(self)
-            log.info("Client {} disconnected".format(self.request.remote_ip))
+            log.info(f"Client {self.request.remote_ip} disconnected")
 
 
 class HTTPHandler(RequestHandler):
     def get(self):
         # Answer the HTTP request with the index.html page
-        self.write(open("index.html", "r").read())
+        self.write(open("index.html").read())
 
 
-class WebServer(object):
+class WebServer:
     def __init__(self, extension, port=8080):
         self.extension = extension
         self.port = port
@@ -200,7 +200,7 @@ class WebServer(object):
         # Load the current images
         self.images = {}
         for index in range(MAX_FEEDS * 2):
-            self._load_image("latest_{}.{}".format(index, extension))
+            self._load_image(f"latest_{index}.{extension}")
 
         self.connected_clients = set()
 
@@ -231,7 +231,7 @@ class WebServer(object):
             self.web_server.listen(self.port)
         except OSError:
             raise OSError(
-                "Port {} is already being used, choose a different one!".format(self.port)
+                f"Port {self.port} is already being used, choose a different one!"
             )
 
     def start(self):
@@ -263,7 +263,7 @@ class WebServer(object):
         try:
             image_string = base64.b64encode(open(image_file, "rb").read())
             image_string = image_string.decode("utf-8")
-        except IOError:
+        except OSError:
             image_string = ""
         self.images[index] = image_string
         return index, image_string

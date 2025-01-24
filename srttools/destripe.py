@@ -84,8 +84,9 @@ def clip_and_smooth(img, clip_sigma=3, smooth_window=10, direction=0):
     ...             [[1, 1], [3.0310889132455352, 1]])
     True
     """
-    from scipy.ndimage import gaussian_filter, gaussian_filter1d
     from collections.abc import Iterable
+
+    from scipy.ndimage import gaussian_filter, gaussian_filter1d
 
     if img.shape[0] * img.shape[0] > 100:
         rms = mad(img.flatten())

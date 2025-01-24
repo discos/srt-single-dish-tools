@@ -1,7 +1,7 @@
 from srttools.parse_acs_logs import main_parse_acs_logs
 
 
-class Test1_Scan(object):
+class Test1_Scan:
     @classmethod
     def setup_class(klass):
         import os
