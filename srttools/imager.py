@@ -114,6 +114,8 @@ def _load_and_merge_subscans(indices_and_subscans):
             "ra_offset",
             "RightAscension Offset",
             "Declination Offset",
+            "ignore_suffix",
+            "ignore_prefix",
         ]:
             if key in s.meta:
                 s.meta.pop(key)

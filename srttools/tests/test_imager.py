@@ -274,8 +274,11 @@ class TestScanSet:
         from astropy.table import Table
 
         table = Table.read("test.hdf5")
+        print(table.meta)
         scanset = ScanSet(table, config_file=self.config_file)
+        print(scanset.meta)
         for k, val in self.config.items():
+            print(k, val)
             assert scanset.meta[k] == val
 
     def test_raonly(self):

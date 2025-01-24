@@ -416,8 +416,9 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None, plot=False):
         return y
 
     bad = contiguous_regions(outliers)
+
     for b in bad:
-        if b[0] == 0:
+        if b[0] == 0 and b[1] < len(y):
             y[b[0]] = y[b[1]]
         elif b[1] >= len(y):
             y[b[0] :] = y[b[0] - 1]
