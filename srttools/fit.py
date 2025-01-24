@@ -105,18 +105,12 @@ def contiguous_regions(condition):
     return idx
 
 
-def _rolling_window(a, window):
+def _rolling_window(a, window, **kwargs):
     """A smart rolling window.
 
     Found at http://www.rigtorp.se/2011/01/01/rolling-statistics-numpy.html
     """
-    try:
-        shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
-        strides = a.strides + (a.strides[-1],)
-        return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
-    except Exception:
-        warnings.warn(traceback.format_exc())
-        raise
+    return np.lib.stride_tricks.sliding_window_view(a, window, **kwargs)
 
 
 def ref_std(array, window=1):
