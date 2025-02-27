@@ -1,0 +1,1 @@
+Add date to info string in quicklook

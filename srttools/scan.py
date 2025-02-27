@@ -12,6 +12,7 @@ from scipy.signal import medfilt
 
 import astropy.units as u
 from astropy.table import Column, Table
+from astropy.time import Time
 
 # from memory_profiler import profile
 
@@ -381,7 +382,7 @@ def plot_light_curve(
         horizontalalignment="left",
         verticalalignment="top",
         transform=plt.gca().transAxes,
-        fontsize=19,
+        fontsize=16.5,
     )
     plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
     plt.close(fig)
@@ -416,7 +417,7 @@ def plot_all_spectra(
         horizontalalignment="left",
         verticalalignment="top",
         transform=ax.transAxes,
-        fontsize=19,
+        fontsize=16.5,
     )
     plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
     plt.close(fig)
@@ -655,7 +656,7 @@ def plot_spectrum_cleaning_results(
         horizontalalignment="left",
         verticalalignment="top",
         transform=ax_text.transAxes,
-        fontsize=19,
+        fontsize=16.5,
     )
     ax_text.axis("off")
 
@@ -1020,7 +1021,9 @@ class Scan(Table):
         ra_stats = get_circular_statistics(self["ra"])
         az_stats = get_circular_statistics(self["az"])
 
+        date = Time(self["time"][0] * u.day, format="mjd", scale="utc")
         infostr = "Target: {}\n".format(self.meta["SOURCE"])
+        infostr += "Date: {}\n".format(date.iso)
         infostr += "SubScan ID: {}\n".format(self.meta["SubScanID"])
         infostr += f"Channel: {ch}\n"
         infostr += "Mean RA: {:.2f} d\n".format(np.degrees(ra_stats["mean"]))
