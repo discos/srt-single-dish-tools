@@ -83,41 +83,60 @@ def create_index_file(port):
     <div id="thumbnail-bar"></div>
 
     <script>
+        const whiteImage = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs%3D";
         let selectedPairIndex = 0;
         let images = [];
-        const whiteImage = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs%3D";
-
-        function updateMainView(leftIndex, rightIndex) {
-            document.getElementById("main-left").src = images[leftIndex] || whiteImage;
-            document.getElementById("main-right").src = images[rightIndex] || whiteImage;
+        for (let index = 0; index < """
+        + str(MAX_FEEDS)
+        + """ * 2; index++) {
+            images[index] = whiteImage;
         }
+        document.getElementById("main-left").src = whiteImage;
+        document.getElementById("main-right").src = whiteImage;
 
-        function addImage(index, base64) {
-            images[index] = base64 ? "data:image/png;base64," + base64 : whiteImage;
+        function changePairsVisibility() {
+            let firstAvailable = """
+        + str(MAX_FEEDS)
+        + """;
 
-            let pairIndex = Math.floor(index / 2);
-            let leftIndex = pairIndex * 2;
-            let rightIndex = leftIndex + 1;
-
-            if (index === leftIndex && !images[rightIndex]) {
-                images[rightIndex] = whiteImage;
-            } else if (index === rightIndex && !images[leftIndex]) {
-                images[leftIndex] = whiteImage;
+            for (let pairIndex = 0; pairIndex < """
+        + str(MAX_FEEDS)
+        + """; pairIndex++) {
+                let pair = document.getElementById("thumb-pair-" + pairIndex);
+                if (pair) {
+                    let leftIndex = pairIndex * 2;
+                    let rightIndex = leftIndex + 1;
+                    if (images[leftIndex] === whiteImage && images[rightIndex] === whiteImage) {
+                        document.getElementById("thumb-pair-" + pairIndex).hidden = true;
+                        document.getElementById("feed-" + pairIndex).innerText = "";
+                    } else {
+                        document.getElementById("thumb-pair-" + pairIndex).hidden = false;
+                        document.getElementById("feed-" + pairIndex).innerText = "FEED " + pairIndex;
+                        firstAvailable = pairIndex;
+                    }
+                }
             }
 
-            if (images[leftIndex] === whiteImage && images[rightIndex] === whiteImage) return;
+            if (!document.getElementById("thumb-pair-" + selectedPairIndex).hidden) {
+                return selectedPairIndex;
+            } else {
+                return firstAvailable;
+            }
+        }
 
-            let bar = document.getElementById("thumbnail-bar");
+        function addPair(pairIndex) {
             if (!document.getElementById("thumb-pair-" + pairIndex)) {
                 let div = document.createElement("div");
                 div.classList.add("thumbnail-pair");
                 div.id = "thumb-pair-" + pairIndex;
                 div.setAttribute("data-pair", pairIndex);
+                let leftIndex = pairIndex * 2;
+                let rightIndex = leftIndex + 1;
                 div.setAttribute("data-left", leftIndex);
                 div.setAttribute("data-right", rightIndex);
                 div.onclick = function() {
                     selectedPairIndex = parseInt(this.getAttribute("data-pair"));
-                    updateMainView(parseInt(this.getAttribute("data-left")), parseInt(this.getAttribute("data-right")));
+                    updateMainView();
                 };
 
                 let img1 = document.createElement("img");
@@ -133,19 +152,42 @@ def create_index_file(port):
                 let feed_id = document.createElement("div");
                 feed_id.classList.add("feed_id");
                 feed_id.id = "feed-" + pairIndex;
-                feed_id.innerText = "FEED " + pairIndex;
 
                 div.appendChild(feed_id);
                 div.appendChild(img1);
                 div.appendChild(img2);
-                bar.appendChild(div);
+                document.getElementById("thumbnail-bar").appendChild(div);
             }
+        }
+
+        function updateMainView() {
+            let mainPair = changePairsVisibility();
+
+            if (mainPair !== """
+        + str(MAX_FEEDS)
+        + """) {
+                let leftIndex = mainPair * 2;
+                let rightIndex = leftIndex + 1;
+                document.getElementById("main-left").src = images[leftIndex];
+                document.getElementById("main-right").src = images[rightIndex];
+            } else {
+                document.getElementById("main-left").src = whiteImage;
+                document.getElementById("main-right").src = whiteImage;
+            }
+        }
+
+        function addImage(index, base64) {
+            images[index] = base64 ? "data:image/png;base64," + base64 : whiteImage;
+
+            let pairIndex = Math.floor(index / 2);
+            let leftIndex = pairIndex * 2;
+            let rightIndex = leftIndex + 1;
+
+            addPair(pairIndex);
+
             document.getElementById("thumb-" + index).src = images[index];
 
-            if (pairIndex === selectedPairIndex) {
-                updateMainView(leftIndex, rightIndex);
-                selectedPairIndex = pairIndex;
-            }
+            updateMainView();
         }
 
         function connect() {
