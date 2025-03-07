@@ -18,7 +18,7 @@ from srttools.monitor.common import MAX_FEEDS, log
 
 def create_index_file(port):
     html_string = (
-"""<!DOCTYPE html>
+        """<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -149,7 +149,9 @@ def create_index_file(port):
         }
 
         function connect() {
-            let ws = new WebSocket("ws://localhost:""" + str(port) + """/images");
+            let ws = new WebSocket("ws://localhost:"""
+        + str(port)
+        + """/images");
 
             ws.onmessage = function(message) {
                 let msg = JSON.parse(message.data);
@@ -164,7 +166,8 @@ def create_index_file(port):
         connect();
     </script>
 </body>
-</html>""")
+</html>"""
+    )
     with open("index.html", "w") as fobj:
         print(html_string, file=fobj)
 
