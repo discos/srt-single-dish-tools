@@ -16,135 +16,155 @@ except ImportError:
 from srttools.monitor.common import MAX_FEEDS, log
 
 
-def create_index_file(port, max_images=MAX_FEEDS * 2):
+def create_index_file(port):
     html_string = (
-        """
-<!DOCTYPE html>
+"""<!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>SRT Quicklook</title>
-    </head>
-    <body>
-        <script type="text/javascript">
-            window.onload = function()
-            {
-                function init_images(n)
-                {
-                    if(n % 2 == 0)
-                    {
-                        n++;
-                    }
+<head>
+    <meta charset="UTF-8">
+    <title>SRT Quicklook</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: white;
+        }
+        #main-view {
+            width: 100%;
+            height: 90vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .main-image {
+            width: auto;
+            height: 100%;
+            max-width: 50%;
+            object-fit: contain;
+        }
+        #thumbnail-bar {
+            width: 100%;
+            height: 10vh;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .thumbnail-pair {
+            display: inline-block;
+            height: 10vh;
+            line-height: 10vh;
+            cursor: pointer;
+            object-fit: cover;
+            text-align: center;
+        }
+        .thumbnail {
+            z-index: 0;
+            position: relative;
+            max-height: 10vh;
+            object-fit: cover;
+        }
+        .feed_id {
+            z-index: 1;
+            position: relative;
+            height: 0vh;
+            font-family: 'DejaVu Sans', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="main-view">
+        <img id="main-left" class="main-image" src="" />
+        <img id="main-right" class="main-image" src="" />
+    </div>
+    <div id="thumbnail-bar"></div>
 
-                    for(i = 0; i <= n; i++)
-                    {
-                        var div = document.getElementById("div_" + i.toString());
+    <script>
+        let selectedPairIndex = 0;
+        let images = [];
+        const whiteImage = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs%3D";
 
-                        if(div == null)
-                        {
-                            var image = new Image();
-                            image.id = "image_" + i.toString();
-                            image.style.width = "100%";
-                            image.src = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs%3D";
+        function updateMainView(leftIndex, rightIndex) {
+            document.getElementById("main-left").src = images[leftIndex] || whiteImage;
+            document.getElementById("main-right").src = images[rightIndex] || whiteImage;
+        }
 
-                            div = document.createElement("DIV");
-                            div.setAttribute("id", "div_" + i.toString());
-                            div.setAttribute("style", "width:50%; float:left;");
+        function addImage(index, base64) {
+            images[index] = base64 ? "data:image/png;base64," + base64 : whiteImage;
 
-                            div.appendChild(image);
-                            document.body.appendChild(div);
-                        }
-                    }
-                }
+            let pairIndex = Math.floor(index / 2);
+            let leftIndex = pairIndex * 2;
+            let rightIndex = leftIndex + 1;
 
-                function set_visibility()
-                {
-                    var white_image = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs%3D";
-
-                    for(i = 0; i < document.getElementsByTagName("IMG").length; i+=2)
-                    {
-                        var left = i;
-                        var right = i+1;
-                        var left_div = document.getElementById("div_" + left.toString());
-                        var right_div = document.getElementById("div_" + right.toString());
-                        var left_image = document.getElementById("image_" + left.toString());
-                        var right_image = document.getElementById("image_" + right.toString());
-
-                        if(left_image.src == white_image && right_image.src == white_image)
-                        {
-                            left_image.style.display = "none";
-                            right_image.style.display = "none";
-                        }
-                        else
-                        {
-                            left_image.style.display = "block";
-                            right_image.style.display = "block";
-                        }
-                    }
-                }
-
-                function connect()
-                {
-                    var destination = document.location.href;
-                    if(destination.startsWith("file"))
-                    {
-                        destination = "localhost";
-                    }
-                    else
-                    {
-                        destination = document.location.href.split(":")[1]
-                    }
-
-                    var ws = new WebSocket("ws:" + destination + ":"""
-        + str(port)
-        + """/images");
-
-                    ws.onopen = function()
-                    {
-                        console.log('Connected')
-                    }
-
-                    ws.onmessage = function(message)
-                    {
-                        var msg = JSON.parse(message.data)
-                        init_images(msg.index);
-
-                        var image = document.getElementById("image_" + msg.index.toString());
-
-                        if(msg.image == "")
-                        {
-                            image.src = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs%3D";
-                        }
-                        else
-                        {
-                            image.src = "data:image/png;base64," + msg.image;
-                        }
-
-                        set_visibility();
-                    };
-
-                    ws.onclose = function(e)
-                    {
-                        console.log('Socket is closed. Reconnect will be attempted in 10 seconds.');
-                        setTimeout(function()
-                        {
-                            connect();
-                        }, 10000);
-                    };
-
-                    ws.onerror = function(err)
-                    {
-                        console.error('Socket encountered error. Closing socket');
-                        ws.close();
-                    };
-                }
-
-                connect();
+            if (index === leftIndex && !images[rightIndex]) {
+                images[rightIndex] = whiteImage;
+            } else if (index === rightIndex && !images[leftIndex]) {
+                images[leftIndex] = whiteImage;
             }
-        </script>
-    </body>
-</html>"""
-    )
+
+            if (images[leftIndex] === whiteImage && images[rightIndex] === whiteImage) return;
+
+            let bar = document.getElementById("thumbnail-bar");
+            if (!document.getElementById("thumb-pair-" + pairIndex)) {
+                let div = document.createElement("div");
+                div.classList.add("thumbnail-pair");
+                div.id = "thumb-pair-" + pairIndex;
+                div.setAttribute("data-pair", pairIndex);
+                div.setAttribute("data-left", leftIndex);
+                div.setAttribute("data-right", rightIndex);
+                div.onclick = function() {
+                    selectedPairIndex = parseInt(this.getAttribute("data-pair"));
+                    updateMainView(parseInt(this.getAttribute("data-left")), parseInt(this.getAttribute("data-right")));
+                };
+
+                let img1 = document.createElement("img");
+                img1.classList.add("thumbnail");
+                img1.id = "thumb-" + leftIndex;
+                img1.src = images[leftIndex];
+
+                let img2 = document.createElement("img");
+                img2.classList.add("thumbnail");
+                img2.id = "thumb-" + rightIndex;
+                img2.src = images[rightIndex];
+
+                let feed_id = document.createElement("div");
+                feed_id.classList.add("feed_id");
+                feed_id.id = "feed-" + pairIndex;
+                feed_id.innerText = "FEED " + pairIndex;
+
+                div.appendChild(feed_id);
+                div.appendChild(img1);
+                div.appendChild(img2);
+                bar.appendChild(div);
+            }
+            document.getElementById("thumb-" + index).src = images[index];
+
+            if (pairIndex === selectedPairIndex) {
+                updateMainView(leftIndex, rightIndex);
+                selectedPairIndex = pairIndex;
+            }
+        }
+
+        function connect() {
+            let ws = new WebSocket("ws://localhost:""" + str(port) + """/images");
+
+            ws.onmessage = function(message) {
+                let msg = JSON.parse(message.data);
+                addImage(msg.index, msg.image);
+            };
+
+            ws.onclose = function() {
+                setTimeout(connect, 10000);
+            };
+        }
+
+        connect();
+    </script>
+</body>
+</html>""")
     with open("index.html", "w") as fobj:
         print(html_string, file=fobj)
 
