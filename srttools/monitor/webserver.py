@@ -83,6 +83,12 @@ def create_index_file(port):
     <div id="thumbnail-bar"></div>
 
     <script>
+        let destination = document.location.href;
+        if (destination.startsWith("file")) {
+            destination = "localhost";
+        } else {
+            destination = document.location.href.split(":")[1];
+        }
         const whiteImage = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs%3D";
         let selectedPairIndex = 0;
         let images = [];
@@ -191,7 +197,7 @@ def create_index_file(port):
         }
 
         function connect() {
-            let ws = new WebSocket("ws://localhost:"""
+            let ws = new WebSocket("ws://" + destination + ":"""
         + str(port)
         + """/images");
 
