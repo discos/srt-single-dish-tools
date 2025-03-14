@@ -111,19 +111,23 @@ class TestMonitor:
         klass.file_empty_single_feed = os.path.abspath(dummy) + "5"
 
         klass.file_empty_hdf5 = os.path.abspath(os.path.join(klass.datadir, "srt_data_dummy.hdf5"))
-        klass.file_empty_pdf0 = os.path.abspath(os.path.join(klass.datadir, "srt_data_dummy_0.png"))
-        klass.file_empty_pdf1 = os.path.abspath(os.path.join(klass.datadir, "srt_data_dummy_1.png"))
+        klass.file_empty_pdf0 = os.path.abspath(
+            os.path.join(klass.datadir, "srt_data_dummy_000.png")
+        )
+        klass.file_empty_pdf1 = os.path.abspath(
+            os.path.join(klass.datadir, "srt_data_dummy_001.png")
+        )
         klass.file_empty_hdf5_alt = os.path.abspath(
             os.path.join(klass.proddir, "srt_data_dummy.hdf5")
         )
         klass.file_empty_pdf0_alt = os.path.abspath(
-            os.path.join(klass.proddir, "srt_data_dummy_0.png")
+            os.path.join(klass.proddir, "srt_data_dummy_000.png")
         )
         klass.file_empty_pdf1_alt = os.path.abspath(
-            os.path.join(klass.proddir, "srt_data_dummy_1.png")
+            os.path.join(klass.proddir, "srt_data_dummy_001.png")
         )
         klass.file_empty_pdf10 = os.path.abspath(
-            os.path.join(klass.proddir, "srt_data_dummy5_0.png")
+            os.path.join(klass.proddir, "srt_data_dummy5_000.png")
         )
         klass.file_empty_hdf5_SF = os.path.abspath(
             os.path.join(klass.proddir, "srt_data_dummy5.hdf5")
@@ -178,7 +182,7 @@ class TestMonitor:
 
         shutil.copy(self.file_empty_init, self.file_empty)
 
-        files = ["latest_0.png", "latest_1.png"]
+        files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         for fname in files:
@@ -195,7 +199,7 @@ class TestMonitor:
 
         shutil.copy(self.file_empty_init, self.file_empty)
 
-        files = ["latest_0.png", "latest_1.png"]
+        files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         for fname in files:
@@ -217,7 +221,7 @@ class TestMonitor:
 
         shutil.copy(self.file_empty_init, self.file_empty)
 
-        files = ["latest_0.png", "latest_1.png"]
+        files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         for fname in files:
@@ -234,7 +238,7 @@ class TestMonitor:
 
         shutil.copy(self.file_empty_init_single_feed, self.file_empty_single_feed)
 
-        files = ["latest_10.png"]
+        files = ["latest_010.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         for fname in files:
@@ -251,7 +255,7 @@ class TestMonitor:
 
         shutil.copy(self.file_empty_init, self.file_empty)
 
-        files = ["latest_0.png", "latest_1.png"]
+        files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         for fname in files:
@@ -260,7 +264,7 @@ class TestMonitor:
     @pytest.mark.xfail(strict=False)
     @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_workers(self):
-        files = ["latest_8.png", "latest_10.png"]
+        files = ["latest_008.png", "latest_010.png"]
 
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], config_file=self.config_file, workers=2, port=port)
@@ -284,7 +288,7 @@ class TestMonitor:
     @pytest.mark.xfail(strict=False)
     @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_delete_old_images(self):
-        files = [f"latest_{i}.png" for i in range(8)]
+        files = [f"latest_{i:03d}.png" for i in range(8)]
 
         for fname in files[2:]:
             sp.check_call(f"touch {fname}".split())
@@ -321,7 +325,7 @@ class TestMonitor:
         r = urllib.request.urlopen(url, timeout=5)
         assert r.code == 200
 
-        files = ["latest_0.png", "latest_1.png"]
+        files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         for fname in files:
@@ -351,7 +355,7 @@ class TestMonitor:
             # Now trigger the process of a file
             shutil.copy(self.file_empty_init, self.file_empty)
 
-            files = ["latest_0.png", "latest_1.png"]
+            files = ["latest_000.png", "latest_001.png"]
             look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
             # Ask the new images
@@ -360,7 +364,7 @@ class TestMonitor:
             for image_string in l:
                 image = json.loads(image_string)
                 assert image["index"] in [0, 1]
-                compare_images(image["image"], "latest_{}.png".format(image["index"]))
+                compare_images(image["image"], f"latest_{image['index']:03d}.png")
 
             for fname in files:
                 assert os.path.exists(fname)

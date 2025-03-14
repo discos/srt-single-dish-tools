@@ -242,7 +242,7 @@ class TestScanSet:
         for file in files[:2]:
             # I used debug_file_format : png in the config
             if HAS_MPL:
-                f = os.path.basename(file).replace(".fits", "_0.png")
+                f = os.path.basename(file).replace(".fits", "_000.png")
 
                 assert os.path.exists(os.path.join(self.prodir_ra, f))
 

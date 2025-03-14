@@ -412,7 +412,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
             ax0.legend()
 
-            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch}.png"))
+            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}.png"))
             plt.close(fig)
             fig = plt.figure("Fit information - temperature")
             gs = GridSpec(2, 1, height_ratios=(3, 1))
@@ -430,7 +430,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1.set_ylabel("Residual (cts)")
 
             ax0.legend()
-            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch}_temp.png"))
+            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}_temp.png"))
             plt.close(fig)
 
     return True, rows
