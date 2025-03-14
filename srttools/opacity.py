@@ -104,7 +104,7 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
             plt.xlabel("Airmass")
             plt.ylabel("T (K)")
             plt.title("T_atm: {:.2f}; tau: {:.4f}; t0: {:.2f}".format(*par))
-            plt.savefig(file.replace(".fits", f"_fit_{ch}.png"))
+            plt.savefig(file.replace(".fits", f"_fit_{ch:03d}.png"))
             plt.close(fig)
 
         results[ch] = par[1]

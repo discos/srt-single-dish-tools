@@ -1216,7 +1216,7 @@ class Scan(Table):
 
             if plot and HAS_MPL:
                 plt.plot(self["time"], self[ch])
-                out = root_name(self.meta["filename"]) + f"_{ch}.png"
+                out = root_name(self.meta["filename"]) + f"_{ch:03d}.png"
                 plt.savefig(out)
                 plt.close(fig)
         self.meta["backsub"] = True
