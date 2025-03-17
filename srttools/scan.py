@@ -1121,7 +1121,7 @@ class Scan(Table):
                 plot=plot,
                 nofilt=nofilt,
                 outfile=self.root_name(self.meta["filename"]),
-                label=f"{ic}",
+                label=f"{ic:03d}",
                 smoothing_window=self.meta["smooth_window"],
                 debug_file_format=self.meta["debug_file_format"],
                 info_string=self.get_info_string(ch),
