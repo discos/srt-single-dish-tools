@@ -1,3 +1,12 @@
+v0.8 (unreleased)
+-----------------
+
+New Features
+^^^^^^^^^^^^
+
+- Add date to info string in quicklook (`#252 <https://github.com/discos/srt-single-dish-tools/pull/252>`__)
+
+
 v0.7.0 (2025-01-24)
 -------------------
 
