@@ -25,6 +25,7 @@ from srttools.scan import (
     Scan,
     clean_scan_using_variability,
     find_summary_file_in_dir,
+    product_path_from_file_name,
 )
 from srttools.utils import compare_anything
 
@@ -473,3 +474,34 @@ class TestSummary:
 
     def teardown_class(cls):
         shutil.rmtree(cls.testdir)
+
+
+class TestScanUtils:
+    def test_product_path_from_file_name(self):
+        # f, w and p below are respectively fname, workdir and productdir
+        # The expected path should be composed in the following way
+        # productdir + (fname - the directories in common with workdir)
+        # and we take out the file name at the end
+        # resulting in '/tmp/.tox/cov/d/e'
+        # By using os.path.commonprefix, the resulting path is instead
+        # '/tmp/../.tox/cov/d/e', which normalized is '/.tox/cov/d/e'
+        # which not only is the wrong directory,
+        # but it is also a directory where, in this example,
+        # the process cannot write, and even if it could, it should definitely not!
+        f = "/a/b/c/.tox/cov/d/e/pippo.pippo"
+        w = "/a/b/c/.tmp/cov"
+        p = "/tmp"
+        expected = "/tmp/.tox/cov/d/e"
+        path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
+        assert Path(path).as_posix() == expected
+
+        # We mock commonpath by using commonprefix instead
+        from unittest.mock import patch
+
+        with patch(
+            "srttools.scan.os.path.commonpath", side_effect=os.path.commonprefix
+        ) as mock_patch:
+            path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
+            mock_patch.assert_called_once()
+            # Resulting path is not correct
+            assert Path(path).as_posix() != expected
