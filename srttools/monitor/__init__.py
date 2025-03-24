@@ -5,11 +5,11 @@ import signal
 import argparse
 import threading
 
-try:
-    from srttools.monitor.monitor import Monitor
-    from srttools.monitor.common import MAX_FEEDS
-except Exception:
-    warnings.warn("Monitor cannot work")
+from srttools.monitor.common import MAX_PROCS
+from srttools.monitor.monitor import Monitor
+
+
+stop_event = threading.Event()
 
 
 def main_monitor(args=None):
@@ -17,7 +17,7 @@ def main_monitor(args=None):
     parser = argparse.ArgumentParser(description=description)
 
     min_proc = 1
-    max_proc = MAX_FEEDS
+    max_proc = MAX_PROCS
 
     def workers_count(w):
         try:
@@ -28,7 +28,7 @@ def main_monitor(args=None):
                 raise ValueError
         except (ValueError, TypeError):
             raise argparse.ArgumentTypeError(
-                "Choose a number of processes between {} and {}.".format(min_proc, max_proc)
+                f"Choose a number of processes between {min_proc} and {max_proc}."
             )
 
     def config_file(filename):
@@ -38,7 +38,7 @@ def main_monitor(args=None):
             return filename
         else:
             raise argparse.ArgumentTypeError(
-                "Provided configuration file '{}' does not exist!".format(filename)
+                f"Provided configuration file '{filename}' does not exist!"
             )
 
     def port_available(port):
@@ -46,13 +46,12 @@ def main_monitor(args=None):
             port = int(port)
         except ValueError:
             raise argparse.ArgumentTypeError("Argument `port` should be an integer!")
-        import socket
-
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("localhost", port)) == 0:
-                raise argparse.ArgumentTypeError(
-                    "Port {} is already being used, choose a different one!".format(port)
-                )
+        if port == 0:
+            # A 0 means random open port, we want to avoid this scenario
+            # If the chosen port is busy the Monitor will return the same error
+            raise argparse.ArgumentTypeError(
+                f"Port {port} is already being used, choose a different one!"
+            )
         return port
 
     parser.add_argument(
@@ -76,10 +75,17 @@ def main_monitor(args=None):
         default=False,
     )
     parser.add_argument(
+        "-l",
+        "--localhost",
+        help="The webserver will only listen from local connections",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
         "-p",
         "--port",
         help="The port on which the server will be listening",
-        type=int,
+        type=port_available,
         default=8080,
     )
     parser.add_argument(
@@ -99,7 +105,7 @@ def main_monitor(args=None):
     args = parser.parse_args(args)
 
     # This block is required to translate a SIGTERM into a KeyboardInterrupt, in order to handle the process as a service
-    def sigterm_received(signum, frame):
+    def sigterm_received(signum, frame):  # pragma: no cover
         os.kill(os.getpid(), signal.SIGINT)
 
     if threading.current_thread() is threading.main_thread():
@@ -113,11 +119,13 @@ def main_monitor(args=None):
             workers=args.workers,
             verbosity=args.verbosity,
             polling=args.polling,
+            localhost=args.localhost,
             port=args.port,
         )
         monitor.start()
+        stop_event.clear()
 
-        while True:
+        while not stop_event.is_set():
             time.sleep(0.1)
     except OSError as e:  # This happens when the given port is already busy
         parser.error(str(e))

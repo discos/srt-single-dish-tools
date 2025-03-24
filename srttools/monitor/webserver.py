@@ -3,6 +3,10 @@ import base64
 import json
 import threading
 import warnings
+import importlib
+import re
+import os
+from string import Template
 
 try:
     import tornado.web
@@ -11,224 +15,35 @@ try:
     from tornado.websocket import WebSocketHandler
 except ImportError:
     warnings.warn("To use SDTmonitor, you need to install tornado: \n" "\n   > pip install tornado")
-    RequestHandler = WebSocketHandler = object
+    sys.exit(1)
 
-from srttools.monitor.common import MAX_FEEDS, log
+from srttools.monitor.common import log
 
 
-def create_index_file(port):
-    html_string = (
-        """<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>SRT Quicklook</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: white;
-        }
-        #main-view {
-            width: 100%;
-            height: 90vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .main-image {
-            width: auto;
-            height: 100%;
-            max-width: 50%;
-            object-fit: contain;
-        }
-        #thumbnail-bar {
-            width: 100%;
-            height: 10vh;
-            overflow-x: auto;
-            overflow-y: hidden;
-            white-space: nowrap;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .thumbnail-pair {
-            display: inline-block;
-            height: 10vh;
-            line-height: 10vh;
-            cursor: pointer;
-            object-fit: cover;
-            text-align: center;
-        }
-        .thumbnail {
-            z-index: 0;
-            position: relative;
-            max-height: 10vh;
-            object-fit: cover;
-        }
-        .feed_id {
-            z-index: 1;
-            position: relative;
-            height: 0vh;
-            font-family: 'DejaVu Sans', sans-serif;
-        }
-    </style>
-</head>
-<body>
-    <div id="main-view">
-        <img id="main-left" class="main-image" src="" />
-        <img id="main-right" class="main-image" src="" />
-    </div>
-    <div id="thumbnail-bar"></div>
-
-    <script>
-        let destination = document.location.href;
-        if (destination.startsWith("file")) {
-            destination = "localhost";
-        } else {
-            destination = document.location.href.split(":")[1];
-        }
-        const whiteImage = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs%3D";
-        let selectedPairIndex = 0;
-        let images = [];
-        for (let index = 0; index < """
-        + str(MAX_FEEDS)
-        + """ * 2; index++) {
-            images[index] = whiteImage;
-        }
-        document.getElementById("main-left").src = whiteImage;
-        document.getElementById("main-right").src = whiteImage;
-
-        function changePairsVisibility() {
-            let firstAvailable = """
-        + str(MAX_FEEDS)
-        + """;
-
-            for (let pairIndex = 0; pairIndex < """
-        + str(MAX_FEEDS)
-        + """; pairIndex++) {
-                let pair = document.getElementById("thumb-pair-" + pairIndex);
-                if (pair) {
-                    let leftIndex = pairIndex * 2;
-                    let rightIndex = leftIndex + 1;
-                    if (images[leftIndex] === whiteImage && images[rightIndex] === whiteImage) {
-                        document.getElementById("thumb-pair-" + pairIndex).hidden = true;
-                        document.getElementById("feed-" + pairIndex).innerText = "";
-                    } else {
-                        document.getElementById("thumb-pair-" + pairIndex).hidden = false;
-                        document.getElementById("feed-" + pairIndex).innerText = "FEED " + pairIndex;
-                        firstAvailable = pairIndex;
-                    }
-                }
-            }
-
-            if (!document.getElementById("thumb-pair-" + selectedPairIndex).hidden) {
-                return selectedPairIndex;
-            } else {
-                return firstAvailable;
-            }
-        }
-
-        function addPair(pairIndex) {
-            if (!document.getElementById("thumb-pair-" + pairIndex)) {
-                let div = document.createElement("div");
-                div.classList.add("thumbnail-pair");
-                div.id = "thumb-pair-" + pairIndex;
-                div.setAttribute("data-pair", pairIndex);
-                let leftIndex = pairIndex * 2;
-                let rightIndex = leftIndex + 1;
-                div.setAttribute("data-left", leftIndex);
-                div.setAttribute("data-right", rightIndex);
-                div.onclick = function() {
-                    selectedPairIndex = parseInt(this.getAttribute("data-pair"));
-                    updateMainView();
-                };
-
-                let img1 = document.createElement("img");
-                img1.classList.add("thumbnail");
-                img1.id = "thumb-" + leftIndex;
-                img1.src = images[leftIndex];
-
-                let img2 = document.createElement("img");
-                img2.classList.add("thumbnail");
-                img2.id = "thumb-" + rightIndex;
-                img2.src = images[rightIndex];
-
-                let feed_id = document.createElement("div");
-                feed_id.classList.add("feed_id");
-                feed_id.id = "feed-" + pairIndex;
-
-                div.appendChild(feed_id);
-                div.appendChild(img1);
-                div.appendChild(img2);
-                document.getElementById("thumbnail-bar").appendChild(div);
-            }
-        }
-
-        function updateMainView() {
-            let mainPair = changePairsVisibility();
-
-            if (mainPair !== """
-        + str(MAX_FEEDS)
-        + """) {
-                let leftIndex = mainPair * 2;
-                let rightIndex = leftIndex + 1;
-                document.getElementById("main-left").src = images[leftIndex];
-                document.getElementById("main-right").src = images[rightIndex];
-            } else {
-                document.getElementById("main-left").src = whiteImage;
-                document.getElementById("main-right").src = whiteImage;
-            }
-        }
-
-        function addImage(index, base64) {
-            images[index] = base64 ? "data:image/png;base64," + base64 : whiteImage;
-
-            let pairIndex = Math.floor(index / 2);
-            let leftIndex = pairIndex * 2;
-            let rightIndex = leftIndex + 1;
-
-            addPair(pairIndex);
-
-            document.getElementById("thumb-" + index).src = images[index];
-
-            updateMainView();
-        }
-
-        function connect() {
-            let ws = new WebSocket("ws://" + destination + ":"""
-        + str(port)
-        + """/images");
-
-            ws.onmessage = function(message) {
-                let msg = JSON.parse(message.data);
-                addImage(msg.index, msg.image);
-            };
-
-            ws.onclose = function() {
-                setTimeout(connect, 10000);
-            };
-        }
-
-        connect();
-    </script>
-</body>
-</html>"""
-    )
-    with open("index.html", "w") as fobj:
-        print(html_string, file=fobj)
+def create_index_file(**kwargs):
+    config = {
+        "port": 8080,
+        "reconnectTime": 10000,
+        "maxScrollSpeed": 80,
+    }
+    config.update(kwargs)
+    with open("index.html", "w") as webpage:
+        with open(
+            importlib.resources.files("srttools.monitor").joinpath("resources", "index.html"), "r"
+        ) as template:
+            print(Template(template.read()).safe_substitute(config), file=webpage, end="")
 
 
 class WSHandler(WebSocketHandler):
+    # This allows clients that did not send any request to the HTTPHandler previously
+    # i.e.: a client that opens the index.html page instead of accessing it via network
+    check_origin = lambda _, __: True
+    # We don't care about listening to messages
+    on_message = lambda _, __: None
+
     def initialize(self, connected_clients, images):
         self.connected_clients = connected_clients
         self.images = images
-
-    def check_origin(self, origin):
-        # This allows clients that did not send any request to the HTTPHandler previously
-        # i.e.: a client that opens the index.html page instead of accessing it via network
-        return True
 
     def open(self):
         log.info(f"Got connection from {self.request.remote_ip}")
@@ -241,14 +56,15 @@ class WSHandler(WebSocketHandler):
     def on_close(self):
         self._close()
 
-    def on_message(self, message):
-        pass
-
     def send_image(self, index):
-        message = {"index": index, "image": self.images[index]}
+        message = {"index": index, "image": self.images.get(index, "")}
         try:
             self.write_message(json.dumps(message))
-        except tornado.websocket.WebSocketClosedError:
+        except (
+            tornado.websocket.WebSocketClosedError,
+            tornado.iostream.StreamClosedError,
+        ):  # pragma: no cover
+            # Tried to cover this exception by dropping the connection in multiple ways after it was opened but it was never covered, ignoring it
             self._close()
 
     def _close(self):
@@ -263,15 +79,34 @@ class HTTPHandler(RequestHandler):
         self.write(open("index.html").read())
 
 
+class FaviconHandler(RequestHandler):
+    def initialize(self):
+        # Load the favicon in memory
+        favicon_data = None
+        with importlib.resources.files("srttools.monitor").joinpath(
+            "resources", "favicon.ico"
+        ).open("rb") as f:
+            favicon_data = f.read()
+        self.favicon_data = favicon_data
+
+    def get(self):
+        self.set_header("Content-Type", "image/x-icon")
+        self.write(self.favicon_data)
+
+
 class WebServer:
-    def __init__(self, extension, port=8080):
+    def __init__(self, extension, localhost=False, port=8080):
         self.extension = extension
         self.port = port
+        self.address = "127.0.0.1" if localhost else "0.0.0.0"
 
         # Load the current images
         self.images = {}
-        for index in range(MAX_FEEDS * 2):
-            self._load_image(f"latest_{index}.{extension}")
+        pattern = re.compile(rf"^latest_\d{{3}}\.{extension}$")
+        files = [f for f in os.listdir() if pattern.match(f)]
+        files.sort()
+        for filename in files:
+            self._load_image(filename)
 
         self.connected_clients = set()
 
@@ -289,6 +124,7 @@ class WebServer:
                 ),
                 (r"/", HTTPHandler),
                 (r"/index.html", HTTPHandler),
+                (r"/favicon.ico", FaviconHandler),
             ]
         )
 
@@ -298,33 +134,26 @@ class WebServer:
 
         application.log_request = log_function
         self.web_server = tornado.httpserver.HTTPServer(application)
+        asyncio.set_event_loop(asyncio.new_event_loop())
         try:
-            self.web_server.listen(self.port)
+            self.web_server.listen(self.port, address=self.address)
         except OSError:
             raise OSError(f"Port {self.port} is already being used, choose a different one!")
 
     def start(self):
-        self._asyncioloop = None
-        try:
-            asyncio.get_event_loop()
-        except RuntimeError:
-            self._asyncioloop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self._asyncioloop)
+        create_index_file(port=self.port)
+
         self.ioloop = tornado.ioloop.IOLoop.current()
-
-        create_index_file(self.port)
-
-        self.t = threading.Thread(target=self.ioloop.start)
-        self.t.start()
+        if not self.started and not self.ioloop.asyncio_loop.is_running():
+            self.t = threading.Thread(target=self.ioloop.start)
+            self.t.start()
         self.started = True
 
     def stop(self):
         if self.started:
             self.ioloop.add_callback(self.ioloop.stop)
-            if self._asyncioloop:
-                self._asyncioloop.stop()
-        if self.t:
-            self.t.join()
+            if self.t:
+                self.t.join()
         self.started = False
 
     def _load_image(self, image_file):
@@ -332,9 +161,10 @@ class WebServer:
         try:
             image_string = base64.b64encode(open(image_file, "rb").read())
             image_string = image_string.decode("utf-8")
+            self.images[index] = image_string
         except OSError:
+            self.images.pop(index, None)
             image_string = ""
-        self.images[index] = image_string
         return index, image_string
 
     def update(self, image_file):
