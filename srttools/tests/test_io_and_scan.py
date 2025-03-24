@@ -495,6 +495,11 @@ class TestScanUtils:
         path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
         assert Path(path).as_posix() == expected
 
+        # Use a relative path for workdir
+        path, fname = product_path_from_file_name(f, workdir=os.path.relpath(w), productdir=p)
+        assert Path(path).as_posix() == expected
+        # Exception not raised
+
         # We mock commonpath by using commonprefix instead
         from unittest.mock import patch
 
