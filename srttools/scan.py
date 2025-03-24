@@ -61,7 +61,7 @@ def product_path_from_file_name(fname, workdir=".", productdir=None):
     if productdir is None:
         rootdir = filedir
     else:
-        base = os.path.commonprefix([filedir, workdir])
+        base = os.path.commonpath([filedir, workdir])
         relpath = os.path.relpath(filedir, base)
         rootdir = os.path.join(productdir, relpath)
 
