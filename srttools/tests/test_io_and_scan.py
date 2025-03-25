@@ -491,13 +491,13 @@ class TestScanUtils:
         f = "/a/b/c/.tox/cov/d/e/pippo.pippo"
         w = "/a/b/c/.tmp/cov"
         p = "/tmp"
-        expected = "/tmp/.tox/cov/d/e"
+        expected = Path("/tmp/.tox/cov/d/e").absolute()
         path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
-        assert Path(path).as_posix() == expected
+        assert Path(path).absolute() == expected
 
         # Use a relative path for workdir
         path, fname = product_path_from_file_name(f, workdir=os.path.relpath(w), productdir=p)
-        assert Path(path).as_posix() == expected
+        assert Path(path).absolute() == expected
         # Exception not raised
 
         # We mock commonpath by using commonprefix instead
@@ -509,4 +509,4 @@ class TestScanUtils:
             path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
             mock_patch.assert_called_once()
             # Resulting path is not correct
-            assert Path(path).as_posix() != expected
+            assert Path(path).absolute() != expected
