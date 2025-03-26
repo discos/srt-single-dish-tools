@@ -3,10 +3,14 @@ import base64
 import json
 import threading
 import warnings
-import importlib
 import re
 import os
 from string import Template
+
+try:
+    from importlib.resources import files
+except ImportError:
+    from importlib_resources import files
 
 try:
     import tornado.web
@@ -28,9 +32,7 @@ def create_index_file(**kwargs):
     }
     config.update(kwargs)
     with open("index.html", "w") as webpage:
-        with open(
-            importlib.resources.files("srttools.monitor").joinpath("resources", "index.html"), "r"
-        ) as template:
+        with open(files("srttools.monitor").joinpath("resources", "index.html"), "r") as template:
             print(Template(template.read()).safe_substitute(config), file=webpage, end="")
 
 
@@ -83,9 +85,7 @@ class FaviconHandler(RequestHandler):
     def initialize(self):
         # Load the favicon in memory
         favicon_data = None
-        with importlib.resources.files("srttools.monitor").joinpath(
-            "resources", "favicon.ico"
-        ).open("rb") as f:
+        with files("srttools.monitor").joinpath("resources", "favicon.ico").open("rb") as f:
             favicon_data = f.read()
         self.favicon_data = favicon_data
 
