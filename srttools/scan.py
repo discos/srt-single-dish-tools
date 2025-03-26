@@ -57,10 +57,13 @@ def product_path_from_file_name(fname, workdir=".", productdir=None):
     """
     filedir, fn = os.path.split(fname)
     if filedir == "":
-        filedir = os.path.abspath(os.curdir)
+        filedir = os.curdir
+    filedir = os.path.abspath(filedir)
     if productdir is None:
         rootdir = filedir
     else:
+        workdir = os.path.abspath(workdir)
+        productdir = os.path.abspath(productdir)
         base = os.path.commonpath([filedir, workdir])
         relpath = os.path.relpath(filedir, base)
         rootdir = os.path.join(productdir, relpath)
