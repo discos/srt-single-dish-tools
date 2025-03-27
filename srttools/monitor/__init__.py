@@ -6,7 +6,6 @@ import argparse
 import threading
 
 from srttools.monitor.common import MAX_PROCS
-from srttools.monitor.monitor import Monitor
 
 
 stop_event = threading.Event()
@@ -113,6 +112,8 @@ def main_monitor(args=None):
 
     monitor = None
     try:
+        from srttools.monitor.monitor import Monitor
+
         monitor = Monitor(
             args.directories,
             config_file=args.config,

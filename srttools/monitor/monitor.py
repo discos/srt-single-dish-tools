@@ -47,7 +47,7 @@ class MyEventHandler(RegexMatchingEventHandler):
     ignore_regexes = [
         re.compile(r"^.*[/\\]tmp[/\\].*"),
         re.compile(r"^.*[/\\]tempfits[/\\].*"),
-        re.compile(r"^.*/[^/\\]+\.fitstemp$"),
+        re.compile(r"^.*[/\\][^/\\]+\.fitstemp$"),
         re.compile(r"^.*[/\\]summary[/\\].fits$"),
         re.compile(r"^.*[/\\]Sum_.*\.fits$"),
     ]
