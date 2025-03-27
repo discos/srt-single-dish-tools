@@ -36,9 +36,8 @@ except ImportError:
 
 
 def create_dummy_config(filename="monitor_config.ini", extension="png"):
-    config_str = (
-        f"""[local]\nproductdir : /tmp\n[analysis]\n[debugging]\ndebug_file_format : {extension}"""
-    )
+    productdir = os.environ.get("TEMP", "") if "win" in sys.platform else "/tmp"
+    config_str = f"""[local]\nproductdir : {productdir}\n[analysis]\n[debugging]\ndebug_file_format : {extension}"""
     with open(filename, "w") as fobj:
         print(config_str, file=fobj)
     return filename
@@ -46,13 +45,13 @@ def create_dummy_config(filename="monitor_config.ini", extension="png"):
 
 class MyEventHandler(RegexMatchingEventHandler):
     ignore_regexes = [
-        re.compile(r"^.*/tmp/.*"),
-        re.compile(r"^.*/tempfits/.*"),
-        re.compile(r"^.*/[^/]+\.fitstemp$"),
-        re.compile(r"^.*/summary\.fits$"),
-        re.compile(r"^.*/Sum_.*\.fits$"),
+        re.compile(r"^.*[/\\]tmp[/\\].*"),
+        re.compile(r"^.*[/\\]tempfits[/\\].*"),
+        re.compile(r"^.*/[^/\\]+\.fitstemp$"),
+        re.compile(r"^.*[/\\]summary[/\\].fits$"),
+        re.compile(r"^.*[/\\]Sum_.*\.fits$"),
     ]
-    regexes = [re.compile(r"^.*/[^/]+\.fits(\d+)?$")]
+    regexes = [re.compile(r"^.*[/\\][^/\\]+\.fits(\d+)?$")]
 
     def __init__(self, observer):
         self._observer = observer

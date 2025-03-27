@@ -387,7 +387,8 @@ class TestMonitor:
         files = [f"latest_{i:03d}.png" for i in range(8)]
 
         for fname in files[2:]:
-            sp.check_call(f"touch {fname}".split())
+            with open(fname, "w") as f:
+                pass
 
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
@@ -503,10 +504,14 @@ class TestMonitor:
 
     @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_busy_port(self, capfd):
-        port = 1
+        port = get_free_tcp_port()
+        # First occupy the port with a random socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(("localhost", port))
         with pytest.raises(OSError) as exc:
             Monitor([self.datadir], localhost=True, port=port)
         assert f"Port {port} is already being used, choose a different one!" in str(exc.value)
+        s.close()
 
     @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli(self):
@@ -520,15 +525,17 @@ class TestMonitor:
 
     @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli_busy_port(self, capfd):
-        # A port equal to 0 would cause to select a random port.
-        # We intercept it and notify the error
-        port = 1
+        port = get_free_tcp_port()
+        # First occupy the port with a random socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(("localhost", port))
         args = ["-p", f"{port}", "--localhost", self.datadir]
         with pytest.raises(SystemExit) as exc:
             main_monitor(args)
         assert exc.value.code == 2
         _, err = capfd.readouterr()
         assert f"Port {port} is already being used, choose a different one!" in err
+        s.close()
 
     @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli_random_port(self, capfd):
