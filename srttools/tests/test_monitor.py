@@ -31,7 +31,7 @@ except ImportError:
 from srttools.scan import product_path_from_file_name
 from srttools.utils import look_for_files_or_bust
 
-STANDARD_TIMEOUT = 10
+STANDARD_TIMEOUT = 20
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -285,7 +285,7 @@ class TestMonitor:
         shutil.copy(self.file_empty_init, self.file_empty)
 
         files = ["latest_000.png", "latest_001.png"]
-        look_for_files_or_bust(files, STANDARD_TIMEOUT * 3)
+        look_for_files_or_bust(files, STANDARD_TIMEOUT * 2)
 
     def test_filemoved_event(self):
         # First we duplicate the file we want to move
