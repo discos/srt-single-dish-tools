@@ -8,10 +8,9 @@ recursive-include docs *
 recursive-include licenses *
 recursive-include scripts *
 recursive-include srttools/data *.ini
-recursive-include srttools/monitor/resources *
+
+graft srttools/monitor/resources
 
 prune build
 prune docs/_build
 prune docs/api
-
-global-exclude *.pyc *.o

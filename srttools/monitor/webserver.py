@@ -18,10 +18,9 @@ try:
     from tornado.web import Application, RequestHandler
     from tornado.websocket import WebSocketHandler
 except ImportError:
-    warnings.warn("To use SDTmonitor, you need to install tornado: \n" "\n   > pip install tornado")
-    import sys
-
-    sys.exit(1)
+    raise ImportError(
+        "To use SDTmonitor, you need to install tornado: \n" "\n   > pip install tornado"
+    )
 
 from srttools.monitor.common import log
 

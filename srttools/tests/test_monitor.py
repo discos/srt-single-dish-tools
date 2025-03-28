@@ -15,11 +15,13 @@ import pytest
 import copy
 
 from srttools.read_config import read_config
+from srttools.monitor import main_monitor  # import the CLI regardless of dependencies
 
 try:
     from tornado.websocket import websocket_connect
     from tornado.ioloop import IOLoop
-    from srttools.monitor import Monitor, main_monitor, stop_event, MAX_PROCS
+    from srttools.monitor import Monitor
+    from srttools.monitor.common import stop_event, MAX_PROCS
 
     HAS_DEPENDENCIES = True
 except ImportError:
@@ -96,6 +98,7 @@ class WebSocketClient:
         return messages
 
 
+@pytest.mark.skipif("not HAS_DEPENDENCIES")
 class TestMonitor:
     @classmethod
     def setup_class(klass):
@@ -184,17 +187,14 @@ class TestMonitor:
             if os.path.exists(fname):
                 os.unlink(fname)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_monitor_installed(self):
         sp.check_call("SDTmonitor -h".split())
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_stop_without_start(self):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
         self.monitor.stop()
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_start_twice(self):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
@@ -202,7 +202,6 @@ class TestMonitor:
         time.sleep(1)
         self.monitor.start()
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_all(self):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
@@ -215,7 +214,6 @@ class TestMonitor:
         files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_all_new_with_config(self):
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -230,7 +228,6 @@ class TestMonitor:
         files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_verbose(self):
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -249,7 +246,6 @@ class TestMonitor:
         files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_fake_file(self):
         # We just create a fake file, it should be aborted
         port = get_free_tcp_port()
@@ -263,7 +259,6 @@ class TestMonitor:
 
         time.sleep(2)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_a_single_feed(self):
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -278,7 +273,6 @@ class TestMonitor:
         files = ["latest_010.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_polling(self):
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -293,7 +287,6 @@ class TestMonitor:
         files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT * 3)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_filemoved_event(self):
         # First we duplicate the file we want to move
         shutil.copy(
@@ -317,7 +310,6 @@ class TestMonitor:
         files = ["latest_010.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_filemoved_event_source(self):
         # First we duplicate the file we want to move
         shutil.copy(
@@ -343,7 +335,6 @@ class TestMonitor:
 
         self.removefiles += [self.file_empty_single_feed.replace("fits5", "notafits")]
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_copy_same_file(self):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
@@ -361,7 +352,6 @@ class TestMonitor:
         files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_workers(self):
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -382,7 +372,6 @@ class TestMonitor:
 
         self.removefiles += [self.file_empty_single_feed.replace("fits5", "fits4")]
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_delete_old_images(self):
         files = [f"latest_{i:03d}.png" for i in range(8)]
 
@@ -403,7 +392,6 @@ class TestMonitor:
         for fname in files[2:]:
             assert not os.path.exists(fname)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cancel_processing(self):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
@@ -414,7 +402,6 @@ class TestMonitor:
         shutil.copy(self.file_empty_init, self.file_empty)
         # Immediately exit, should cancel the processing
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_stop_while_enqueued(self):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port, workers=1)
@@ -432,7 +419,6 @@ class TestMonitor:
         time.sleep(1)
         # Now exit immediately and cancel the enqueued processes
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_http_server(self):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
@@ -450,7 +436,6 @@ class TestMonitor:
         files = ["latest_000.png", "latest_001.png"]
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_favicon(self):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
@@ -463,7 +448,6 @@ class TestMonitor:
         r = urllib.request.urlopen(url, timeout=5)
         assert r.code == 200
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_websocket_server(self):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
@@ -502,7 +486,6 @@ class TestMonitor:
             compare_images(image["image"], f"latest_{image['index']:03d}.png")
         ws.close()
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_busy_port(self, capfd):
         port = get_free_tcp_port()
         # First occupy the port with a random socket
@@ -513,7 +496,6 @@ class TestMonitor:
         assert f"Port {port} is already being used, choose a different one!" in str(exc.value)
         s.close()
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli(self):
         port = get_free_tcp_port()
         args = ["-p", f"{port}", "--localhost", "-w", "1", "-c", self.config_file, self.datadir]
@@ -523,7 +505,6 @@ class TestMonitor:
         stop_event.set()
         t.join()
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli_busy_port(self, capfd):
         port = get_free_tcp_port()
         # First occupy the port with a random socket
@@ -537,7 +518,6 @@ class TestMonitor:
         assert f"Port {port} is already being used, choose a different one!" in err
         s.close()
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli_random_port(self, capfd):
         # A port equal to 0 would cause to select a random port.
         # We intercept it and notify the error
@@ -549,7 +529,6 @@ class TestMonitor:
         _, err = capfd.readouterr()
         assert f"Port {port} is already being used, choose a different one!" in err
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli_string_port(self, capfd):
         args = ["-p", "pippo", self.datadir]
         with pytest.raises(SystemExit) as exc:
@@ -558,7 +537,6 @@ class TestMonitor:
         _, err = capfd.readouterr()
         assert "Argument `port` should be an integer!" in err
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli_oor_workers(self, capfd):
         port = get_free_tcp_port()
         args = ["-p", f"{port}", "-w", "0", self.datadir]
@@ -568,7 +546,6 @@ class TestMonitor:
         _, err = capfd.readouterr()
         assert f"Choose a number of processes between 1 and {MAX_PROCS}" in err
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli_string_workers(self, capfd):
         port = get_free_tcp_port()
         args = ["-p", f"{port}", "-w", "pippo", self.datadir]
@@ -578,7 +555,6 @@ class TestMonitor:
         _, err = capfd.readouterr()
         assert f"Choose a number of processes between 1 and {MAX_PROCS}" in err
 
-    @pytest.mark.skipif("not HAS_DEPENDENCIES")
     def test_cli_nonexistent_config(self, capfd):
         port = get_free_tcp_port()
         config = "pippo"
@@ -589,10 +565,18 @@ class TestMonitor:
         _, err = capfd.readouterr()
         assert f"Provided configuration file '{config}' does not exist!" in err
 
-    @pytest.mark.skipif("HAS_DEPENDENCIES")
+
+@pytest.mark.skipif("HAS_DEPENDENCIES")
+class TestMonitorWithoutDeps:
     def test_dependencies_missing(self):
-        with pytest.warns(UserWarning) as record:
+        with pytest.raises(ImportError) as exc:
             from srttools.monitor import Monitor
+        assert np.any([f"install {dep}" in str(exc) for dep in ["tornado", "watchdog"]])
+
+    def test_cli_dependencies_missing(self):
+        with pytest.warns(UserWarning) as record:
+            result = main_monitor(".")
+        assert result == 1
         at_least_one_warning = False
         for string in ["watchdog", "tornado"]:
             at_least_one_warning = at_least_one_warning or np.any(

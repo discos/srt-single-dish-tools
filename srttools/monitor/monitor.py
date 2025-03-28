@@ -19,10 +19,9 @@ try:
     from watchdog.observers import Observer
     from watchdog.observers.polling import PollingObserverVFS
 except ImportError:
-    warnings.warn(
+    raise ImportError(
         "To use SDTmonitor, you need to install watchdog: \n" "\n   > pip install watchdog"
     )
-    sys.exit(1)
 
 from srttools.monitor.webserver import WebServer
 
