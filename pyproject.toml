@@ -161,7 +161,7 @@ astropy_header = true
 doctest_plus = "enabled"
 text_file_format = "rst"
 remote_data_strict = true
-addopts = "--ignore=strtools/monitor --color=yes --doctest-rst"
+addopts = "--color=yes --doctest-rst"
 filterwarnings = [
     "error:.*:DeprecationWarning",
     "ignore:Matplotlib is currently using agg, which is a:UserWarning",
