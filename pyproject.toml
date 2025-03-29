@@ -7,7 +7,7 @@ description = "SRT single dish tools: Tools for the analysis and conversion of S
 readme = "README.rst"
 authors = [
     { name = "Matteo Bachetti", email = "matteo@matteobachetti.it" },
-    { name = "Giuseppe Carboni" },
+    { name = "Giuseppe Carboni", email = "giuseppe.carboni@inaf.it" },  # SDTmonitor developer and maintainer
     { name = "The Disc Team" }
 ]
 license = { text = "3-clause BSD" }
@@ -138,7 +138,8 @@ namespaces = false
     "tests/data/*.ini",
     "tests/data/*/*.ini",
     "tests/data/acs.xml",
-    "tests/data/*.reg"
+    "tests/data/*.reg",
+    "srttools/monitor/resources/*",
 ]
 "srttools.tests" = ["data/*"]
 
@@ -227,8 +228,10 @@ line-length = 100
 
 
 [tool.coverage]
-
     [tool.coverage.run]
+        parallel = true
+        concurrency = ["thread", "multiprocessing"]
+        source = ["srttools"]
         omit = [
             "srttools/_astropy_init*",
             "srttools/conftest.py",
@@ -246,7 +249,6 @@ line-length = 100
             "*/srttools/*/tests/*",
             "*/srttools/extern/*",
             "*/srttools/version*",
-
         ]
 
     [tool.coverage.report]
@@ -264,7 +266,10 @@ line-length = 100
             "pragma: py{ignore_python_version}",
             # Don't complain about IPython completion helper
             "def _ipython_key_completions_",
+            # Ignore KeyboardInterrupts
+            "except KeyboardInterrupt",
         ]
+
 [tool.ruff]
 lint.select = ["ALL"]
 line-length = 100

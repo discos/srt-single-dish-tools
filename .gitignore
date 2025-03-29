@@ -72,3 +72,6 @@ target/
 .DS_Store
 srttools/version.py
 *.ipynb
+
+# pyenv local version
+.python-version

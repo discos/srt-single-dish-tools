@@ -1,0 +1,6 @@
+Multiple monitor fix and additions.
+SDTmonitor is now fully compatible with Windows OSes.
+It also can display a dynamic number of feeds and channels and is not limited to 14 channels as it was previously.
+The PollingObserver used internally has been replaced with PollingObserverVFS (*Virtual File System* like NFS),
+which is our most common use case for polling.
+The tests coverage has also been drastically increased.
