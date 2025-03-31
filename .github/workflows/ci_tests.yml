@@ -115,10 +115,10 @@ jobs:
             toxenv: py38-test-alldeps
             experimental: true
 
-          - name: OS X - Python 3.10 with all optional dependencies
-            os: macos14
-            python: '3.10'
-            toxenv: py310-test-alldeps
+          - name: OS X - Python 3.12 with all optional dependencies
+            os: macos-13
+            python: '3.12'
+            toxenv: py312-test-alldeps
             experimental: true
 
           - name: Windows - Python 3.10 with all optional dependencies
