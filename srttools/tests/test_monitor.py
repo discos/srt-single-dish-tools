@@ -31,6 +31,7 @@ except ImportError:
 from srttools.scan import product_path_from_file_name
 from srttools.utils import look_for_files_or_bust
 
+
 STANDARD_TIMEOUT = 20
 
 
@@ -46,6 +47,17 @@ def get_free_tcp_port():
         tcp.bind(("localhost", 0))
         _, port = tcp.getsockname()
         return port
+
+
+def wait_for_message(caplog, message, clear=False, timeout=STANDARD_TIMEOUT):
+    expiry = time.time() + timeout
+    if clear:
+        caplog.clear()
+    while time.time() < expiry:
+        if message in caplog.text:
+            return True
+        time.sleep(0.01)
+    return False
 
 
 def compare_images(received_string, image_file):
@@ -202,7 +214,7 @@ class TestMonitor:
         time.sleep(1)
         self.monitor.start()
 
-    def test_all(self):
+    def test_all(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
         self.monitor.start()
@@ -210,11 +222,16 @@ class TestMonitor:
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
-
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
+        )
         files = ["latest_000.png", "latest_001.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    def test_all_new_with_config(self):
+    def test_all_new_with_config(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor(
             [self.datadir], config_file=self.config_file, localhost=True, port=port
@@ -224,11 +241,16 @@ class TestMonitor:
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
-
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
+        )
         files = ["latest_000.png", "latest_001.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    def test_verbose(self):
+    def test_verbose(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor(
             [self.datadir],
@@ -242,11 +264,16 @@ class TestMonitor:
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
-
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
+        )
         files = ["latest_000.png", "latest_001.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    def test_fake_file(self):
+    def test_fake_file(self, caplog):
         # We just create a fake file, it should be aborted
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -256,10 +283,16 @@ class TestMonitor:
 
         time.sleep(1)
         shutil.copy(self.config_file, self.file_empty)
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
+        )
+        wait_for_message(caplog, f"Aborted file {self.file_empty}") or pytest.fail(
+            "Processing not aborted!"
+        )
 
         time.sleep(2)
 
-    def test_a_single_feed(self):
+    def test_a_single_feed(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor(
             [self.datadir], config_file=self.config_file, localhost=True, port=port
@@ -269,11 +302,16 @@ class TestMonitor:
         time.sleep(1)
 
         shutil.copy(self.file_empty_init_single_feed, self.file_empty_single_feed)
-
+        wait_for_message(caplog, f"Loading file {self.file_empty_single_feed}") or pytest.fail(
+            "Processing not started!"
+        )
         files = ["latest_010.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty_single_feed}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    def test_polling(self):
+    def test_polling(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor(
             [self.datadir], config_file=self.config_file, polling=True, localhost=True, port=port
@@ -283,16 +321,20 @@ class TestMonitor:
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
-
-        files = ["latest_000.png", "latest_001.png"]
-        look_for_files_or_bust(files, STANDARD_TIMEOUT * 2)
-
-    def test_filemoved_event(self):
-        # First we duplicate the file we want to move
-        shutil.copy(
-            self.file_empty_init_single_feed,
-            self.file_empty_init_single_feed.replace("fits5", "fits4"),
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
         )
+        files = ["latest_000.png", "latest_001.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty}") or pytest.fail(
+            "Processing not completed!"
+        )
+        look_for_files_or_bust(files, STANDARD_TIMEOUT)
+
+    def test_filemoved_event(self, caplog):
+        # First we duplicate the file we want to move
+        filename_init = self.file_empty_init_single_feed.replace("fits5", "fits4")
+
+        shutil.copy(self.file_empty_init_single_feed, filename_init)
 
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -303,19 +345,23 @@ class TestMonitor:
         time.sleep(1)
 
         # Now we move the file
-        shutil.move(
-            self.file_empty_init_single_feed.replace("fits5", "fits4"), self.file_empty_single_feed
+        shutil.move(filename_init, self.file_empty_single_feed)
+        wait_for_message(caplog, f"Loading file {self.file_empty_single_feed}") or pytest.fail(
+            "Processing not started!"
         )
-
         files = ["latest_010.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty_single_feed}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    def test_filemoved_event_source(self):
+        self.removefiles.append(filename_init)
+
+    def test_filemoved_event_source(self, caplog):
         # First we duplicate the file we want to move
-        shutil.copy(
-            self.file_empty_init_single_feed,
-            self.file_empty_init_single_feed.replace("fits5", "fits4"),
-        )
+        filename_init = self.file_empty_init_single_feed.replace("fits5", "fits4")
+        filename = self.file_empty_single_feed.replace("fits5", "notafits")
+        shutil.copy(self.file_empty_init_single_feed, filename_init)
 
         port = get_free_tcp_port()
         self.monitor = Monitor(
@@ -326,16 +372,17 @@ class TestMonitor:
         time.sleep(1)
 
         # Now we move the file changing its extension
-        shutil.move(
-            self.file_empty_init_single_feed.replace("fits5", "fits4"),
-            self.file_empty_single_feed.replace("fits5", "notafits"),
+        shutil.move(filename_init, self.file_empty_single_feed.replace("fits5", "notafits"))
+        not wait_for_message(caplog, "Loading", timeout=5) or pytest.fail(
+            "Processing started erroneously!"
         )
 
         time.sleep(1)
 
-        self.removefiles += [self.file_empty_single_feed.replace("fits5", "notafits")]
+        self.removefiles.append(filename_init)
+        self.removefiles.append(filename)
 
-    def test_copy_same_file(self):
+    def test_copy_same_file(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
         self.monitor.start()
@@ -343,16 +390,24 @@ class TestMonitor:
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
+        )
 
         time.sleep(1.01)
 
         # Copy the same file
         shutil.copy(self.file_empty_init, self.file_empty)
-
+        not wait_for_message(
+            caplog, f"Loading file {self.file_empty}", clear=True, timeout=5
+        ) or pytest.fail("Processing started twice!")
         files = ["latest_000.png", "latest_001.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-    def test_workers(self):
+    def test_workers(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor(
             [self.datadir], config_file=self.config_file, workers=2, localhost=True, port=port
@@ -361,18 +416,26 @@ class TestMonitor:
 
         time.sleep(1)
 
-        shutil.copy(self.file_empty_init_single_feed, self.file_empty_single_feed)
-        shutil.copy(
-            self.file_empty_init_single_feed,
-            self.file_empty_single_feed.replace("fits5", "fits4"),
-        )
+        file2 = self.file_empty_single_feed.replace("fits5", "fits4")
 
+        shutil.copy(self.file_empty_init_single_feed, self.file_empty_single_feed)
+        shutil.copy(self.file_empty_init_single_feed, file2)
+        wait_for_message(caplog, f"Loading file {self.file_empty_single_feed}") or pytest.fail(
+            "Processing not started!"
+        )
+        wait_for_message(caplog, f"Loading file {file2}") or pytest.fail("Processing not started!")
         files = ["latest_008.png", "latest_010.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty_single_feed}") or pytest.fail(
+            "Processing not completed!"
+        )
+        wait_for_message(caplog, f"Completed file {file2}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
-        self.removefiles += [self.file_empty_single_feed.replace("fits5", "fits4")]
+        self.removefiles += [file2]
 
-    def test_delete_old_images(self):
+    def test_delete_old_images(self, caplog):
         files = [f"latest_{i:03d}.png" for i in range(8)]
 
         for fname in files[2:]:
@@ -386,13 +449,18 @@ class TestMonitor:
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
-
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
+        )
+        wait_for_message(caplog, f"Completed file {self.file_empty}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files[:2], STANDARD_TIMEOUT)
 
         for fname in files[2:]:
             assert not os.path.exists(fname)
 
-    def test_cancel_processing(self):
+    def test_cancel_processing(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
         self.monitor.start()
@@ -400,26 +468,44 @@ class TestMonitor:
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
+        )
         # Immediately exit, should cancel the processing
+        # We can only verify this test from coverage
 
-    def test_stop_while_enqueued(self):
+    def test_stop_while_enqueued(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port, workers=1)
         self.monitor.start()
 
         time.sleep(1)
 
-        # Enqueue some files
-        for index in range(7):
+        processed_files = []
+        fname = self.file_empty.replace(".fits", f"0.fits")
+        processed_files.append(fname)
+        shutil.copy(self.file_empty_init, fname)
+        self.removefiles.append(fname)
+        # Wait for the first file to start being processed
+        wait_for_message(caplog, f"Loading file {processed_files[0]}") or pytest.fail(
+            "Processing not started!"
+        )
+
+        # Enqueue some other files
+        for index in range(1, 7):
             fname = self.file_empty.replace(".fits", f"{index}.fits")
+            processed_files.append(fname)
             shutil.copy(self.file_empty_init, fname)
             self.removefiles.append(fname)
+            # Any other file processing should not be started yet
+            not wait_for_message(caplog, f"Loading file {fname}", timeout=0.1) or pytest.fail(
+                "Processing started anyway!"
+            )
 
-        # Wait for the first file to start being processed
-        time.sleep(1)
         # Now exit immediately and cancel the enqueued processes
+        self.removefiles += processed_files
 
-    def test_http_server(self):
+    def test_http_server(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
         self.monitor.start()
@@ -427,6 +513,9 @@ class TestMonitor:
         time.sleep(1)
 
         shutil.copy(self.file_empty_init, self.file_empty)
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
+        )
 
         # Check that index.html is provided by the HTTP server
         url = f"http://127.0.0.1:{port}/"
@@ -434,6 +523,9 @@ class TestMonitor:
         assert r.code == 200
 
         files = ["latest_000.png", "latest_001.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
     def test_favicon(self):
@@ -448,7 +540,7 @@ class TestMonitor:
         r = urllib.request.urlopen(url, timeout=5)
         assert r.code == 200
 
-    def test_websocket_server(self):
+    def test_websocket_server(self, caplog):
         port = get_free_tcp_port()
         self.monitor = Monitor([self.datadir], localhost=True, port=port)
         self.monitor.start()
@@ -473,8 +565,13 @@ class TestMonitor:
 
         # Trigger the process of a file
         shutil.copy(self.file_empty_init, self.file_empty)
-
+        wait_for_message(caplog, f"Loading file {self.file_empty}") or pytest.fail(
+            "Processing not started!"
+        )
         files = ["latest_000.png", "latest_001.png"]
+        wait_for_message(caplog, f"Completed file {self.file_empty}") or pytest.fail(
+            "Processing not completed!"
+        )
         look_for_files_or_bust(files, STANDARD_TIMEOUT)
 
         # Ask the new images
@@ -486,7 +583,7 @@ class TestMonitor:
             compare_images(image["image"], f"latest_{image['index']:03d}.png")
         ws.close()
 
-    def test_busy_port(self, capfd):
+    def test_busy_port(self):
         port = get_free_tcp_port()
         # First occupy the port with a random socket
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
