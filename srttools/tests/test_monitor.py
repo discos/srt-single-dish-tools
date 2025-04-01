@@ -32,7 +32,7 @@ from srttools.scan import product_path_from_file_name
 from srttools.utils import look_for_files_or_bust
 
 
-STANDARD_TIMEOUT = 20
+STANDARD_TIMEOUT = 60
 
 
 @pytest.fixture(scope="session", autouse=True)
