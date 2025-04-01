@@ -1,0 +1,2 @@
+Fixed the macOS runner to version 13 in order to have an Intel processor based
+architecture for tests.
