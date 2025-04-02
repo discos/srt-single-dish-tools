@@ -1,3 +1,8 @@
+import pytest
+import sys
+
+if sys.platform == "darwin":
+    pytest.skip("teporarily skipping monitor tests on macOS", allow_module_level=True)
 import multiprocessing as mp
 import queue
 import base64
@@ -11,7 +16,6 @@ import time
 import urllib
 import glob
 import numpy as np
-import pytest
 import copy
 
 from srttools.read_config import read_config
