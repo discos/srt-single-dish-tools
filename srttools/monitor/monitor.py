@@ -1,5 +1,4 @@
 import glob
-import multiprocessing as mp
 import os
 import queue
 import shutil
@@ -8,23 +7,23 @@ import sys
 import threading
 import time
 import warnings
-
+import re
+import multiprocessing as mp
 from srttools.imager import main_preprocess
-from srttools.monitor.common import MAX_FEEDS, exit_function, log
+from srttools.monitor.common import exit_function, log
 from srttools.read_config import read_config
 from srttools.scan import product_path_from_file_name
 
 try:
-    from watchdog.events import FileMovedEvent, PatternMatchingEventHandler
+    from watchdog.events import FileMovedEvent, RegexMatchingEventHandler
     from watchdog.observers import Observer
-    from watchdog.observers.polling import PollingObserver
-
-    from srttools.monitor.webserver import WebServer
+    from watchdog.observers.polling import PollingObserverVFS
 except ImportError:
-    warnings.warn(
+    raise ImportError(
         "To use SDTmonitor, you need to install watchdog: \n" "\n   > pip install watchdog"
     )
-    PatternMatchingEventHandler = object
+
+from srttools.monitor.webserver import WebServer
 
 # Set the matplotlib backend
 try:
@@ -36,21 +35,22 @@ except ImportError:
 
 
 def create_dummy_config(filename="monitor_config.ini", extension="png"):
-    config_str = f"""[local]\n[analysis]\n[debugging]\ndebug_file_format : {extension}"""
+    productdir = os.environ.get("TEMP", "") if "win" in sys.platform else "/tmp"
+    config_str = f"""[local]\nproductdir : {productdir}\n[analysis]\n[debugging]\ndebug_file_format : {extension}"""
     with open(filename, "w") as fobj:
         print(config_str, file=fobj)
     return filename
 
 
-class MyEventHandler(PatternMatchingEventHandler):
-    ignore_patterns = [
-        "*/tmp/*",
-        "*/tempfits/*",
-        "*/*.fitstemp",
-        "*/summary.fits",
-        "*/Sum_*.fits",
+class MyEventHandler(RegexMatchingEventHandler):
+    ignore_regexes = [
+        re.compile(r"^.*[/\\]tmp[/\\].*"),
+        re.compile(r"^.*[/\\]tempfits[/\\].*"),
+        re.compile(r"^.*[/\\][^/\\]+\.fitstemp$"),
+        re.compile(r"^.*[/\\]summary[/\\].fits$"),
+        re.compile(r"^.*[/\\]Sum_.*\.fits$"),
     ]
-    patterns = ["*/*.fits"] + [f"*/*.fits{x}" for x in range(MAX_FEEDS)]
+    regexes = [re.compile(r"^.*[/\\][^/\\]+\.fits(\d+)?$")]
 
     def __init__(self, observer):
         self._observer = observer
@@ -62,11 +62,8 @@ class MyEventHandler(PatternMatchingEventHandler):
     def _parse_filename(self, event):
         infile = ""
         if isinstance(event, FileMovedEvent):
-            for pattern in self.patterns:
-                pattern = pattern.rsplit(".")[-1]
-                if event.dest_path.endswith(pattern):
-                    infile = event.dest_path
-            if not infile:
+            infile = event.dest_path
+            if not any(re.match(regex, infile) for regex in self.regexes):
                 return
         else:
             infile = event.src_path
@@ -84,44 +81,73 @@ class MyEventHandler(PatternMatchingEventHandler):
         self._observer._timers[infile].start()
 
 
+class ProcessManager:
+    def __init__(self, maxsize):
+        self._semaphore = threading.Semaphore(maxsize)
+        self._lock = threading.Lock()
+        self._processes = set()
+        self._terminated = threading.Event()
+
+    def put(self, process, timeout=None):
+        if not self._semaphore.acquire(timeout=timeout) or self._terminated.is_set():
+            raise queue.Full
+        with self._lock:
+            self._processes.add(process)
+
+    def remove(self, process):
+        with self._lock:
+            if not self._terminated.is_set() and process in self._processes:
+                self._processes.remove(process)
+                self._semaphore.release()
+
+    def terminate(self):
+        with self._lock:
+            self._terminated.set()
+            for process in set(self._processes):
+                if process.is_alive():
+                    process.terminate()
+                self._processes.remove(process)
+                self._semaphore.release()
+
+
 class Monitor:
     def __init__(
         self,
         directories,
-        config_file="",
+        config_file=None,
         workers=1,
         verbosity=0,
         polling=False,
+        localhost=False,
         port=8080,
     ):
         # Save constructor parameters
         self._directories = directories
-        if not config_file:
-            config_file = create_dummy_config()
-        self._config_file = config_file
+        self._config_file = config_file or create_dummy_config()
         self._workers = workers
         self._verbosity = verbosity
         self._polling = polling
+        self._localhost = localhost
         self._port = port
 
         # Load file configuration and save needed parameters
         with warnings.catch_warnings():
             if not self._verbosity:
                 warnings.simplefilter("ignore")
-            configuration = read_config(config_file)
+            configuration = read_config(self._config_file)
         self._productdir = configuration["productdir"]
         self._workdir = configuration["workdir"]
         self._extension = configuration["debug_file_format"]
 
         # Objects needed by the file observer
         self._timers = {}
-        self._processing = queue.Queue(self._workers)
-        self._files = queue.Queue()
+        self._processing = None
+        self._files = None
 
         # Initialize the event handler and the file observer
         self._event_handler = MyEventHandler(self)
         if self._polling:
-            self._observer = PollingObserver()
+            self._observer = PollingObserverVFS(stat=os.stat, listdir=os.scandir)
         else:
             self._observer = Observer()
 
@@ -133,17 +159,28 @@ class Monitor:
 
         # Initialize the web server, this will raise a OSError if the given
         # port is already being used
-        self._web_server = WebServer(self._extension, self._port)
+        self._web_server = WebServer(self._extension, self._localhost, self._port)
+        self._started = False
 
     def start(self):
+        if self._started:
+            log.info(f"SDTmonitor already running, process id: {self._pid}")
+            return
         self._stop = False
+        self._processing = ProcessManager(self._workers)
+        self._files = queue.Queue()
         self._worker_thread = threading.Thread(target=self._worker_method)
         self._worker_thread.start()
         self._observer.start()
         self._web_server.start()
-        log.info(f"SDTmonitor started, process id: {os.getpid()}")
+        self._pid = os.getpid()
+        log.info(f"SDTmonitor started, process id: {self._pid}")
+        self._started = True
 
     def stop(self):
+        if not self._started:
+            log.info("SDTmonitor is not running")
+            return
         # Stop the worker thread
         self._stop = True
         if self._worker_thread:
@@ -152,69 +189,60 @@ class Monitor:
         self._web_server.stop()
         # Stop the observer from enqueuing newly arrived files
         self._observer.stop()
+        # Terminate any running process
+        self._processing.terminate()
+        self._files.queue.clear()
         # Cancel and delete any pending timer
         for infile, timer in self._timers.copy().items():
             timer.cancel()
             timer.join()
-            try:
-                del self._timers[infile]
-            except KeyError:
-                pass
-        # Terminate any running process
-        while True:
-            try:
-                p = self._processing.get_nowait()
-                p.terminate()
-            except AttributeError:  # Process enqueued but not started yet
-                pass
-            except queue.Empty:
-                break
-        log.info(f"SDTmonitor stopped, process id: {os.getpid()}")
+            self._timers.pop(infile, None)
+        self._started = False
+        log.info(f"SDTmonitor stopped, process id: {self._pid}")
 
     def _worker_method(self):
         while not self._stop:
             try:
                 to_update = []
-                paths, oldfiles, prodpath = self._files.get_nowait()
+                prefix, offset, oldfiles, prodpath = self._files.get(timeout=0.01)
 
-                for key in [key for key in paths if not os.path.exists(key)]:
-                    del paths[key]
-                for oldfile in oldfiles:
-                    if oldfile not in paths.values() and os.path.exists(oldfile):
+                paths = {}
+                originals = glob.glob(f"{prefix}_*.{self._extension}")
+                for original in originals:
+                    k, _ = os.path.splitext(original)
+                    index = int(k.replace(f"{prefix}_", "")) + offset
+                    paths[original] = f"latest_{index:03d}.{self._extension}"
+
+                to_update = list(set(oldfiles) - set(paths.values()))
+                for oldfile in to_update:
+                    if os.path.exists(oldfile):
                         os.remove(oldfile)
-                        to_update.append(oldfile)
                 for oldfile, newfile in paths.items():
                     shutil.move(oldfile, newfile)
                     to_update.append(newfile)
                 if prodpath:
-                    for dirname, _, _ in os.walk(prodpath, topdown=False):
-                        try:
-                            if not os.listdir(dirname):
-                                os.rmdir(dirname)
-                        except OSError:
-                            pass
+                    empty_prodpath = not any(files for _, _, files in os.walk(prodpath))
+                    shutil.rmtree(prodpath, ignore_errors=True) if empty_prodpath else None
                 for image in to_update:
                     self._web_server.update(image)
             except queue.Empty:
                 pass
-            time.sleep(0.01)
 
     @staticmethod
     def _process(pp_args, verbosity):
         """Calls the main_preprocess function as a separate process, so that
         multiple processes can run concurrently speeding up the whole operation
-        when receiving separate feeds files.
-        """
+        when receiving separate feeds files."""
         exit_code = 0
         try:
             with warnings.catch_warnings():
                 if not verbosity:
                     warnings.simplefilter("ignore")
-                if main_preprocess(pp_args):
-                    exit_code = 1
+                exit_code = min(main_preprocess(pp_args), 1)
         except KeyboardInterrupt:
             exit_code = 15
-        except Exception:
+        except Exception:  # pragma: no cover
+            # We don't cover this scope since it's unexpected and not easily reproducible
             log.exception(sys.exc_info()[1])
             exit_code = 1
         exit_function(exit_code)
@@ -229,11 +257,10 @@ class Monitor:
         # The next call will stop if the queue is already full
         while not self._stop:
             try:
-                self._processing.put_nowait(p)
+                self._processing.put(p, timeout=0.01)
                 break
             except queue.Full:  # The queue is full, just sleep and wait for a free spot
                 pass
-            time.sleep(0.01)
         if self._stop:
             return
         p.start()
@@ -252,10 +279,7 @@ class Monitor:
             feed_idx = infile.rsplit(".fits")[-1]
             offset = 2 * int(feed_idx)
 
-        paths = {
-            f"{root}{feed_idx}_{i}.{self._extension}": f"latest_{i + offset}.{self._extension}"
-            for i in range(2 if feed_idx else MAX_FEEDS * 2)
-        }
+        prefix = f"{root}{feed_idx}"
 
         prodpath = None
         if self._productdir and self._workdir not in self._productdir:
@@ -267,30 +291,25 @@ class Monitor:
         # They will be overwritten when new images come out
         oldfiles = []
         if not feed_idx:
-            oldfiles = glob.glob(f"latest*.{self._extension}")
+            oldfiles = glob.glob(f"latest_*.{self._extension}")
 
         p.join(60)  # Wait a minute for process completion
-        if p.is_alive():  # Process timed out
+        if p.is_alive():  # pragma: no cover
+            # Process timed out, we don't have a file to simulate this scenario
             try:
                 os.kill(p.pid, signal.SIGKILL)
                 p.join()
             except ProcessLookupError:
                 pass
         elif p.exitcode == 0:  # Completed successfully
-            self._files.put((paths, oldfiles, prodpath))
+            self._files.put((prefix, offset, oldfiles, prodpath))
             log.info(f"Completed file {infile}, pid {p.pid}")
-        elif p.exitcode == 1:  # Aborted
-            log.info(f"Aborted file {infile}, pid {p.pid}")
-        elif p.exitcode == 15:  # Forcefully terminated
+        elif p.exitcode == 15:  # pragma: no cover
+            # Forcefully terminated by KeyboardInterrupt
             log.info(f"Forcefully terminated process {p.pid}, file {infile}")
-        else:  # Unexpected code
-            log.info(f"Process {p.pid} exited with unexpected code {p.exitcode}")
+        else:  # Aborted
+            log.info(f"Aborted file {infile}, pid {p.pid}")
 
         # Eventually notify that the queue is not full anymore
-        try:
-            with self._processing.not_empty:
-                self._processing.queue.remove(p)
-                self._processing.not_full.notify()
-        except ValueError:
-            pass
+        self._processing.remove(p)
         del self._timers[infile]

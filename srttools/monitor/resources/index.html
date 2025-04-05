@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SRT Quicklook</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            overflow: hidden;
+            background: white;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #main-view {
+            width: 100%;
+            height: 90vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .main-image {
+            width: auto;
+            max-width: 50%;
+            height: 100%;
+            object-fit: contain;
+        }
+        #thumbnail-wrapper {
+            width: 100%;
+            height: 10vh;
+        }
+        #thumbnail-bar {
+            display: flex;
+            height: 100%;
+            overflow-y: hidden;
+            white-space: nowrap;
+            scrollbar-width: none;
+        }
+        .thumbnail-pair {
+            display: inline-block;
+            height: 100%;
+            line-height: 10vh;
+            cursor: pointer;
+            text-align: center;
+        }
+        .thumbnail {
+            z-index: 0;
+            position: relative;
+            max-height: 10vh;
+            object-fit: cover;
+        }
+        .feed_id {
+            z-index: 1;
+            position: relative;
+            height: 0vh;
+            font-family: 'DejaVu Sans', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="main-view"></div>
+    <div id="thumbnail-wrapper">
+        <div id="thumbnail-bar">
+    </div>
+
+    <script>
+        let destination = document.location.href;
+        if (destination.startsWith("file")) {
+            destination = "localhost";
+        } else {
+            destination = document.location.href.split(":")[1];
+        }
+        const main_view = document.getElementById("main-view");
+        const bar = document.getElementById("thumbnail-bar");
+        const maxScrollSpeed = $maxScrollSpeed;
+        let selectedPairIndex = 0;
+        let barWidth = 0;
+        let scrollSpeed = 0;
+
+        function updateMainView() {
+            let firstAvailable = -1;
+            let totalWidth = 0;
+            let pairs = [...bar.querySelectorAll('[id^="thumb-pair-"]')].sort((a, b) => a.id.localeCompare(b.id)) || [];
+            for (let i = pairs.length - 1; i >= 0; i--) {
+                let pair = pairs[i];
+                if (pair.childNodes.length === 1) {
+                    pair.remove();
+                    pairs.splice(i, 1);
+                } else {
+                    firstAvailable = parseInt(pair.getAttribute('data-pair'));
+                    totalWidth += pair.scrollWidth;
+                }
+            }
+            pairs.forEach(pair => bar.appendChild(pair));
+
+            barWidth = totalWidth;
+
+            if (document.getElementById(`thumb-pair-${String(selectedPairIndex).padStart(3, '0')}`) || firstAvailable === -1) {
+                firstAvailable = selectedPairIndex;
+            }
+
+            main_view.innerHTML = "";
+            let mainPair = document.getElementById(`thumb-pair-${String(firstAvailable).padStart(3, '0')}`);
+            if (mainPair) {
+                let main_pics = [...mainPair.querySelectorAll('[id^="thumb-"]')].sort((a, b) => a.id.localeCompare(b.id)) || [];
+                for (let i = 0; i < main_pics.length; i++) {
+                    let img = document.createElement("img");
+                    img.classList.add("main-image");
+                    img.id = 'main-' + i;
+                    img.src = main_pics[i].src;
+                    main_view.appendChild(img);
+                }
+            }
+        }
+
+        function getPair(index) {
+            let pair = document.getElementById(`thumb-pair-${String(index).padStart(3, '0')}`);
+
+            if (!pair) {
+                let div = document.createElement("div");
+                div.classList.add("thumbnail-pair");
+                div.id = `thumb-pair-${String(index).padStart(3, '0')}`;
+                div.setAttribute("data-pair", index);
+                div.onclick = function() {
+                    selectedPairIndex = index;
+                    requestAnimationFrame(updateMainView);
+                };
+
+                let feed_id = document.createElement("div");
+                feed_id.classList.add("feed_id");
+                feed_id.id = `feed-${String(index).padStart(3, '0')}`;
+                feed_id.innerText = "FEED " + index;
+
+                div.appendChild(feed_id);
+                pair = div;
+            }
+
+            return pair;
+        }
+
+        function addImage(index, base64) {
+            let thumbnail = document.getElementById(`thumb-${String(index).padStart(3, '0')}`) || document.createElement("img");
+
+            if (base64 === "") {
+                thumbnail.remove();
+            } else {
+                thumbnail.classList.add("thumbnail");
+                thumbnail.id = `thumb-${String(index).padStart(3, '0')}`;
+                thumbnail.src = "data:image/png;base64," + base64;
+
+                let pair = getPair(Math.floor(index / 2));
+                pair.appendChild(thumbnail);
+                let children = Array.from(pair.children);
+                children.sort((a, b) => { return a.id.localeCompare(b.id); });
+                children.forEach(child => pair.appendChild(child));
+                bar.appendChild(pair);
+                children = Array.from(bar.children);
+                children.sort((a, b) => { return a.id.localeCompare(b.id); });
+                children.forEach(child => bar.appendChild(child));
+            }
+
+            updateMainView();
+        }
+
+        function connect() {
+            let ws = new WebSocket("ws://" + destination + ":$port/images");
+
+            ws.onmessage = function(message) {
+                let msg = JSON.parse(message.data);
+                requestAnimationFrame(() => {
+                    addImage(msg.index, msg.image);
+                });
+            };
+
+            ws.onclose = function() {
+                setTimeout(connect, $reconnectTime);
+            };
+        }
+
+        connect();
+
+        let wrapper = document.getElementById("thumbnail-wrapper");
+        wrapper.addEventListener("mouseleave", () => {
+            scrollSpeed = 0;
+        });
+
+        wrapper.addEventListener('mousemove', (event) => {
+            const clientX = event.clientX;
+            const screenWidth = window.innerWidth;
+            const threshold = Math.round(screenWidth * 0.2);
+
+            if (clientX < threshold) {
+                let distance = threshold - clientX;
+                let factor = Math.pow(distance / threshold, 3);
+                scrollSpeed = -factor * maxScrollSpeed;
+            } else if (clientX > screenWidth - threshold) {
+                let distance = clientX - (screenWidth - threshold - 1);
+                let factor = Math.pow(distance / threshold, 3);
+                scrollSpeed = factor * maxScrollSpeed;
+            } else {
+                scrollSpeed = 0;
+            }
+        });
+
+        function autoScroll() {
+            const barStyle = document.querySelector("#thumbnail-bar");
+            if (barWidth < window.innerWidth) {
+                bar.scrollLeft = 0;
+                barStyle.style.justifyContent = 'center';
+            } else {
+                barStyle.style.justifyContent = 'flex-start';
+                bar.scrollLeft += scrollSpeed;
+            }
+
+            requestAnimationFrame(autoScroll);
+        }
+
+        autoScroll();
+    </script>
+</body>
+</html>

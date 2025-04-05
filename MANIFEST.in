@@ -9,6 +9,8 @@ recursive-include licenses *
 recursive-include scripts *
 recursive-include srttools/data *.ini
 
+graft srttools/monitor/resources
+
 prune build
 prune docs/_build
 prune docs/api
