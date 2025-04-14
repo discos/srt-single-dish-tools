@@ -1,0 +1,4 @@
+Introduced the ``fail-fast: false`` strategy on CI tests. This will allow
+runners to go on if tests on another runner failed. This will allow to spot
+OS/Python version related issues from common issues without having to commit
+and wait another test failure on another platform.
