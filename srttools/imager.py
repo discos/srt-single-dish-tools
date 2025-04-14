@@ -2242,12 +2242,11 @@ def main_preprocess(args=None):
 
             kind = detect_data_kind(f)
 
-            logging.info(f"Processing {f} ({kind})")
-
             if kind is None:
                 continue
             if _is_summary_file(f):
                 continue
+            logging.info(f"Processing {f} ({kind})")
             try:
                 Scan(
                     f,
