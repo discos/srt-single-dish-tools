@@ -426,7 +426,7 @@ def plot_all_spectra(
     plt.close(fig)
 
 
-def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
+def _clean_spectrum(dynamical_spectrum, stat_file, length, filename, nofilt=False):
     dynspec_len, nbin = dynamical_spectrum.shape
 
     # Calculate first light curve
@@ -440,11 +440,14 @@ def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
 
     wholemask = spec_stats.wholemask
 
-    bad_intervals = contiguous_regions(np.logical_not(wholemask))
-
     # Calculate cleaned dynamical spectrum
 
-    cleaned_dynamical_spectrum = _clean_dyn_spec(dynamical_spectrum, bad_intervals)
+    if nofilt:
+        bad_intervals = []
+        cleaned_dynamical_spectrum = dynamical_spectrum
+    else:
+        bad_intervals = contiguous_regions(np.logical_not(wholemask))
+        cleaned_dynamical_spectrum = _clean_dyn_spec(dynamical_spectrum, bad_intervals)
 
     lc_corr = np.sum(cleaned_dynamical_spectrum[:, freqmask], axis=1)
     if len(lc_corr) > 10:
@@ -805,6 +808,7 @@ def clean_scan_using_variability(
         spec_stats_,
         length,
         filename=dummy_file.replace(".p", "_cl.p"),
+        nofilt=nofilt,
     )
     gc.collect()
 
