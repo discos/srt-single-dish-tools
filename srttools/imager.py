@@ -2241,22 +2241,31 @@ def main_preprocess(args=None):
                 continue
 
             kind = detect_data_kind(f)
+
+            logging.info(f"Processing {f} ({kind})")
+
             if kind is None:
                 continue
-
-            Scan(
-                f,
-                freqsplat=args.splat,
-                nosub=not args.sub,
-                norefilt=False,
-                debug=args.debug,
-                plot=args.plot,
-                interactive=args.interactive,
-                avoid_regions=excluded_radec,
-                config_file=args.config,
-                nosave=args.nosave,
-                bad_intervals=args.bad_intervals,
-            )
+            if _is_summary_file(f):
+                continue
+            try:
+                Scan(
+                    f,
+                    freqsplat=args.splat,
+                    nosub=not args.sub,
+                    norefilt=False,
+                    debug=args.debug,
+                    plot=args.plot,
+                    interactive=args.interactive,
+                    avoid_regions=excluded_radec,
+                    config_file=args.config,
+                    nosave=args.nosave,
+                    bad_intervals=args.bad_intervals,
+                    nofilt=args.nofilt,
+                )
+            except Exception as e:
+                warnings.warn(f"Error processing {f}: {e}")
+                continue
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
