@@ -1,0 +1,1 @@
+Power spectrum added to preprocessing diagnostics

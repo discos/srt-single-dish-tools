@@ -19,6 +19,7 @@ from astropy.time import Time
 try:
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
     HAS_MPL = True
 except ImportError:
@@ -426,7 +427,7 @@ def plot_all_spectra(
     plt.close(fig)
 
 
-def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
+def _clean_spectrum(dynamical_spectrum, stat_file, length, filename, nofilt=False):
     dynspec_len, nbin = dynamical_spectrum.shape
 
     # Calculate first light curve
@@ -440,11 +441,14 @@ def _clean_spectrum(dynamical_spectrum, stat_file, length, filename):
 
     wholemask = spec_stats.wholemask
 
-    bad_intervals = contiguous_regions(np.logical_not(wholemask))
-
     # Calculate cleaned dynamical spectrum
 
-    cleaned_dynamical_spectrum = _clean_dyn_spec(dynamical_spectrum, bad_intervals)
+    if nofilt:
+        bad_intervals = []
+        cleaned_dynamical_spectrum = dynamical_spectrum
+    else:
+        bad_intervals = contiguous_regions(np.logical_not(wholemask))
+        cleaned_dynamical_spectrum = _clean_dyn_spec(dynamical_spectrum, bad_intervals)
 
     lc_corr = np.sum(cleaned_dynamical_spectrum[:, freqmask], axis=1)
     if len(lc_corr) > 10:
@@ -561,6 +565,11 @@ def plot_spectrum_cleaning_results(
     ax_lc = plt.subplot(gs[1, 2], sharey=ax_dynspec)
     ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
     ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
+    ax_pds_raw = plt.subplot(gs[3, 2])
+    ax_pds_raw.axis("off")
+
+    ax_pds = inset_axes(ax_pds_raw, width="80%", height="70%", loc="lower right")
+
     ax_text = plt.subplot(gs[0, 2])
     for ax in [ax_meanspec, ax_dynspec, ax_cleanspec, ax_var, ax_text]:
         ax.autoscale(False)
@@ -571,6 +580,8 @@ def plot_spectrum_cleaning_results(
     ax_var.set_ylabel("r.m.s.")
     ax_var.set_xlabel(f"Frequency from LO ({bandwidth_unit})")
     ax_cleanlc.set_xlabel("Counts")
+    ax_pds.set_xlabel("Frequency (Hz)")
+    ax_pds.set_ylabel("Power")
 
     # Plot mean spectrum
 
@@ -630,6 +641,40 @@ def plot_spectrum_cleaning_results(
     dlc = max(lc_corr) - min(lc_corr)
     ax_lc.set_xlim([np.min(lc_corr) - dlc / 10, max(lc_corr) + dlc / 10])
 
+    def pds(lc, bin_time):
+        """Calculate the Power Density Spectrum."""
+        n = lc.size
+        ft = np.fft.fft(lc)
+        pds = (ft * ft.conj()).real
+        freq = np.fft.fftfreq(n, bin_time)
+        good = freq > 0
+        return freq[good], pds[good]
+
+    ref_var = ref_mad(lc_corr, 20) ** 2
+
+    bin_time = length / lc.size
+    f_raw, pds_raw = pds(lc, bin_time)
+    f_clean, pds_clean = pds(lc_corr, bin_time)
+    normalization_factor = 2 / ref_var / lc_corr.size
+
+    ax_pds.loglog(f_raw, pds_raw * normalization_factor, color="grey")
+    ax_pds.loglog(f_clean, pds_clean * normalization_factor, color="k")
+
+    ax_pds_raw.text(
+        0.58,
+        0.8,
+        "Power Density Spectrum",
+        horizontalalignment="center",
+        verticalalignment="top",
+        transform=ax_pds_raw.transAxes,
+        fontsize=14,
+    )
+    # There might be ill cases with a lot of very low powers. in that case,
+    # do *not* rescale
+    if np.count_nonzero(pds_clean < 1) < pds_clean.size // 5 + 1:
+        ax_pds.set_ylim(1, None)
+    ax_pds.set_xlim(np.min(f_clean), np.max(f_clean))
+    ax_pds.grid(True)
     # Indicate bad intervals
 
     for b in bad_intervals:
@@ -663,7 +708,9 @@ def plot_spectrum_cleaning_results(
     )
     ax_text.axis("off")
 
-    fig.tight_layout()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fig.tight_layout()
 
     plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
     plt.close(fig)
@@ -805,6 +852,7 @@ def clean_scan_using_variability(
         spec_stats_,
         length,
         filename=dummy_file.replace(".p", "_cl.p"),
+        nofilt=nofilt,
     )
     gc.collect()
 
@@ -1024,6 +1072,9 @@ class Scan(Table):
         ra_stats = get_circular_statistics(self["ra"])
         az_stats = get_circular_statistics(self["az"])
 
+        shape = self[ch].shape
+        nchan = 1 if len(shape) == 1 else shape[1]
+
         date = Time(self["time"][0] * u.day, format="mjd", scale="utc")
         infostr = "Target: {}\n".format(self.meta["SOURCE"])
         infostr += "Date: {}\n".format(date.iso)
@@ -1036,7 +1087,7 @@ class Scan(Table):
         infostr += "Receiver: {}\n".format(self.meta["receiver"])
         infostr += "Backend: {}\n".format(self.meta["backend"])
         infostr += "Frequency: {}\n".format(self[ch].meta["frequency"])
-        infostr += "Bandwidth: {}\n".format(self[ch].meta["bandwidth"])
+        infostr += "Bandwidth: {} ({} chans)\n".format(self[ch].meta["bandwidth"], nchan)
         return infostr
 
     def clean_and_splat(

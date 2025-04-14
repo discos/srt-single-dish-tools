@@ -178,6 +178,7 @@ filterwarnings = [
     "ignore:Beware! For cpds and derivatives, I assume that:UserWarning",
     "ignore:.*deprecated alias for the builtin:DeprecationWarning",
     "ignore:.*The repeat count of the column format:astropy.io.fits.verify.VerifyWarning",
+    "ignore:.*This figure includes Axes that are not compatible with tight_layout:UserWarning",
 ]
 
 [tool.towncrier]

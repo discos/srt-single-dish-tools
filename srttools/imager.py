@@ -2203,6 +2203,13 @@ def main_preprocess(args=None):
         ),
     )
     parser.add_argument(
+        "--pedantic",
+        action="store_true",
+        default=False,
+        help="Block batch preprocessing on first error",
+    )
+
+    parser.add_argument(
         "--bad-intervals",
         type=str,
         default=None,
@@ -2241,22 +2248,32 @@ def main_preprocess(args=None):
                 continue
 
             kind = detect_data_kind(f)
+
             if kind is None:
                 continue
-
-            Scan(
-                f,
-                freqsplat=args.splat,
-                nosub=not args.sub,
-                norefilt=False,
-                debug=args.debug,
-                plot=args.plot,
-                interactive=args.interactive,
-                avoid_regions=excluded_radec,
-                config_file=args.config,
-                nosave=args.nosave,
-                bad_intervals=args.bad_intervals,
-            )
+            if _is_summary_file(f):
+                continue
+            logging.info(f"Processing {f} ({kind})")
+            try:
+                Scan(
+                    f,
+                    freqsplat=args.splat,
+                    nosub=not args.sub,
+                    norefilt=False,
+                    debug=args.debug,
+                    plot=args.plot,
+                    interactive=args.interactive,
+                    avoid_regions=excluded_radec,
+                    config_file=args.config,
+                    nosave=args.nosave,
+                    bad_intervals=args.bad_intervals,
+                    nofilt=args.nofilt,
+                )
+            except Exception as e:
+                logging.error(f"Error processing {f}: {e}")
+                if args.pedantic:
+                    raise e
+                continue
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
