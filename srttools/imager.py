@@ -2203,10 +2203,10 @@ def main_preprocess(args=None):
         ),
     )
     parser.add_argument(
-        "--continue-on-error",
+        "--pedantic",
         action="store_true",
         default=False,
-        help="Continue on error (useful when processing many files)",
+        help="Block batch preprocessing on first error",
     )
 
     parser.add_argument(
@@ -2271,8 +2271,8 @@ def main_preprocess(args=None):
                 )
             except Exception as e:
                 logging.error(f"Error processing {f}: {e}")
-                if not args.continue_on_error:
-                    raise
+                if args.pedantic:
+                    raise e
                 continue
     else:
         if args.config is None:
