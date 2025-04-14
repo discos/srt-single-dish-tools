@@ -2203,6 +2203,13 @@ def main_preprocess(args=None):
         ),
     )
     parser.add_argument(
+        "--continue-on-error",
+        action="store_true",
+        default=False,
+        help="Continue on error (useful when processing many files)",
+    )
+
+    parser.add_argument(
         "--bad-intervals",
         type=str,
         default=None,
@@ -2263,7 +2270,9 @@ def main_preprocess(args=None):
                     nofilt=args.nofilt,
                 )
             except Exception as e:
-                warnings.warn(f"Error processing {f}: {e}")
+                logging.error(f"Error processing {f}: {e}")
+                if not args.continue_on_error:
+                    raise
                 continue
     else:
         if args.config is None:
