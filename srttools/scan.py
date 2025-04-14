@@ -1072,6 +1072,9 @@ class Scan(Table):
         ra_stats = get_circular_statistics(self["ra"])
         az_stats = get_circular_statistics(self["az"])
 
+        shape = self[ch].shape
+        nchan = 1 if len(shape) == 1 else shape[1]
+
         date = Time(self["time"][0] * u.day, format="mjd", scale="utc")
         infostr = "Target: {}\n".format(self.meta["SOURCE"])
         infostr += "Date: {}\n".format(date.iso)
@@ -1084,7 +1087,7 @@ class Scan(Table):
         infostr += "Receiver: {}\n".format(self.meta["receiver"])
         infostr += "Backend: {}\n".format(self.meta["backend"])
         infostr += "Frequency: {}\n".format(self[ch].meta["frequency"])
-        infostr += "Bandwidth: {}\n".format(self[ch].meta["bandwidth"])
+        infostr += "Bandwidth: {} ({} chans)\n".format(self[ch].meta["bandwidth"], nchan)
         return infostr
 
     def clean_and_splat(
