@@ -32,6 +32,8 @@ workdir : .
 datadir : .
 ; the root directory of the data repository.
 productdir : None
+; if True, output files will be saved directly inside productdir the full path.
+basename_only : False
 
 [analysis]
 projection : ARC
@@ -118,6 +120,7 @@ def read_config(fname=None):
     config_output["workdir"] = os.path.abspath(os.curdir) + "/"
     config_output["datadir"] = os.path.abspath(os.curdir) + "/"
     config_output["productdir"] = None
+    config_output["basename_only"] = False
     config_output["list_of_directories"] = "*"
     config_output["calibrator_directories"] = []
     config_output["skydip_directories"] = []

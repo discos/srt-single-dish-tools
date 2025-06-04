@@ -39,7 +39,7 @@ __all__ = [
 ]
 
 
-def product_path_from_file_name(fname, workdir=".", productdir=None):
+def product_path_from_file_name(fname, workdir=".", productdir=None, basename_only=False):
     """
     Examples
     --------
@@ -63,11 +63,14 @@ def product_path_from_file_name(fname, workdir=".", productdir=None):
     if productdir is None:
         rootdir = filedir
     else:
-        workdir = os.path.abspath(workdir)
         productdir = os.path.abspath(productdir)
-        base = os.path.commonpath([filedir, workdir])
-        relpath = os.path.relpath(filedir, base)
-        rootdir = os.path.join(productdir, relpath)
+        if basename_only:
+            rootdir = productdir
+        else:
+            workdir = os.path.abspath(workdir)
+            base = os.path.commonpath([filedir, workdir])
+            relpath = os.path.relpath(filedir, base)
+            rootdir = os.path.join(productdir, relpath)
 
     return os.path.normpath(rootdir), fn
 
@@ -1355,10 +1358,11 @@ class Scan(Table):
             rootdir = "."
 
         if self.meta["productdir"] is not None:
-            rootdir, fname = product_path_from_file_name(
+            rootdir, _ = product_path_from_file_name(
                 fname,
                 workdir=self.meta["workdir"],
                 productdir=self.meta["productdir"],
+                basename_only=self.meta["basename_only"]
             )
 
         return root_name(os.path.join(rootdir, fn))

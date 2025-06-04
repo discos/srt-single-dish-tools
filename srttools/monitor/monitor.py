@@ -137,6 +137,7 @@ class Monitor:
             configuration = read_config(self._config_file)
         self._productdir = configuration["productdir"]
         self._workdir = configuration["workdir"]
+        self._basename_only = configuration["basename_only"]
         self._extension = configuration["debug_file_format"]
 
         # Objects needed by the file observer
@@ -269,7 +270,10 @@ class Monitor:
         # While the process executes, we retrieve
         # information regarding original and new files
         productdir, fname = product_path_from_file_name(
-            infile, productdir=self._productdir, workdir=self._workdir
+            infile,
+            productdir=self._productdir,
+            workdir=self._workdir,
+            basename_only=self._basename_only
         )
         root = os.path.join(productdir, fname.rsplit(".fits")[0])
 
