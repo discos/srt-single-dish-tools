@@ -1362,7 +1362,7 @@ class Scan(Table):
                 fname,
                 workdir=self.meta["workdir"],
                 productdir=self.meta["productdir"],
-                basename_only=self.meta["basename_only"]
+                basename_only=self.meta["basename_only"],
             )
 
         return root_name(os.path.join(rootdir, fn))

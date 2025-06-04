@@ -273,7 +273,7 @@ class Monitor:
             infile,
             productdir=self._productdir,
             workdir=self._workdir,
-            basename_only=self._basename_only
+            basename_only=self._basename_only,
         )
         root = os.path.join(productdir, fname.rsplit(".fits")[0])
 
