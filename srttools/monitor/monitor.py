@@ -35,8 +35,7 @@ except ImportError:
 
 
 def create_dummy_config(filename="monitor_config.ini", extension="png"):
-    productdir = os.environ.get("TEMP", "") if "win" in sys.platform else "/tmp"
-    config_str = f"""[local]\nproductdir : {productdir}\n[analysis]\n[debugging]\ndebug_file_format : {extension}"""
+    config_str = f"[local]\nproductdir : .\nbasename_only : True\n[analysis]\n[debugging]\ndebug_file_format : {extension}"
     with open(filename, "w") as fobj:
         print(config_str, file=fobj)
     return filename
