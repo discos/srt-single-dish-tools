@@ -1,0 +1,4 @@
+Added the ``basename_only`` configuration keyword.
+
+The said keyword allow to write output files directly inside the desired
+productdir avoiding replicating the full original path.
