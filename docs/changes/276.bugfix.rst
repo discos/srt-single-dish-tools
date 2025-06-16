@@ -1,0 +1,3 @@
+Fixed broken linkcheck for stackoverflow.com. Now a required cookie is
+retrieved before checking links. The cookie will only be used for requests
+directed to stackoverflow.com.
