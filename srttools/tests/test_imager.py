@@ -311,6 +311,17 @@ class TestScanSet:
     def test_use_command_line_config(self):
         main_imager(["-c", self.config_file, "--noplot"])
 
+    def test_avg_cross_flagged_samples_are_nan_in_cal(self):
+        """Flagged samples are NaN, not zero, in the calibrated _cal columns written for crosses."""
+        scanset = ScanSet("test.hdf5")
+        ch = scanset.chan_columns[0]
+        flagged = scanset["Scan_id"] == scanset["Scan_id"][0]
+        scanset[f"{ch}-filt"] = ~flagged
+        scanset.calculate_avg_cross(calibration=self.calfile, calibrate_scans=True, rfi_nsigma=None)
+        cal = np.asarray(scanset[ch + "_cal"])
+        assert np.all(np.isnan(cal[flagged]))
+        assert np.all(np.isfinite(cal[~flagged]))
+
     def test_use_command_line_cross(self):
         main_imager(["-c", self.config_file, "--crosses-only"])
 

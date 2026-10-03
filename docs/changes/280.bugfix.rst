@@ -1,1 +1,3 @@
 SDTcal no longer stops when the Gaussian fit of a single subscan raises an error (e.g. on a strong spike): the subscan is skipped with a warning.
+
+In the ``<channel>_cal`` columns that ``SDTimage --crosses-only`` writes to the dump file, flagged samples are now NaN instead of zero.
