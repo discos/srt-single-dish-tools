@@ -260,7 +260,10 @@ def get_model_HDUlist(data_format, length=1, **kwargs):
         newdim, array = _get_empty_array(length, dim)
 
         if newdim != ():
-            newcol = fits.Column(name=ttype, format=tform, unit=tunit, dim=newdim, array=array)
+            # newdim is a numpy (C-order) shape; TDIM lists axes in the reverse
+            # (FITS) order. astropy 8 no longer accepts a tuple here.
+            tdim = "(" + ",".join(str(d) for d in newdim[::-1]) + ")"
+            newcol = fits.Column(name=ttype, format=tform, unit=tunit, dim=tdim, array=array)
         else:
             newcol = fits.Column(name=ttype, format=tform, unit=tunit, array=array)
         cols.append(newcol)
