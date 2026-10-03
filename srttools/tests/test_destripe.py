@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 try:
     import matplotlib.pyplot as plt
@@ -57,6 +58,7 @@ class TestScanSet:
 
         assert np.all(np.abs(diff_img - mean) < std * 5)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_wrapper(self):
         img_clean = basket_weaving(self.img_hor, self.img_ver)
         img_clean_w = destripe_wrapper(self.img_hor, self.img_ver)

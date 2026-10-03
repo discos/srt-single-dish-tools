@@ -645,6 +645,8 @@ def plot_cross_results(result, outroot, beam_fwhm, unit="", title=""):
     """
     import matplotlib.pyplot as plt
 
+    from .utils import new_figure
+
     factor, unit_label = (1e3, "mJy") if unit == "Jy" else (1.0, unit or "counts")
     summary = result["summary"]
     beam_sigma = beam_fwhm / (2 * np.sqrt(2 * np.log(2)))
@@ -668,14 +670,8 @@ def plot_cross_results(result, outroot, beam_fwhm, unit="", title=""):
     with plt.rc_context({"font.size": 7}):
         channels = [ch for ch in dict.fromkeys(summary["channel"]) if ch != ""]
         rows = [*channels, ""]
-        fig, axes = plt.subplots(
-            len(rows),
-            2,
-            figsize=(7, 1.6 * len(rows) + 0.4),
-            sharex=True,
-            squeeze=False,
-            layout="constrained",
-        )
+        fig = new_figure(figsize=(7, 1.6 * len(rows) + 0.4), layout="constrained")
+        axes = fig.subplots(len(rows), 2, sharex=True, squeeze=False)
         for irow, ch in enumerate(rows):
             for icol, arm in enumerate(["RA", "Dec"]):
                 panel(axes[irow, icol], f"{ch} {arm}".strip())
@@ -684,15 +680,14 @@ def plot_cross_results(result, outroot, beam_fwhm, unit="", title=""):
             ax.set_xlabel("Offset along the arm [arcmin]")
         fig.suptitle(title, fontsize=7)
         fig.savefig(outroot + "_cross.png", dpi=200)
-        plt.close(fig)
 
-        fig, ax = plt.subplots(figsize=(3.5, 2.65), layout="constrained")
+        fig = new_figure(figsize=(3.5, 2.65), layout="constrained")
+        ax = fig.add_subplot()
         panel(ax, "TOTAL")
         ax.set_xlabel("Offset along the arm [arcmin]")
         ax.set_ylabel(f"Flux [{unit_label}]")
         fig.suptitle(title, fontsize=7)
         fig.savefig(outroot + "_cross_total.png", dpi=200)
-        plt.close(fig)
 
 
 def main_cross(args=None):

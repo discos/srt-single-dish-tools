@@ -99,6 +99,7 @@ class Test1_Scan:
         if os.path.exists(h5file):
             os.unlink(h5file)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_clean_large_data(self, caplog):
         """Test that large data sets needing pickling are handled correctly."""
 
@@ -117,6 +118,7 @@ class Test1_Scan:
         # No new pickle files have survived the cleaning!
         assert len(new_pickle_files) == 0
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_clean_bad_thresh(self):
         """Test that an incorrect noise threshold produces no good data."""
 
@@ -334,6 +336,7 @@ class Test2_Scan:
             os.unlink(h5file)
         klass.config = config
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_scan(self):
         """Test that data are read."""
 
@@ -352,6 +355,7 @@ class Test2_Scan:
             "new_sardara.fits3",
         ],
     )
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_scan_loading(self, fname):
         """Test that data are read."""
 

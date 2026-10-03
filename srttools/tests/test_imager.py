@@ -235,6 +235,7 @@ class TestScanSet:
             assert np.all(sc0.meta[k] == sc1.meta[k])
         os.unlink("bububu.hdf5")
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_preprocess_single_files(self):
         files = glob.glob(os.path.join(self.obsdir_ra, "*.fits"))
 
@@ -640,6 +641,7 @@ class TestLargeMap:
 
         assert np.isclose(np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=rtol)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_destripe(self):
         """Test image production."""
 
@@ -768,6 +770,7 @@ class TestLargeMap:
 
         scanset.save_ds9_images(destripe=True)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_global_fit_image(self):
         """Test image production."""
         scanset = ScanSet("test.hdf5")

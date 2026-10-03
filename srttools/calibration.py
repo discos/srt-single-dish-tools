@@ -24,7 +24,15 @@ from .fit import fit_baseline_plus_bell
 from .io import mkdir_p
 from .read_config import get_config_file, read_config, sample_config_file
 from .scan import Scan, list_scans
-from .utils import HAS_STATSM, TWOPI, calculate_moments, info_once, scantype, standard_byte
+from .utils import (
+    HAS_STATSM,
+    TWOPI,
+    calculate_moments,
+    info_once,
+    new_figure,
+    scantype,
+    standard_byte,
+)
 
 try:
     import matplotlib.pyplot as plt
@@ -410,10 +418,10 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         rows.append(new_row)
 
         if plot and HAS_MPL:
-            fig = plt.figure("Fit information")
-            gs = GridSpec(2, 1, height_ratios=(3, 1))
-            ax0 = plt.subplot(gs[0])
-            ax1 = plt.subplot(gs[1], sharex=ax0)
+            fig = new_figure()
+            gs = GridSpec(2, 1, figure=fig, height_ratios=(3, 1))
+            ax0 = fig.add_subplot(gs[0])
+            ax1 = fig.add_subplot(gs[1], sharex=ax0)
 
             ax0.plot(x, y, label="Data")
             ax0.plot(
@@ -432,12 +440,11 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
             ax0.legend()
 
-            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}.png"))
-            plt.close(fig)
-            fig = plt.figure("Fit information - temperature")
-            gs = GridSpec(2, 1, height_ratios=(3, 1))
-            ax0 = plt.subplot(gs[0])
-            ax1 = plt.subplot(gs[1], sharex=ax0)
+            fig.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}.png"))
+            fig = new_figure()
+            gs = GridSpec(2, 1, figure=fig, height_ratios=(3, 1))
+            ax0 = fig.add_subplot(gs[0])
+            ax1 = fig.add_subplot(gs[1], sharex=ax0)
 
             ax0.plot(x, temperature, label="Data")
             if temperature_model is not None:
@@ -451,8 +458,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1.set_ylabel("Residual (cts)")
 
             ax0.legend()
-            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}_temp.png"))
-            plt.close(fig)
+            fig.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}_temp.png"))
 
     return True, rows
 
@@ -1210,9 +1216,9 @@ class CalibratorTable(Table):
         """Plot the data corresponding to two given columns."""
         showit = False
         if ax is None:
-            plt.figure(f"{xcol} vs {ycol}")
-            ax = plt.gca()
-            showit = True
+            # Shown in a window, unless testing
+            showit = not test
+            ax = new_figure(interactive=showit).add_subplot()
 
         good = (self[xcol] == self[xcol]) & (self[ycol] == self[ycol])
         mask = np.ones_like(good)
@@ -1249,25 +1255,25 @@ class CalibratorTable(Table):
         else:
             ax.scatter(x_to_plot, y_to_plot, label=ycol + label, color=color)
 
-        if showit and not test:
+        if showit:
             plt.show()
         return x_to_plot, y_to_plot
 
     def show(self, filename=None):
-        """Show a summary of the calibration."""
+        """Save a summary plot of the calibration (default ``calibration_summary.png``)."""
         from matplotlib import cm
 
         # TODO: this is meant to become interactive. I will make different
         # panels linked to each other.
         if filename is None:
             filename = "calibration_summary.png"
-        fig = plt.figure("Summary", figsize=(16, 16))
-        plt.suptitle("Summary")
-        gs = GridSpec(2, 2, hspace=0)
-        ax00 = plt.subplot(gs[0, 0])
-        ax01 = plt.subplot(gs[0, 1], sharey=ax00)
-        ax10 = plt.subplot(gs[1, 0], sharex=ax00)
-        ax11 = plt.subplot(gs[1, 1], sharex=ax01, sharey=ax10)
+        fig = new_figure(figsize=(16, 16))
+        fig.suptitle("Summary")
+        gs = GridSpec(2, 2, figure=fig, hspace=0)
+        ax00 = fig.add_subplot(gs[0, 0])
+        ax01 = fig.add_subplot(gs[0, 1], sharey=ax00)
+        ax10 = fig.add_subplot(gs[1, 0], sharex=ax00)
+        ax11 = fig.add_subplot(gs[1, 1], sharex=ax01, sharey=ax10)
 
         channels = list(set(self["Chan"]))
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
@@ -1352,8 +1358,7 @@ class CalibratorTable(Table):
         ax11.set_xlabel("Azimuth")
         ax00.set_ylabel("Flux / Counts")
         ax10.set_ylabel("Pointing error (arcmin)")
-        plt.savefig(filename)
-        plt.close(fig)
+        fig.savefig(filename)
 
 
 def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):

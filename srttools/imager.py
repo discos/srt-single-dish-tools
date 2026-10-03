@@ -42,6 +42,7 @@ from .utils import (
     compare_anything,
     ds9_like_log_scale,
     get_circular_statistics,
+    new_figure,
     njit,
     remove_suffixes_and_prefixes,
 )
@@ -604,21 +605,20 @@ class ScanSet(Table):
             self["delta_el"][:, f] = self["el"][:, f] - ref_el
 
         if HAS_MPL:
-            fig1 = plt.figure("adsfasdfasd")
-            plt.plot(np.degrees(self["delta_az"]), np.degrees(self["delta_el"]))
-            plt.xlabel("Delta Azimuth (deg)")
-            plt.ylabel("Delta Elevation (deg)")
+            fig1 = new_figure()
+            ax = fig1.add_subplot()
+            ax.plot(np.degrees(self["delta_az"]), np.degrees(self["delta_el"]))
+            ax.set_xlabel("Delta Azimuth (deg)")
+            ax.set_ylabel("Delta Elevation (deg)")
+            fig1.savefig("delta_altaz.png")
 
-            plt.savefig("delta_altaz.png")
-            plt.close(fig1)
-
-            fig2 = plt.figure("adsfasdf")
-            plt.plot(np.degrees(self["az"]), np.degrees(self["el"]))
-            plt.plot(np.degrees(ref_az), np.degrees(ref_el))
-            plt.xlabel("Azimuth (deg)")
-            plt.ylabel("Elevation (deg)")
-            plt.savefig("altaz_with_src.png")
-            plt.close(fig2)
+            fig2 = new_figure()
+            ax = fig2.add_subplot()
+            ax.plot(np.degrees(self["az"]), np.degrees(self["el"]))
+            ax.plot(np.degrees(ref_az), np.degrees(ref_el))
+            ax.set_xlabel("Azimuth (deg)")
+            ax.set_ylabel("Elevation (deg)")
+            fig2.savefig("altaz_with_src.png")
 
     def create_wcs(self, frame="icrs"):
         """Create a wcs object from the pointing information."""

@@ -106,6 +106,7 @@ class TestCalibration:
         caltable = CalibratorTable()
         assert caltable.get_fluxes() is None
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_check_class(self):
         caltable = CalibratorTable()
         caltable.from_scans(list_scans(self.caldir, ["./"]), debug=True)
@@ -176,6 +177,7 @@ class TestCalibration:
         assert np.all(beam - np.radians(2.5 / 60) < 3 * beam_err)
 
     @pytest.mark.skipif("not HAS_MPL")
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_calibration_plot_two_cols(self):
         """Simple calibration from scans."""
 
@@ -191,6 +193,7 @@ class TestCalibration:
         )
 
     @pytest.mark.skipif("not HAS_MPL")
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_calibration_show(self):
         """Simple calibration from scans."""
 

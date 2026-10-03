@@ -1,7 +1,6 @@
 """Functions to clean images by fitting linear trends to the initial scans."""
 
 try:
-    import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
 
     HAS_MPL = True
@@ -11,7 +10,7 @@ import numpy as np
 
 from .fit import contiguous_regions
 from .histograms import histogram2d
-from .utils import njit, vectorize
+from .utils import new_figure, njit, vectorize
 
 __all__ = ["display_intermediate", "fit_full_image"]
 
@@ -362,15 +361,14 @@ def display_intermediate(scanset, chan="Feed0_RCP", feed=0, excluded=None, parfi
 
     img_var[bad] = 0
 
-    fig = plt.figure("Display")
+    fig = new_figure()
 
-    gs = GridSpec(1, 2)
-    ax0 = plt.subplot(gs[0])
+    gs = GridSpec(1, 2, figure=fig)
+    ax0 = fig.add_subplot(gs[0])
     ax0.set_title("Image")
-    ax1 = plt.subplot(gs[1])
+    ax1 = fig.add_subplot(gs[1])
     ax1.set_title("Image variance")
     ax0.imshow(img, origin="lower")
     ax1.imshow(img_var, origin="lower")
 
     fig.savefig(parfile.replace(".txt", ".png"))
-    plt.close(fig)

@@ -99,6 +99,7 @@ class TestSimulate:
         assert os.path.exists(probe)
         os.unlink(probe)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_sim_map_empty_messy(self):
         """Test the simulation of an empty map."""
         simulate_map(

@@ -5,6 +5,7 @@ from srttools.utils import HAS_MAHO, calculate_zernike_moments, look_for_files_o
 
 
 @pytest.mark.skipif("not HAS_MAHO")
+@pytest.mark.usefixtures("no_pyplot_figures")
 def test_zernike_moments():
     image = np.ones((101, 101))
     res = calculate_zernike_moments(
@@ -44,3 +45,16 @@ def test_matplotlib_backend_not_forced(display):
         [sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True
     )
     assert out.stdout.strip().lower() == "svg"
+
+
+def test_new_figure_is_new():
+    """Each call gives a new, empty figure, not attached to pyplot."""
+    pytest.importorskip("matplotlib")
+    from srttools.utils import new_figure
+
+    fig = new_figure(figsize=(3.5, 2.65))
+    fig.add_subplot()
+    fig2 = new_figure(figsize=(3.5, 2.65))
+    assert fig2 is not fig
+    assert len(fig2.axes) == 0
+    assert fig2.canvas.manager is None

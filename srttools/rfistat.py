@@ -11,13 +11,7 @@ from astropy.time import Time
 from . import logging
 from .fit import contiguous_regions
 from .read_config import read_config
-
-try:
-    import matplotlib.pyplot as plt
-
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
+from .utils import HAS_MPL, new_figure
 
 
 def load_data(fnames, outroot=None):
@@ -123,15 +117,14 @@ def main_rfistat(args=None):
 
     for receiver, outfiles in receiver_class_data.items():
         logging.info(f"Treating data from {receiver}")
-        fig1, axs = plt.subplots(
+        fig1 = new_figure(layout="constrained", figsize=(10, 3.3333 * len(outfiles)))
+        axs = fig1.subplots(
             nrows=len(outfiles) + 1,
             ncols=2,
             width_ratios=(3, 2),
             height_ratios=[0.6] + [1] * len(outfiles),
-            constrained_layout=True,
             sharex="col",
             sharey="row",
-            figsize=(10, 3.3333 * len(outfiles)),
         )
         tmin, tmax = np.inf, -np.inf
         fmin, fmax = np.inf, -np.inf
@@ -151,7 +144,7 @@ def main_rfistat(args=None):
 
             if not coords_plotted:
                 time_label = Time(central_mjd, format="mjd").to_value("iso", subfmt="date")
-                plt.suptitle(f"RFI stats for {receiver} on {time_label}")
+                fig1.suptitle(f"RFI stats for {receiver} on {time_label}")
                 coords_plotted = True
                 axs[0][0].plot(time, t["el"][:, 0], label="El", color="b", lw=0.5)
                 axs[0][0].plot(time, t["az"][:, 0], label="Az", color="r", lw=0.5)
@@ -207,6 +200,4 @@ def main_rfistat(args=None):
         axs[0][0].set_ylabel("Angle (deg)")
         axs[0][0].legend()
         axs[0][0].grid(True)
-        plt.tight_layout()
-        plt.savefig(f"rfi_stats_{receiver}_{time_label}.jpg", dpi=300)
-        # plt.show()
+        fig1.savefig(f"rfi_stats_{receiver}_{time_label}.jpg", dpi=300)
