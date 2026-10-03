@@ -22,8 +22,7 @@ import astropy.constants as c
 import astropy.io.fits as fits
 import astropy.units as u
 from astropy import wcs
-from astropy.table import Column, Table, vstack
-from astropy.table.np_utils import TableMergeError
+from astropy.table import Column, Table, TableMergeError, vstack
 from astropy.time import Time
 from astropy.utils.metadata import MergeConflictWarning
 
