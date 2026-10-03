@@ -325,6 +325,17 @@ class TestScanSet:
     def test_use_command_line_cross(self):
         main_imager(["-c", self.config_file, "--crosses-only"])
 
+    def test_sdtcross_calibrated(self):
+        """SDTcross calibrates the data with an SDTcal file and gives the flux in Jy."""
+        from astropy.io import fits
+        from srttools.crossscan import main_cross
+
+        main_cross(["test.hdf5", "--calibrate", self.calfile, "-o", "sdtcross_test", "--noplot"])
+        header = fits.getheader("sdtcross_test_cross.fits")
+        assert header["BUNIT"] == "Jy"
+        assert np.isfinite(header["FLUX"])
+        assert header["CALERR"] > 0
+
     def test_get_opacity(self):
         scanset = ScanSet("test.hdf5")
         scanset.get_opacity()

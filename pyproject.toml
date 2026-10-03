@@ -95,6 +95,7 @@ repository = "https://github.com/discos/srt-single-dish-tools"
 
 [project.scripts]
 SDTcal = "srttools.calibration:main_cal"
+SDTcross = "srttools.crossscan:main_cross"
 SDTfake = "srttools.simulate:main_simulate"
 SDTimage = "srttools.imager:main_imager"
 SDTinspect = "srttools.inspect_observations:main_inspector"

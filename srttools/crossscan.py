@@ -37,13 +37,18 @@ from .io import get_channel_feed
 
 __all__ = [
     "arm_offsets",
+    "beam_fwhm_from_frequency",
     "binned_profile",
+    "calibrate_crosses",
     "combine_amplitudes",
     "consistency",
     "fit_subscan",
+    "main_cross",
     "measure_crosses",
+    "plot_cross_results",
     "subscan_amplitudes",
     "upper_limit",
+    "write_cross_results",
 ]
 
 SPLINE_ORDER = 3
@@ -215,7 +220,8 @@ def binned_profile(x, y, scan_id, beam_sigma, bin_width=1.0, center=0.0, edges=N
 
     Each subscan is baseline-subtracted with `fit_subscan` and binned; the
     profile is the mean of the binned subscans and the error is their
-    standard deviation / sqrt(N), bin by bin.
+    standard deviation / sqrt(N), bin by bin. Bins covered by less than half
+    of the subscans are NaN.
 
     Parameters
     ----------
@@ -257,15 +263,8 @@ def binned_profile(x, y, scan_id, beam_sigma, bin_width=1.0, center=0.0, edges=N
         num = np.histogram(x[mask][ok], bins=edges, weights=resid[ok])[0]
         den = np.histogram(x[mask][ok], bins=edges)[0]
         binned[i, den > 0] = num[den > 0] / den[den > 0]
-    n = np.sum(np.isfinite(binned), axis=0)
-    profile = np.nansum(binned, axis=0) / np.maximum(n, 1)
-    err = np.sqrt(
-        np.nansum((binned - profile) ** 2, axis=0) / np.maximum(n - 1, 1) / np.maximum(n, 1)
-    )
-    profile[n == 0] = np.nan
-    err[n < 2] = np.nan
     centers = (edges[:-1] + edges[1:]) / 2
-    return centers, profile, err
+    return (centers, *_profile_stats(binned))
 
 
 ARM_NAMES = {True: "RA", False: "Dec"}
@@ -307,8 +306,14 @@ def _channel_average(values):
         return np.where(n > 0, total / n, np.nan)
 
 
-def _profile_stats(binned):
-    """Mean over subscans (axis 0) and its error, ignoring NaNs."""
+def _profile_stats(binned, min_frac=0.5):
+    """Mean over subscans (axis 0) and its error, ignoring NaNs.
+
+    Bins covered by less than ``min_frac`` times the subscans of the
+    best-covered bin (typically at the ends of the scans) are set to NaN.
+    """
+    n = np.sum(np.isfinite(binned), axis=0)
+    binned = np.where(n >= min_frac * n.max(), binned, np.nan)
     n = np.sum(np.isfinite(binned), axis=0)
     profile = np.nansum(binned, axis=0) / np.maximum(n, 1)
     err = np.sqrt(
@@ -490,3 +495,328 @@ def measure_crosses(
         profiles=profiles,
         flagged=flagged,
     )
+
+
+def beam_fwhm_from_frequency(table, channel, diameter=64.0):
+    """Beam FWHM in degrees, as 1.22 lambda / D at the center of the band.
+
+    This is the beam SDTimage uses to choose the pixel size.
+    """
+    import astropy.constants as c
+    import astropy.units as u
+
+    meta = table[channel].meta
+    mid_freq = meta["frequency"] + 0.5 * meta["bandwidth"]
+    return np.degrees((1.22 * c.c / mid_freq / (diameter * u.m)).to("").value)
+
+
+def calibrate_crosses(table, channels, calibration):
+    """Calibrated data of each channel (Jy), with the relative calibration error.
+
+    The conversion from counts to Jy depends on the elevation of each sample
+    (see `srttools.calibration.CalibratorTable.Jy_over_counts`).
+
+    Returns
+    -------
+    calibrated : dict
+        Calibrated data for each channel
+    rel_err : float
+        Median relative error of the conversion, over all samples and channels
+    """
+    from .calibration import CalibratorTable
+
+    caltable = CalibratorTable.read(calibration)
+    caltable.update()
+    calibrated = {}
+    rel_errs = []
+    for ch in channels:
+        elevation = np.asarray(table["el"])[:, get_channel_feed(ch)]
+        fc, fce = caltable.Jy_over_counts(channel=ch, map_unit="Jy/beam", elevation=elevation)
+        if fc is None:
+            raise ValueError(f"No valid calibration for channel {ch}")
+        calibrated[ch] = np.asarray(table[ch], dtype=float) * fc
+        rel_errs.append(np.asarray(fce / fc))
+    return calibrated, float(np.median(np.concatenate([np.ravel(r) for r in rel_errs])))
+
+
+def _fits_name(label):
+    return label.replace(" ", "_")
+
+
+def write_cross_results(result, outroot, header):
+    """Write ``<outroot>_cross.fits`` and ``<outroot>_cross.ecsv``.
+
+    The FITS file has the main results as keywords in the primary header, and
+    the tables ``SUMMARY``, ``PROFILES`` and ``SUBSCANS``. The ECSV file has
+    the summary table, with the same keywords in its metadata.
+    """
+    from astropy.io import fits
+
+    summary = result["summary"]
+    total = summary[summary["label"] == "TOTAL"][0]
+    header = dict(header)
+    header.update(
+        FLUX=float(total["flux"]),
+        FLUXERR=float(total["err"]),
+        UPLIM=float(total["ul"]),
+        DETECTED=bool(total["detected"]),
+        NSUB=int(total["nsub"]),
+    )
+    for key, value in result["consistency"].items():
+        name = "CONS_ARM" if key == "RA-Dec" else "CONS_POL"
+        header[name] = float(value)
+    for ch, bad in result["flagged"].items():
+        header[f"RFI_{ch}"[:8]] = len(bad)
+
+    primary = fits.PrimaryHDU()
+    for key, value in header.items():
+        primary.header[key] = value
+
+    profiles = Table()
+    labels = list(result["profiles"].keys())
+    profiles["offset"] = result["profiles"][labels[0]][0]
+    profiles["offset"].unit = "deg"
+    for label in labels:
+        _, prof, err = result["profiles"][label]
+        profiles[_fits_name(label)] = prof
+        profiles[_fits_name(label) + "_err"] = err
+
+    hdus = [primary]
+    for name, table in [
+        ("SUMMARY", summary),
+        ("PROFILES", profiles),
+        ("SUBSCANS", result["subscans"]),
+    ]:
+        hdu = fits.table_to_hdu(table)
+        hdu.name = name
+        hdus.append(hdu)
+    fits.HDUList(hdus).writeto(outroot + "_cross.fits", overwrite=True)
+
+    out = Table(summary, copy=True)
+    out.meta.update(header)
+    out.meta["consistency"] = {k: float(v) for k, v in result["consistency"].items()}
+    out.write(outroot + "_cross.ecsv", overwrite=True)
+
+
+def plot_cross_results(result, outroot, beam_fwhm, unit="", title=""):
+    """Plot the profiles, with the fitted beam, in ``<outroot>_cross.png``.
+
+    One panel per channel and arm, one per arm with all channels, and the
+    total in ``<outroot>_cross_total.png``.
+    """
+    import matplotlib.pyplot as plt
+
+    factor, unit_label = (1e3, "mJy") if unit == "Jy" else (1.0, unit or "counts")
+    summary = result["summary"]
+    beam_sigma = beam_fwhm / (2 * np.sqrt(2 * np.log(2)))
+
+    def panel(ax, label):
+        centers, prof, err = result["profiles"][label]
+        row = summary[summary["label"] == label][0]
+        arcmin = centers * 60
+        ax.errorbar(arcmin, prof * factor, err * factor, fmt="o", ms=2, lw=0.6, color="k")
+        model = row["flux"] * np.exp(-(centers**2) / (2 * beam_sigma**2))
+        ax.plot(arcmin, model * factor, color="C3", lw=1)
+        ax.axhline(0, color="grey", lw=0.5)
+        status = "detected" if row["detected"] else f"UL {row['ul'] * factor:.3g}"
+        ax.set_title(
+            f"{label}: {row['flux'] * factor:.3g} ± {row['err'] * factor:.2g} "
+            f"{unit_label} ({status})",
+            fontsize=7,
+        )
+        ax.tick_params(labelsize=7)
+
+    with plt.rc_context({"font.size": 7}):
+        channels = [ch for ch in dict.fromkeys(summary["channel"]) if ch != ""]
+        rows = [*channels, ""]
+        fig, axes = plt.subplots(
+            len(rows),
+            2,
+            figsize=(7, 1.6 * len(rows) + 0.4),
+            sharex=True,
+            squeeze=False,
+            layout="constrained",
+        )
+        for irow, ch in enumerate(rows):
+            for icol, arm in enumerate(["RA", "Dec"]):
+                panel(axes[irow, icol], f"{ch} {arm}".strip())
+            axes[irow, 0].set_ylabel(f"Flux [{unit_label}]")
+        for ax in axes[-1]:
+            ax.set_xlabel("Offset along the arm [arcmin]")
+        fig.suptitle(title, fontsize=7)
+        fig.savefig(outroot + "_cross.png", dpi=200)
+        plt.close(fig)
+
+        fig, ax = plt.subplots(figsize=(3.5, 2.65), layout="constrained")
+        panel(ax, "TOTAL")
+        ax.set_xlabel("Offset along the arm [arcmin]")
+        ax.set_ylabel(f"Flux [{unit_label}]")
+        fig.suptitle(title, fontsize=7)
+        fig.savefig(outroot + "_cross_total.png", dpi=200)
+        plt.close(fig)
+
+
+def main_cross(args=None):
+    """Flux or upper limit of a point source from cross scans."""
+    import argparse
+    import os
+
+    description = (
+        "Measure the flux (or upper limit) of a point source from cross scans. "
+        "In each subscan, a smooth baseline is removed and the amplitude of a "
+        "Gaussian beam at the source position is measured; the flux is the "
+        "average over subscans and its error comes from the scatter between "
+        "subscans."
+    )
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument(
+        "files",
+        nargs="*",
+        help="Intermediate ScanSet files from SDTimage (*_dump.hdf5)",
+        default=[],
+    )
+    parser.add_argument(
+        "-c", "--config", type=str, default=None, help="Config file (instead of files)"
+    )
+    parser.add_argument(
+        "--calibrate",
+        type=str,
+        default=None,
+        help="Calibration file from SDTcal. Without it, the calibrated columns "
+        "(<channel>_cal) of the input files are used if present, otherwise counts",
+    )
+    parser.add_argument(
+        "--cal-rel-err",
+        type=float,
+        default=None,
+        help="Relative calibration error, added in quadrature to upper limits. "
+        "Default: from the calibration file if given, otherwise 0",
+    )
+    parser.add_argument(
+        "--source-coords",
+        type=float,
+        nargs=2,
+        default=None,
+        metavar=("RA", "DEC"),
+        help="Position (deg) where the flux is measured. Default: the target "
+        "position in the data",
+    )
+    parser.add_argument(
+        "--beam-fwhm",
+        type=float,
+        default=None,
+        help="Beam FWHM in arcmin. Default: 1.22 lambda / D at the center of the band",
+    )
+    parser.add_argument(
+        "--nsigma",
+        type=float,
+        default=3.0,
+        help="Detection threshold and width of the upper limit, in standard deviations",
+    )
+    parser.add_argument(
+        "--rfi-nsigma",
+        type=float,
+        default=5.0,
+        help="Ignore subscans whose noise exceeds the median of all subscans by "
+        "more than this many robust standard deviations (e.g. residual RFI). "
+        "0 disables the rejection",
+    )
+    parser.add_argument(
+        "--statistic",
+        choices=["mean", "median"],
+        default="mean",
+        help="How the subscan amplitudes are combined",
+    )
+    parser.add_argument(
+        "--chans",
+        type=str,
+        default=None,
+        help="Comma-separated channels to use (default: all, except Stokes Q and U)",
+    )
+    parser.add_argument(
+        "-o", "--outroot", type=str, default=None, help="Root of the output file names"
+    )
+    parser.add_argument("--noplot", action="store_true", default=False, help="Do not plot")
+    args = parser.parse_args(args)
+
+    from .imager import ScanSet
+
+    if args.config is not None:
+        table = ScanSet(args.config, norefilt=True, nosub=True, plot=False)
+        default_root = args.config.replace(".ini", "")
+    elif len(args.files) > 0:
+        table = ScanSet(args.files[0] if len(args.files) == 1 else args.files)
+        default_root = args.files[0].replace("_dump.hdf5", "").replace(".hdf5", "")
+    else:
+        raise ValueError("Specify input files or a config file")
+    outroot = args.outroot if args.outroot is not None else default_root
+    outdir = os.path.dirname(outroot)
+    if outdir != "":
+        os.makedirs(outdir, exist_ok=True)
+
+    if args.chans is not None:
+        channels = args.chans.split(",")
+    else:
+        channels = [ch for ch in table.chan_columns if "Q" not in ch and "U" not in ch]
+
+    cal_rel_err = 0.0
+    if args.calibrate is not None:
+        calibrated, cal_rel_err = calibrate_crosses(table, channels, args.calibrate)
+        for ch in channels:
+            table[ch + "_sdtcross"] = calibrated[ch]
+        suffix, unit = "_sdtcross", "Jy"
+    elif all(ch + "_cal" in table.colnames for ch in channels):
+        suffix, unit = "_cal", "Jy"
+    else:
+        warnings.warn("No calibration: the flux is in counts.")
+        suffix, unit = "", "counts"
+    if args.cal_rel_err is not None:
+        cal_rel_err = args.cal_rel_err
+
+    if args.source_coords is not None:
+        ra0, dec0 = np.radians(args.source_coords)
+    else:
+        ra0, dec0 = (float(table.meta[k].to("rad").value) for k in ["RA", "Dec"])
+
+    if args.beam_fwhm is not None:
+        beam_fwhm = args.beam_fwhm / 60
+    else:
+        beam_fwhm = beam_fwhm_from_frequency(table, channels[0])
+
+    result = measure_crosses(
+        table,
+        ra0,
+        dec0,
+        beam_fwhm,
+        channels,
+        suffix=suffix,
+        rfi_nsigma=args.rfi_nsigma if args.rfi_nsigma > 0 else None,
+        statistic=args.statistic,
+        nsigma=args.nsigma,
+        cal_rel_err=cal_rel_err,
+    )
+    for key, value in result["consistency"].items():
+        if np.abs(value) > args.nsigma:
+            warnings.warn(f"{key}: the two estimates differ by {value:.1f} standard deviations")
+
+    source = str(table.meta.get("SOURCE", ""))
+    header = dict(
+        SOURCE=source,
+        RA=float(np.degrees(ra0)),
+        DEC=float(np.degrees(dec0)),
+        BEAMFWHM=float(beam_fwhm),
+        BUNIT=unit,
+        NSIGMA=float(args.nsigma),
+        CALERR=float(cal_rel_err),
+        RFINSIG=float(args.rfi_nsigma),
+        COMBINE=args.statistic,
+    )
+    write_cross_results(result, outroot, header)
+    if not args.noplot:
+        plot_cross_results(result, outroot, beam_fwhm, unit=unit, title=source)
+
+    summary = Table(result["summary"], copy=True)
+    for col in ["flux", "err", "ul"]:
+        summary[col].format = ".4g"
+    summary.pprint_all()
+    return result
