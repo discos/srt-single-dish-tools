@@ -141,3 +141,33 @@ misses only 0.1% of the subscans containing RFI bursts. Set ``rfi_nsigma=None``
 This rejection is meant for cross scans: in a map, subscans at different
 offsets see different parts of the sky and the median profile is not a good
 model of each of them.
+
+Rejection of outlier fits in calibration and light curves
+---------------------------------------------------------
+
+``SDTcal`` and ``SDTlcurve`` fit a Gaussian plus a baseline to each subscan
+separately. RFI bursts can bias these fits, or the Gaussian can lock on to
+the burst instead of the source. ``CalibratorTable.update`` therefore calls
+``CalibratorTable.flag_outliers``, which compares each fit with the other
+fits of the same observation (``Dir``), source, channel and arm (RA or Dec),
+where the source is not expected to change. A fit is flagged in the new
+``Outlier`` column if its residual rms (new ``Resid Std`` column; only
+excesses count), amplitude or width is more than ``outlier_nsigma`` robust
+standard deviations (1.4826 times the median absolute deviation) from the
+median of its group. Groups with fewer than 6 fits are not checked. Flagged
+fits are excluded from the calibration, from the source fluxes and from the
+light curves written by ``SDTlcurve``, and are reported in warnings.
+
+The default ``outlier_nsigma = 5`` was chosen with the Monte Carlo
+simulations of ``experiments/crossscan_mc``. For a bright source (peak ~40
+times the per-sample noise) it flags 0.4% of the clean fits; with RFI it
+brings the flux back to its RFI-free value (without rejection, the RFI model
+of the simulations biases the flux by ~20%). For faint sources (below S/N
+~100 in a whole observation) many single-subscan fits lock on to noise:
+20-45% of them are flagged, which reduces the bias of the mean flux but does
+not remove it; the warning that more than 20% of the fits are flagged then
+signals that the fits are unreliable. Set ``outlier_nsigma=None``
+(``--outlier-nsigma 0``) to disable the rejection.
+
+Tables written by previous versions are read with ``Resid Std`` set to NaN
+(no fit is flagged for its residuals) and ``Outlier`` set to False.
