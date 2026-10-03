@@ -4,20 +4,18 @@ dynamic = [
     "version"
 ]
 description = "SRT single dish tools: Tools for the analysis and conversion of SRT data"
-readme = "README.rst"
+readme = "README.md"
 authors = [
     { name = "Matteo Bachetti", email = "matteo@matteobachetti.it" },
     { name = "Giuseppe Carboni", email = "giuseppe.carboni@inaf.it" },  # SDTmonitor developer and maintainer
     { name = "The Disc Team" }
 ]
 license = { text = "3-clause BSD" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
-    "Programming Language :: C",
-    "Programming Language :: Cython",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Astronomy",
@@ -26,33 +24,28 @@ classifiers = [
 keywords = [
     "astronomy",
     "astrophysics",
-    "time series",
-    "X-ray",
+    "radio astronomy",
+    "single dish",
     "data analysis",
-    "black holes",
-    "neutron stars",
-    "pulsars",
-    "space",
-    "science",
+    "Sardinia Radio Telescope",
 ]
 dependencies = [
-    "numpy>=1.17",
-    "astropy>=4.0",
-    "scipy>=1.1.0",
-    "matplotlib>=3.0,!=3.4.00,!=3.8.0",
+    "numpy>=1.21",
+    "astropy>=5.0",
+    "scipy>=1.7.3",
+    "matplotlib>=3.6,!=3.8.0",
     "stingray>=2.2.3",
-    "tqdm",
-    "h5py",
-    "pyyaml",
-    "colorama",
+    "tqdm>=4.60",
+    "h5py>=3.7",
+    "pyyaml>=6.0",
+    "colorama>=0.4",
 ]
 
 
 [project.optional-dependencies]
 test = [
-    "pytest",
-    "pytest-astropy",
-    "pytest-asyncio",
+    "pytest>=7.0",
+    "pytest-astropy>=0.10",
 ]
 test_all = [
     "matplotlib",
@@ -113,16 +106,15 @@ SDTrfistat = "srttools.rfistat:main_rfistat"
 
 [build-system]
 
-requires = ["setuptools",
-            "setuptools_scm",
-            "wheel"]
+requires = ["setuptools>=64",
+            "setuptools_scm>=8"]
 
 build-backend = 'setuptools.build_meta'
 
 
 [tool.setuptools]
 include-package-data = true
-license-files = ["LICENSE.rst"]
+license-files = ["licenses/LICENSE.rst"]
 
 [tool.setuptools.packages.find]
 include = ["srttools*"]
@@ -144,11 +136,10 @@ namespaces = false
 "srttools.tests" = ["data/*"]
 
 [tool.setuptools_scm]
-write_to = "srttools/_version.py"
+version_file = "srttools/_version.py"
 
 [tool.pytest.ini_options]
 minversion = 7.0
-asyncio_default_fixture_loop_scope = "function"
 testpaths = [
     "srttools",
     "docs",
@@ -163,10 +154,9 @@ text_file_format = "rst"
 remote_data_strict = true
 addopts = "--color=yes --doctest-rst"
 filterwarnings = [
-    "error:.*:DeprecationWarning",
+    "error::DeprecationWarning:srttools.*",
     "ignore:Matplotlib is currently using agg, which is a:UserWarning",
     "ignore:Using or importing the ABCs from 'collections':DeprecationWarning",
-    "ignore:`product` is deprecated as of NumPy 1.25.0:DeprecationWarning",
     "ignore:unclosed file:ResourceWarning",
     "ignore:numpy.ufunc size changed:RuntimeWarning",
     "ignore:numpy.ndarray size changed:RuntimeWarning",
