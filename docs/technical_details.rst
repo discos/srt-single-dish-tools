@@ -80,3 +80,34 @@ Dates given on the command line (e.g. ``SDTinspect --only-after
 20250101-000000``) are always interpreted as UTC, independent of the time
 zone of the machine. Tests force a non-UTC time zone to check this, because
 CI machines run in UTC and would not catch the problem otherwise.
+
+Simulated noise and pointing errors
+-----------------------------------
+
+The simulator (``srttools.simulate``) is used to test the measurement of
+fluxes from cross scans. Its noise model is:
+
+- **White noise** of rms ``noise_amplitude``, independent in each channel and
+  spectral bin.
+- **1/f noise** (optional, ``fknee`` not None). The total power spectrum is
+  :math:`\sigma^2 [1 + (f_{\rm knee}/f)^\alpha]`, where :math:`\sigma` is
+  ``noise_amplitude`` and :math:`\alpha` is ``noise_index`` (default 1). It is
+  generated in frequency space with random Gaussian amplitudes and phases,
+  then transformed back to a time series. The zero-frequency term is set to
+  zero (an offset is a baseline, not noise). The same 1/f series is added to
+  all spectral bins of a channel, as gain drifts affect the whole band.
+- **Correlation between the two channels** (``pol_correlation`` in
+  ``sim_crossscans``, default 0.9). Part of the drift (atmosphere, common
+  system noise) is shared by the two polarizations, and part (polarized
+  emission, receiver noise) is not. Each channel gets
+  :math:`\sqrt{\rho}\,n_{\rm common} + \sqrt{1-\rho}\,n_{\rm own}`, which has
+  correlation coefficient :math:`\rho` and a noise level independent of it.
+  Only the 1/f part is correlated.
+- **Pointing offset** (``pointing_offset=(dra, ddec)`` in degrees on the sky,
+  in ``sim_crossscans``): the true source is displaced from the center of the
+  cross. Along each arm the profile is shifted; across the arm it is
+  attenuated by :math:`\exp[-d^2/(2\sigma_{\rm beam}^2)]` (``beam_sigma``,
+  default the 2.5' sigma of the simulated beam).
+
+All random draws accept ``rng``: a seed or a ``numpy.random.Generator``.
+With ``rng=None`` the global ``numpy.random`` state is used, as before.

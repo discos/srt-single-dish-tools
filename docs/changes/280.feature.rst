@@ -1,0 +1,1 @@
+The simulator accepts a random seed or generator (``rng``), 1/f noise with a configurable knee frequency and partial correlation between channels, and a pointing offset for cross scans.

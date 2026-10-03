@@ -9,6 +9,8 @@ from astropy.io import fits
 from srttools.io import mkdir_p
 from srttools.simulate import (
     _default_map_shape,
+    _offset_arm_shape,
+    _red_noise,
     main_simulate,
     save_scan,
     sim_crossscans,
@@ -61,6 +63,18 @@ class TestSimulate:
 
     def test_sim_crossscans(self):
         sim_crossscans(1, self.pswdir)
+
+    def test_sim_crossscans_noise_options(self):
+        """Smoke test: cross scans with seeded 1/f noise and a pointing offset."""
+        sim_crossscans(
+            1,
+            self.pswdir,
+            noise_amplitude=0.5,
+            rng=1234,
+            fknee=1.0,
+            pol_correlation=0.5,
+            pointing_offset=(0.01, -0.01),
+        )
 
     def test_sim_map_empty(self):
         """Test the simulation of an empty map."""
@@ -123,3 +137,58 @@ class TestSimulate:
     @classmethod
     def teardown_class(cls):
         shutil.rmtree(cls.outdir)
+
+
+def test_simulate_scan_seed_reproducible():
+    """The same seed gives identical scans, including baseline and 1/f noise."""
+    kw = dict(baseline="messy", fknee=1.0, noise_amplitude=1.0)
+    _, _, a = simulate_scan(rng=42, **kw)
+    _, _, b = simulate_scan(rng=42, **kw)
+    _, _, c = simulate_scan(rng=43, **kw)
+    assert np.array_equal(a, b)
+    assert not np.array_equal(a, c)
+
+
+def test_simulate_scan_white_noise_level():
+    """With a zero source and flat baseline, the scatter equals noise_amplitude."""
+    _, _, scan = simulate_scan(
+        shape=lambda x: np.zeros_like(x), noise_amplitude=3.0, nsamples=20000, rng=0
+    )
+    assert np.isclose(np.std(scan), 3.0, rtol=0.03)
+
+
+def test_red_noise_spectrum():
+    """1/f noise power at f << fknee exceeds that at f >> fknee by about fknee/f."""
+    dt, n, fknee = 0.01, 4096, 1.0
+    noise = _red_noise(n, dt, fknee, noise_amplitude=1.0, ntrials=200, rng=1)[:, 0, :]
+    power = np.mean(np.abs(np.fft.rfft(noise, axis=1)) ** 2, axis=0) / n
+    freqs = np.fft.rfftfreq(n, dt)
+    low = power[(freqs > 0.05) & (freqs < 0.1)].mean()
+    high = power[(freqs > 10) & (freqs < 20)].mean()
+    # Expected ratio of (fknee/f)^1 over the two bands
+    expected = np.mean(1 / freqs[(freqs > 0.05) & (freqs < 0.1)]) / np.mean(
+        1 / freqs[(freqs > 10) & (freqs < 20)]
+    )
+    assert np.isclose(low / high, expected, rtol=0.2)
+
+
+@pytest.mark.parametrize("corr", [0.0, 0.6, 1.0])
+def test_red_noise_pol_correlation(corr):
+    """The correlation of the 1/f noise between channels equals pol_correlation."""
+    noise = _red_noise(512, 0.04, 1.0, 1.0, nchan=2, correlation=corr, ntrials=400, rng=2)
+    measured = np.mean([np.corrcoef(trial)[0, 1] for trial in noise])
+    assert np.isclose(measured, corr, atol=0.05)
+
+
+def test_offset_arm_shape():
+    """An offset shifts the profile along the arm and attenuates it across the arm."""
+    sigma = 2.5 / 60
+
+    def func(x):
+        return 100 * np.exp(-(x**2) / (2 * sigma**2))
+
+    shifted = _offset_arm_shape(func, along=0.01, across=sigma, beam_sigma=sigma)
+    x = np.linspace(-0.1, 0.1, 2001)
+    y = shifted(x)
+    assert np.isclose(x[np.argmax(y)], 0.01, atol=1e-4)
+    assert np.isclose(y.max(), 100 * np.exp(-0.5), rtol=1e-4)
