@@ -1,1 +1,1 @@
-Modernized packaging, tox and CI: Python >= 3.9, tested oldest dependency versions, ruff-based code style checks
+Modernized packaging, tox and CI (oldest- and development-version test jobs, ruff-based code style checks); applied code style fixes to the whole repository.
