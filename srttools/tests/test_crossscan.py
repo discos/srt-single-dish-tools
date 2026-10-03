@@ -1,11 +1,13 @@
 import numpy as np
 import pytest
 
+from astropy.table import Table
 from srttools.crossscan import (
     binned_profile,
     combine_amplitudes,
     consistency,
     fit_subscan,
+    measure_crosses,
     subscan_amplitudes,
     upper_limit,
 )
@@ -97,3 +99,65 @@ def test_binned_profile():
     assert np.isclose(prof[i0], 10.0 * np.exp(-(centers[i0] ** 2) / (2 * BEAM_SIGMA**2)), atol=1)
     assert np.all(err[np.isfinite(err)] > 0)
     assert np.abs(prof[np.abs(centers) > 10]).max() < 1
+
+
+RA0, DEC0 = np.radians(248.26), np.radians(23.83)
+FWHM_DEG = 0.0463
+CHANS = ["Feed0_LCP", "Feed0_RCP"]
+
+
+def _cross_table(amplitude, seed=0, nsub=40, src_offset_deg=0.0):
+    """Cross scans as stored in a ScanSet: ra/dec in radians, one feed, two channels."""
+    rng = np.random.default_rng(seed)
+    sigma = FWHM_DEG / 2.3548
+    off = np.linspace(-0.24, 0.24, NSAMP)
+    cols = {k: [] for k in ["ra", "dec", "direction", "Scan_id", *CHANS]}
+    for i in range(nsub):
+        isra = i % 2 == 0
+        dra = off / np.cos(DEC0) if isra else np.zeros(NSAMP)
+        ddec = np.zeros(NSAMP) if isra else off
+        cols["ra"].append(RA0 + np.radians(dra))
+        cols["dec"].append(DEC0 + np.radians(ddec))
+        cols["direction"].append(np.full(NSAMP, isra))
+        cols["Scan_id"].append(np.full(NSAMP, i))
+        src = amplitude * np.exp(-((off - src_offset_deg) ** 2) / (2 * sigma**2))
+        for ch in CHANS:
+            cols[ch].append(src + 0.5 * off + rng.normal(0, 1, NSAMP))
+    t = Table()
+    for k, v in cols.items():
+        v = np.concatenate(v)
+        t[k] = v[:, np.newaxis] if k in ["ra", "dec"] else v
+    for ch in CHANS:
+        t[ch + "-filt"] = np.ones(len(t), dtype=bool)
+    return t
+
+
+def test_measure_crosses():
+    """Fluxes per channel, arm and in total are right; flagged samples are ignored."""
+    t = _cross_table(3.0)
+    bad = t["Scan_id"] == 5
+    t["Feed0_LCP"][bad] += 1000
+    t["Feed0_LCP-filt"][bad] = False
+    res = measure_crosses(t, RA0, DEC0, FWHM_DEG, channels=CHANS, rfi_nsigma=None)
+    summary = res["summary"]
+    assert set(summary["label"]) == {
+        "Feed0_LCP RA", "Feed0_LCP Dec", "Feed0_RCP RA", "Feed0_RCP Dec",
+        "Feed0_LCP", "Feed0_RCP", "RA", "Dec", "TOTAL",
+    }  # fmt: skip
+    total = summary[summary["label"] == "TOTAL"][0]
+    assert abs(total["flux"] - 3.0) < 4 * total["err"]
+    assert total["nsub"] == 40
+    assert summary[summary["label"] == "Feed0_LCP"][0]["nsub"] == 39
+    assert total["detected"]
+    assert abs(res["consistency"]["RA-Dec"]) < 4
+    assert abs(res["consistency"]["Feed0_LCP-Feed0_RCP"]) < 4
+    centers, prof, err = res["profiles"]["TOTAL"]
+    assert np.isclose(prof[np.argmin(np.abs(centers))], 3.0, atol=4 * total["err"])
+
+
+def test_measure_crosses_offset_position():
+    """The flux is measured at the requested position, not at the scan center."""
+    t = _cross_table(10.0, src_offset_deg=0.08)
+    res = measure_crosses(t, RA0, DEC0 + np.radians(0.08), FWHM_DEG, channels=CHANS)
+    dec_arm = res["summary"][res["summary"]["label"] == "Dec"][0]
+    assert abs(dec_arm["flux"] - 10.0) < 4 * dec_arm["err"]
