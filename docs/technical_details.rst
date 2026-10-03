@@ -118,7 +118,7 @@ Rejection of RFI-contaminated subscans in cross scans
 Radio-frequency interference (RFI) that survives the removal of bad spectral
 channels can remain in the time series as bursts lasting a few seconds, too
 long for the spike filter. Before averaging cross scans,
-``ScanSet.calculate_avg_cross`` (used by ``SDTimage --crosses-only``) calls
+``ScanSet.calculate_avg_cross`` calls
 ``ScanSet.flag_rfi_subscans``, which uses
 ``srttools.imager.find_outlier_subscans`` on each channel:
 
@@ -136,7 +136,7 @@ noise and RFI of real SRT cross scans (``experiments/crossscan_mc``): it
 flags 0.2-0.3% of the clean subscans with 1/f noise (none with white noise),
 including when a bright source is observed with a pointing offset, and
 misses only 0.1% of the subscans containing RFI bursts. Set ``rfi_nsigma=None``
-(``--rfi-nsigma 0`` in ``SDTimage``) to disable the rejection.
+(``--rfi-nsigma 0`` in ``SDTcross``) to disable the rejection.
 
 This rejection is meant for cross scans: in a map, subscans at different
 offsets see different parts of the sky and the median profile is not a good

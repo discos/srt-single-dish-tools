@@ -1,0 +1,1 @@
+``SDTimage --crosses-only`` has been removed: use the new ``SDTcross`` instead. ``SDTimage`` no longer saves cross-scan profiles.
