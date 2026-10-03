@@ -1023,7 +1023,9 @@ class ScanSet(Table):
                         counts = counts * np.nan
                         continue
                     if ch + "_cal" not in self.colnames:
-                        self[ch + "_cal"] = np.zeros_like(self[ch])
+                        # Flagged samples are not calibrated: NaN, not zero,
+                        # so that readers of the _cal columns cannot use them
+                        self[ch + "_cal"] = np.full_like(self[ch], np.nan, dtype=float)
                     Jy_over_counts = fc * conversion_units
                     Jy_over_counts_err = fce * conversion_units
 
