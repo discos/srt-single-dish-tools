@@ -1,0 +1,1 @@
+Dates given to ``SDTinspect --only-after/--only-before`` are now always interpreted as UTC, independent of the local time zone
