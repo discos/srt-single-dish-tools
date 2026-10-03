@@ -21,8 +21,7 @@ install exactly the lower bound of every direct dependency.
 Most bounds (``numpy>=1.26``, ``scipy>=1.11.2``, ``astropy>=5.3.4``,
 ``matplotlib>=3.7.3``, ``h5py>=3.10``, ``pyyaml>=6.0.1``) are simply the first
 releases with wheels for Python 3.12, rather than requirements of the code.
-The exclusion of matplotlib 3.8.0 predates this policy; its reason is not
-recorded.
+Matplotlib 3.8.0 is excluded because of a serious bug in that release.
 
 Running the tests
 -----------------
