@@ -12,7 +12,7 @@ import os
 import traceback
 import warnings
 from collections.abc import Iterable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 from scipy.stats import binned_statistic, binned_statistic_2d
@@ -1732,7 +1732,7 @@ class ScanSet(Table):
             warnings.warn("Azimuth is wrapping around 0. Beware.")
 
         header["CREATOR"] = "SDT"
-        ut = Time(datetime.now(timezone.utc), scale="utc")
+        ut = Time(datetime.now(UTC), scale="utc")
         header["COMMENT"] = f"Made with the SRT Single-Dish Tools on UT {ut.fits}"
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)

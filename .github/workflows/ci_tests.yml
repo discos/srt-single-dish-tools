@@ -95,10 +95,10 @@ jobs:
             toxenv: codestyle
             experimental: false
 
-          - name: Linux - Python 3.9 with the oldest supported dependencies
+          - name: Linux - Python 3.12 with the oldest supported dependencies
             os: ubuntu-latest
-            python: '3.9'
-            toxenv: py39-test-oldestdeps
+            python: '3.12'
+            toxenv: py312-test-oldestdeps
             experimental: false
 
           - name: Linux - Python 3.13 with all optional dependencies and coverage checking

@@ -24,10 +24,10 @@ jobs:
             os: ubuntu-latest
             python: '3.13'
             toxenv: py313-test-devdeps
-          - name: Python 3.9 with the oldest supported dependencies
+          - name: Python 3.12 with the oldest supported dependencies
             os: ubuntu-latest
-            python: '3.9'
-            toxenv: py39-test-oldestdeps
+            python: '3.12'
+            toxenv: py312-test-oldestdeps
     steps:
     - name: Checkout code
       uses: actions/checkout@v5

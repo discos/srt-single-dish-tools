@@ -1,6 +1,7 @@
 """Read the relevant information and link observations to calibrators."""
 
 import datetime
+import itertools
 import logging
 import warnings
 from collections.abc import Iterable
@@ -142,7 +143,7 @@ def split_observation_table(
     indices = grouped_table.groups.indices
 
     groups = {}
-    for i, ind in enumerate(zip(indices[:-1], indices[1:])):
+    for i, ind in enumerate(itertools.pairwise(indices)):
         start_row = grouped_table[ind[0]]
         logging.info(
             f"Group {i}, Backend = {start_row['Backend']}, Receiver = {start_row['Receiver']}"

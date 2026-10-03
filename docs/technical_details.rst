@@ -7,29 +7,22 @@ developers, and the reasoning behind some non-obvious choices.
 Supported Python and dependency versions
 ----------------------------------------
 
-The package supports Python 3.9 and newer, because some production machines
-at the telescope still run Python 3.9.
+The package supports Python 3.12 and newer. Python 3.9 was the minimum until
+2026, for old production machines at the telescope; it was raised to 3.12
+because 3.9 and 3.10 have reached their end of life, and current releases of
+the scientific stack (numpy, scipy, astropy, matplotlib) all support 3.12.
 
 The lower bounds of the dependencies in ``pyproject.toml`` are not guesses:
-they are the oldest versions that install from binary wheels on Python 3.9
-and pass the test suite. They are exercised by the ``py39-test-oldestdeps``
+they are the oldest versions that install from binary wheels on Python 3.12
+and pass the test suite. They are exercised by the ``py312-test-oldestdeps``
 tox environment, which uses ``uv`` with ``--resolution lowest-direct`` to
 install exactly the lower bound of every direct dependency.
 
-Some bounds are dictated by availability of binary wheels rather than by
-features used in the code:
-
-* ``scipy>=1.7.3``, ``h5py>=3.7``, ``pyyaml>=6.0``: older versions have no
-  wheels for some current platforms (e.g. Apple Silicon) and would need to be
-  compiled.
-* ``matplotlib>=3.6``: ``rfistat`` uses ``width_ratios``/``height_ratios``
-  as arguments of ``plt.subplots``.
-
-Known issue: on Apple Silicon, the combination ``numpy==1.21.0`` +
-``scipy==1.7.3`` can crash (segmentation fault inside the SVD used by
-``curve_fit``) in the opacity tests. This is a problem of the bundled
-OpenBLAS libraries of those old wheels, not of this package; the
-oldest-dependency job in CI runs on Linux.
+Most bounds (``numpy>=1.26``, ``scipy>=1.11.2``, ``astropy>=5.3.4``,
+``matplotlib>=3.7.3``, ``h5py>=3.10``, ``pyyaml>=6.0.1``) are simply the first
+releases with wheels for Python 3.12, rather than requirements of the code.
+The exclusion of matplotlib 3.8.0 predates this policy; its reason is not
+recorded.
 
 Running the tests
 -----------------
@@ -40,7 +33,7 @@ The recommended way is through tox, with the ``tox-uv`` plugin:
 
     $ pip install tox tox-uv
     $ tox -e py313-test-alldeps     # latest versions, all optional dependencies
-    $ tox -e py39-test-oldestdeps   # oldest supported versions
+    $ tox -e py312-test-oldestdeps  # oldest supported versions
     $ tox -e py313-test-devdeps     # nightly builds of numpy, scipy, matplotlib, astropy
     $ tox -e codestyle              # pre-commit checks (ruff, codespell, ...)
 

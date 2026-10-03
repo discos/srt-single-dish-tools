@@ -11,12 +11,14 @@ authors = [
     { name = "The Disc Team" }
 ]
 license = { text = "3-clause BSD" }
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Astronomy",
     "Topic :: Scientific/Engineering :: Physics",
@@ -30,14 +32,14 @@ keywords = [
     "Sardinia Radio Telescope",
 ]
 dependencies = [
-    "numpy>=1.21",
-    "astropy>=5.0",
-    "scipy>=1.7.3",
-    "matplotlib>=3.6,!=3.8.0",
+    "numpy>=1.26",
+    "astropy>=5.3.4",
+    "scipy>=1.11.2",
+    "matplotlib>=3.7.3,!=3.8.0",
     "stingray>=2.2.3",
     "tqdm>=4.60",
-    "h5py>=3.7",
-    "pyyaml>=6.0",
+    "h5py>=3.10",
+    "pyyaml>=6.0.1",
     "colorama>=0.4",
 ]
 
@@ -72,7 +74,6 @@ all = [
     "sunpy"
 ]
 docs = [
-    "tomli>=1.1.0; python_version < '3.11'",
     "jinja2==3.1.3",
     "docutils",
     "sphinx>=7,<9",
