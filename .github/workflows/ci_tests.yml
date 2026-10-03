@@ -7,15 +7,14 @@ name: CI Tests
 on:
   push:
     branches:
-    - main  # GitHub now defaults to 'main' as the name of the primary branch. Change this as needed.
-  #  tags: # run CI if specific tags are pushed
+    - main
   pull_request:
-    # branches: # only build on PRs against 'main' if you need to further limit when CI is run.
-    #    - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # Github Actions supports ubuntu, windows, and macos virtual environments:
-  # https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners
   check_commit:
     # Check the commit message for the presence of keywords that indicate
     # that the CI tests should be skipped, in favor of running doc builds only.
@@ -25,7 +24,7 @@ jobs:
     # the entire workflow.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{github.event.pull_request.head.repo.full_name}}
@@ -54,36 +53,28 @@ jobs:
         include:
           - name: Test building of Sphinx docs
             os: ubuntu-latest
-            python: '3.10'
+            python: '3.12'
             toxenv: build_docs
           - name: Test links of Sphinx docs
             os: ubuntu-latest
-            python: '3.10'
+            python: '3.12'
             toxenv: linkcheck
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
         with:
-          submodules: true
-      - name: Check out that no sensitive environment variable is shared
-        run: env
+          fetch-depth: 0
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
       - name: Install base dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install tox
+          python -m pip install tox tox-uv
       - name: Install system dependencies
         run: sudo apt-get -y install graphviz pandoc
-      - name: Print Python, pip, setuptools, and tox versions
-        run: |
-          python -c "import sys; print(f'Python {sys.version}')"
-          python -c "import pip; print(f'pip {pip.__version__}')"
-          python -c "import setuptools; print(f'setuptools {setuptools.__version__}')"
-          python -c "import tox; print(f'tox {tox.__version__}')"
       - name: Run tests
         run: tox -e ${{ matrix.toxenv }}
 
@@ -98,63 +89,60 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Code style checks with black
+          - name: Code style checks
             os: ubuntu-latest
-            python: '3.10'
-            toxenv: black
+            python: '3.12'
+            toxenv: codestyle
             experimental: false
 
-          - name: Python 3.11 with all optional dependencies and coverage checking
+          - name: Linux - Python 3.9 with the oldest supported dependencies
             os: ubuntu-latest
-            python: '3.11'
-            toxenv: py311-test-alldeps-cov
+            python: '3.9'
+            toxenv: py39-test-oldestdeps
             experimental: false
 
-          - name: Linux - Python 3.8 with all optional dependencies at their 3.8-compatible versions
+          - name: Linux - Python 3.13 with all optional dependencies and coverage checking
             os: ubuntu-latest
-            python: '3.8'
-            toxenv: py38-test-alldeps
-            experimental: true
+            python: '3.13'
+            toxenv: py313-test-alldeps-cov
+            experimental: false
 
-          - name: OS X - Python 3.12 with all optional dependencies
-            os: macos-13
+          - name: OS X - Python 3.13 with all optional dependencies
+            os: macos-latest
+            python: '3.13'
+            toxenv: py313-test-alldeps
+            experimental: false
+
+          - name: Windows - Python 3.12 with all optional dependencies
+            os: windows-latest
             python: '3.12'
             toxenv: py312-test-alldeps
-            experimental: true
-
-          - name: Windows - Python 3.10 with all optional dependencies
-            os: windows-latest
-            python: '3.10'
-            toxenv: py310-test-alldeps
             experimental: false
 
-          - name: Python 3.12 with latest dev versions of key dependencies
+          - name: Linux - Python 3.13 with the development versions of key dependencies
             os: ubuntu-latest
-            python: '3.12'
-            toxenv: py312-test-devdeps
+            python: '3.13'
+            toxenv: py313-test-devdeps
             experimental: true
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
     - name: Set up python ${{ matrix.python }} on ${{ matrix.os }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python }}
     - name: Install base dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install tox codecov
-#    - name: Test with tox
-#      if: "startsWith(matrix.toxenv, 'py')"
-#      run: tox -e ${{ matrix.toxenv }} -- -svv
+        python -m pip install tox tox-uv
     - name: Test with tox
       run: tox -e ${{ matrix.toxenv }}
-    # This is an example of how to upload coverage to codecov
     - name: Upload coverage to codecov
       if: "endsWith(matrix.toxenv, '-cov')"
-      uses: codecov/codecov-action@v1.0.15
+      uses: codecov/codecov-action@v5
       with:
-        file: ./coverage.xml
+        files: ./coverage.xml
+        token: ${{ secrets.CODECOV_TOKEN }}
