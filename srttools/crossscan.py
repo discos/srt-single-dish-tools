@@ -388,8 +388,12 @@ def measure_crosses(
         per arm and in total (``label`` "TOTAL"); columns ``flux``, ``err``,
         ``nsub`` (subscans used), ``ul`` (upper limit), ``detected``.
         ``subscans``: table of the amplitude of each subscan and channel.
-        ``consistency``: difference between the arms and between the first
-        two channels, in standard deviations.
+        ``consistency``: difference between the arms, between the first
+        two channels and (with the joint fit) between the joint and window
+        fits (``"joint-window"``, total over all subscans), in standard
+        deviations. The last is negative for a source that does not look
+        like the beam at the nominal position (pointing offset, extended
+        source), whose flux the joint fit underestimates.
         ``profiles``: (bin centers, profile, error) for each channel and
         arm (key ``"<channel> <arm>"``), for each arm and for ``"TOTAL"``.
         ``flagged``: subscans rejected for anomalous noise, per channel
@@ -403,6 +407,8 @@ def measure_crosses(
     scan_id = np.asarray(table["Scan_id"])
     nchan = len(channels)
     amps = np.full((ids.size, nchan), np.nan)
+    joint = kwargs.get("joint", True)
+    amps_window = np.full((ids.size, nchan), np.nan)
     sub_arm = np.zeros(ids.size, dtype=bool)
 
     offsets = {}
@@ -444,6 +450,11 @@ def measure_crosses(
             sub_arm[i] = arm[mask][0]
             amp, resid = fit_subscan(offset[mask], values[mask], beam_sigma, **kwargs)
             amps[i, ich] = amp
+            if joint:
+                window_kwargs = {**kwargs, "joint": False}
+                amps_window[i, ich] = fit_subscan(
+                    offset[mask], values[mask], beam_sigma, **window_kwargs
+                )[0]
             ok = np.isfinite(resid)
             if not np.any(ok):
                 continue
@@ -488,6 +499,10 @@ def measure_crosses(
         diff = amps[:, 0] - amps[:, 1]
         dflux, derr = combine_amplitudes(diff, statistic=statistic)
         consist[f"{channels[0]}-{channels[1]}"] = dflux / derr
+    if joint:
+        diff = _channel_average(amps) - _channel_average(amps_window)
+        dflux, derr = combine_amplitudes(diff, statistic=statistic)
+        consist["joint-window"] = dflux / derr
 
     subscans = Table()
     subscans["Scan_id"] = ids
@@ -550,6 +565,23 @@ def _fits_name(label):
     return label.replace(" ", "_")
 
 
+def _shape_warning(z, nsigma):
+    """Message for a joint-minus-window difference of ``z`` standard deviations, or None."""
+    if abs(z) <= nsigma:
+        return None
+    if z < 0:
+        return (
+            f"The joint fit is lower than the window fit by {-z:.1f} standard deviations: the "
+            "source is wider than the beam or offset from the nominal position. Its flux is "
+            "probably underestimated; check the profiles."
+        )
+    return (
+        f"The joint fit is higher than the window fit by {z:.1f} standard deviations: the "
+        "beam template may be wider than the real beam (see --beam-fwhm), or there is "
+        "structure near the source, which affects the window fit more. Check the profiles."
+    )
+
+
 def write_cross_results(result, outroot, header):
     """Write ``<outroot>_cross.fits`` and ``<outroot>_cross.ecsv``.
 
@@ -569,9 +601,9 @@ def write_cross_results(result, outroot, header):
         DETECTED=bool(total["detected"]),
         NSUB=int(total["nsub"]),
     )
+    names = {"RA-Dec": "CONS_ARM", "joint-window": "CONS_SHP"}
     for key, value in result["consistency"].items():
-        name = "CONS_ARM" if key == "RA-Dec" else "CONS_POL"
-        header[name] = float(value)
+        header[names.get(key, "CONS_POL")] = float(value)
     for ch, bad in result["flagged"].items():
         header[f"RFI_{ch}"[:8]] = len(bad)
 
@@ -803,7 +835,11 @@ def main_cross(args=None):
         cal_rel_err=cal_rel_err,
     )
     for key, value in result["consistency"].items():
-        if np.abs(value) > args.nsigma:
+        if np.abs(value) <= args.nsigma:
+            continue
+        if key == "joint-window":
+            warnings.warn(_shape_warning(value, args.nsigma))
+        else:
             warnings.warn(f"{key}: the two estimates differ by {value:.1f} standard deviations")
 
     source = str(table.meta.get("SOURCE", ""))

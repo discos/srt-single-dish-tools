@@ -327,13 +327,14 @@ class TestScanSet:
         with pytest.raises(ValueError, match="SDTcross"):
             main_imager(["-c", self.config_file, "--crosses-only"])
 
-    def test_sdtcross_calibrated(self):
+    def test_sdtcross_calibrated(self, tmp_path):
         """SDTcross calibrates the data with an SDTcal file and gives the flux in Jy."""
         from astropy.io import fits
         from srttools.crossscan import main_cross
 
-        main_cross(["test.hdf5", "--calibrate", self.calfile, "-o", "sdtcross_test", "--noplot"])
-        header = fits.getheader("sdtcross_test_cross.fits")
+        root = str(tmp_path / "sdtcross_test")
+        main_cross(["test.hdf5", "--calibrate", self.calfile, "-o", root, "--noplot"])
+        header = fits.getheader(root + "_cross.fits")
         assert header["BUNIT"] == "Jy"
         assert np.isfinite(header["FLUX"])
         assert header["CALERR"] > 0
