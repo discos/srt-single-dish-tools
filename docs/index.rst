@@ -9,10 +9,10 @@ Welcome to the SRT Single Dish Tools documentation!
 Introduction
 ------------
 
-The Sardinia Radio Telescope Single Dish Tools (SDT) are a set of Python (>=3.8)
+The Sardinia Radio Telescope Single Dish Tools (SDT) are a set of Python (>=3.9)
 tools designed for the quicklook and analysis of single-dish radio data,
 starting from the backends present at the Sardinia Radio Telescope.
-They are composed of a Python 3.4+ library for developers
+They are composed of a Python library for developers
 and a set of command-line scripts to soften the learning curve for new users.
 
 The Python library is written following the modern coding standards
@@ -54,7 +54,7 @@ command in your shell. First of all, create a new environment:
 
 .. code-block:: console
 
-    $ conda create -n py3 python=3
+    $ conda create -n py3 python=3.13
 
 load the new environment:
 
@@ -66,7 +66,7 @@ and install the dependencies (including a few optional but recommended):
 
 .. code-block:: console
 
-    (py3) $ conda install astropy>=3.8 scipy numpy matplotlib pyyaml h5py statsmodels numba
+    (py3) $ conda install "astropy>=5.0" scipy numpy matplotlib pyyaml h5py statsmodels numba
 
 .. code-block:: console
 
@@ -81,7 +81,7 @@ recommended):
 
 .. code-block:: console
 
-    $ pip install astropy>=3.8 scipy numpy matplotlib pyyaml h5py statsmodels numba regions
+    $ pip install "astropy>=5.0" scipy numpy matplotlib pyyaml h5py statsmodels numba regions
 
 
 Cloning and installation
@@ -144,6 +144,14 @@ Command line interface
   :maxdepth: 2
 
   scripts/cli
+
+Technical details
+-----------------
+
+.. toctree::
+  :maxdepth: 2
+
+  technical_details
 
 API documentation
 -----------------
