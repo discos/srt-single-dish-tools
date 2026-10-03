@@ -25,21 +25,13 @@ try:
 except ImportError:
     HAS_MAHO = False
 
-DEFAULT_MPL_BACKEND = None
-on_CI = os.environ.get("CI") or os.environ.get("CONTINUOUS_INTEGRATION")
-if not on_CI and os.environ.get("DISPLAY") and os.environ.get("DISPLAY") != "":
-    DEFAULT_MPL_BACKEND = "TKAgg"
-else:
-    DEFAULT_MPL_BACKEND = "Agg"
-
+# The matplotlib backend is not set here: matplotlib uses the one chosen by
+# the user (MPLBACKEND, matplotlibrc) or the platform default, and falls back
+# to Agg when there is no display.
 try:
-    import matplotlib as mpl
-
-    mpl.use(DEFAULT_MPL_BACKEND)
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
 
-    # This is necessary. Random backends might respond incorrectly.
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False

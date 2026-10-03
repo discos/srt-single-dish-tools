@@ -57,7 +57,6 @@ from srttools.read_config import read_config
 from srttools.rfistat import main_rfistat
 from srttools.scan import Scan
 from srttools.simulate import simulate_sun
-from srttools.utils import on_CI
 
 try:
     from tqdm import tqdm
@@ -75,6 +74,7 @@ def logger():
     return logger
 
 
+on_CI = os.environ.get("CI") or os.environ.get("CONTINUOUS_INTEGRATION")
 DEBUG = not on_CI
 
 
