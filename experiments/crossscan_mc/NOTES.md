@@ -17,6 +17,8 @@ flux (or upper limit) out of cross scans, before changing anything.
 | `run_rfi_threshold.py` | Stage A3: methods (b) and (c) with RFI subscan rejection, for several thresholds. Writes `mc_rfi_threshold.ecsv`. |
 | `analyze_rfi_threshold.py` | `summary_rfi_threshold.ecsv`, `fig_rfi_threshold.png`. |
 | `run_outlier_a.py` | Stage A3: method (a) with `CalibratorTable.flag_outliers`, for several thresholds. Writes `mc_outlier_a.ecsv`, and with `--bright-rfi` `mc_outlier_a_bright_rfi.ecsv`. |
+| `run_crossscan_mc.py` | Stage B: variants of the new method (d), `srttools.crossscan`, and (b) with RFI rejection. Writes `mc_crossscan.ecsv`. |
+| `analyze_crossscan_mc.py` | `summary_crossscan.ecsv`, `ranking_crossscan.ecsv`, `fig_crossscan.png`. |
 | `script_skip_nan.patch` | Patch to `plot_all_cross_scan_results.py`: skip samples flagged by SDTimage (NaN). |
 
 Environment: Mac, `py313` micromamba env (numpy 2.4, scipy 1.17, astropy 7.2),
@@ -34,6 +36,8 @@ PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_rfi_threshold.py --ntrials 
 PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_outlier_a.py --ntrials 100 -o mc_outlier_a.ecsv
 PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_outlier_a.py --bright-rfi -o mc_outlier_a_bright_rfi.ecsv
 ~/mamba/envs/py313/bin/python analyze_rfi_threshold.py mc_rfi_threshold.ecsv
+PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_crossscan_mc.py --ntrials 200 -o mc_crossscan.ecsv
+PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python analyze_crossscan_mc.py mc_crossscan.ecsv
 ```
 
 Since Stage A3, `calculate_avg_cross` rejects RFI subscans by default;
@@ -318,3 +322,74 @@ At `nsigma = 5` (default), in ideal errors (mean bias, scatter):
   (a) locks on to noise; trimming them reduces the bias (+146 -> +59) but
   (a) remains biased and unusable at low S/N (section 5). The ">20%
   flagged" warning fires, which is the right message.
+
+## 7. Stage B: settings of the new method (d), `srttools.crossscan`
+
+`run_crossscan_mc.py` (200 trials per cell):
+the same simulated observations as section 5 (same seeds), at S/N 0, 3, 5,
+10, 30, white or 1/f noise, flat or drifting baseline, pointing offset 0 or
+0.3 beams, plus 1/f noise with drift and RFI. Method (d): RFI subscans
+rejected (`rfi_nsigma=5`), forced Gaussian amplitude per subscan and channel
+over a cubic spline baseline, channels averaged per subscan, subscans
+combined with the mean or the median. Variants:
+
+- baseline fitted outside a window of 1, 1.5, 2 beam FWHM, then amplitude
+  on the residuals (`d_win*`), or baseline and Gaussian fitted together
+  (`d_joint_win*`, with no knots within 0 or 1.5 FWHM of the source);
+- knots every 2, 3, 5 FWHM;
+- mean or median.
+
+Ranking (`ranking_crossscan.ecsv`, worst case over the cells without offset;
+errors in units of the ideal error, i.e. white noise only):
+
+| method | worst \|pull std - 1\| | worst 1-sigma coverage | worst false detections | mean reported error |
+|---|---|---|---|---|
+| (b), RFI rejected | 2.26 | 22% | 23% | 2.36 (wrong) |
+| d_joint_win0.0_k3.0_mean (**chosen**) | 0.12 | 62% | 0% | 5.67 |
+| d_joint_win0.0_k2.0_mean | 0.13 | 62% | 0.5% | 5.67 |
+| d_joint_win0.0_k5.0_mean | 0.11 | 64% | 0% | 5.78 |
+| d_win1.5_k3.0_mean (old default) | 0.12 | 62% | 0.5% | 8.01 |
+| d_joint_win0.0_k3.0_median | 0.12 | 62% | 0.5% | 7.04 |
+
+(62% coverage with 200 trials is within the statistical fluctuation of
+68.3%.)
+
+- **All variants of (d) have correct errors** (pull standard deviation
+  within ~12% of 1, coverage ~68%, at most 1% false detections at 3 sigma),
+  with any noise, drift and RFI. They differ only in precision.
+- **Joint fit**: about 30% smaller error than fitting the baseline outside a
+  window. With knots every 3 FWHM, a knot-free window of 0 or 1.5 FWHM gives
+  identical results (no knot falls there anyway); the default keeps 1.5.
+- **Mean vs median**: the median costs ~25% more error and is not needed,
+  since RFI subscans are rejected beforehand.
+- **Chosen defaults**: joint fit, knots every 3 FWHM, mean (`fit_subscan`
+  defaults since this stage).
+
+`fig_crossscan.png`: chosen (d) (solid) vs (b) with RFI rejection (dotted),
+no pointing offset. Panels: bias; real scatter / reported error; truth
+within the 1-sigma error bar; real scatter of the flux.
+
+- (d) is unbiased (|bias| < 0.5 ideal errors, ~1 in the RFI cell at S/N 10,
+  a statistical fluctuation of ~1.6 standard errors); (b) is biased low by
+  ~2 ideal errors at S/N 30 (~7% of the flux; cause not investigated).
+- Reported errors: (d) correct; (b) 2.5-3.2 times too small with drifts or
+  1/f noise, so 20-38% false detections at S/N 0.
+- **Real scatter: (d) is more precise than (b) in every cell**, by 40% with
+  white noise and flat baseline (1.3 vs 2.1), 10-15% with 1/f noise (7.7 vs
+  8.7 with drift).
+
+Pointing offset of 0.3 beams: both methods lose ~22% of the flux at
+S/N 30 (bias -6.5 for (d), -5.5 for (b)), as expected for a forced fit at
+the nominal position (section 5). Not a defect of the method, but the reason
+why the SDTcross tutorial warns about pointing.
+
+Nearby sources (not in the Monte Carlo): a source of flux F on an arm, at a
+distance d from the target and outside the knot-free window, bends the
+baseline. Noiseless, one subscan spanning +-5.1 FWHM:
+
+| d [FWHM] | 1.5 | 2 | 2.5 | 3 | 3.5 | 4 | 4.5 |
+|---|---|---|---|---|---|---|---|
+| leak, window fit | -0.58 F | -0.86 F | -0.50 F | -0.01 F | +0.34 F | +0.40 F | +0.14 F |
+| leak, joint fit | -0.51 F | -0.38 F | -0.17 F | +0.04 F | +0.17 F | +0.18 F | +0.06 F |
+
+The joint fit also halves the leakage.

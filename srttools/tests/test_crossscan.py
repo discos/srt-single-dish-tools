@@ -48,6 +48,13 @@ def test_fit_subscan_noiseless(joint):
     assert np.allclose(resid, 5.0 * np.exp(-(x**2) / (2 * BEAM_SIGMA**2)), atol=5e-3)
 
 
+def test_fit_subscan_default_is_joint():
+    """The default is the joint fit of baseline and source, chosen by the Monte Carlo."""
+    rng = np.random.default_rng(3)
+    x, y = _subscan(5.0, rng, noise=1.0)
+    assert fit_subscan(x, y, BEAM_SIGMA)[0] == fit_subscan(x, y, BEAM_SIGMA, joint=True)[0]
+
+
 def test_fit_subscan_too_few_points():
     """A subscan with too few good samples gives NaN instead of raising."""
     amp, resid = fit_subscan(np.arange(5.0), np.zeros(5), BEAM_SIGMA)

@@ -18,9 +18,15 @@ Two ways of removing the baseline are available:
 - ``joint=False``: the spline is fitted only outside a window of half-width
   ``window`` around the source, and the amplitude is measured afterwards on
   the residuals;
-- ``joint=True``: spline and Gaussian are fitted together on all samples
-  (one linear least-squares fit). The knots must be spaced widely enough
-  that the spline cannot mimic the source.
+- ``joint=True`` (default): spline and Gaussian are fitted together on all
+  samples (one linear least-squares fit). The knots must be spaced widely
+  enough that the spline cannot mimic the source.
+
+The defaults (joint fit, knots every 3 beam FWHM, none within 1.5 FWHM of
+the source) were chosen with a Monte Carlo simulation (white and 1/f noise,
+baseline drifts, RFI, pointing offsets): all the variants tested give correct
+errors, and this one gives the smallest (about 30% smaller than fitting the
+baseline outside a window of 1.5 FWHM). See ``docs/technical_details.rst``.
 
 All coordinates are in the same unit (e.g. pixels) and relative to the
 nominal source position, unless ``center`` is given.
@@ -68,7 +74,7 @@ def _spline_basis(x, knots):
 
 
 def fit_subscan(
-    x, y, beam_sigma, center=0.0, window=None, knot_spacing=None, joint=False, min_points=20
+    x, y, beam_sigma, center=0.0, window=None, knot_spacing=None, joint=True, min_points=20
 ):
     """Forced-fit amplitude of a Gaussian over a spline baseline, in one subscan.
 
@@ -92,7 +98,8 @@ def fit_subscan(
     knot_spacing : float
         Approximate distance between the spline knots. Default: 3 beam FWHM
     joint : bool
-        Fit baseline and Gaussian together on all samples
+        Fit baseline and Gaussian together on all samples (default). If
+        False, fit the baseline outside the window first
     min_points : int
         Minimum number of samples used in the fit beyond the number of free
         parameters. Below it, NaN is returned
