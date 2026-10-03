@@ -484,6 +484,7 @@ def _als(y, lam, p, niter=30):
     .. [Stingray] https://github.com/StingraySoftware/stingray/pull/725
     """
     from scipy import sparse
+    from scipy.sparse.linalg import spsolve
 
     L = len(y)
 
@@ -492,13 +493,13 @@ def _als(y, lam, p, niter=30):
         (np.arange(0, L - 2).T, np.arange(0, L - 2).T + 1, np.arange(0, L - 2).T + 2)
     ).T.flatten()
     data = np.tile([1, -2, 1], L - 2)
-    D = sparse.csc_matrix((data, indices, indptr), shape=(L, L - 2))
+    D = sparse.csc_array((data, indices, indptr), shape=(L, L - 2))
 
     w = np.ones(L)
     for _ in range(niter):
-        W = sparse.spdiags(w, 0, L, L)
-        Z = W + lam * D.dot(D.transpose())
-        z = sparse.linalg.spsolve(Z, w * y)
+        W = sparse.diags_array(w, format="csc")
+        Z = W + lam * (D @ D.T)
+        z = spsolve(Z, w * y)
         w = p * (y > z) + (1 - p) * (y < z)
     return z
 

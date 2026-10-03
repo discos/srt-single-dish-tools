@@ -1,3 +1,4 @@
 Dates given to ``SDTinspect --only-after/--only-before`` are now always interpreted as UTC, independent of the local time zone.
 Fix import of ``TableMergeError``, which was removed from ``astropy.table.np_utils`` in astropy 8.
 Fix compatibility with numpy 2.5 (setting array shapes is deprecated) and astropy 8 (SDFITS ``TDIM`` given as a tuple).
+Use scipy sparse arrays instead of the deprecated sparse matrices in the ALS baseline fit.
