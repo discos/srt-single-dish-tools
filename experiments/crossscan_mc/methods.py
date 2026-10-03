@@ -28,6 +28,7 @@ from numba import njit
 from scipy.interpolate import make_splrep
 
 from astropy.table import Table
+from srttools.calibration import CalibratorTable
 from srttools.fit import fit_baseline_plus_bell
 from srttools.imager import ScanSet
 
@@ -39,6 +40,76 @@ def _arm_coord_deg(sub):
     if sub["arm"] == "RA":
         return RA0 + off / np.cos(np.radians(DEC0))
     return DEC0 + off
+
+
+def fit_table_a(subscans):
+    """Fits of method (a) as a ``CalibratorTable`` (one observation, one source).
+
+    Also returns the number of failed fits (no covariance) and of crashes.
+    """
+    rows = []
+    nfail = ncrash = 0
+    for ch in CHANS:
+        for isub, sub in enumerate(subscans):
+            x = _arm_coord_deg(sub)
+            y = sub[ch]
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                try:
+                    model, fit_info = fit_baseline_plus_bell(x, y, kind="gauss")
+                except Exception:
+                    ncrash += 1
+                    continue
+            try:
+                uncert = fit_info["param_cov"].diagonal() ** 0.5
+            except Exception:
+                nfail += 1
+                continue
+            index = model.param_names.index("amplitude_1")
+            rows.append(
+                {
+                    "Dir": "obs",
+                    "File": f"sub{isub}",
+                    "Source": "Src",
+                    "Chan": ch,
+                    "Scan Type": sub["arm"],
+                    "Counts": model.amplitude_1.value,
+                    "Counts Err": uncert[index],
+                    "Width": model.stddev_1.value,
+                    "Resid Std": np.std(y - model(x)),
+                }
+            )
+    return CalibratorTable(Table(rows=rows)), nfail, ncrash
+
+
+def method_a_flagged(table, nfail, ncrash, outlier_nsigma=None):
+    """(a) from a ``fit_table_a`` table, optionally rejecting outlier fits."""
+    table = CalibratorTable(table, copy=True)
+    if outlier_nsigma is not None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            table.flag_outliers(nsigma=outlier_nsigma)
+    fluxes, errs = [], []
+    for ch in CHANS:
+        good = (table["Chan"] == ch) & ~table["Outlier"]
+        counts = np.asarray(table["Counts"][good])
+        counts_err = np.asarray(table["Counts Err"][good])
+        fluxes.append(np.mean(counts))
+        errs.append(np.sqrt(np.mean(counts_err**2)))
+    flux = np.mean(fluxes)
+    err = np.sqrt(np.sum(np.array(errs) ** 2)) / len(errs)
+    return dict(
+        flux=flux,
+        err=err,
+        ul=np.nan,
+        detected=flux > 3 * err,
+        nfail=nfail,
+        ncrash=ncrash,
+        flagged=sorted(
+            (str(c), int(str(f)[3:]))
+            for c, f in zip(table["Chan"][table["Outlier"]], table["File"][table["Outlier"]])
+        ),
+    )
 
 
 def method_a(subscans):

@@ -334,6 +334,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         counts = model.amplitude_1.value
 
         backsub = y - baseline(x)
+        resid_std = np.std(y - model(x))
         moments = calculate_moments(backsub)
         skewness = moments["skewness"]
         kurtosis = moments["kurtosis"]
@@ -403,6 +404,8 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             dec_err,
             skewness,
             kurtosis,
+            resid_std,
+            False,
         ]
         rows.append(new_row)
 
@@ -499,6 +502,8 @@ class CalibratorTable(Table):
             "Dec err",
             "Skewness",
             "Kurtosis",
+            "Resid Std",
+            "Outlier",
         ]
 
         dtype = [
@@ -535,11 +540,15 @@ class CalibratorTable(Table):
             float,
             float,
             float,
+            float,
+            bool,
         ]
 
+        defaults = {"S200": "", int: 0, np.double: np.nan, float: np.nan, bool: False}
         for n, d in zip(names, dtype):
             if n not in self.keys():
-                self.add_column(Column(name=n, dtype=d))
+                # Tables written by older versions lack the newest columns
+                self.add_column(Column(name=n, dtype=d, data=[defaults[d]] * len(self)))
 
     def from_scans(
         self,
@@ -652,18 +661,97 @@ class CalibratorTable(Table):
 
         return True
 
-    def update(self):
+    def update(self, outlier_nsigma=5.0):
         """Update the calibration information.
 
-        Execute ``get_fluxes``, ``calibrate`` and
-        ``compute_conversion_function``
+        Execute ``get_fluxes``, ``calibrate``, ``flag_outliers`` (unless
+        ``outlier_nsigma`` is None) and ``compute_conversion_function``
         """
         if not self.check_not_empty():
             return
 
         self.get_fluxes()
         self.calibrate()
+        if outlier_nsigma is not None:
+            self.flag_outliers(nsigma=outlier_nsigma)
         self.compute_conversion_function()
+
+    def _valid_mask(self, good_mask=None):
+        """Rows usable for calibration: ``good_mask`` (default: calibrators) and not outliers."""
+        if good_mask is None:
+            good_mask = self["Flux"] > 0
+        return np.asarray(good_mask) & ~np.asarray(self["Outlier"], dtype=bool)
+
+    def flag_outliers(self, nsigma=5.0, min_fits=6):
+        """Flag fits that are outliers with respect to similar fits, e.g. because of RFI.
+
+        Fits are compared within groups with the same observation (``Dir``),
+        source, channel and arm (RA or Dec): within a single observation the
+        source is not expected to change. A fit is flagged in the
+        ``Outlier`` column if any of the following is more than ``nsigma``
+        robust standard deviations (1.4826 times the median absolute
+        deviation) away from the group median: the rms of the fit residuals
+        ("Resid Std", only excesses), the amplitude ("Counts") or the width.
+        The last two catch fits that locked on to an RFI burst instead of the
+        source. Groups with fewer than ``min_fits`` fits are not checked.
+
+        Other Parameters
+        ----------------
+        nsigma : float
+            Rejection threshold
+        min_fits : int
+            Minimum number of fits in a group
+
+        Returns
+        -------
+        outliers : array of bool
+            The new ``Outlier`` column
+        """
+        outliers = np.zeros(len(self), dtype=bool)
+        arms = np.array([str(s).strip()[:2].upper() for s in self["Scan Type"]])
+        keys = [np.asarray(self[c]).astype(str) for c in ["Dir", "Source", "Chan"]]
+        groups = {}
+        for i, key in enumerate(zip(*keys, arms)):
+            groups.setdefault(key, []).append(i)
+
+        def robust_z(values):
+            values = np.asarray(values, dtype=float)
+            if not np.any(np.isfinite(values)):
+                # E.g. "Resid Std" in tables written by older versions
+                return np.zeros_like(values)
+            med = np.nanmedian(values)
+            spread = 1.4826 * np.nanmedian(np.abs(values - med))
+            spread = max(spread, 1e-6 * np.abs(med), np.finfo(float).tiny)
+            return (values - med) / spread
+
+        for key, idx in groups.items():
+            if len(idx) < min_fits:
+                continue
+            idx = np.array(idx)
+            z_resid = robust_z(self["Resid Std"][idx])
+            bad = z_resid > nsigma
+            for col in ["Counts", "Width"]:
+                bad |= np.abs(robust_z(self[col][idx])) > nsigma
+            outliers[idx[bad]] = True
+            if np.any(bad):
+                files = (
+                    list(np.asarray(self["File"][idx[bad]]).astype(str))
+                    if "File" in self.colnames
+                    else []
+                )
+                warnings.warn(
+                    f"{np.count_nonzero(bad)}/{len(idx)} fits flagged as outliers "
+                    f"(e.g. RFI) in {key[0]}, {key[1]}, {key[2]}, {key[3]} scans: "
+                    f"{files}. They are excluded from calibration and fluxes. "
+                    "Use outlier_nsigma=None (--outlier-nsigma 0) to disable."
+                )
+                if np.count_nonzero(bad) > 0.2 * len(idx):
+                    warnings.warn(
+                        f"More than 20% of the fits flagged in {key[0]}, {key[1]}, "
+                        f"{key[2]}. Check the data."
+                    )
+        self["Outlier"][:] = outliers
+        return outliers
 
     def get_fluxes(self):
         """Get the tabulated flux of the source, if listed as calibrators.
@@ -765,8 +853,7 @@ class CalibratorTable(Table):
         else:
             import statsmodels.api as sm
 
-        if good_mask is None:
-            good_mask = self["Flux"] > 0
+        good_mask = self._valid_mask(good_mask)
 
         flux_quantity = _get_flux_quantity(map_unit)
 
@@ -834,8 +921,7 @@ class CalibratorTable(Table):
             warnings.warn("No statsmodels found.")
             use_rough = True
 
-        if good_mask is None:
-            good_mask = self["Flux"] > 0
+        good_mask = self._valid_mask(good_mask)
 
         flux_quantity = _get_flux_quantity(map_unit)
         if channel not in self["Chan"]:
@@ -916,8 +1002,7 @@ class CalibratorTable(Table):
 
         flux_quantity = _get_flux_quantity(map_unit)
 
-        if good_mask is None:
-            good_mask = self["Flux"] > 0
+        good_mask = self._valid_mask(good_mask)
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:
@@ -1000,6 +1085,8 @@ class CalibratorTable(Table):
             good_source = self["Source"] == source
 
         non_source = np.logical_not(good_source)
+        # Outliers are excluded from the calibration by Jy_over_counts
+        good_source = good_source & ~np.asarray(self["Outlier"], dtype=bool)
 
         if channel is None:
             channels = list(set(self["Chan"]))
@@ -1404,6 +1491,16 @@ def main_cal(args=None):
         help="Check consistency of calibration",
     )
 
+    parser.add_argument(
+        "--outlier-nsigma",
+        type=float,
+        default=5.0,
+        help="Flag fits whose residual rms, amplitude or width differ from those "
+        "of the other subscans of the same observation, source, channel and arm "
+        "by more than this many robust standard deviations (e.g. RFI). 0 "
+        "disables the rejection",
+    )
+
     args = parser.parse_args(args)
 
     if args.sample_config:
@@ -1457,7 +1554,8 @@ def main_cal(args=None):
             warnings.warn(
                 f"No good data for channel {chan}. Try using the --snr-min option with some value lower than {args.snr_min}"
             )
-    caltable.update()
+    outlier_nsigma = args.outlier_nsigma if args.outlier_nsigma > 0 else None
+    caltable.update(outlier_nsigma=outlier_nsigma)
 
     if args.check:
         for chan in list(set(caltable["Chan"])):
@@ -1531,21 +1629,32 @@ def main_lcurve(args=None):
         help="Output file containing the calibration",
     )
 
+    parser.add_argument(
+        "--outlier-nsigma",
+        type=float,
+        default=5.0,
+        help="Flag fits whose residual rms, amplitude or width differ from those "
+        "of the other subscans of the same observation, source, channel and arm "
+        "by more than this many robust standard deviations (e.g. RFI). 0 "
+        "disables the rejection",
+    )
+
     args = parser.parse_args(args)
 
     if args.sample_config:
         sample_config_file()
         return
 
+    outlier_nsigma = args.outlier_nsigma if args.outlier_nsigma > 0 else None
     if args.file is not None:
         caltable = CalibratorTable.read(args.file)
-        caltable.update()
+        caltable.update(outlier_nsigma=outlier_nsigma)
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
         caltable = CalibratorTable()
         caltable.from_scans(config_file=args.config)
-        caltable.update()
+        caltable.update(outlier_nsigma=outlier_nsigma)
 
         outfile = args.output
         if outfile is None:
@@ -1559,7 +1668,7 @@ def main_lcurve(args=None):
 
     for s in sources:
         caltable.calculate_src_flux(source=s)
-        good = caltable["Source"] == s
+        good = (caltable["Source"] == s) & ~np.asarray(caltable["Outlier"], dtype=bool)
         lctable = Table()
         lctable.add_column(Column(name="Time", dtype=float))
         lctable["Time"] = caltable["Time"][good]

@@ -16,6 +16,7 @@ flux (or upper limit) out of cross scans, before changing anything.
 | `analyze_mc.py` | Metrics (`summary_current.ecsv`) and figures (`fig_*_current.png`). |
 | `run_rfi_threshold.py` | Stage A3: methods (b) and (c) with RFI subscan rejection, for several thresholds. Writes `mc_rfi_threshold.ecsv`. |
 | `analyze_rfi_threshold.py` | `summary_rfi_threshold.ecsv`, `fig_rfi_threshold.png`. |
+| `run_outlier_a.py` | Stage A3: method (a) with `CalibratorTable.flag_outliers`, for several thresholds. Writes `mc_outlier_a.ecsv`, and with `--bright-rfi` `mc_outlier_a_bright_rfi.ecsv`. |
 | `script_skip_nan.patch` | Patch to `plot_all_cross_scan_results.py`: skip samples flagged by SDTimage (NaN). |
 
 Environment: Mac, `py313` micromamba env (numpy 2.4, scipy 1.17, astropy 7.2),
@@ -30,6 +31,8 @@ PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_mc.py --ntrials 200 -o mc_r
 PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_mc.py --rfi --ntrials 200 -o mc_results_rfi.ecsv
 ~/mamba/envs/py313/bin/python analyze_mc.py mc_results_current.ecsv mc_results_rfi.ecsv --tag current
 PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_rfi_threshold.py --ntrials 100 -o mc_rfi_threshold.ecsv
+PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_outlier_a.py --ntrials 100 -o mc_outlier_a.ecsv
+PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_outlier_a.py --bright-rfi -o mc_outlier_a_bright_rfi.ecsv
 ~/mamba/envs/py313/bin/python analyze_rfi_threshold.py mc_rfi_threshold.ecsv
 ```
 
@@ -282,3 +285,36 @@ Results at the chosen default, `nsigma = 5`:
 
 The remaining problems are those of section 5 (errors of (b) too small with
 1/f noise, errors of (c) far too large, (a) unusable at low S/N): Stage B.
+
+### Method (a): outlier fits in `CalibratorTable`
+
+(a) fits each subscan separately, so there is no median profile to compare
+with. `CalibratorTable.flag_outliers` compares each fit with the fits of the
+same observation, source, channel and arm: residual rms (new `Resid Std`
+column, excesses only), amplitude and width, robust z-score > `nsigma`
+(the amplitude and width catch fits locked on to a burst, whose residuals
+look clean). Groups of fewer than 6 fits are left alone.
+`methods.fit_table_a` + `method_a_flagged` reproduce `method_a` exactly
+(checked) and apply the real `flag_outliers`. `run_outlier_a.py`: same
+cells and seeds as `run_rfi_threshold.py`, thresholds 3, 5, 7, 10; plus a
+bright source with offset *and* RFI (`--bright-rfi`, the calibrator case).
+
+At `nsigma = 5` (default), in ideal errors (mean bias, scatter):
+
+| case | no rejection | nsigma = 5 | fits flagged |
+|---|---|---|---|
+| bright, 0.3 beam offset, no RFI | -331, 7.7 | -331, 7.6 | 0.4% |
+| bright, 0.3 beam offset, RFI | +636, 90 | -333, 10 | (RFI) |
+| 1/f, drift, RFI, S/N 30 | +1280, 175 | +62, 14 | 7.5% + RFI |
+| 1/f, drift, no RFI, S/N 30 | +146, 201 | +59, 17 | 9.7% |
+| white, flat, S/N 0 | +94, 122 | +7, 5 | 38% |
+
+(-331 at S/N 3000 is the 11% loss due to the pointing offset.)
+
+- Calibrators (bright): the rejection removes the RFI bias (+21% -> 0) and
+  touches only 0.4% of clean fits.
+- RFI subscans missed: 2-5%, i.e. the subscans that received no burst.
+- Faint sources: 20-45% of the fits are flagged even without RFI, because
+  (a) locks on to noise; trimming them reduces the bias (+146 -> +59) but
+  (a) remains biased and unusable at low S/N (section 5). The ">20%
+  flagged" warning fires, which is the right message.

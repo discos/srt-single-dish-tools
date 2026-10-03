@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from astropy.logger import logging
+from astropy.table import Table
 from srttools.calibration import (
     CalibratorTable,
     _get_flux_quantity,
@@ -204,6 +205,29 @@ class TestCalibration:
         )
         assert (dummy_flux[0] - 0.52) < dummy_flux_err[0] * 3
 
+    def test_residual_std_is_stored(self):
+        """Each fit stores the rms of its residuals, used to find RFI-contaminated subscans."""
+        caltable = CalibratorTable.read(self.calfile)
+        assert np.all(caltable["Resid Std"] > 0)
+
+    def test_calculate_src_flux_ignores_outliers(self):
+        """Fits flagged as outliers do not enter the source flux."""
+        caltable = CalibratorTable.read(self.calfile)
+        ref, _ = caltable.calculate_src_flux(source="DummySrc", channel="Feed0_LCP")
+        row = np.flatnonzero(
+            compare_strings(caltable["Source"], "DummySrc")
+            & compare_strings(caltable["Chan"], "Feed0_LCP")
+        )[0]
+        caltable["Counts"][row] *= 100
+        caltable["Outlier"][row] = True
+        flux, _ = caltable.calculate_src_flux(source="DummySrc", channel="Feed0_LCP")
+        good = np.ones(len(caltable), dtype=bool)
+        good[row] = False
+        ref, _ = CalibratorTable(caltable[good]).calculate_src_flux(
+            source="DummySrc", channel="Feed0_LCP"
+        )
+        assert np.isclose(flux[0], ref[0])
+
     def test_check_consistency_fails_with_bad_data(self):
         scan_list = (
             list_scans(self.caldir, ["./"])
@@ -308,3 +332,47 @@ def test_safe_fit_baseline_plus_bell_does_not_crash():
         model, fit_info = _safe_fit_baseline_plus_bell(x, y, "test_scan")
     assert model is None
     assert fit_info is None
+
+
+def _fit_table(nrows=30, seed=0):
+    """A CalibratorTable with only the columns used by flag_outliers, as in an old file."""
+    rng = np.random.default_rng(seed)
+    t = Table()
+    t["Dir"] = ["obs0"] * nrows
+    t["Source"] = ["Src"] * nrows
+    t["Chan"] = ["Feed0_LCP"] * nrows
+    t["Scan Type"] = ["RA>", "Dec>"] * (nrows // 2)
+    t["Counts"] = rng.normal(100, 1, nrows)
+    t["Width"] = rng.normal(0.04, 0.001, nrows)
+    t["Resid Std"] = rng.normal(1, 0.03, nrows)
+    return CalibratorTable(t)
+
+
+def test_flag_outliers():
+    """Fits with anomalous residual rms, amplitude or width are flagged, and only those."""
+    caltable = _fit_table()
+    caltable["Resid Std"][5] = 5
+    caltable["Counts"][12] = 200
+    caltable["Width"][20] = 0.2
+    with pytest.warns(UserWarning, match="outlier"):
+        caltable.flag_outliers(nsigma=5)
+    assert sorted(np.flatnonzero(caltable["Outlier"])) == [5, 12, 20]
+
+
+def test_flag_outliers_old_table_without_residuals():
+    """Tables from older versions (no "Resid Std") are still checked on amplitude."""
+    caltable = _fit_table()
+    caltable.remove_column("Resid Std")
+    caltable = CalibratorTable(caltable)
+    caltable["Counts"][12] = 200
+    with pytest.warns(UserWarning, match="outlier"):
+        caltable.flag_outliers(nsigma=5)
+    assert sorted(np.flatnonzero(caltable["Outlier"])) == [12]
+
+
+def test_flag_outliers_small_groups_untouched():
+    """Groups with too few fits for a robust spread are never flagged."""
+    caltable = _fit_table(nrows=8)
+    caltable["Counts"][2] = 200
+    caltable.flag_outliers(nsigma=5)
+    assert not np.any(caltable["Outlier"])
