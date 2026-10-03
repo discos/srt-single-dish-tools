@@ -1,1 +1,3 @@
 The simulator accepts a random seed or generator (``rng``), 1/f noise with a configurable knee frequency and partial correlation between channels, and a pointing offset for cross scans.
+
+``SDTimage --crosses-only`` (``ScanSet.calculate_avg_cross``) now flags whole subscans with anomalous noise, e.g. residual RFI, with a warning; the threshold is set with ``--rfi-nsigma`` (default 5, 0 to disable).

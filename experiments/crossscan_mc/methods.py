@@ -149,11 +149,14 @@ def find_trend_change(data, nmax=-1):
     return trend_edges
 
 
-def script_b(full_table, extnames, crpix):
+def script_b(full_table, extnames, crpix, skip_nan=False):
     """``load_and_plot_data`` without file I/O and plots.
 
     Returns the TOTAL detrended profile, its error, the bin centers, the
     printed upper limit, and the avoid region of the last subscan.
+
+    ``skip_nan=True`` applies the patch in ``script_skip_nan.patch``: samples
+    flagged by SDTimage (NaN in the ``_cal`` columns) are dropped.
     """
     xmin = min(full_table["x"].min(), full_table["y"].min())
     xmax = max(full_table["x"].max(), full_table["y"].max())
@@ -170,6 +173,9 @@ def script_b(full_table, extnames, crpix):
         x, fluxes = get_data_from_direction(full_table, direction, ch + "_cal")
         x = np.asarray(x)
         fluxes = np.asarray(fluxes)
+        if skip_nan:
+            finite = np.isfinite(fluxes)
+            x, fluxes = x[finite], fluxes[finite]
 
         x = x - crpix
         direction_change_edges = find_trend_change(x)
@@ -228,10 +234,10 @@ def script_b(full_table, extnames, crpix):
 EXTNAMES = [f"X_{ch.upper()}_{d}" for ch in CHANS for d in ["HORIZONTAL", "VERTICAL"]]
 
 
-def method_b(subscans, table=None):
+def method_b(subscans, table=None, skip_nan=False):
     if table is None:
         table = to_dump_table(subscans)
-    xb, prof, prof_err, ul, _ = script_b(table, EXTNAMES, CRPIX)
+    xb, prof, prof_err, ul, _ = script_b(table, EXTNAMES, CRPIX, skip_nan=skip_nan)
     # Bin labelled 0 ("0 is the center" in the plots), i.e. [-0.5, 0.5)
     # around CRPIX
     i0 = np.argmin(np.abs(xb))
@@ -254,13 +260,14 @@ def scanset_from_table(table):
     return ScanSet(t)
 
 
-def method_c(subscans, table=None, return_scanset=False):
+def method_c(subscans, table=None, return_scanset=False, rfi_nsigma=None):
+    """``rfi_nsigma=None``: the method as it was before RFI rejection."""
     if table is None:
         table = to_dump_table(subscans, cal=False)
     scanset = scanset_from_table(table)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        crosses = scanset.calculate_avg_cross()
+        crosses = scanset.calculate_avg_cross(rfi_nsigma=rfi_nsigma)
     # Bin containing the nominal source position (pixel coordinate SRC_PIX)
     isrc = int(np.floor(SRC_PIX))
     vals, sdevs = [], []
@@ -291,9 +298,27 @@ def run_all(subscans):
     afterwards: so (b) is fed the data as modified by (c).
     """
     res = {"a": method_a(subscans)}
-    res["c"], scanset = method_c(subscans, return_scanset=True)
+    res.update(run_bc(subscans))
+    return res
+
+
+def run_bc(subscans, rfi_nsigma=None):
+    """Methods (b) and (c) only, optionally with RFI rejection.
+
+    Flagged samples are passed to (b) as NaN, as SDTimage writes them in the
+    ``_cal`` columns once RFI rejection is on, and (b) is the script patched
+    to skip NaNs (``method_b(..., skip_nan=True)``).
+    """
+    res = {}
+    res["c"], scanset = method_c(subscans, return_scanset=True, rfi_nsigma=rfi_nsigma)
     table = to_dump_table(subscans)
     for ch in CHANS:
-        table[ch + "_cal"] = np.asarray(scanset[ch])
-    res["b"] = method_b(subscans, table=table)
+        cal = np.array(scanset[ch], dtype=float)
+        cal[~np.asarray(scanset[ch + "-filt"])] = np.nan
+        table[ch + "_cal"] = cal
+    res["b"] = method_b(subscans, table=table, skip_nan=rfi_nsigma is not None)
+    res["flagged"] = {
+        ch: sorted(set(np.asarray(scanset["Scan_id"])[~np.asarray(scanset[ch + "-filt"])]))
+        for ch in CHANS
+    }
     return res

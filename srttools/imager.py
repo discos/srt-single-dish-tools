@@ -67,7 +67,7 @@ IMG_HOR_STR = "__img_hor_dump_"
 IMG_VER_STR = "__img_ver_dump_"
 
 
-__all__ = ["ScanSet"]
+__all__ = ["ScanSet", "find_outlier_subscans"]
 
 
 def _load_and_merge_subscans(indices_and_subscans):
@@ -247,6 +247,56 @@ def outlier_score(x):
         return 0
 
     return _outlier_score(np.asarray(x))
+
+
+def find_outlier_subscans(counts, coord, scan_id, arm, nsigma=5.0):
+    """Find subscans whose noise is anomalous, e.g. because of residual RFI.
+
+    For each arm, the median profile of all its subscans (in bins of one
+    pixel) is subtracted, which removes the source however bright it is.
+    The rms of what is left is measured in each subscan, and a subscan is an
+    outlier if its rms exceeds the median rms of all subscans by more than
+    ``nsigma`` robust standard deviations (1.4826 times the median absolute
+    deviation).
+
+    Parameters
+    ----------
+    counts : array
+        Data of one channel
+    coord : array
+        Pixel coordinate along the arm, for each sample
+    scan_id : array of int
+        Subscan each sample belongs to
+    arm : array of bool
+        Arm each sample belongs to (e.g. the ``direction`` column)
+
+    Other Parameters
+    ----------------
+    nsigma : float
+        Rejection threshold
+
+    Returns
+    -------
+    bad : list of int
+        The ``scan_id`` values of the outlier subscans
+    """
+    counts = np.asarray(counts, dtype=float)
+    resid = np.zeros_like(counts)
+    for a in np.unique(arm):
+        mask = arm == a
+        x = coord[mask]
+        bins = np.arange(np.floor(x.min()), np.ceil(x.max()) + 1)
+        if bins.size < 2:
+            bins = np.array([x.min() - 0.5, x.max() + 0.5])
+        median, _, idx = binned_statistic(x, counts[mask], statistic="median", bins=bins)
+        resid[mask] = counts[mask] - median[np.clip(idx - 1, 0, median.size - 1)]
+
+    ids = np.unique(scan_id)
+    rms = np.array([np.std(resid[scan_id == i]) for i in ids])
+    med = np.median(rms)
+    spread = 1.4826 * np.median(np.abs(rms - med))
+    spread = max(spread, 1e-6 * med)
+    return [int(i) for i in ids[rms > med + nsigma * spread]]
 
 
 class ScanSet(Table):
@@ -800,6 +850,60 @@ class ScanSet(Table):
 
         return images
 
+    def flag_rfi_subscans(self, nsigma=5.0, frame="icrs"):
+        """Flag subscans with anomalous noise, e.g. residual RFI, in cross scans.
+
+        The ``<channel>-filt`` column is set to False in the outlier subscans
+        (see `find_outlier_subscans`), separately for each channel.
+
+        Other Parameters
+        ----------------
+        nsigma : float
+            Rejection threshold
+        frame : str
+            Coordinate frame of the ``x`` and ``y`` columns
+
+        Returns
+        -------
+        flagged : dict
+            Flagged ``Scan_id`` values for each channel
+        """
+        if frame != self["x"].meta["frame"]:
+            self.convert_coordinates(frame)
+        arm = np.asarray(self["direction"], dtype=bool)
+        flagged = {}
+        nsub = len(np.unique(self["Scan_id"]))
+        for ch in self.chan_columns:
+            if ("Q" in ch) or ("U" in ch):
+                continue
+            feed = get_channel_feed(ch)
+            coord = np.where(arm, self["x"][:, feed], self["y"][:, feed])
+            if f"{ch}-filt" not in self.colnames:
+                self[f"{ch}-filt"] = np.ones(len(self), dtype=bool)
+            good = np.asarray(self[f"{ch}-filt"], dtype=bool)
+            values = np.asarray(self[ch])
+            if values.ndim > 1:
+                values = values.sum(axis=1)
+            bad = find_outlier_subscans(
+                values[good], coord[good], self["Scan_id"][good], arm[good], nsigma=nsigma
+            )
+            flagged[ch] = bad
+            if len(bad) == 0:
+                continue
+            self[f"{ch}-filt"][np.isin(self["Scan_id"], bad)] = False
+            message = (
+                f"RFI rejection: {ch}: flagged {len(bad)}/{nsub} subscans with "
+                f"anomalous noise (Scan_id {bad}). Use rfi_nsigma=None "
+                "(--rfi-nsigma 0 in SDTimage) to disable."
+            )
+            warnings.warn(message)
+            if len(bad) > 0.2 * nsub:
+                warnings.warn(
+                    f"RFI rejection: {ch}: more than 20% of the subscans flagged. "
+                    "Check the data."
+                )
+        return flagged
+
     def calculate_avg_cross(
         self,
         no_offsets=False,
@@ -810,6 +914,7 @@ class ScanSet(Table):
         calibrate_scans=False,
         onlychans=None,
         aggressive_detrend=False,
+        rfi_nsigma=5.0,
     ):
         """Obtain image from all scans.
 
@@ -832,9 +937,15 @@ class ScanSet(Table):
         onlychans: List
             List of channels for which images are calculated. If defaults to
             all channels
+        rfi_nsigma: float
+            Flag whole subscans whose noise is anomalous (residual RFI), see
+            `find_outlier_subscans`. ``None`` disables it
         """
         if frame != self["x"].meta["frame"]:
             self.convert_coordinates(frame)
+
+        if rfi_nsigma is not None:
+            self.flag_rfi_subscans(nsigma=rfi_nsigma, frame=frame)
 
         avg_subscan = {}
 
@@ -1623,8 +1734,12 @@ class ScanSet(Table):
         bad_chans=[],
         save_images=True,
         save_crosses=True,
+        rfi_nsigma=5.0,
     ):
-        """Save a ds9-compatible file with one image per extension."""
+        """Save a ds9-compatible file with one image per extension.
+
+        ``rfi_nsigma`` is passed to `calculate_avg_cross`.
+        """
         if fname is None:
             tail = ".fits"
             if frame != "icrs":
@@ -1662,6 +1777,7 @@ class ScanSet(Table):
                 calibration=calibration,
                 map_unit=map_unit,
                 calibrate_scans=calibrate_scans,
+                rfi_nsigma=rfi_nsigma,
             )
 
         if save_images and scrunch:
@@ -1917,6 +2033,15 @@ def main_imager(args=None):
     parser.add_argument("--calibrate", type=str, default=None, help="Calibration file")
 
     parser.add_argument(
+        "--rfi-nsigma",
+        type=float,
+        default=5.0,
+        help="Cross scans: flag subscans whose noise exceeds the median of all "
+        "subscans by more than this many robust standard deviations (e.g. "
+        "residual RFI). 0 disables the rejection",
+    )
+
+    parser.add_argument(
         "--nofilt",
         action="store_true",
         default=False,
@@ -2128,6 +2253,7 @@ def main_imager(args=None):
         bad_chans=bad_chans,
         save_images=not args.crosses_only,
         save_crosses=args.crosses_only,
+        rfi_nsigma=args.rfi_nsigma if args.rfi_nsigma > 0 else None,
     )
 
     scanset.write(outfile, overwrite=True)

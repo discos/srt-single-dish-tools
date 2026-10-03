@@ -111,3 +111,33 @@ fluxes from cross scans. Its noise model is:
 
 All random draws accept ``rng``: a seed or a ``numpy.random.Generator``.
 With ``rng=None`` the global ``numpy.random`` state is used, as before.
+
+Rejection of RFI-contaminated subscans in cross scans
+-----------------------------------------------------
+
+Radio-frequency interference (RFI) that survives the removal of bad spectral
+channels can remain in the time series as bursts lasting a few seconds, too
+long for the spike filter. Before averaging cross scans,
+``ScanSet.calculate_avg_cross`` (used by ``SDTimage --crosses-only``) calls
+``ScanSet.flag_rfi_subscans``, which uses
+``srttools.imager.find_outlier_subscans`` on each channel:
+
+1. for each arm, the median profile of all its subscans, in bins of one
+   pixel, is subtracted; this removes the source, however bright;
+2. the rms of the residuals is measured in each subscan;
+3. subscans whose rms exceeds the median rms by more than ``rfi_nsigma``
+   robust standard deviations (1.4826 times the median absolute deviation)
+   are flagged: their ``<channel>-filt`` values are set to False.
+
+Every flagged subscan is reported in a warning, with a further warning if
+more than 20% of the subscans of a channel are flagged. The default
+``rfi_nsigma = 5`` was chosen with Monte Carlo simulations reproducing the
+noise and RFI of real SRT cross scans (``experiments/crossscan_mc``): it
+flags 0.2-0.3% of the clean subscans with 1/f noise (none with white noise),
+including when a bright source is observed with a pointing offset, and
+misses only 0.1% of the subscans containing RFI bursts. Set ``rfi_nsigma=None``
+(``--rfi-nsigma 0`` in ``SDTimage``) to disable the rejection.
+
+This rejection is meant for cross scans: in a map, subscans at different
+offsets see different parts of the sky and the median profile is not a good
+model of each of them.
