@@ -30,6 +30,7 @@ class TestRFI:
         for f in glob.glob("rfi*jpg") + glob.glob("*rfi.hdf5"):
             os.unlink(f)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_rfi_files_mpl(self):
         files = glob.glob(os.path.join(os.path.join(self.datadir, "nodding_xarcos"), "*.hdf5"))
         if HAS_MPL:

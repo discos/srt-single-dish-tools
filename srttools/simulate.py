@@ -14,14 +14,7 @@ from astropy.table import Table, vstack
 from astropy.time import Time
 
 from .io import locations, mkdir_p
-from .utils import TWOPI, njit, tqdm
-
-try:
-    import matplotlib.pyplot as plt
-
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
+from .utils import HAS_MPL, TWOPI, new_figure, njit, tqdm
 
 __all__ = ["save_scan", "simulate_map", "simulate_scan"]
 
@@ -966,7 +959,8 @@ def simulate_map(
         width_ra = length_ra
     # Dec scans
     if HAS_MPL and debug:
-        fig = plt.figure()
+        fig = new_figure()
+        ax = fig.add_subplot()
 
     ralabel = declabel = ""
     if radec_labels_in_srcname:
@@ -1005,14 +999,14 @@ def simulate_map(
             counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio),
         )
         if HAS_MPL and debug:
-            plt.plot(ra_array, counts0)
-            plt.plot(ra_array, counts1)
+            ax.plot(ra_array, counts0)
+            ax.plot(ra_array, counts1)
 
     if HAS_MPL and debug:
         fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
-        plt.close(fig)
 
-        fig = plt.figure()
+        fig = new_figure()
+        ax = fig.add_subplot()
     delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing, spacing) / 60
     logging.info("Simulating RA scans...")
     # RA scans
@@ -1043,12 +1037,11 @@ def simulate_map(
         )
 
         if HAS_MPL and debug:
-            plt.plot(dec_array, counts0)
-            plt.plot(dec_array, counts1)
+            ax.plot(dec_array, counts0)
+            ax.plot(dec_array, counts1)
 
     if HAS_MPL and debug:
         fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
-        plt.close(fig)
 
     logging.info("Creating summary...")
     create_summary(

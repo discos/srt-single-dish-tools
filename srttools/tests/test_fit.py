@@ -111,6 +111,7 @@ class TestFit:
 
     # For some reasons this sometimes doesn't work
     @pytest.mark.xfail(strict=False)
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_outliers_bell_larger(self):
         """Test that outlier detection works."""
         series = np.copy(self.series) + _test_shape(self.t)

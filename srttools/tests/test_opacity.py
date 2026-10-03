@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import pytest
 
 from srttools.opacity import HAS_MPL, calculate_opacity, main_opacity
 
@@ -17,6 +18,7 @@ class TestOpacity:
             os.path.join(klass.datadir, "gauss_skydip", "skydip_mod.fits")
         )
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_opacity(self):
         res = calculate_opacity(self.fname)
         vals = [res["Ch0"], res["Ch1"]]

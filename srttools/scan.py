@@ -30,7 +30,7 @@ from .interactive_filter import mask as interval_mask
 from .interactive_filter import select_data
 from .io import get_chan_columns, get_channel_feed, mkdir_p, read_data, root_name
 from .read_config import get_config_file, read_config
-from .utils import TWOPI, get_circular_statistics, normalize_angle_mpPI
+from .utils import TWOPI, get_circular_statistics, new_figure, normalize_angle_mpPI
 
 __all__ = [
     "Scan",
@@ -379,21 +379,21 @@ def plot_light_curve(
     info_string="Empty info string",
 ):
     times = length * np.arange(lc.size) / lc.size
-    fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
-    plt.plot(times, lc)
-    plt.xlabel("Time")
-    plt.ylabel("Counts")
-    plt.gca().text(
+    fig = new_figure(figsize=(15, 15))
+    ax = fig.add_subplot()
+    ax.plot(times, lc)
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Counts")
+    ax.text(
         0.05,
         0.95,
         info_string,
         horizontalalignment="left",
         verticalalignment="top",
-        transform=plt.gca().transAxes,
+        transform=ax.transAxes,
         fontsize=16.5,
     )
-    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
-    plt.close(fig)
+    fig.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
 
 
 def plot_all_spectra(
@@ -407,17 +407,17 @@ def plot_all_spectra(
     fig=None,
 ):
     if fig is None:
-        fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
+        fig = new_figure(figsize=(15, 15))
+    ax = fig.add_subplot()
 
     for i in dynamical_spectrum:
-        plt.plot(allbins[1:], i[1:])
+        ax.plot(allbins[1:], i[1:])
 
     meanspec = np.sum(dynamical_spectrum, axis=0) / dynamical_spectrum.shape[0]
 
-    plt.plot(allbins[1:], meanspec[1:])
-    plt.xlabel("Time")
-    plt.ylabel("Counts")
-    ax = plt.gca()
+    ax.plot(allbins[1:], meanspec[1:])
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Counts")
     ax.text(
         0.05,
         0.95,
@@ -427,8 +427,7 @@ def plot_all_spectra(
         transform=ax.transAxes,
         fontsize=16.5,
     )
-    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
-    plt.close(fig)
+    fig.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
 
 
 def _clean_spectrum(dynamical_spectrum, stat_file, length, filename, nofilt=False):
@@ -540,7 +539,7 @@ def plot_spectrum_cleaning_results(
 
     bandwidth_unit = cleaning_results.freqmin.unit
 
-    fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
+    fig = new_figure(figsize=(15, 15))
 
     if len(lc_corr) < 10:
         plot_all_spectra(
@@ -558,23 +557,24 @@ def plot_spectrum_cleaning_results(
     gs = GridSpec(
         4,
         3,
+        figure=fig,
         hspace=0,
         wspace=0,
         height_ratios=(1.5, 1.5, 1.5, 1.5),
         width_ratios=(3, 0.0, 1.2),
     )
-    ax_meanspec = plt.subplot(gs[0, 0])
-    ax_dynspec = plt.subplot(gs[1, 0], sharex=ax_meanspec)
-    ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec, sharey=ax_dynspec)
-    ax_lc = plt.subplot(gs[1, 2], sharey=ax_dynspec)
-    ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
-    ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
-    ax_pds_raw = plt.subplot(gs[3, 2])
+    ax_meanspec = fig.add_subplot(gs[0, 0])
+    ax_dynspec = fig.add_subplot(gs[1, 0], sharex=ax_meanspec)
+    ax_cleanspec = fig.add_subplot(gs[2, 0], sharex=ax_meanspec, sharey=ax_dynspec)
+    ax_lc = fig.add_subplot(gs[1, 2], sharey=ax_dynspec)
+    ax_cleanlc = fig.add_subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
+    ax_var = fig.add_subplot(gs[3, 0], sharex=ax_meanspec)
+    ax_pds_raw = fig.add_subplot(gs[3, 2])
     ax_pds_raw.axis("off")
 
     ax_pds = inset_axes(ax_pds_raw, width="80%", height="70%", loc="lower right")
 
-    ax_text = plt.subplot(gs[0, 2])
+    ax_text = fig.add_subplot(gs[0, 2])
     for ax in [ax_meanspec, ax_dynspec, ax_cleanspec, ax_var, ax_text]:
         ax.autoscale(False)
 
@@ -716,8 +716,7 @@ def plot_spectrum_cleaning_results(
         warnings.simplefilter("ignore")
         fig.tight_layout()
 
-    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
-    plt.close(fig)
+    fig.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
 
 
 def clean_scan_using_variability(
@@ -1247,8 +1246,9 @@ class Scan(Table):
         """
         for ch in self.chan_columns():
             if plot and HAS_MPL:
-                fig = plt.figure("Sub" + ch)
-                plt.plot(self["time"], self[ch] - np.min(self[ch]), alpha=0.5)
+                fig = new_figure()
+                ax = fig.add_subplot()
+                ax.plot(self["time"], self[ch] - np.min(self[ch]), alpha=0.5)
             force_rough = False
             if "Q" in ch or "U" in ch:
                 force_rough = True
@@ -1273,10 +1273,9 @@ class Scan(Table):
                 raise ValueError("Unknown baseline technique")
 
             if plot and HAS_MPL:
-                plt.plot(self["time"], self[ch])
+                ax.plot(self["time"], self[ch])
                 out = root_name(self.meta["filename"]) + f"_{ch}.png"
-                plt.savefig(out)
-                plt.close(fig)
+                fig.savefig(out)
         self.meta["backsub"] = True
 
     def __repr__(self):

@@ -6,10 +6,7 @@ from scipy.optimize import curve_fit
 from astropy.io import fits
 
 from .io import adjust_temperature_size
-from .utils import HAS_MPL
-
-if HAS_MPL:
-    import matplotlib.pyplot as plt
+from .utils import HAS_MPL, new_figure
 
 
 def exptau(airmass, tatm, tau, t0):
@@ -72,8 +69,9 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
         temp = tempdata[ch]
         temp = adjust_temperature_size(temp, airmass)
         if plot and HAS_MPL:
-            fig = plt.figure(ch)
-            plt.scatter(airmass, temp, c="k")
+            fig = new_figure()
+            ax = fig.add_subplot()
+            ax.scatter(airmass, temp, c="k")
 
         if tau0 is None:
             t90 = temp[el90]
@@ -100,12 +98,11 @@ def calculate_opacity(file, plot=True, tatm=None, tau0=None, t0=None):
 
         logging.info(f"{file}: The opacity for channel {ch} is {par[1]}")
         if plot and HAS_MPL:
-            plt.plot(airmass, exptau(airmass, *par), color="r", zorder=10)
-            plt.xlabel("Airmass")
-            plt.ylabel("T (K)")
-            plt.title("T_atm: {:.2f}; tau: {:.4f}; t0: {:.2f}".format(*par))
-            plt.savefig(file.replace(".fits", f"_fit_{ch}.png"))
-            plt.close(fig)
+            ax.plot(airmass, exptau(airmass, *par), color="r", zorder=10)
+            ax.set_xlabel("Airmass")
+            ax.set_ylabel("T (K)")
+            ax.set_title("T_atm: {:.2f}; tau: {:.4f}; t0: {:.2f}".format(*par))
+            fig.savefig(file.replace(".fits", f"_fit_{ch}.png"))
 
         results[ch] = par[1]
 

@@ -189,6 +189,7 @@ def test_measure_crosses_offset_position():
     assert abs(dec_arm["flux"] - 10.0) < 4 * dec_arm["err"]
 
 
+@pytest.mark.usefixtures("no_pyplot_figures")
 def test_sdtcross_command_line(tmp_path):
     """SDTcross reads a dump file and writes the FITS, ECSV and plot files."""
     t = _cross_table(5.0)
