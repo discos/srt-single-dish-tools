@@ -166,29 +166,6 @@ man_pages = [("index", project.lower(), project + " Documentation", [author], 1)
 extensions += ["sphinx_toolbox.collapse"]
 # -- Options for the edit_on_github extension ---------------------------------
 
-
-# Retrieve and set stackoverflow session cookie. This will prevent failures from links from stackoverflow during linkcheck
-if "linkcheck" in sys.argv:
-    import requests
-    r = requests.get("https://stackoverflow.com")
-    cookie_header = "; ".join([f"{c.name}={c.value}" for c in r.cookies])
-
-    linkcheck_request_headers = {
-        "https://stackoverflow.com/": {
-            "Cookie": cookie_header,
-        }
-    }
-
-# Trust the links from these sites, even if they might have Client errors or other minor issues
-linkcheck_ignore = [
-    r"https://doi.org/",
-    r"https://arxiv.org/",
-    r"https://.*adsabs.harvard.edu/",
-    r"https://zenodo.org/",
-]
-
-# -- Options for the edit_on_github extension ---------------------------------
-
 edit_on_github_branch = "main"
 
 
@@ -244,7 +221,14 @@ if not ON_RTD and not ON_TRAVIS:
 
 # -- Options for linkcheck output -------------------------------------------
 linkcheck_retry = 5
+# Trust the links from these sites, even if they might have Client errors or other minor issues.
+# Stack Overflow answers every automated request with 403 (bot protection).
 linkcheck_ignore = [
+    r"https://doi.org/",
+    r"https://arxiv.org/",
+    r"https://.*adsabs.harvard.edu/",
+    r"https://zenodo.org/",
+    r"https://stackoverflow\.com/",
     r"https://github\.com/discos/srt-single-dish-tools/(?:issues|pull)/\d+",
 ]
 linkcheck_timeout = 180
