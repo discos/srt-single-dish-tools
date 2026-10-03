@@ -162,7 +162,6 @@ def _coord_names(frame):
     Traceback (most recent call last):
        ...
     ValueError: turuturu: Unknown frame
-
     """
     if frame in ["icrs", "fk5"]:
         hor, ver = "ra", "dec"
@@ -181,7 +180,7 @@ def _coord_names(frame):
 
 
 def _wcs_ctype_names(frame, projection):
-    """WCS ctype names
+    """WCS ctype names.
 
     Example
     -------
@@ -529,8 +528,8 @@ class ScanSet(Table):
     def calculate_delta_altaz(self):
         """Construction of delta altaz coordinates.
 
-        Calculate the delta of altazimutal coordinates wrt the position
-        of the source
+        Calculate the delta of altazimutal coordinates wrt the position of
+        the source
         """
         from astropy.coordinates import SkyCoord
 
@@ -1690,9 +1689,7 @@ class ScanSet(Table):
             header["dsun_obs"] = np.mean(self["dsun"])
             header["dsun_ref"] = 149597870700.0
 
-        for (
-            key
-        ) in "ANTENNA,site,RightAscension,Declination,backend,receiver,DATE,Project_Name,SiteLongitude,SiteLatitude,SiteHeight,ScheduleName".split(
+        for key in "ANTENNA,site,RightAscension,Declination,backend,receiver,DATE,Project_Name,SiteLongitude,SiteLatitude,SiteHeight,ScheduleName".split(
             ","
         ):
             if key not in self.meta:
@@ -2270,7 +2267,7 @@ def main_preprocess(args=None):
                     nofilt=args.nofilt,
                 )
             except Exception as e:
-                logging.error(f"Error processing {f}: {e}")
+                logging.exception(f"Error processing {f}")
                 if args.pedantic:
                     raise e
                 continue

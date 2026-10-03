@@ -1,31 +1,34 @@
-import pytest
 import sys
+
+import pytest
 
 if sys.platform == "darwin":
     pytest.skip("teporarily skipping monitor tests on macOS", allow_module_level=True)
-import multiprocessing as mp
-import queue
 import base64
+import copy
+import glob
 import json
+import multiprocessing as mp
 import os
+import queue
 import shutil
 import socket
 import subprocess as sp
 import threading
 import time
 import urllib
-import glob
-import numpy as np
-import copy
 
-from srttools.read_config import read_config
+import numpy as np
+
 from srttools.monitor import main_monitor  # import the CLI regardless of dependencies
+from srttools.read_config import read_config
 
 try:
-    from tornado.websocket import websocket_connect
     from tornado.ioloop import IOLoop
+    from tornado.websocket import websocket_connect
+
     from srttools.monitor import Monitor
-    from srttools.monitor.common import stop_event, MAX_PROCS
+    from srttools.monitor.common import MAX_PROCS, stop_event
 
     HAS_DEPENDENCIES = True
 except ImportError:
@@ -34,7 +37,6 @@ except ImportError:
 
 from srttools.scan import product_path_from_file_name
 from srttools.utils import look_for_files_or_bust
-
 
 STANDARD_TIMEOUT = 60
 
@@ -486,7 +488,7 @@ class TestMonitor:
         time.sleep(1)
 
         processed_files = []
-        fname = self.file_empty.replace(".fits", f"0.fits")
+        fname = self.file_empty.replace(".fits", "0.fits")
         processed_files.append(fname)
         shutil.copy(self.file_empty_init, fname)
         self.removefiles.append(fname)

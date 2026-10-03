@@ -338,6 +338,7 @@ lint.ignore = [  # NOTE: non-permanent exclusions should be added to `.ruff.toml
     "PTH109", # os.getcwd is fine
     "PTH108", # os.unlink is fine
     "PTH103", # os.makedirs is fine
+    "PTH113", # os.path.isfile is fine
 
     # flake8-simplify (SIM)
     "SIM103", # needless-bool (cannot be safely applied in all contexts (np.True_ is not True))
@@ -362,6 +363,7 @@ lint.ignore = [  # NOTE: non-permanent exclusions should be added to `.ruff.toml
 "setup.py" = ["INP001"]  # Part of configuration, not a package.
 ".github/workflows/*.py" = ["INP001"]
 "notebooks/*.py" = ["INP001"]
+"experiments/*.py" = ["INP001"]  # Standalone scripts, not a package.
 
 "test_*.py" = [
     "ANN201",  # Public function without return type annotation
@@ -416,6 +418,7 @@ ignore-words-list = """
     coo,
     datas,
     ded,
+    fom,
     dum,
     fo,
     hel,

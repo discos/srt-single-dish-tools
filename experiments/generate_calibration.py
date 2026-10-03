@@ -1,10 +1,12 @@
-import numpy as np
 import os
-from srttools.core.simulate import simulate_scan, save_scan
+
+import numpy as np
+
+from srttools.core.simulate import save_scan, simulate_scan
 
 
 def gauss(x):
-    return 100 * np.exp(-x ** 2 /(2*0.1**2))
+    return 100 * np.exp(-(x**2) / (2 * 0.1**2))
 
 
 for i in range(12):
@@ -26,6 +28,10 @@ for i in range(12):
 
     print(i, direction, center)
 
-    save_scan(times + 57400 * 86400, ra, dec,
-              {'Ch0': shape, 'Ch1': shape},
-              os.path.join('calibrator_ra', 'calibrator{}.fits'.format(i)))
+    save_scan(
+        times + 57400 * 86400,
+        ra,
+        dec,
+        {"Ch0": shape, "Ch1": shape},
+        os.path.join("calibrator_ra", f"calibrator{i}.fits"),
+    )

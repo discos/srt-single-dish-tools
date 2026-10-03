@@ -524,8 +524,7 @@ class ImageSelector:
     """
 
     def __init__(self, data, ax, fun=None, test=False):
-        """
-        Initialize an ImageSelector class.
+        """Initialize an ImageSelector class.
 
         Parameters
         ----------

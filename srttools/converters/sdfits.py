@@ -276,7 +276,7 @@ def get_model_HDUlist(data_format, length=1, **kwargs):
 
 
 class SDFITS_creator:
-    """SDFITS converter"""
+    """SDFITS converter."""
 
     def __init__(self, dirname, scandir=None, average=True, use_calon=False, test=False):
         """Initialization.
