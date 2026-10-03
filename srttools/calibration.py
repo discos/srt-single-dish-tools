@@ -243,6 +243,20 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
 
+def _safe_fit_baseline_plus_bell(x, y, label):
+    """Run ``fit_baseline_plus_bell``, returning ``(None, None)`` if it raises.
+
+    The fit can raise (e.g. ``NonFiniteValueError`` when the Gaussian width
+    collapses on a single spike). One bad subscan should not stop the
+    processing of all the others, so this warns and lets the caller skip it.
+    """
+    try:
+        return fit_baseline_plus_bell(x, y, kind="gauss")
+    except Exception as e:
+        warnings.warn(f"Fit failed in {label}: {type(e).__name__}: {e}")
+        return None, None
+
+
 def _treat_scan(scan_path, plot=False, **kwargs):
     scandir, sname = os.path.split(scan_path)
     if plot and HAS_MPL:
@@ -293,12 +307,18 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         # Fit for gain curves
         x, _ = scantype(ras, decs, els, azs)
-        temperature_model, _ = fit_baseline_plus_bell(x, temperature, kind="gauss")
-        source_temperature = temperature_model["Bell"].amplitude.value
+        temperature_model, _ = _safe_fit_baseline_plus_bell(
+            x, temperature, f"{sname}, {channel}-Temp"
+        )
+        source_temperature = np.nan
+        if temperature_model is not None:
+            source_temperature = temperature_model["Bell"].amplitude.value
 
         # Fit RA and/or Dec
         x, scan_type = scantype(ras, decs)
-        model, fit_info = fit_baseline_plus_bell(x, y, kind="gauss")
+        model, fit_info = _safe_fit_baseline_plus_bell(x, y, f"{sname}, {channel}")
+        if model is None:
+            continue
 
         std = np.std(np.diff(y)) / np.sqrt(2)
         try:
@@ -417,8 +437,9 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1 = plt.subplot(gs[1], sharex=ax0)
 
             ax0.plot(x, temperature, label="Data")
-            ax0.plot(x, temperature_model(x), label="Fit")
-            ax1.plot(x, temperature - temperature_model(x))
+            if temperature_model is not None:
+                ax0.plot(x, temperature_model(x), label="Fit")
+                ax1.plot(x, temperature - temperature_model(x))
 
             ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt", ls="--")
             ax0.set_xlim([min(x), max(x)])

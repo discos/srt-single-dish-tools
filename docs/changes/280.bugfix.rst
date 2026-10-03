@@ -1,0 +1,1 @@
+SDTcal no longer stops when the Gaussian fit of a single subscan raises an error (e.g. on a strong spike): the subscan is skipped with a warning.
