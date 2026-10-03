@@ -14,6 +14,9 @@ flux (or upper limit) out of cross scans, before changing anything.
 | `validate_e2e.py` | Checks that the arrays match what the real srttools pipeline produces from FITS files. |
 | `run_mc.py` | Runs the grid (parallel). Writes `mc_results_current.ecsv`. |
 | `analyze_mc.py` | Metrics (`summary_current.ecsv`) and figures (`fig_*_current.png`). |
+| `run_rfi_threshold.py` | Stage A3: methods (b) and (c) with RFI subscan rejection, for several thresholds. Writes `mc_rfi_threshold.ecsv`. |
+| `analyze_rfi_threshold.py` | `summary_rfi_threshold.ecsv`, `fig_rfi_threshold.png`. |
+| `script_skip_nan.patch` | Patch to `plot_all_cross_scan_results.py`: skip samples flagged by SDTimage (NaN). |
 
 Environment: Mac, `py313` micromamba env (numpy 2.4, scipy 1.17, astropy 7.2),
 srttools from this worktree (`PYTHONPATH=../..:.`). scipy >= 1.15 is needed
@@ -26,7 +29,13 @@ PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python validate_e2e.py <scratch dir>
 PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_mc.py --ntrials 200 -o mc_results_current.ecsv
 PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_mc.py --rfi --ntrials 200 -o mc_results_rfi.ecsv
 ~/mamba/envs/py313/bin/python analyze_mc.py mc_results_current.ecsv mc_results_rfi.ecsv --tag current
+PYTHONPATH=../..:. ~/mamba/envs/py313/bin/python run_rfi_threshold.py --ntrials 100 -o mc_rfi_threshold.ecsv
+~/mamba/envs/py313/bin/python analyze_rfi_threshold.py mc_rfi_threshold.ecsv
 ```
+
+Since Stage A3, `calculate_avg_cross` rejects RFI subscans by default;
+`method_c` and `run_all` pass `rfi_nsigma=None`, so `run_mc.py` still
+measures the methods as they were.
 
 Note: building a `ScanSet` without a config file makes srttools write a
 `sample_config_file.ini` in the working directory. It is a by-product, deleted.
@@ -238,3 +247,38 @@ everything:
 | Detects S/N 10 | no | 65-98% | no |
 | Upper limit | none | a sensitivity, not an UL | 110-160, always valid, useless |
 | With residual RFI | bias +1300 | bias +85, 71% false detections | bias +440 |
+
+## 6. Stage A3: rejection of RFI subscans
+
+Decided at the checkpoint (Matteo): crash-proof (a), reject RFI now in
+`calculate_avg_cross` (on by default, loud warnings, configurable), push the
+other improvements to Stage B (SDTcross).
+
+Method (`srttools.imager.find_outlier_subscans`, documented in
+`docs/technical_details.rst`): per arm, subtract the median profile of all
+subscans (removes the source), measure the residual rms of each subscan, flag
+those above median + `nsigma` x 1.4826 x MAD. Flagged samples become NaN in
+the `_cal` columns; (b) is run with `script_skip_nan.patch` applied.
+
+`run_rfi_threshold.py`: same seeds as `run_mc.py` (100 trials per cell),
+thresholds 3, 4, 5, 7, 10 and no rejection; cells: white/flat and 1/f/drift
+without RFI, 1/f/drift with RFI, at S/N 0, 5, 30; plus a bright source
+(S/N 3000, peak ~40x the per-sample noise) with 0.3 beam pointing offset,
+the case most likely to cause false rejections. Figure:
+`fig_rfi_threshold.png`.
+
+Results at the chosen default, `nsigma = 5`:
+
+- Good subscans thrown away: 0.2-0.3% with 1/f noise (bright source
+  included), <0.01% with white noise. At `nsigma = 3` this grows to 1.5-3%.
+- RFI subscans not flagged: 250 of 5348, but 244 of these received no burst
+  (the number of bursts per subscan is Poisson(3)): only 6 subscans with
+  real bursts (0.1%) were missed. Higher thresholds miss more (up to 7% at
+  `nsigma = 10`).
+- With RFI, the rejection brings everything back to the no-RFI values:
+  (b) bias +90 -> +0.5, false detections at S/N 0 69% -> 21% (17-21% without
+  RFI); (c) bias +440 -> +3 to +5 (the same as without RFI).
+- Without RFI, results are unchanged.
+
+The remaining problems are those of section 5 (errors of (b) too small with
+1/f noise, errors of (c) far too large, (a) unusable at low S/N): Stage B.

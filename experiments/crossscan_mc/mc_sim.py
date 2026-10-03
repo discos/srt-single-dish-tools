@@ -135,7 +135,8 @@ def simulate_observation(
     -------
     subscans : list of dict
         Keys: ``arm`` ("RA" or "Dec"), ``x`` (pixel coordinate along the arm),
-        ``time`` (s), and one array per channel, baseline-subtracted
+        ``time`` (s), and one array per channel, baseline-subtracted;
+        ``<channel>_has_rfi`` tells whether RFI was added
     """
     rng = np.random.default_rng(rng)
     nmodel = NOISE_MODELS[noise]
@@ -172,5 +173,6 @@ def simulate_observation(
             raw = raw + rfi_signal.get((isub, ich), 0)
             sub[ch] = baseline_als(time, raw)
             sub[ch + "_raw"] = raw
+            sub[ch + "_has_rfi"] = (isub, ich) in rfi_signal
         subscans.append(sub)
     return subscans
