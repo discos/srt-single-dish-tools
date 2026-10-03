@@ -1,12 +1,15 @@
 import numpy as np
 import pytest
 
+import astropy.units as u
+from astropy.io import fits
 from astropy.table import Table
 from srttools.crossscan import (
     binned_profile,
     combine_amplitudes,
     consistency,
     fit_subscan,
+    main_cross,
     measure_crosses,
     subscan_amplitudes,
     upper_limit,
@@ -161,3 +164,27 @@ def test_measure_crosses_offset_position():
     res = measure_crosses(t, RA0, DEC0 + np.radians(0.08), FWHM_DEG, channels=CHANS)
     dec_arm = res["summary"][res["summary"]["label"] == "Dec"][0]
     assert abs(dec_arm["flux"] - 10.0) < 4 * dec_arm["err"]
+
+
+def test_sdtcross_command_line(tmp_path):
+    """SDTcross reads a dump file and writes the FITS, ECSV and plot files."""
+    t = _cross_table(5.0)
+    t["x"] = np.zeros((len(t), 1))
+    t["y"] = np.zeros((len(t), 1))
+    t.meta.update(RA=RA0 * u.rad, Dec=DEC0 * u.rad, SOURCE="Fake")
+    for ch in CHANS:
+        t[ch].meta.update(frequency=6200 * u.MHz, bandwidth=1500 * u.MHz)
+    fname = str(tmp_path / "fake_dump.hdf5")
+    t.write(fname, serialize_meta=True)
+    with pytest.warns(UserWarning, match="No calibration"):
+        main_cross([fname, "--beam-fwhm", str(FWHM_DEG * 60), "--rfi-nsigma", "0"])
+    root = str(tmp_path / "fake")
+    header = fits.getheader(root + "_cross.fits")
+    assert header["SOURCE"] == "Fake"
+    assert header["DETECTED"]
+    assert abs(header["FLUX"] - 5.0) < 4 * header["FLUXERR"]
+    assert len(fits.getdata(root + "_cross.fits", "SUBSCANS")) == 40
+    summary = Table.read(root + "_cross.ecsv")
+    assert "TOTAL" in summary["label"]
+    for suffix in ["_cross.png", "_cross_total.png"]:
+        assert (tmp_path / ("fake" + suffix)).exists()
