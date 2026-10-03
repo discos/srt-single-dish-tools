@@ -79,7 +79,8 @@ def mask(xs, border_xs, invert=False):
     if len(border_xs) >= 2:
         intervals = list(zip(border_xs[:-1:2], border_xs[1::2]))
         for i in intervals:
-            good[np.logical_and(xs >= i[0], xs <= i[1])] = False
+            lo, hi = sorted(i)
+            good[np.logical_and(xs >= lo, xs <= hi)] = False
     if invert:
         good = np.logical_not(good)
 
@@ -113,8 +114,41 @@ class intervals:
         return not self.__eq__(other)
 
 
+def _is_interactive(canvas):
+    """True if the canvas belongs to an interactive (GUI) backend."""
+    from matplotlib.backend_bases import FigureCanvasBase
+
+    return type(canvas).start_event_loop is not FigureCanvasBase.start_event_loop
+
+
+def _disable_keymaps(keys):
+    """Remove ``keys`` from matplotlib's shortcuts; return what is needed to restore them."""
+    import matplotlib as mpl
+
+    saved = {}
+    for name in mpl.rcParams:
+        if name.startswith("keymap.") and set(mpl.rcParams[name]) & set(keys):
+            saved[name] = list(mpl.rcParams[name])
+            mpl.rcParams[name] = [k for k in mpl.rcParams[name] if k not in keys]
+    return saved
+
+
+def _restore_keymaps(saved):
+    import matplotlib as mpl
+
+    for name, value in saved.items():
+        mpl.rcParams[name] = value
+
+
 class DataSelector:
-    """Plot and process scans interactively."""
+    """Plot and process scans interactively.
+
+    Key presses and clicks are processed while the figure is open; closing the
+    figure (also with ``q``) ends the selection. With an interactive backend
+    and ``test=False``, the constructor waits until the figure is closed.
+    """
+
+    keys = ("z", "h", "b", "B", "u", "x", "P", "A", "v", "r", "q")
 
     def __init__(self, xs, ys, ax1, ax2, masks=None, xlabel=None, title=None, test=False):
         """Initialize."""
@@ -172,20 +206,41 @@ Actions:
             self.print_instructions()
         self.current = None
 
-        if not test:
-            ax1.figure.canvas.mpl_connect("button_press_event", self.on_click)
-            ax1.figure.canvas.mpl_connect("key_press_event", self.on_key)
-            ax1.figure.canvas.mpl_connect("pick_event", self.on_pick)
-            ax2.figure.canvas.mpl_connect("button_press_event", self.on_click)
-            ax2.figure.canvas.mpl_connect("key_press_event", self.on_key)
-            ax2.figure.canvas.mpl_connect("pick_event", self.on_pick)
-
-        self.plot_all()
         self.zcounter = 0
         self.bcounter = 0
+        self.closed = False
+
+        # Both axes are in the same figure: connect each handler only once.
+        # Matplotlib keeps only weak references to the handlers, so the
+        # figure keeps a reference to the selector.
+        self.fig = ax1.figure
+        canvas = self.fig.canvas
+        self._cids = [
+            canvas.mpl_connect("button_press_event", self.on_click),
+            canvas.mpl_connect("key_press_event", self.on_key),
+            canvas.mpl_connect("pick_event", self.on_pick),
+            canvas.mpl_connect("close_event", self.on_close),
+        ]
+        self.fig._srttools_selector = self
+        self._saved_keymaps = {}
+
+        self.plot_all()
         if not test:
-            plt.show()
-            plt.gcf().canvas.start_event_loop(timeout=-1)
+            if _is_interactive(canvas):
+                # Matplotlib's own shortcuts on our keys (e.g. "r", "q") are
+                # disabled while the window is open
+                self._saved_keymaps = _disable_keymaps(self.keys)
+                try:
+                    plt.show(block=False)
+                    canvas.start_event_loop(timeout=-1)
+                finally:
+                    self.on_close(None)
+            else:
+                warnings.warn(
+                    "The interactive filter needs an interactive matplotlib backend: "
+                    "no changes made."
+                )
+                self.quit()
 
     def on_click(self, event):
         """Dummy function, in case I want to do something with a click."""
@@ -197,15 +252,8 @@ Actions:
             return
         self.info[key]["zap"].add([event.xdata, event.ydata])
         self.zcounter += 1
-        color = "r"
-        if self.zcounter % 2 == 1:
-            ls = "-"
-        else:
-            ls = "--"
-        line = self.ax1.axvline(event.xdata, color=color, ls=ls)
-        line = self.ax2.axvline(event.xdata, color=color, ls=ls)
-        self.lines.append(line)
-        plt.draw()
+        self.plot_marks()
+        self.fig.canvas.draw_idle()
         if self.test:
             warnings.warn(
                 f"I select a zap interval at {event.xdata}",
@@ -219,15 +267,8 @@ Actions:
             return
         self.info[key]["base"].add([event.xdata, event.ydata])
         self.bcounter += 1
-        color = "b"
-        if self.bcounter % 2 == 1:
-            ls = "-"
-        else:
-            ls = "--"
-        line = self.ax1.axvline(event.xdata, color=color, ls=ls)
-        line = self.ax2.axvline(event.xdata, color=color, ls=ls)
-        self.lines.append(line)
-        plt.draw()
+        self.plot_marks()
+        self.fig.canvas.draw_idle()
         if self.test:
             warnings.warn(f"I put a baseline mark at {event.xdata}", TestWarning)
 
@@ -254,7 +295,6 @@ Actions:
         elif event.key == "r":
             self.reset()
         elif event.key == "q":
-            plt.gcf().canvas.stop_event_loop()
             self.quit()
         else:
             pass
@@ -277,11 +317,22 @@ Actions:
 
     def quit(self):
         logging.info("Closing all figures and quitting.")
+        plt.close(self.fig)
+        # With some backends, closing does not send a close event
+        self.on_close(None)
+
+    def on_close(self, event):
+        """When the figure is closed: keep only the scans that were changed."""
+        if self.closed:
+            return
+        self.closed = True
+        _restore_keymaps(self._saved_keymaps)
+        self._saved_keymaps = {}
         old = copy.deepcopy(self.info)
         for key in old:
             if compare_anything(self.info[key], self.starting_info[key]):
                 self.info.pop(key)
-        plt.close(plt.gcf())
+        self.fig.canvas.stop_event_loop()
 
     def subtract_baseline(self):
         """Subtract the baseline based on the selected intervals."""
@@ -358,18 +409,30 @@ Actions:
         """Do this when I pick a line in the plot."""
         thisline = event.artist
 
-        self.current = thisline._label
+        self.current = thisline.get_label()
         self.plot_all(silent=True)
+
+    def plot_marks(self):
+        """Mark the zap (red) and baseline (blue) interval borders of the current scan."""
+        for line in self.lines:
+            if line.axes is not None:
+                line.remove()
+        self.lines = []
+        if self.current is None:
+            return
+        for kind, color in [("zap", "r"), ("base", "b")]:
+            for i, x in enumerate(self.info[self.current][kind].xs):
+                ls = "-" if i % 2 == 0 else "--"
+                for ax in (self.ax1, self.ax2):
+                    self.lines.append(ax.axvline(x, color=color, ls=ls))
 
     def plot_all(self, silent=False):
         """Plot everything."""
-        update_limits = False
-        if self.lines:
+        update_limits = getattr(self, "_plotted", False)
+        if update_limits:
             xlim_save = self.ax1.get_xlim()
             ylim_save = self.ax1.get_ylim()
-            update_limits = True
-        for line in self.lines:
-            line.remove()
+        self._plotted = True
         self.lines = []
         self.ax1.cla()
         plt.setp(self.ax1.get_xticklabels(), visible=False)
@@ -398,7 +461,6 @@ Actions:
             zap_xs = self.info[key]["zap"].xs
 
             # Eliminate zapped intervals
-            plt.draw()
             good[key] = mask(self.xs[key], zap_xs)
 
             if self.info[key]["FLAG"] is True:
@@ -455,7 +517,8 @@ Actions:
         if update_limits:
             self.ax1.set_xlim(xlim_save)
             self.ax1.set_ylim(ylim_save)
-        plt.draw()
+        self.plot_marks()
+        self.fig.canvas.draw_idle()
         if self.test and not silent:
             warnings.warn("I plotted all", PlotWarning)
 
@@ -542,8 +605,10 @@ class ImageSelector:
         self.ax = ax
         self.fun = fun
         self.plot_img()
-        if not test:
-            ax.figure.canvas.mpl_connect("key_press_event", self.on_key)
+        self.fig = ax.figure
+        self._cid = self.fig.canvas.mpl_connect("key_press_event", self.on_key)
+        self.fig._srttools_selector = self
+        if not test and _is_interactive(self.fig.canvas):
             plt.show()
 
     def on_key(self, event):
@@ -553,12 +618,12 @@ class ImageSelector:
         logging.info(f"Pressed key {key} at coords {x},{y}")
 
         if key == "q":
-            plt.close(plt.gcf())
+            plt.close(self.fig)
         elif x is None or y is None or x != x or y != y:
             logging.warning("Invalid choice. Is the window under focus?")
             return
         elif self.fun is not None:
-            plt.close(plt.gcf())
+            plt.close(self.fig)
             self.fun(x, y, key)
 
         return x, y, key

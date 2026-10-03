@@ -10,6 +10,9 @@ from srttools.interactive_filter import (
     ImageSelector,
     PlotWarning,
     TestWarning,
+    _disable_keymaps,
+    _restore_keymaps,
+    mask,
     select_data,
 )
 
@@ -238,3 +241,120 @@ class TestDataSelector:
         import matplotlib.pyplot as plt
 
         plt.close(klass.fig)
+
+
+def _send_key(fig, ax, key, xdata, ydata):
+    """Send a real key press at data coordinates through the figure canvas."""
+    from matplotlib.backend_bases import KeyEvent
+
+    x, y = ax.transData.transform((xdata, ydata))
+    fig.canvas.callbacks.process(
+        "key_press_event", KeyEvent("key_press_event", fig.canvas, key, x, y)
+    )
+
+
+def _send_click(fig, ax, xdata, ydata):
+    """Send a real mouse click at data coordinates (it also triggers picking)."""
+    from matplotlib.backend_bases import MouseButton, MouseEvent
+
+    x, y = ax.transData.transform((xdata, ydata))
+    event = MouseEvent("button_press_event", fig.canvas, x, y, button=MouseButton.LEFT)
+    fig.canvas.callbacks.process("button_press_event", event)
+
+
+@pytest.fixture
+def selector():
+    """A DataSelector on two scans, driven by real matplotlib events."""
+    import matplotlib.pyplot as plt
+
+    xs = {"scan1.fits": np.arange(30.0), "scan2.fits": np.arange(30.0)}
+    ys = {"scan1.fits": np.zeros(30), "scan2.fits": np.full(30, 10.0)}
+    fig = plt.figure()
+    ax1, ax2 = fig.subplots(2, 1, sharex=True)
+    sel = DataSelector(xs, ys, ax1, ax2, test=True)
+    fig.canvas.draw()
+    yield sel
+    plt.close(fig)
+
+
+@pytest.mark.skipif("not HAS_MPL")
+class TestDataSelectorEvents:
+    def test_pick_selects_scan(self, selector):
+        """Clicking on a scan in the upper panel selects it."""
+        _send_click(selector.ax1.figure, selector.ax1, 15, 10)
+        assert selector.current == "scan2.fits"
+
+    def test_zap_with_keys(self, selector):
+        """Each key press adds one point; intervals work in any order."""
+        fig, ax = selector.ax1.figure, selector.ax1
+        _send_click(fig, ax, 15, 0)
+        with pytest.warns(TestWarning):
+            _send_key(fig, ax, "z", 20, 0)
+            _send_key(fig, ax, "z", 10, 0)
+        zap = selector.info["scan1.fits"]["zap"].xs
+        assert np.allclose(zap, [20, 10], atol=0.5)
+        good = mask(selector.xs["scan1.fits"], zap)
+        assert not np.any(good[11:20]) and np.all(good[:10]) and np.all(good[21:])
+
+    def test_zap_markers_survive_redraw(self, selector):
+        """The zap markers of the selected scan are still there after an update."""
+        fig, ax = selector.ax1.figure, selector.ax1
+        _send_click(fig, ax, 15, 0)
+        with pytest.warns(TestWarning):
+            _send_key(fig, ax, "z", 10, 0)
+            _send_key(fig, ax, "z", 20, 0)
+        with pytest.warns(PlotWarning):
+            _send_key(fig, ax, "u", 15, 0)
+        vertical = [line for line in ax.get_lines() if np.ptp(line.get_xdata()) == 0]
+        assert len(vertical) == 2
+
+    def test_matplotlib_keymaps_disabled_and_restored(self):
+        """Matplotlib's own shortcuts on our keys can be switched off and back on."""
+        import matplotlib as mpl
+
+        saved = _disable_keymaps(DataSelector.keys)
+        try:
+            assert "r" not in mpl.rcParams["keymap.home"]
+            assert "q" not in mpl.rcParams["keymap.quit"]
+        finally:
+            _restore_keymaps(saved)
+        assert "r" in mpl.rcParams["keymap.home"]
+        assert "q" in mpl.rcParams["keymap.quit"]
+
+    def test_selector_kept_alive(self):
+        """The selector is not garbage-collected while its figure is open."""
+        import gc
+        import weakref
+
+        import matplotlib.pyplot as plt
+
+        fig = plt.figure()
+        ax1, ax2 = fig.subplots(2, 1)
+        ref = weakref.ref(
+            DataSelector({"a": np.arange(30.0)}, {"a": np.zeros(30)}, ax1, ax2, test=True)
+        )
+        gc.collect()
+        assert ref() is not None
+        plt.close(fig)
+
+    def test_select_data_does_not_hang(self):
+        """With a non-interactive backend, select_data returns instead of waiting forever."""
+        import threading
+
+        import matplotlib as mpl
+
+        if mpl.get_backend().lower() != "agg":
+            pytest.skip("Needs the Agg backend")
+
+        result = {}
+
+        def run():
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                result["info"] = select_data(np.arange(30.0), np.zeros(30))
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        thread.join(20)
+        assert not thread.is_alive()
+        assert result["info"] == {}
