@@ -1013,6 +1013,44 @@ class TestLargeMap:
         assert np.all(np.array(after, dtype=bool) == np.array(s["Feed0_RCP-filt"], dtype=bool))
         # os.unlink(sname.replace('fits', 'hdf5'))
 
+    def test_update_scan_combines_flags(self, tmp_path):
+        """A new zap adds to the flags; unflag clears them but keeps the new zap; a zero
+        baseline changes nothing."""
+        import shutil
+
+        scanset = ScanSet("test.hdf5")
+        sid = scanset["Scan_id"][0]
+        sname = str(tmp_path / os.path.basename(scanset.scan_list[sid]))
+        shutil.copy(scanset.scan_list[sid], sname)
+        mask = scanset["Scan_id"] == sid
+        s = Scan(sname)
+        dim = "ra" if np.ptp(s["ra"][:, 0]) > np.ptp(s["dec"][:, 0]) else "dec"
+        x = np.array(s[dim][:, 0])
+
+        def update(zap_idx=None, fitpars=(0, 0), flag=None):
+            zap = intervals()
+            if zap_idx is not None:
+                zap.xs = [x[zap_idx[1]], x[zap_idx[0]]]
+            scanset.update_scan(sname, sid, dim, zap, np.array(fitpars), flag, test=True)
+            return np.array(scanset["Feed0_RCP-filt"][mask], dtype=bool)
+
+        def inside(i0, i1):
+            lo, hi = sorted([x[i0], x[i1]])
+            return (x >= lo) & (x <= hi)
+
+        data = np.array(scanset["Feed0_RCP"][mask])
+        assert np.allclose(scanset["Feed0_RCP"][mask], data)
+        update()
+        assert np.allclose(scanset["Feed0_RCP"][mask], data)
+
+        update((0, 9))
+        filt = update((20, 29))
+        assert not np.any(filt[inside(0, 9) | inside(20, 29)])
+
+        filt = update((40, 49), flag=False)
+        assert np.all(filt == ~inside(40, 49))
+        assert np.all(np.array(Scan(sname)["Feed0_RCP-filt"], dtype=bool) == filt)
+
     def test_imager_global_fit_invalid(self):
         """Test image production."""
         with pytest.raises(ValueError) as excinfo:

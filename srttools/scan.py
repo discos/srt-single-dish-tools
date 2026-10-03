@@ -26,6 +26,7 @@ except ImportError:
     HAS_MPL = False
 
 from .fit import baseline_als, baseline_rough, contiguous_regions, linear_fun, ref_mad
+from .interactive_filter import mask as interval_mask
 from .interactive_filter import select_data
 from .io import get_chan_columns, get_channel_feed, mkdir_p, read_data, root_name
 from .read_config import get_config_file, read_config
@@ -1328,22 +1329,20 @@ class Scan(Table):
                 info["Ch"]["zap"].xs = [-1e32, 1e32]
                 info["Ch"]["FLAG"] = True
 
-            # Treat zapped intervals
-            xs = info["Ch"]["zap"].xs
-            good = np.ones(len(self[dim]), dtype=bool)
-            if len(xs) >= 2:
-                intervals = list(zip(xs[:-1:2], xs[1::2]))
-                for i in intervals:
-                    good[
-                        np.logical_and(
-                            self[dim][:, feed] >= i[0],
-                            self[dim][:, feed] <= i[1],
-                        )
-                    ] = False
-            self[f"{ch}-filt"] = good
+            # The filter only returns the channels that were changed
+            if "Ch" not in info:
+                continue
 
-            if len(info["Ch"]["fitpars"]) > 1:
-                self[ch] -= linear_fun(self[dim][:, feed], *info["Ch"]["fitpars"])
+            # Treat zapped intervals, keeping the previous flags
+            xs = info["Ch"]["zap"].xs
+            if len(xs) >= 2:
+                self[f"{ch}-filt"] = np.asarray(self[f"{ch}-filt"], dtype=bool) & interval_mask(
+                    self[dim][:, feed], xs
+                )
+
+            fitpars = np.asarray(info["Ch"]["fitpars"])
+            if len(fitpars) > 1 and np.any(fitpars != 0):
+                self[ch] -= linear_fun(self[dim][:, feed], *fitpars)
                 self.meta["backsub"] = True
 
             if info["Ch"]["FLAG"]:
