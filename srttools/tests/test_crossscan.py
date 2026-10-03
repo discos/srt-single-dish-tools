@@ -5,6 +5,7 @@ import astropy.units as u
 from astropy.io import fits
 from astropy.table import Table
 from srttools.crossscan import (
+    _shape_warning,
     binned_profile,
     combine_amplitudes,
     consistency,
@@ -116,10 +117,10 @@ FWHM_DEG = 0.0463
 CHANS = ["Feed0_LCP", "Feed0_RCP"]
 
 
-def _cross_table(amplitude, seed=0, nsub=40, src_offset_deg=0.0):
+def _cross_table(amplitude, seed=0, nsub=40, src_offset_deg=0.0, src_width=1.0):
     """Cross scans as stored in a ScanSet: ra/dec in radians, one feed, two channels."""
     rng = np.random.default_rng(seed)
-    sigma = FWHM_DEG / 2.3548
+    sigma = src_width * FWHM_DEG / 2.3548
     off = np.linspace(-0.24, 0.24, NSAMP)
     cols = {k: [] for k in ["ra", "dec", "direction", "Scan_id", *CHANS]}
     for i in range(nsub):
@@ -161,8 +162,23 @@ def test_measure_crosses():
     assert total["detected"]
     assert abs(res["consistency"]["RA-Dec"]) < 4
     assert abs(res["consistency"]["Feed0_LCP-Feed0_RCP"]) < 4
+    assert abs(res["consistency"]["joint-window"]) < 4
     centers, prof, err = res["profiles"]["TOTAL"]
     assert np.isclose(prof[np.argmin(np.abs(centers))], 3.0, atol=4 * total["err"])
+
+
+def test_measure_crosses_extended_source():
+    """For a source twice as wide as the beam, the joint and window fits disagree."""
+    t = _cross_table(50.0, src_width=2.0)
+    res = measure_crosses(t, RA0, DEC0, FWHM_DEG, channels=CHANS)
+    assert res["consistency"]["joint-window"] < -5
+
+
+def test_shape_warning():
+    """The joint-window warning explains the likely cause, depending on the sign."""
+    assert _shape_warning(1.0, 3.0) is None
+    assert "underestimated" in _shape_warning(-4.0, 3.0)
+    assert "--beam-fwhm" in _shape_warning(4.0, 3.0)
 
 
 def test_measure_crosses_offset_position():
@@ -189,6 +205,7 @@ def test_sdtcross_command_line(tmp_path):
     header = fits.getheader(root + "_cross.fits")
     assert header["SOURCE"] == "Fake"
     assert header["DETECTED"]
+    assert abs(header["CONS_SHP"]) < 4
     assert abs(header["FLUX"] - 5.0) < 4 * header["FLUXERR"]
     assert len(fits.getdata(root + "_cross.fits", "SUBSCANS")) == 40
     summary = Table.read(root + "_cross.ecsv")
