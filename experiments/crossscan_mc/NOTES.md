@@ -378,10 +378,29 @@ within the 1-sigma error bar; real scatter of the flux.
   white noise and flat baseline (1.3 vs 2.1), 10-15% with 1/f noise (7.7 vs
   8.7 with drift).
 
-Pointing offset of 0.3 beams: both methods lose ~22% of the flux at
-S/N 30 (bias -6.5 for (d), -5.5 for (b)), as expected for a forced fit at
-the nominal position (section 5). Not a defect of the method, but the reason
-why the SDTcross tutorial warns about pointing.
+Pointing offset of 0.3 beams (white noise, flat baseline, S/N 30): all
+forced fits at the nominal position lose flux (section 5), but not equally.
+Bias in ideal errors (and fraction of the flux): joint fit -6.6 (22%),
+window 1.5 FWHM -5.1 (17%), window 1 FWHM -6.0 (20%), (b) -5.7 (19%). The
+joint fit is the most sensitive, because its baseline can absorb part of a
+profile that does not match the template. The same happens with a source
+wider than the beam (noiseless, one subscan; fitted amplitude for a true peak
+of 1):
+
+| width / beam | 1.0 | 1.2 | 1.4 | 1.6 | 2.0 |
+|---|---|---|---|---|---|
+| window fit | 1.00 | 1.08 | 1.13 | 1.14 | 1.07 |
+| joint fit | 1.00 | 1.00 | 0.97 | 0.91 | 0.76 |
+
+(Neither gives the integrated flux of an extended source.) This is the
+price of the 30% smaller error of the joint fit. Decision (with Matteo):
+keep the joint fit as the default, because the main use of SDTcross is
+faint sources and upper limits, where the 30% smaller error (equivalent to
+twice the observing time) matters and a loss of a few percent of the flux
+is negligible next to the noise. `measure_crosses` also runs the window
+fit and reports the paired difference per subscan (`consistency["joint-window"]`,
+`CONS_SHP`), with a warning in SDTcross beyond `--nsigma`: it fires where
+the loss matters (bright sources).
 
 Nearby sources (not in the Monte Carlo): a source of flux F on an arm, at a
 distance d from the target and outside the knot-free window, bends the
