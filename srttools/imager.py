@@ -30,6 +30,7 @@ from .calibration import CalibratorTable
 from .fit import eliminate_spiky_outliers, linear_fun
 from .global_fit import fit_full_image
 from .interactive_filter import create_empty_info, select_data
+from .interactive_filter import mask as interactive_mask
 from .io import chan_re, detect_data_kind, get_channel_feed
 from .opacity import calculate_opacity
 from .read_config import read_config, sample_config_file
@@ -1551,34 +1552,30 @@ class ScanSet(Table):
             return
 
         resave = False
+        # Unflagging ("v") removes all previous flags of the scan, in all
+        # channels, before the new zap intervals are applied
+        if flag_info is not None:
+            resave = True
+            s.meta["FLAG"] = flag_info
+            for c in self.chan_columns:
+                s[f"{c}-filt"] = np.zeros(len(s[dim]), dtype=bool) + (not flag_info)
+                self[f"{c}-filt"][mask] = s[f"{c}-filt"]
+
         if len(zap_info.xs) > 0:
             resave = True
-            xs = zap_info.xs
-            good = np.ones(len(s[dim]), dtype=bool)
-            if len(xs) >= 2:
-                intervals = list(zip(xs[:-1:2], xs[1::2]))
-                for i in intervals:
-                    i = sorted(i)
-                    good[np.logical_and(s[dim][:, feed] >= i[0], s[dim][:, feed] <= i[1])] = False
+            good = interactive_mask(s[dim][:, feed], zap_info.xs)
+            if f"{ch}-filt" in s.colnames:
+                good &= np.asarray(s[f"{ch}-filt"], dtype=bool)
             s[f"{ch}-filt"] = good
             self[f"{ch}-filt"][mask] = good
 
-        if len(fit_info) > 1:
+        if len(fit_info) > 1 and np.any(np.asarray(fit_info) != 0):
             resave = True
             sub = linear_fun(s[dim][:, feed], *fit_info)
             s[ch][:] = np.array(s[ch]) - sub
             # TODO: make it channel-independent
             s.meta["backsub"] = True
             self[ch][mask] = s[ch]
-
-        # TODO: make it channel-independent
-        if flag_info is not None:
-            resave = True
-            s.meta["FLAG"] = flag_info
-            flag_array = np.zeros(len(s[dim]), dtype=bool) + flag_info
-            for c in self.chan_columns:
-                self[f"{c}-filt"][mask] = np.logical_not(flag_array)
-                s[f"{c}-filt"] = np.logical_not(flag_array)
 
         if resave:
             s.save()
