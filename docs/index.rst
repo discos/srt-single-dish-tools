@@ -134,6 +134,7 @@ Tutorials
   :maxdepth: 2
 
   tutorials/imaging
+  tutorials/crossscans
   tutorials/converters
   tutorials/rfi
 

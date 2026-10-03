@@ -112,6 +112,67 @@ fluxes from cross scans. Its noise model is:
 All random draws accept ``rng``: a seed or a ``numpy.random.Generator``.
 With ``rng=None`` the global ``numpy.random`` state is used, as before.
 
+Fluxes and upper limits from cross scans (``SDTcross``)
+-------------------------------------------------------
+
+``srttools.crossscan`` (command line: ``SDTcross``) measures the flux of a
+point source of known position from cross scans. For each subscan and
+channel, ``fit_subscan`` fits, in one linear least-squares fit, a cubic
+spline baseline and a Gaussian of fixed width (the beam) centred at the
+**nominal** source position. Only the amplitude of the Gaussian is free (a
+*forced fit*), so it can be negative and is unbiased also when there is no
+source. The spline has knots about every 3 beam FWHM, none within 1.5 FWHM
+of the source, so that it cannot mimic the source.
+
+The amplitudes of the two channels (LCP and RCP) are averaged subscan by
+subscan, so that the noise they share is not counted twice. The flux is the
+mean of these amplitudes over the subscans, and its error is their standard
+deviation divided by the square root of the number of subscans. Since each
+subscan is an independent measurement, this error includes 1/f noise and
+baseline drifts, which make the samples within a subscan correlated, and
+which an error computed from the per-sample noise would ignore. Subscans
+with anomalous noise (residual RFI) are rejected first (see below).
+
+A source is detected if its flux exceeds ``nsigma`` (default 3) times its
+error. The upper limit is ``max(F, 0) + nsigma * sqrt(err**2 + (c *
+max(F, 0))**2)``, where ``c`` is the relative calibration error (from the
+calibrator table, or ``--cal-rel-err``). The arms (RA vs Dec) are compared
+with errors added in quadrature; the polarizations (LCP vs RCP) with the
+per-subscan difference, which accounts for the noise they share.
+
+The settings were chosen with Monte Carlo simulations reproducing the noise
+(white and 1/f), baseline drifts, RFI and pointing errors of real SRT cross
+scans (``experiments/crossscan_mc``, section 7 of its notes). All the
+variants tested (baseline fitted outside a window around the source and
+amplitude measured afterwards, or fitted together with the Gaussian; knots
+every 2, 3, 5 FWHM; mean or median) give correct errors: the scatter of the
+flux over the simulations matches the reported error within ~12%, and there
+are at most 1% false detections at 3 sigma. The joint fit gives errors ~30%
+smaller than the window fit; the median costs ~25% more than the mean. Compared
+with fitting a Gaussian to the profile averaged over all subscans, with an
+error from the per-sample scatter, the real scatter of the flux is 10-40%
+smaller, and the reported error is right instead of 2.5-3 times too small.
+
+Limitations:
+
+- Pointing errors and extended sources: the forced fit measures the peak at
+  the nominal position. A pointing offset of 0.3 beams on one axis loses
+  ~22% of the flux (17% when the baseline is fitted outside a window of 1.5
+  FWHM, ``joint=False``); for a source 2 times wider than the beam, the
+  joint fit gives 76% of the peak, because its baseline absorbs part of the
+  wings. To detect this, ``SDTcross`` also measures each subscan with the
+  baseline fitted outside a window of 1.5 FWHM, which is less sensitive to
+  the shape of the source, and compares the two fits subscan by subscan
+  (``CONS_SHP``, in standard deviations; a warning is printed beyond
+  ``--nsigma``). For faint sources the difference is lost in the noise, as
+  is the loss itself; for bright sources and calibrators, where a loss of a
+  few percent dominates the error, the check becomes sensitive. The profiles
+  plotted by ``SDTcross`` show whether the source is centred and as wide as
+  the beam.
+- Nearby sources: a source on an arm, outside the knot-free region, bends
+  the baseline: from -50% to +18% of its flux, depending on its distance (1.5
+  to 4.5 FWHM), leaks into the measurement.
+
 Rejection of RFI-contaminated subscans in cross scans
 -----------------------------------------------------
 
