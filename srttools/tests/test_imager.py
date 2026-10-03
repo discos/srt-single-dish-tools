@@ -323,7 +323,9 @@ class TestScanSet:
         assert np.all(np.isfinite(cal[~flagged]))
 
     def test_use_command_line_cross(self):
-        main_imager(["-c", self.config_file, "--crosses-only"])
+        """SDTimage --crosses-only was removed in favor of SDTcross."""
+        with pytest.raises(ValueError, match="SDTcross"):
+            main_imager(["-c", self.config_file, "--crosses-only"])
 
     def test_sdtcross_calibrated(self):
         """SDTcross calibrates the data with an SDTcal file and gives the flux in Jy."""

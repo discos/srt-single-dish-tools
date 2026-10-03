@@ -428,7 +428,7 @@ def measure_crosses(
             if len(flagged[ch]) > 0:
                 warnings.warn(
                     f"RFI rejection: {ch}: ignored {len(flagged[ch])}/{ids.size} subscans "
-                    f"with anomalous noise (Scan_id {flagged[ch]})."
+                    f"with anomalous noise (Scan_id {flagged[ch]}). Use --rfi-nsigma 0 to disable."
                 )
         for i, sid in enumerate(ids):
             mask = (scan_id == sid) & good

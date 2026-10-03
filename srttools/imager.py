@@ -893,8 +893,7 @@ class ScanSet(Table):
             self[f"{ch}-filt"][np.isin(self["Scan_id"], bad)] = False
             message = (
                 f"RFI rejection: {ch}: flagged {len(bad)}/{nsub} subscans with "
-                f"anomalous noise (Scan_id {bad}). Use rfi_nsigma=None "
-                "(--rfi-nsigma 0 in SDTimage) to disable."
+                f"anomalous noise (Scan_id {bad}). Use rfi_nsigma=None to disable."
             )
             warnings.warn(message)
             if len(bad) > 0.2 * nsub:
@@ -2029,19 +2028,10 @@ def main_imager(args=None):
         "--crosses-only",
         default=False,
         action="store_true",
-        help="Only save cross scan results (no images)",
+        help="Removed: use SDTcross for cross scans",
     )
 
     parser.add_argument("--calibrate", type=str, default=None, help="Calibration file")
-
-    parser.add_argument(
-        "--rfi-nsigma",
-        type=float,
-        default=5.0,
-        help="Cross scans: flag subscans whose noise exceeds the median of all "
-        "subscans by more than this many robust standard deviations (e.g. "
-        "residual RFI). 0 disables the rejection",
-    )
 
     parser.add_argument(
         "--nofilt",
@@ -2196,6 +2186,13 @@ def main_imager(args=None):
     )
     args = parser.parse_args(args)
 
+    if args.crosses_only:
+        raise ValueError(
+            "SDTimage --crosses-only has been removed. Use SDTcross instead, "
+            "e.g. SDTcross -c config.ini --calibrate calibration.hdf5, or "
+            "SDTcross file_dump.hdf5 --calibrate calibration.hdf5"
+        )
+
     if args.sample_config:
         sample_config_file()
         return
@@ -2253,9 +2250,8 @@ def main_imager(args=None):
         destripe=args.destripe,
         npix_tol=args.npix_tol,
         bad_chans=bad_chans,
-        save_images=not args.crosses_only,
-        save_crosses=args.crosses_only,
-        rfi_nsigma=args.rfi_nsigma if args.rfi_nsigma > 0 else None,
+        save_images=True,
+        save_crosses=False,
     )
 
     scanset.write(outfile, overwrite=True)

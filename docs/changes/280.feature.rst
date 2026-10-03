@@ -1,6 +1,6 @@
 The simulator accepts a random seed or generator (``rng``), 1/f noise with a configurable knee frequency and partial correlation between channels, and a pointing offset for cross scans.
 
-``SDTimage --crosses-only`` (``ScanSet.calculate_avg_cross``) now flags whole subscans with anomalous noise, e.g. residual RFI, with a warning; the threshold is set with ``--rfi-nsigma`` (default 5, 0 to disable).
+``ScanSet.calculate_avg_cross`` now flags whole subscans with anomalous noise, e.g. residual RFI, with a warning; the threshold is set with ``rfi_nsigma`` (default 5, ``None`` to disable).
 
 ``SDTcal`` and ``SDTlcurve`` flag fits whose residual rms, amplitude or width are outliers with respect to the other subscans of the same observation, source, channel and arm (e.g. RFI), with a warning, and exclude them from calibration and fluxes; the threshold is set with ``--outlier-nsigma`` (default 5, 0 to disable). The calibrator table has two new columns, ``Resid Std`` and ``Outlier``.
 
