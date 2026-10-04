@@ -110,7 +110,7 @@ class WebSocketClient:
             try:
                 messages.append(self.messages.get(timeout=0.01))
             except queue.Empty:
-                continue
+                pass
             if len(messages) == n or (timeout and elapsed >= timeout):
                 break
         return messages
