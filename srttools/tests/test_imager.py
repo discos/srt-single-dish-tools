@@ -40,6 +40,7 @@ import pytest
 
 import astropy
 import astropy.units as u
+from astropy.io import fits
 from astropy.logger import logging
 from srttools.calibration import HAS_STATSM, CalibratorTable
 from srttools.global_fit import display_intermediate
@@ -585,6 +586,18 @@ class TestScanSet:
             plt.ioff()
             plt.savefig("img_scrunch_sdev.png")
             plt.close(fig)
+
+    @pytest.mark.parametrize("save_sdev", [False, True])
+    def test_err_maps_saved_with_sdev(self, save_sdev, tmp_path):
+        """ERR maps, also the TOTAL one, are saved to FITS together with Sdev."""
+        fname = str(tmp_path / "img.fits")
+        ScanSet("test.hdf5").save_ds9_images(
+            fname=fname, save_sdev=save_sdev, scrunch=True, save_crosses=False
+        )
+        names = [h.name for h in fits.open(fname)]
+        for ext in ["IMGFEED0_RCP-ERR", "IMGTOTAL-ERR", "IMGTOTAL-SDEV"]:
+            assert (ext in names) == save_sdev
+        assert "IMGTOTAL" in names
 
     def test_image_scrunch_errors(self):
         """TOTAL is the mean of the channels; its Sdev and ERR are those of a mean
