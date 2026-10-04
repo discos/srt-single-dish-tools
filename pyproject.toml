@@ -48,6 +48,7 @@ dependencies = [
 test = [
     "pytest>=7.3.2",
     "pytest-astropy>=0.10",
+    "pytest-timeout>=2.2.0",
 ]
 test_all = [
     "matplotlib",
@@ -155,6 +156,11 @@ doctest_plus = "enabled"
 text_file_format = "rst"
 remote_data_strict = true
 addopts = "--color=yes --doctest-rst"
+# Fail a hung test instead of letting CI run into its 6-hour limit. The thread
+# method dumps the stacks of all threads and exits, so hangs inside the monitor's
+# background threads are reported too (and a hung teardown cannot hang again).
+timeout = 600
+timeout_method = "thread"
 filterwarnings = [
     "error::DeprecationWarning:srttools.*",
     "ignore:Matplotlib is currently using agg, which is a:UserWarning",

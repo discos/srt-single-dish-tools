@@ -42,6 +42,20 @@ macOS, if tox picks up a "universal2" Python from python.org, the oldest
 versions of numpy will not install; ``UV_PYTHON_PREFERENCE=only-managed``
 forces tox-uv to use a uv-managed Python instead.
 
+Time limits on hung tests
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``SDTmonitor`` tests start background threads and processes, and a
+hang there used to stall CI until GitHub cancelled the job after 6 hours,
+with no hint of which test was stuck. Now:
+
+* ``pytest-timeout`` (``timeout = 600`` in ``pyproject.toml``) stops any
+  single test running longer than 10 minutes. With
+  ``timeout_method = "thread"`` it prints the stack of *every* thread and
+  ends the pytest process: the rest of the run is lost, but the report shows
+  where the background threads are blocked, and a teardown that would hang
+  again cannot do so. Override locally with e.g. ``pytest -o timeout=0``.
+
 Warning policy in tests
 -----------------------
 
