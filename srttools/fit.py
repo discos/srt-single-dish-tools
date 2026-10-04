@@ -497,7 +497,7 @@ def _als(y, lam, p, niter=30):
 
     w = np.ones(L)
     for _ in range(niter):
-        W = sparse.diags_array(w, format="csc")
+        W = sparse.dia_array((w[np.newaxis, :], [0]), shape=(L, L)).tocsc()
         Z = W + lam * (D @ D.T)
         z = spsolve(Z, w * y)
         w = p * (y > z) + (1 - p) * (y < z)
