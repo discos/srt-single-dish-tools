@@ -604,7 +604,7 @@ class ScanSet(Table):
             self["delta_az"][:, f] = (self["az"][:, f] - ref_az) * np.cos(ref_el)
             self["delta_el"][:, f] = self["el"][:, f] - ref_el
 
-        if HAS_MPL:
+        if HAS_MPL and getattr(self, "debug", False):
             fig1 = new_figure()
             ax = fig1.add_subplot()
             ax.plot(np.degrees(self["delta_az"]), np.degrees(self["delta_el"]))

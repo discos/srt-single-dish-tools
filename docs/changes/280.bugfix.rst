@@ -9,3 +9,5 @@ Interactive filter, saving the results: a new zap interval adds to the existing 
 srttools no longer forces the matplotlib backend (it used TkAgg whenever DISPLAY was set, Agg otherwise): the backend chosen by the user (``MPLBACKEND``, ``matplotlibrc``) or the platform default is used, e.g. the native macOS one.
 
 Plots that are only saved to files (debug plots, calibration summaries, ``SDTcross`` profiles, RFI statistics, ...) are now drawn on figures not attached to pyplot: they never open a window with interactive backends and no longer pop up when the interactive filter opens. Some were also left open (RFI statistics, destriping) or saved before adding the legend (outlier removal).
+
+The alt-az diagnostic plots (``delta_altaz.png``, ``altaz_with_src.png``) are written to the current directory only in debug mode.
