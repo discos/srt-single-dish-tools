@@ -45,6 +45,7 @@ from srttools.calibration import HAS_STATSM, CalibratorTable
 from srttools.global_fit import display_intermediate
 from srttools.imager import (
     ScanSet,
+    _binned_mean_sdev,
     _excluded_regions_from_args,
     main_imager,
     main_preprocess,
@@ -459,6 +460,41 @@ class TestScanSet:
         ScanSet(fname, debug=debug).calculate_delta_altaz()
         assert os.path.exists("delta_altaz.png") == (debug and HAS_MPL)
         assert os.path.exists("altaz_with_src.png") == (debug and HAS_MPL)
+
+    def test_image_sdev_and_err(self):
+        """Image Sdev is the N - 1 standard deviation of the samples in each pixel,
+        and ERR is Sdev / sqrt(N)."""
+        scanset = ScanSet("test.hdf5")
+        ch = "Feed0_RCP"
+        images = scanset.calculate_images(onlychans=[ch])
+        sdev, expo = images[f"{ch}-Sdev"].T, images[f"{ch}-EXPO"].T
+        good = np.array(scanset[f"{ch}-filt"])
+        ix = np.floor(scanset["x"][:, 0][good]).astype(int)
+        iy = np.floor(scanset["y"][:, 0][good]).astype(int)
+        vals = np.array(scanset[ch][good])
+        i, j = np.unravel_index(np.argmax(expo), expo.shape)
+        assert np.isclose(sdev[i, j], np.std(vals[(ix == i) & (iy == j)], ddof=1))
+        filled = expo > 1
+        assert np.allclose(images[f"{ch}-ERR"].T[filled], sdev[filled] / np.sqrt(expo[filled]))
+
+    def test_quick_calibration_is_one_factor(self):
+        """Quick calibration multiplies every pixel by the same factor, also where
+        Sdev is NaN (it used to replace those with 1 count), and scales Sdev and
+        ERR by its absolute value."""
+        scanset = ScanSet("test.hdf5")
+        ch = "Feed0_RCP"
+        scanset.calculate_images(onlychans=[ch])
+        img = scanset.images
+        img[f"{ch}-Sdev"][img[ch] < 0] = np.nan
+        raw = {k: img[k].copy() for k in [ch, f"{ch}-Sdev", f"{ch}-ERR"]}
+        scanset.calibrate_images(calibration=self.calfile, map_unit="Jy/beam")
+
+        i = np.unravel_index(np.argmax(raw[ch]), raw[ch].shape)
+        factor = img[ch][i] / raw[ch][i]
+        assert np.allclose(img[ch], raw[ch] * factor)
+        for k in [f"{ch}-Sdev", f"{ch}-ERR"]:
+            assert np.allclose(img[k], raw[k] * abs(factor), equal_nan=True)
+            assert np.allclose(img[k.replace("-", "-RAW-")], raw[k], equal_nan=True)
 
     def test_image_scrunch(self):
         """Test image production."""
@@ -1177,6 +1213,45 @@ class TestLargeMap:
             for o in out_fits_files + out_hdf5_files:
                 os.unlink(o)
             shutil.rmtree(os.path.join(klass.config["productdir"], "sim"))
+
+
+def test_binned_mean_sdev_matches_numpy():
+    """Pixel mean and standard deviation (N - 1) equal numpy's, also with a large
+    offset; one-sample and empty pixels have NaN standard deviation."""
+    rng = np.random.default_rng(0)
+    n_per_pix = np.array([[1, 0, 7], [30, 2, 12]])
+    x, y = [], []
+    for (i, j), n in np.ndenumerate(n_per_pix):
+        x.append(i + rng.uniform(0, 1, n))
+        y.append(j + rng.uniform(0, 1, n))
+    x, y = np.concatenate(x), np.concatenate(y)
+    values = 1e7 + rng.normal(0, 1, x.size)
+    bins = [np.arange(3), np.arange(4)]
+
+    mean, sdev, expo = _binned_mean_sdev((x, y), values, bins)
+
+    assert np.array_equal(expo, n_per_pix)
+    for (i, j), n in np.ndenumerate(n_per_pix):
+        vals = values[(np.floor(x) == i) & (np.floor(y) == j)]
+        if n == 0:
+            assert mean[i, j] == 0
+        else:
+            assert np.isclose(mean[i, j], np.mean(vals), rtol=1e-14)
+        if n < 2:
+            assert np.isnan(sdev[i, j])
+        else:
+            assert np.isclose(sdev[i, j], np.std(vals, ddof=1), rtol=1e-6)
+
+
+def test_error_map_matches_scatter_of_pixel_means():
+    """With white noise, the standard deviation over N divided by sqrt(N) matches
+    the scatter of the pixel means (dividing by N would be ~11% low for N=5)."""
+    rng = np.random.default_rng(1)
+    npix, n = 10000, 5
+    x = np.repeat(np.arange(npix), n) + 0.5
+    mean, sdev, expo = _binned_mean_sdev((x,), rng.normal(0, 1, x.size), [np.arange(npix + 1)])
+    err = sdev / np.sqrt(expo)
+    assert np.isclose(np.std(mean), np.sqrt(np.mean(err**2)), rtol=0.04)
 
 
 def test_table_merge():
