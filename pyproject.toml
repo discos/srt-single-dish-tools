@@ -46,7 +46,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "pytest>=7.0",
+    "pytest>=7.3.2",
     "pytest-astropy>=0.10",
 ]
 test_all = [
@@ -141,7 +141,7 @@ namespaces = false
 version_file = "srttools/_version.py"
 
 [tool.pytest.ini_options]
-minversion = 7.0
+minversion = "7.3.2"
 testpaths = [
     "srttools",
     "docs",

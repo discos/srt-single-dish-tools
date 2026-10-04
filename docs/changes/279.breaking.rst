@@ -1,1 +1,1 @@
-Python >= 3.12 is now required, and minimum versions are set for all dependencies (numpy 1.26, astropy 5.3.4, scipy 1.11.2, matplotlib 3.7.3, h5py 3.10, pyyaml 6.0.1, stingray 2.2.3).
+Python >= 3.12 is now required, and minimum versions are set for all dependencies (numpy 1.26, astropy 5.3.4, scipy 1.11.2, matplotlib 3.7.3, h5py 3.10, pyyaml 6.0.1, stingray 2.2.3; pytest 7.3.2 for the tests).
