@@ -857,13 +857,13 @@ class ScanSet(Table):
 
             # For Numpy vs FITS image conventions...
             images[ch] = mean.T
-            if calibration is not None and calibrate_scans:
-                cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
-                img_sdev *= 1 + cal_rel_err
-
             images[f"{ch}-Sdev"] = img_sdev.T
             with np.errstate(invalid="ignore", divide="ignore"):
-                images[f"{ch}-ERR"] = (img_sdev / np.sqrt(expomap)).T
+                img_err = img_sdev / np.sqrt(expomap)
+            if calibration is not None and calibrate_scans:
+                cal_rel_err = np.mean(np.abs(Jy_over_counts_err / Jy_over_counts)).value
+                img_err = np.hypot(img_err, mean * cal_rel_err)
+            images[f"{ch}-ERR"] = img_err.T
             images[f"{ch}-EXPO"] = expomap.T
             images[f"{ch}-Outliers"] = img_outliers.T
 
@@ -1280,9 +1280,12 @@ class ScanSet(Table):
 
             images[ch] = images[ch] * factor
             # Sdev and ERR are scatters: they scale with the absolute value
-            for suffix in ["-Sdev", "-ERR"]:
-                if f"{ch}{suffix}" in images:
-                    images[f"{ch}{suffix}"] = images[f"{ch}{suffix}"] * np.abs(factor)
+            images[f"{ch}-Sdev"] = images[f"{ch}-Sdev"] * np.abs(factor)
+            if f"{ch}-ERR" in images:
+                cal_rel_err = np.abs(Jy_over_counts_err / Jy_over_counts).value
+                images[f"{ch}-ERR"] = np.hypot(
+                    images[f"{ch}-ERR"] * np.abs(factor), images[ch] * cal_rel_err
+                )
 
         if direction == 0:
             self.images_hor = images
