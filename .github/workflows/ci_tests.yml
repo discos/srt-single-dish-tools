@@ -83,6 +83,8 @@ jobs:
     if: ${{ needs.check_commit.outputs.match != 'true' }}
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    # Normal runs take ~10 minutes; don't let a hung test burn the 6-hour default
+    timeout-minutes: 60
 
     continue-on-error: ${{ matrix.experimental }}
     strategy:
