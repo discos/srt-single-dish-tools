@@ -13,3 +13,5 @@ Plots that are only saved to files (debug plots, calibration summaries, ``SDTcro
 The alt-az diagnostic plots (``delta_altaz.png``, ``altaz_with_src.png``) are written to the current directory only in debug mode.
 
 Quick calibration of images (``calibrate_images``) no longer gives a flux of exactly one calibration factor to pixels with NaN Sdev; the Sdev is calculated around the pixel mean, so it is never NaN by rounding and keeps its precision with large offsets.
+
+``scrunch_images``: ``TOTAL-Sdev`` took the square root twice; it is now the square root of the sum of the squared Sdev of the channels divided by their number, and there is a ``TOTAL-ERR`` computed in the same way.

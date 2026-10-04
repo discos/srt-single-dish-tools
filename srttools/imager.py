@@ -1162,28 +1162,32 @@ class ScanSet(Table):
         return self.images
 
     def scrunch_images(self, bad_chans=[]):
-        """Sum the images from all channels."""
-        total_expo = 0
-        total_img = 0
-        total_sdev = 0
+        """Average the images of all channels.
+
+        Sdev and ERR are those of the mean of independent channels: the square
+        root of the sum of their squares, divided by the number of channels.
+        EXPO is the total number of samples.
+        """
+        total = {"": 0, "-Sdev": 0, "-ERR": 0, "-EXPO": 0}
         count = 0
         lower_bad_chans = all_lower(bad_chans)
         for ch in self.chan_columns:
             if ch.lower() in lower_bad_chans:
                 logging.info(f"Discarding {ch}")
                 continue
-            total_expo += self.images[f"{ch}-EXPO"]
-            total_sdev += self.images[f"{ch}-Sdev"] ** 2
-            total_img += self.images[ch]
+            total[""] = total[""] + self.images[ch]
+            total["-EXPO"] = total["-EXPO"] + self.images[f"{ch}-EXPO"]
+            for suffix in ["-Sdev", "-ERR"]:
+                if total[suffix] is not None and f"{ch}{suffix}" in self.images:
+                    total[suffix] = total[suffix] + self.images[f"{ch}{suffix}"] ** 2
+                else:
+                    total[suffix] = None
             count += 1
-        total_sdev = total_sdev**0.5 / count
-        total_img /= count
 
-        total_images = {
-            "TOTAL": total_img,
-            "TOTAL-Sdev": np.sqrt(total_sdev),
-            "TOTAL-EXPO": total_expo,
-        }
+        total_images = {"TOTAL": total[""] / count, "TOTAL-EXPO": total["-EXPO"]}
+        for suffix in ["-Sdev", "-ERR"]:
+            if total[suffix] is not None:
+                total_images[f"TOTAL{suffix}"] = np.sqrt(total[suffix]) / count
         self.images.update(total_images)
         return total_images
 

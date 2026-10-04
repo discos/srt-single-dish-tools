@@ -556,6 +556,24 @@ class TestScanSet:
             plt.savefig("img_scrunch_sdev.png")
             plt.close(fig)
 
+    def test_image_scrunch_errors(self):
+        """TOTAL is the mean of the channels; its Sdev and ERR are those of a mean
+        of independent channels, sqrt(sum of squares) / number of channels."""
+        scanset = ScanSet("test.hdf5")
+        chans = scanset.chan_columns
+        n = len(chans)
+        scanset.images = {}
+        for i, ch in enumerate(chans):
+            scanset.images[ch] = np.full((2, 2), float(i))
+            scanset.images[f"{ch}-Sdev"] = np.full((2, 2), 2.0)
+            scanset.images[f"{ch}-ERR"] = np.full((2, 2), 3.0)
+            scanset.images[f"{ch}-EXPO"] = np.full((2, 2), 5.0)
+        images = scanset.scrunch_images()
+        assert np.allclose(images["TOTAL"], (n - 1) / 2)
+        assert np.allclose(images["TOTAL-Sdev"], 2 / np.sqrt(n))
+        assert np.allclose(images["TOTAL-ERR"], 3 / np.sqrt(n))
+        assert np.allclose(images["TOTAL-EXPO"], 5 * n)
+
     @classmethod
     def teardown_class(klass):
         """Clean up the mess."""
