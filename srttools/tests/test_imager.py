@@ -479,8 +479,8 @@ class TestScanSet:
 
     def test_quick_calibration_is_one_factor(self):
         """Quick calibration multiplies every pixel by the same factor, also where
-        Sdev is NaN (it used to replace those with 1 count), and scales Sdev and
-        ERR by its absolute value."""
+        Sdev is NaN (it used to replace those with 1 count), and scales Sdev by
+        its absolute value. ERR also gets the calibration error, in quadrature."""
         scanset = ScanSet("test.hdf5")
         ch = "Feed0_RCP"
         scanset.calculate_images(onlychans=[ch])
@@ -492,9 +492,43 @@ class TestScanSet:
         i = np.unravel_index(np.argmax(raw[ch]), raw[ch].shape)
         factor = img[ch][i] / raw[ch][i]
         assert np.allclose(img[ch], raw[ch] * factor)
+        assert np.allclose(img[f"{ch}-Sdev"], raw[f"{ch}-Sdev"] * abs(factor), equal_nan=True)
         for k in [f"{ch}-Sdev", f"{ch}-ERR"]:
-            assert np.allclose(img[k], raw[k] * abs(factor), equal_nan=True)
             assert np.allclose(img[k.replace("-", "-RAW-")], raw[k], equal_nan=True)
+
+        # ERR^2 = (|factor| ERR_raw)^2 + (flux x relative calibration error)^2
+        finite = np.isfinite(img[f"{ch}-ERR"]) & (img[ch] != 0)
+        assert np.all(img[f"{ch}-ERR"][finite] > 0)
+        cal_rel_err_sq = (img[f"{ch}-ERR"] ** 2 - (raw[f"{ch}-ERR"] * factor) ** 2)[finite] / img[
+            ch
+        ][finite] ** 2
+        assert np.all(cal_rel_err_sq > 0)
+        assert np.allclose(cal_rel_err_sq, np.median(cal_rel_err_sq))
+
+    @pytest.mark.parametrize("map_unit", ["Jy/beam", "Jy/pixel"])
+    def test_quick_and_full_calibration_agree(self, map_unit, monkeypatch):
+        """Calibrating the map (quick) or each sample (full) gives the same values,
+        Sdev and ERR, apart from the small change of the factor with elevation.
+        The calibration error is inflated to 10%, so that it matters."""
+        original = CalibratorTable.Jy_over_counts
+
+        def ten_percent_error(self, *args, **kwargs):
+            fc, _ = original(self, *args, **kwargs)
+            return fc, 0.1 * np.abs(fc)
+
+        monkeypatch.setattr(CalibratorTable, "Jy_over_counts", ten_percent_error)
+        ch = "Feed0_RCP"
+        quick = ScanSet("test.hdf5").calculate_images(
+            calibration=self.calfile, map_unit=map_unit, onlychans=[ch]
+        )
+        full = ScanSet("test.hdf5").calculate_images(
+            calibration=self.calfile, map_unit=map_unit, onlychans=[ch], calibrate_scans=True
+        )
+        good = quick[f"{ch}-EXPO"] > 1
+        peak = np.max(np.abs(quick[ch]))
+        assert np.allclose(full[ch][good], quick[ch][good], atol=0.01 * peak)
+        for k in [f"{ch}-Sdev", f"{ch}-ERR"]:
+            assert np.allclose(full[k][good], quick[k][good], rtol=0.05)
 
     def test_image_scrunch(self):
         """Test image production."""
