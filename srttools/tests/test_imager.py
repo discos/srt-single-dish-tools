@@ -451,6 +451,15 @@ class TestScanSet:
             plt.savefig("img_altaz.png")
             plt.close(fig)
 
+    @pytest.mark.parametrize("debug", [False, True])
+    def test_altaz_plots_only_in_debug(self, debug, tmp_path, monkeypatch):
+        """The alt-az diagnostic plots are written only in debug mode."""
+        fname = os.path.abspath("test.hdf5")
+        monkeypatch.chdir(tmp_path)
+        ScanSet(fname, debug=debug).calculate_delta_altaz()
+        assert os.path.exists("delta_altaz.png") == (debug and HAS_MPL)
+        assert os.path.exists("altaz_with_src.png") == (debug and HAS_MPL)
+
     def test_image_scrunch(self):
         """Test image production."""
 
