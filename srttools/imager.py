@@ -1007,12 +1007,9 @@ class ScanSet(Table):
                     and self.crosses is not None
                     and ch in self.crosses.keys()
                 ):
-                    avg_subscan[f"{ch}-{direction}"] = self.crosses[ch]
-                    avg_subscan[f"{ch}-{direction}-Sdev"] = self.crosses[f"{ch}-Sdev"]
-                    avg_subscan[f"{ch}-{direction}-EXPO"] = self.crosses[f"{ch}-EXPO"]
-                    avg_subscan[f"{ch}-{direction}-Outliers".format(ch)] = self.crosses[
-                        f"{ch}-Outliers"
-                    ]
+                    for key in self.crosses:
+                        if key.startswith(f"{ch}-{direction}"):
+                            avg_subscan[key] = self.crosses[key]
                     continue
 
                 feed = get_channel_feed(ch)
@@ -1030,11 +1027,6 @@ class ScanSet(Table):
                     bins = ybins
                 if not np.any(good):
                     continue
-
-                expomap, _ = np.histogram(
-                    x_values,
-                    bins=bins,
-                )
 
                 counts = np.array(self[ch][good])
 
@@ -1066,9 +1058,7 @@ class ScanSet(Table):
                     counts = counts.to(final_unit).value
                     self[ch + "_cal"][good] = counts
 
-                subsc, _ = np.histogram(x_values, bins=bins, weights=counts)
-
-                subsc_sq, _ = np.histogram(x_values, bins=bins, weights=counts**2)
+                mean, img_sdev, expomap = _binned_mean_sdev((x_values,), counts, [bins])
 
                 subsc_outliers, _, _ = binned_statistic(
                     x_values,
@@ -1077,31 +1067,21 @@ class ScanSet(Table):
                     bins=bins,
                 )
 
-                good = expomap > 0
-                mean = subsc.copy()
-                mean[good] /= expomap[good]
-                # For Numpy vs FITS image conventions...
                 avg_subscan[f"{ch}-{direction}"] = mean
-                img_sdev = subsc_sq
-                img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
-
-                img_sdev[good] = np.sqrt(img_sdev[good])
-                if calibration is not None and calibrate_scans:
-                    cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
-                    img_sdev *= 1 + cal_rel_err
                 avg_subscan[f"{ch}-{direction}-Sdev"] = img_sdev
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    img_err = img_sdev / np.sqrt(expomap)
+                if calibration is not None and calibrate_scans:
+                    cal_rel_err = np.mean(np.abs(Jy_over_counts_err / Jy_over_counts)).value
+                    img_err = np.hypot(img_err, mean * cal_rel_err)
+                avg_subscan[f"{ch}-{direction}-ERR"] = img_err
                 avg_subscan[f"{ch}-{direction}-EXPO"] = expomap
                 avg_subscan[f"{ch}-{direction}-Outliers"] = subsc_outliers
 
             self.crosses = avg_subscan
 
         if calibration is not None and not calibrate_scans:
-            self.calibrate_crosses(
-                calibration,
-                elevation=elevation,
-                map_unit=map_unit,
-                direction=direction,
-            )
+            self.calibrate_crosses(calibration, elevation=elevation, map_unit=map_unit)
 
         return avg_subscan
 
@@ -1299,57 +1279,40 @@ class ScanSet(Table):
             self.images = images
 
     def calibrate_crosses(self, calibration, elevation=np.pi / 4, map_unit="Jy/beam"):
-        """Calibrate the images."""
-        for direction in [0, 1]:
-            if self.crosses is None:
-                self.calculate_avg_cross(direction=direction)
+        """Calibrate the average cross profiles, as `calibrate_images`."""
+        if self.crosses is None:
+            self.calculate_avg_cross()
 
-            avg_subscan = self.crosses
+        avg_subscan = self.crosses
+        caltable, conversion_units = _load_calibration(calibration, map_unit)
+        area_conversion, final_unit = self._calculate_calibration_factors(map_unit)
 
-            caltable, conversion_units = _load_calibration(calibration, map_unit)
+        for ch in self.chan_columns:
+            Jy_over_counts, Jy_over_counts_err = (
+                caltable.Jy_over_counts(channel=ch, map_unit=map_unit, elevation=elevation)
+                * conversion_units
+            )
 
-            for ch in self.chan_columns:
-                Jy_over_counts, Jy_over_counts_err = (
-                    caltable.Jy_over_counts(channel=ch, map_unit=map_unit, elevation=elevation)
-                    * conversion_units
+            if np.isnan(Jy_over_counts):
+                warnings.warn("The Jy/counts factor is nan")
+                continue
+            factor = (1 * u.ct * area_conversion * Jy_over_counts).to(final_unit).value
+            cal_rel_err = np.abs(Jy_over_counts_err / Jy_over_counts).value
+
+            for direction in [0, 1]:
+                key = f"{ch}-{direction}"
+                if key not in avg_subscan:
+                    continue
+                for suffix in ["", "-Sdev", "-ERR", "-EXPO"]:
+                    avg_subscan[f"{key}-RAW{suffix}"] = avg_subscan[f"{key}{suffix}"].copy()
+
+                avg_subscan[key] = avg_subscan[key] * factor
+                avg_subscan[f"{key}-Sdev"] = avg_subscan[f"{key}-Sdev"] * np.abs(factor)
+                avg_subscan[f"{key}-ERR"] = np.hypot(
+                    avg_subscan[f"{key}-ERR"] * np.abs(factor), avg_subscan[key] * cal_rel_err
                 )
 
-                if np.isnan(Jy_over_counts):
-                    warnings.warn("The Jy/counts factor is nan")
-                    continue
-                A = avg_subscan[f"{ch}-{direction}"].copy() * u.ct
-                eA = avg_subscan[f"{ch}-{direction}-Sdev"].copy() * u.ct
-
-                avg_subscan[f"{ch}-{direction}-RAW"] = avg_subscan[f"{ch}-{direction}"].copy()
-                avg_subscan[f"{ch}-{direction}-RAW-Sdev"] = avg_subscan[
-                    f"{ch}-{direction}-Sdev"
-                ].copy()
-                avg_subscan[f"{ch}-{direction}-RAW-EXPO"] = avg_subscan[
-                    f"{ch}-{direction}-EXPO"
-                ].copy()
-                bad = eA != eA
-                A[bad] = 1 * u.ct
-                eA[bad] = 0 * u.ct
-
-                bad = np.logical_or(A == 0, A != A)
-                A[bad] = 1 * u.ct
-                eA[bad] = 0 * u.ct
-
-                B = Jy_over_counts
-                eB = Jy_over_counts_err
-
-                area_conversion, final_unit = self._calculate_calibration_factors(map_unit)
-
-                C = A * area_conversion * Jy_over_counts
-                C[bad] = 0
-
-                avg_subscan[ch] = C.to(final_unit).value
-
-                eC = C * (eA / A + eB / B)
-
-                avg_subscan[f"{ch}-{direction}-Sdev"] = eC.to(final_unit).value
-
-            self.crosses = avg_subscan
+        self.crosses = avg_subscan
 
     def interactive_display(self, ch=None, recreate=False, test=False):
         """Modify original scans from the image display."""
@@ -1940,6 +1903,7 @@ class ScanSet(Table):
                         {
                             "flux": avg_subscan[f"{ch}-{direction}"],
                             "sdev": avg_subscan[f"{ch}-{direction}-Sdev"],
+                            "err": avg_subscan[f"{ch}-{direction}-ERR"],
                             "expo": avg_subscan[f"{ch}-{direction}-EXPO"],
                             "outliers": avg_subscan[f"{ch}-{direction}-Outliers"],
                         }

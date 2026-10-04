@@ -324,6 +324,36 @@ class TestScanSet:
         assert np.all(np.isnan(cal[flagged]))
         assert np.all(np.isfinite(cal[~flagged]))
 
+    def test_avg_cross_quick_and_full_calibration_agree(self, monkeypatch):
+        """Average cross profiles: ERR is Sdev / sqrt(N) before calibration; quick
+        calibration works and agrees with per-sample calibration in values, Sdev
+        and ERR (calibration error inflated to 10% so that it matters)."""
+        original = CalibratorTable.Jy_over_counts
+
+        def ten_percent_error(self, *args, **kwargs):
+            fc, _ = original(self, *args, **kwargs)
+            return fc, 0.1 * np.abs(fc)
+
+        monkeypatch.setattr(CalibratorTable, "Jy_over_counts", ten_percent_error)
+        ch, key = "Feed0_RCP", "Feed0_RCP-0"
+        raw = ScanSet("test.hdf5").calculate_avg_cross(rfi_nsigma=None, onlychans=[ch])
+        good = raw[f"{key}-EXPO"] > 1
+        expected = raw[f"{key}-Sdev"][good] / np.sqrt(raw[f"{key}-EXPO"][good])
+        assert np.allclose(raw[f"{key}-ERR"][good], expected)
+
+        results = [
+            ScanSet("test.hdf5").calculate_avg_cross(
+                calibration=self.calfile, calibrate_scans=full, rfi_nsigma=None
+            )
+            for full in [False, True]
+        ]
+        quick, full = results
+        assert np.allclose(quick[f"{key}-RAW"], raw[key])
+        peak = np.max(np.abs(quick[key]))
+        assert np.allclose(full[key][good], quick[key][good], atol=0.01 * peak)
+        for k in [f"{key}-Sdev", f"{key}-ERR"]:
+            assert np.allclose(full[k][good], quick[k][good], rtol=0.05)
+
     def test_use_command_line_cross(self):
         """SDTimage --crosses-only was removed in favor of SDTcross."""
         with pytest.raises(ValueError, match="SDTcross"):
