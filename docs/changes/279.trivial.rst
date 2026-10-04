@@ -1,1 +1,1 @@
-Modernized packaging, tox and CI (oldest- and development-version test jobs, ruff-based code style checks); applied code style fixes to the whole repository.
+Modernized packaging, tox and CI (oldest- and development-version test jobs, ruff-based code style checks, time limits on hung tests); applied code style fixes to the whole repository.
