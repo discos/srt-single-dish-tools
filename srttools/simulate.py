@@ -139,7 +139,7 @@ def create_summary(filename, key_dict=None):
 
 
 def _is_number(x):
-    """Test if a string or other is a number
+    """Test if a string or other is a number.
 
     Examples
     --------
@@ -174,7 +174,7 @@ def _default_flat_shape(x):
 
 @njit
 def _2d_gauss(x, y, sigma=2.5 / 60.0):
-    """A Gaussian beam"""
+    """A Gaussian beam."""
     return np.exp(-(x**2 + y**2) / (2 * sigma**2))
 
 
@@ -697,7 +697,7 @@ def simulate_sun(**kwargs):
 
 
 def _sun_map(x, y, sigma=1011 / 3600):
-    """A Gaussian beam"""
+    """A Gaussian beam."""
     import numpy as np
 
     # It will raise ValueError when they're not compatible

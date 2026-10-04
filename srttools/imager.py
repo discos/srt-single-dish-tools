@@ -12,7 +12,7 @@ import os
 import traceback
 import warnings
 from collections.abc import Iterable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 from scipy.stats import binned_statistic, binned_statistic_2d
@@ -22,8 +22,7 @@ import astropy.constants as c
 import astropy.io.fits as fits
 import astropy.units as u
 from astropy import wcs
-from astropy.table import Column, Table, vstack
-from astropy.table.np_utils import TableMergeError
+from astropy.table import Column, Table, TableMergeError, vstack
 from astropy.time import Time
 from astropy.utils.metadata import MergeConflictWarning
 
@@ -162,7 +161,6 @@ def _coord_names(frame):
     Traceback (most recent call last):
        ...
     ValueError: turuturu: Unknown frame
-
     """
     if frame in ["icrs", "fk5"]:
         hor, ver = "ra", "dec"
@@ -181,7 +179,7 @@ def _coord_names(frame):
 
 
 def _wcs_ctype_names(frame, projection):
-    """WCS ctype names
+    """WCS ctype names.
 
     Example
     -------
@@ -529,8 +527,8 @@ class ScanSet(Table):
     def calculate_delta_altaz(self):
         """Construction of delta altaz coordinates.
 
-        Calculate the delta of altazimutal coordinates wrt the position
-        of the source
+        Calculate the delta of altazimutal coordinates wrt the position of
+        the source
         """
         from astropy.coordinates import SkyCoord
 
@@ -1690,9 +1688,7 @@ class ScanSet(Table):
             header["dsun_obs"] = np.mean(self["dsun"])
             header["dsun_ref"] = 149597870700.0
 
-        for (
-            key
-        ) in "ANTENNA,site,RightAscension,Declination,backend,receiver,DATE,Project_Name,SiteLongitude,SiteLatitude,SiteHeight,ScheduleName".split(
+        for key in "ANTENNA,site,RightAscension,Declination,backend,receiver,DATE,Project_Name,SiteLongitude,SiteLatitude,SiteHeight,ScheduleName".split(
             ","
         ):
             if key not in self.meta:
@@ -1736,7 +1732,7 @@ class ScanSet(Table):
             warnings.warn("Azimuth is wrapping around 0. Beware.")
 
         header["CREATOR"] = "SDT"
-        ut = Time(datetime.now(timezone.utc), scale="utc")
+        ut = Time(datetime.now(UTC), scale="utc")
         header["COMMENT"] = f"Made with the SRT Single-Dish Tools on UT {ut.fits}"
         hdu = fits.PrimaryHDU(header=header)
         hdulist.append(hdu)
@@ -2270,7 +2266,7 @@ def main_preprocess(args=None):
                     nofilt=args.nofilt,
                 )
             except Exception as e:
-                logging.error(f"Error processing {f}: {e}")
+                logging.exception(f"Error processing {f}")
                 if args.pedantic:
                     raise e
                 continue

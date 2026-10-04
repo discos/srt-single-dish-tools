@@ -1,9 +1,5 @@
 #  From https://gist.github.com/neothemachine/e625cb7777376899adca
-
-"""
-This module contains a fast replacement for numpy's histogramdd and
-histogram2d.
-Two changes were made. The first was replacing
+"""This module contains a fast replacement for numpy's histogramdd and histogram2d. Two changes were made. The first was replacing.
 
 np.digitize(a, b)
 
@@ -11,7 +7,8 @@ with
 
 np.searchsorted(b, a, "right")
 
-This performance bug is explained on https://github.com/numpy/numpy/issues/2656
+This performance bug is explained on
+https://github.com/numpy/numpy/issues/2656
 The speedup is around 2x for big number of bins (roughly >100).
 It assumes that the bins are monotonic.
 
@@ -20,7 +17,6 @@ resampling as there is just one set of coordinates but several data arrays
 (=weights).
 Therefore repeated computations are prevented.
 """
-
 
 import numpy as np
 from numpy import (
@@ -49,8 +45,7 @@ __doctest_skip__ = ["*"]
 
 
 def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
-    """
-    Compute the multidimensional histogram of some data.
+    """Compute the multidimensional histogram of some data.
 
     Parameters
     ----------
@@ -99,7 +94,6 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
     >>> H, edges = np.histogramdd(r, bins = (5, 8, 4))
     >>> H.shape, edges[0].size, edges[1].size, edges[2].size
     ((5, 8, 4), 6, 9, 5)
-
     """
     try:
         # Sample is an ND-array.
@@ -280,8 +274,7 @@ def histogramdd(sample, bins=10, bin_range=None, normed=False, weights=None):
 
 
 def histogram2d(x, y, bins=10, bin_range=None, normed=False, weights=None):
-    """
-    Compute the bi-dimensional histogram of two data samples.
+    """Compute the bi-dimensional histogram of two data samples.
 
     Parameters
     ----------
@@ -401,7 +394,6 @@ def histogram2d(x, y, bins=10, bin_range=None, normed=False, weights=None):
     >>> _ = ax.set_ylim(yedges[0], yedges[-1])
     >>> _ = ax.set_aspect('equal')
     >>> _ = plt.close(fig)
-
     """
     try:
         N = len(bins)

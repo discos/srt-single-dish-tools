@@ -2,6 +2,9 @@ ci:
   autofix_prs: false
   autoupdate_schedule: 'monthly'
 
+# Vendored themes and notebooks are not checked
+exclude: "^(docs/themes/|.*\\.ipynb$)"
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -14,6 +17,8 @@ repos:
             .*.jpe?g|\
             .*logo.png|\
             .*test.rmf|\
+            srttools/data/.*|\
+            srttools/tests/data/.*|\
         )$"
         # Prevent giant files from being committed.
       - id: check-case-conflict
@@ -29,6 +34,7 @@ repos:
         # Attempts to load all TOML files to verify syntax.
       - id: check-xml
         # Attempts to load all xml files to verify syntax.
+        exclude: "^srttools/tests/data/"
       - id: check-yaml
         # Attempts to load all yaml files to verify syntax.
         exclude: ".*(.github.*)$"
@@ -88,10 +94,8 @@ repos:
         exclude: |
           (?x)(
               test.*\.py |
-              hendrics/__init__\.py |
-              hendrics/_dev/ |
-              hendrics/conftest\.py |
-              astropy/version\.py |
+              srttools/__init__\.py |
+              srttools/conftest\.py |
               docs/ |
               examples/
           )

@@ -490,8 +490,8 @@ class TestScanUtils:
         # the process cannot write, and even if it could, it should definitely not!
         f = "/a/b/c/.tox/cov/d/e/pippo.pippo"
         w = "/a/b/c/.tmp/cov"
-        p = "/tmp"
-        expected = Path("/tmp/.tox/cov/d/e").absolute()
+        p = "/tmp"  # noqa: S108
+        expected = Path("/tmp/.tox/cov/d/e").absolute()  # noqa: S108
         path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
         assert Path(path).absolute() == expected
 

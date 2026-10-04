@@ -358,7 +358,7 @@ keywords_to_reset = [
     "HESA5",
     "HESA5RX",
     "HESARX",
-    "HESE",
+    "THESE",
     "HESERX",
     "HSCA",
     "HSCA2",
@@ -435,7 +435,7 @@ keywords_to_reset = [
 
 
 def pack_data(scan, polar_dict, detrend=False):
-    """Pack data into MBFITS-ready format
+    """Pack data into MBFITS-ready format.
 
     Examples
     --------

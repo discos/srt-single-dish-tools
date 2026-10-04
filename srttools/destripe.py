@@ -118,7 +118,10 @@ def basket_weaving(
     expo_ver=None,
     window_shape="hanning",
 ):
-    """Basket-Weaving algorithm from Mueller et al. 1707.05573v6."""
+    """Basket-Weaving algorithm from Mueller et al.
+
+    1707.05573v6.
+    """
     it = 1
     if expo_hor is None:
         expo_hor = np.ones_like(img_hor)

@@ -1,14 +1,14 @@
 import glob
+import multiprocessing as mp
 import os
 import queue
+import re
 import shutil
 import signal
 import sys
 import threading
-import time
 import warnings
-import re
-import multiprocessing as mp
+
 from srttools.imager import main_preprocess
 from srttools.monitor.common import exit_function, log
 from srttools.read_config import read_config
@@ -230,9 +230,7 @@ class Monitor:
 
     @staticmethod
     def _process(pp_args, verbosity):
-        """Calls the main_preprocess function as a separate process, so that
-        multiple processes can run concurrently speeding up the whole operation
-        when receiving separate feeds files."""
+        """Calls the main_preprocess function as a separate process, so that multiple processes can run concurrently speeding up the whole operation when receiving separate feeds files."""
         exit_code = 0
         try:
             with warnings.catch_warnings():
