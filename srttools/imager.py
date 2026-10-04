@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 
 import numpy as np
-from scipy.stats import binned_statistic, binned_statistic_2d
+from scipy.stats import binned_statistic, binned_statistic_2d, binned_statistic_dd
 
 import astropy
 import astropy.constants as c
@@ -249,6 +249,55 @@ def outlier_score(x):
         return 0
 
     return _outlier_score(np.asarray(x))
+
+
+def _binned_mean_sdev(coords, values, bins):
+    """Mean, standard deviation and number of the samples in each bin.
+
+    The standard deviation is normalized by N - 1 and calculated around the
+    mean of each bin (two passes), so that it is never negative and does not
+    lose precision when the values have a large offset. It is NaN in bins with
+    fewer than two samples. The mean is zero in empty bins.
+
+    Parameters
+    ----------
+    coords : tuple of arrays
+        Coordinates of the samples, one array per dimension
+    values : array
+        Values of the samples
+    bins : list of arrays
+        Bin edges, one array per dimension (as in ``numpy.histogramdd``)
+
+    Returns
+    -------
+    mean, sdev, expo : arrays
+        Mean, standard deviation and number of samples, with shape
+        ``(len(bins[0]) - 1, len(bins[1]) - 1, ...)``
+
+    Examples
+    --------
+    >>> mean, sdev, expo = _binned_mean_sdev(([0.5, 0.5, 1.5],), [1.0, 3.0, 2.0], [[0, 1, 2]])
+    >>> mean.tolist(), float(sdev[0]), bool(np.isnan(sdev[1])), expo.tolist()
+    ([2.0, 2.0], 1.4142135623730951, True, [2.0, 1.0])
+    """
+    values = np.asarray(values, dtype=float)
+    res = binned_statistic_dd(coords, values, statistic="mean", bins=bins)
+    expo = binned_statistic_dd(
+        coords, values, statistic="count", binned_statistic_result=res
+    ).statistic
+    # Mean of the bin of each sample. Bin numbers refer to the array padded
+    # with one outlier bin on each side
+    padded_mean = np.pad(res.statistic, 1, constant_values=np.nan)
+    residuals = values - padded_mean.ravel()[res.binnumber]
+    sq = binned_statistic_dd(
+        coords, residuals**2, statistic="sum", binned_statistic_result=res
+    ).statistic
+
+    mean = np.nan_to_num(res.statistic, nan=0.0)
+    sdev = np.full_like(mean, np.nan)
+    good = expo > 1
+    sdev[good] = np.sqrt(sq[good] / (expo[good] - 1))
+    return mean, sdev, expo
 
 
 def find_outlier_subscans(counts, coord, scan_id, arm, nsigma=5.0):
@@ -745,10 +794,10 @@ class ScanSet(Table):
                 and self.images is not None
                 and ch in self.images.keys()
             ):
-                images[ch] = self.images[ch]
-                images[f"{ch}-Sdev"] = self.images[f"{ch}-Sdev"]
-                images[f"{ch}-EXPO"] = self.images[f"{ch}-EXPO"]
-                images[f"{ch}-Outliers"] = self.images[f"{ch}-Outliers"]
+                suffixes = ["Sdev", "ERR", "EXPO", "Outliers"]
+                for key in [ch] + [f"{ch}-{suffix}" for suffix in suffixes]:
+                    if key in self.images:
+                        images[key] = self.images[key]
                 continue
 
             feed = get_channel_feed(ch)
@@ -765,12 +814,6 @@ class ScanSet(Table):
                 good = good & self["direction"]
             elif direction == 1:
                 good = good & np.logical_not(self["direction"])
-
-            expomap, _, _ = np.histogram2d(
-                self["x"][:, feed][good],
-                self["y"][:, feed][good],
-                bins=[xbins, ybins],
-            )
 
             counts = np.array(self[ch][good])
 
@@ -800,13 +843,8 @@ class ScanSet(Table):
             filtered_x = self["x"][:, feed][good]
             filtered_y = self["y"][:, feed][good]
 
-            img, _, _ = np.histogram2d(filtered_x, filtered_y, bins=[xbins, ybins], weights=counts)
-
-            img_sq, _, _ = np.histogram2d(
-                filtered_x,
-                filtered_y,
-                bins=[xbins, ybins],
-                weights=counts**2,
+            mean, img_sdev, expomap = _binned_mean_sdev(
+                (filtered_x, filtered_y), counts, [xbins, ybins]
             )
 
             img_outliers, _, _, _ = binned_statistic_2d(
@@ -817,20 +855,15 @@ class ScanSet(Table):
                 bins=[xbins, ybins],
             )
 
-            good = expomap > 0
-            mean = img.copy()
-            mean[good] /= expomap[good]
             # For Numpy vs FITS image conventions...
             images[ch] = mean.T
-            img_sdev = img_sq
-            img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
-
-            img_sdev[good] = np.sqrt(img_sdev[good])
             if calibration is not None and calibrate_scans:
                 cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
                 img_sdev *= 1 + cal_rel_err
 
             images[f"{ch}-Sdev"] = img_sdev.T
+            with np.errstate(invalid="ignore", divide="ignore"):
+                images[f"{ch}-ERR"] = (img_sdev / np.sqrt(expomap)).T
             images[f"{ch}-EXPO"] = expomap.T
             images[f"{ch}-Outliers"] = img_outliers.T
 
@@ -1093,6 +1126,16 @@ class ScanSet(Table):
         images_hor, images_ver = self.images_hor, self.images_ver
 
         for ch in images_hor:
+            if ch.endswith("-ERR"):
+                # Error of the mean weighted with the exposure, as in
+                # destripe_wrapper. Empty pixels do not contribute
+                expo_name = ch.removesuffix("-ERR") + "-EXPO"
+                nh, nv = images_hor[expo_name], images_ver[expo_name]
+                eh = np.where(nh > 0, nh * images_hor[ch], 0)
+                ev = np.where(nv > 0, nv * images_ver[ch], 0)
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    destriped[ch] = np.hypot(eh, ev) / (nh + nv)
+                continue
             if "Sdev" in ch:
                 destriped[ch] = (images_hor[ch] ** 2 + images_ver[ch] ** 2) ** 0.5
                 continue
@@ -1228,33 +1271,18 @@ class ScanSet(Table):
             if np.isnan(Jy_over_counts):
                 warnings.warn("The Jy/counts factor is nan")
                 continue
-            A = images[ch].copy() * u.ct
-            eA = images[f"{ch}-Sdev"].copy() * u.ct
-
-            images[f"{ch}-RAW"] = images[f"{ch}"].copy()
-            images[f"{ch}-RAW-Sdev"] = images[f"{ch}-Sdev"].copy()
-            images[f"{ch}-RAW-EXPO"] = images[f"{ch}-EXPO"].copy()
-            bad = eA != eA
-            A[bad] = 1 * u.ct
-            eA[bad] = 0 * u.ct
-
-            bad = np.logical_or(A == 0, A != A)
-            A[bad] = 1 * u.ct
-            eA[bad] = 0 * u.ct
-
-            B = Jy_over_counts
-            eB = Jy_over_counts_err
+            for suffix in ["", "-Sdev", "-ERR", "-EXPO"]:
+                if f"{ch}{suffix}" in images:
+                    images[f"{ch}-RAW{suffix}"] = images[f"{ch}{suffix}"].copy()
 
             area_conversion, final_unit = self._calculate_calibration_factors(map_unit)
+            factor = (1 * u.ct * area_conversion * Jy_over_counts).to(final_unit).value
 
-            C = A * area_conversion * Jy_over_counts
-            C[bad] = 0
-
-            images[ch] = C.to(final_unit).value
-
-            eC = C * (eA / A + eB / B)
-
-            images[f"{ch}-Sdev"] = eC.to(final_unit).value
+            images[ch] = images[ch] * factor
+            # Sdev and ERR are scatters: they scale with the absolute value
+            for suffix in ["-Sdev", "-ERR"]:
+                if f"{ch}{suffix}" in images:
+                    images[f"{ch}{suffix}"] = images[f"{ch}{suffix}"] * np.abs(factor)
 
         if direction == 0:
             self.images_hor = images
@@ -1859,7 +1887,7 @@ class ScanSet(Table):
 
         header_mod = copy.deepcopy(header)
         for ch in keys:
-            is_sdev = ch.endswith("Sdev")
+            is_sdev = ch.endswith(("Sdev", "-ERR"))
             is_expo = "EXPO" in ch
             is_outl = "Outliers" in ch
             is_stokes = ("Q" in ch) or ("U" in ch)

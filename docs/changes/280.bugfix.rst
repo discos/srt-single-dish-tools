@@ -11,3 +11,5 @@ srttools no longer forces the matplotlib backend (it used TkAgg whenever DISPLAY
 Plots that are only saved to files (debug plots, calibration summaries, ``SDTcross`` profiles, RFI statistics, ...) are now drawn on figures not attached to pyplot: they never open a window with interactive backends and no longer pop up when the interactive filter opens. Some were also left open (RFI statistics, destriping) or saved before adding the legend (outlier removal).
 
 The alt-az diagnostic plots (``delta_altaz.png``, ``altaz_with_src.png``) are written to the current directory only in debug mode.
+
+Quick calibration of images (``calibrate_images``) no longer gives a flux of exactly one calibration factor to pixels with NaN Sdev; the Sdev is calculated around the pixel mean, so it is never NaN by rounding and keeps its precision with large offsets.
