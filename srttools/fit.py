@@ -504,6 +504,16 @@ def _als(y, lam, p, niter=30):
     return z
 
 
+def _fill_masked(y, mask):
+    """Replace the samples where ``mask`` is False by linear interpolation of the others."""
+    if mask is None or np.all(mask) or np.count_nonzero(mask) < 2:
+        return y
+    idx = np.arange(y.size)
+    y = np.array(y, dtype=float)
+    y[~mask] = np.interp(idx[~mask], idx[mask], y[mask])
+    return y
+
+
 def baseline_als(x, y, **kwargs):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
@@ -553,12 +563,21 @@ def baseline_als(x, y, **kwargs):
 
     _ = kwargs.pop("outlier_purging", False)
     return_baseline = kwargs.pop("return_baseline", False)
+    mask = kwargs.pop("mask", None)
+    if mask is not None:
+        mask = np.asarray(mask, dtype=bool)
 
-    y_medf = medfilt(y, 31)
+    # Masked samples (e.g. an extended source) must not drive the subsample
+    y_medf = medfilt(_fill_masked(y, mask), 31)
 
     els = np.array(np.rint(np.linspace(0, y.size - 1, 31)), dtype=int)
     y_sub, base = _baseline_als(
-        x[els], y_medf[els], outlier_purging=False, return_baseline=True, **kwargs
+        x[els],
+        y_medf[els],
+        outlier_purging=False,
+        return_baseline=True,
+        mask=None if mask is None else mask[els],
+        **kwargs,
     )
 
     func = interp1d(x[els], base)
@@ -600,7 +619,11 @@ def _baseline_als(
     approx_baseline = approx_m * np.arange(N) + approx_q
     y = y - approx_baseline
 
+    if mask is not None:
+        mask = np.asarray(mask, dtype=bool)
     y_mod = purge_outliers(y, up=outlier_purging[0], down=outlier_purging[1], mask=mask)
+    # purge_outliers only applies the mask when purging outliers
+    y_mod = _fill_masked(y_mod, mask)
 
     z = _als(y_mod, lam, p, niter=niter)
 
@@ -610,6 +633,9 @@ def _baseline_als(
         std = ref_std(ysub, np.max([len(y) // 20, 20]))
 
         good = np.abs(ysub) < 10 * std
+        if mask is not None and np.count_nonzero(good & mask) >= 20:
+            # A source in the masked region would bias the offset
+            good &= mask
 
         if len(ysub[good]) < 20:
             good = np.ones(len(ysub), dtype=bool)
