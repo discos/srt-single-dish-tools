@@ -27,3 +27,5 @@ SDTcal with calibrator maps and multi-feed receivers: only the channels whose fe
 Baseline subtraction (``baseline_als``) now honours the excluded regions (``avoid_regions``, ``SDTimage --exclude``) also in subscans with 300 samples or more, where they were silently ignored; the final zero-level correction uses only the samples outside the excluded regions. Before, the sky around an extended source excluded from the fit ended up below zero ("bowls" along the scans crossing it).
 
 ``ScanSet.calculate_images`` with ``direction`` (images of one scan direction) and quick calibration returned the uncalibrated images; only the copy stored in ``images_hor``/``images_ver`` was calibrated (the destriping, which uses those, was not affected).
+
+The destriping (``SDTimage --destripe``, ``ScanSet.destripe_images``) writes its diagnostic images (``<channel>_hor.png``, ``<channel>_destr.png``, ...) to the current directory only in debug mode; they were always written.

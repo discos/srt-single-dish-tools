@@ -166,7 +166,13 @@ def destripe_wrapper(
     npix_tol=None,
     clip_sigma=3,
     label="img",
+    debug=False,
 ):
+    """Destripe the images of the two scan directions and combine them.
+
+    With ``debug``, the input and output images are saved to
+    ``<label>_<suffix>.png`` files in the current directory.
+    """
     if expo_hor is None or expo_ver is None:
         image_mean = (image_hor + image_ver) / 2
         expo_hor = expo_ver = np.ones_like(image_mean)
@@ -175,7 +181,7 @@ def destripe_wrapper(
         image_mean = (image_hor * expo_hor + image_ver * expo_ver) / (expo_hor + expo_ver)
         masked_image, mask = mask_zeros(image_mean, expo_hor + expo_ver, npix_tol=npix_tol)
 
-    if HAS_MPL:
+    if HAS_MPL and debug:
         diff_img = image_ver[mask] - image_hor[mask]
         for img, suffix in [
             (image_hor[mask], "hor"),
@@ -196,7 +202,7 @@ def destripe_wrapper(
         clip_sigma=clip_sigma,
     ).flatten()
 
-    if HAS_MPL:
+    if HAS_MPL and debug:
         _save_image(image_mean[mask].reshape(masked_image.shape), f"{label}_destr.png")
 
     if alg == "basket-weaving":
