@@ -561,6 +561,20 @@ class TestScanSet:
         for k in [f"{ch}-Sdev", f"{ch}-ERR"]:
             assert np.allclose(full[k][good], quick[k][good], rtol=0.05)
 
+    @pytest.mark.parametrize("direction", [0, 1])
+    def test_quick_calibration_of_direction_images(self, direction):
+        """Images of one scan direction with quick calibration are returned calibrated
+        (they were returned uncalibrated; only the stored copy was calibrated)."""
+        ch = "Feed0_RCP"
+        scanset = ScanSet("test.hdf5")
+        raw = scanset.calculate_images(direction=direction)[ch].copy()
+        cal = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/beam", direction=direction
+        )
+        assert cal is (scanset.images_hor if direction == 0 else scanset.images_ver)
+        assert np.allclose(cal[f"{ch}-RAW"], raw, equal_nan=True)
+        assert not np.allclose(cal[ch], raw, equal_nan=True)
+
     def test_image_scrunch(self):
         """Test image production."""
 
