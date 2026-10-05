@@ -872,8 +872,9 @@ class CalibratorTable(Table):
             f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
             elvs = np.radians(self["Elevation"][good_chans])
 
-            good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
-            good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
+            # isfinite: fits with zero amplitude give an infinite ratio
+            good_fc = np.isfinite(f_c_ratio) & (f_c_ratio > 0)
+            good_fce = np.isfinite(f_c_ratio_err) & (f_c_ratio_err >= 0)
 
             good = good_fc & good_fce
 
@@ -1018,8 +1019,9 @@ class CalibratorTable(Table):
         f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
         times = self["Time"][good_chans]
 
-        good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
-        good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
+        # isfinite: fits with zero amplitude give an infinite ratio
+        good_fc = np.isfinite(f_c_ratio) & (f_c_ratio > 0)
+        good_fce = np.isfinite(f_c_ratio_err) & (f_c_ratio_err >= 0)
 
         good = good_fc & good_fce
 
