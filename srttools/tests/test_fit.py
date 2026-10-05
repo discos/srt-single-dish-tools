@@ -4,6 +4,7 @@ import pytest
 from srttools.fit import (
     _rolling_window,
     align,
+    baseline_als,
     baseline_rough,
     detrend_spectroscopic_data,
     fit_baseline_plus_bell,
@@ -228,3 +229,19 @@ class TestFit:
             _, err = offset_fit(x, y, 0, return_err=True)
             assert np.any(["return_err not implemented" in r.message.args[0] for r in record])
         assert err is None
+
+
+@pytest.mark.parametrize("nbin", [200, 1000])
+def test_baseline_als_masked_extended_source(nbin):
+    """Excluding an extended source from the baseline fit leaves the sky around it at zero,
+    for short subscans and for long ones (>= 300 samples, fitted on a subsample)."""
+    rng = np.random.default_rng(42)
+    x = np.linspace(0, 100, nbin)
+    source = 10 * np.exp(-((x - 50) ** 2) / (2 * 10**2))
+    y = 3 + 0.05 * x + source + rng.normal(0, 0.1, nbin)
+    mask = np.abs(x - 50) > 30
+
+    ysub = baseline_als(x, y, mask=mask)
+
+    assert np.abs(np.median(ysub[mask])) < 0.05
+    np.testing.assert_allclose(np.max(ysub), 10, rtol=0.05)

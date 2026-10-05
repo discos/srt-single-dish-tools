@@ -261,3 +261,22 @@ On a K-band, 7-feed session (2018-07-24) with five 3C147 maps as
 calibrators, these changes bring the flux density of 3C84 from ~235 Jy to
 23.7 Jy, consistent with an independent 2D fit of the same maps (~25 Jy,
 with the same 10% map-to-map scatter).
+
+Excluded regions in the baseline subtraction
+--------------------------------------------
+
+``Scan.baseline_subtract`` (and ``SDTimage --exclude``) can exclude regions
+of the sky, e.g. an extended source, from the baseline fit. Subscans with at
+least 300 samples are fitted on a median-filtered (31 samples) version of
+the data: the samples in the excluded regions are first replaced by a linear
+interpolation of the others, so that the filtered data contain no source.
+The same replacement is done inside the asymmetric least squares fit. The
+final zero-level correction (the median of the residuals) uses only the
+samples outside the excluded regions, provided there are at least 20 of them.
+
+On the W44 maps of 2016-02-25 (K band, ~870 samples per subscan), before
+this fix the exclusion had no effect: the images were identical with and
+without it, and the sky along the scans crossing W44 was 0.3-0.6 times the
+pixel noise below zero, on average. With the exclusion, the average is zero.
+Wide exclusions leave few samples for the baseline: the subscan-to-subscan
+offsets (stripes) along those scans become larger.
