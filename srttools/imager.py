@@ -1134,6 +1134,7 @@ class ScanSet(Table):
                 expo_hor=images_hor[ch + "-EXPO"],
                 expo_ver=images_ver[ch + "-EXPO"],
                 label=ch,
+                debug=getattr(self, "debug", False),
             )
 
         for ch, val in destriped.items():

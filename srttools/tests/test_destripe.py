@@ -65,6 +65,16 @@ class TestScanSet:
 
         assert np.all(img_clean == img_clean_w)
 
+    @pytest.mark.parametrize("debug", [False, True])
+    def test_wrapper_plots_only_in_debug_mode(self, debug, tmp_path, monkeypatch):
+        """The diagnostic images are written to the current directory only in debug
+        mode (they were always written, 7 files per channel)."""
+        if debug and not HAS_MPL:
+            pytest.skip("matplotlib not installed")
+        monkeypatch.chdir(tmp_path)
+        destripe_wrapper(self.img_hor, self.img_ver, label="ch", debug=debug)
+        assert len(list(tmp_path.glob("ch_*.png"))) == (7 if debug else 0)
+
     def test_expo(self):
         img_clean = basket_weaving(
             self.img_hor,
