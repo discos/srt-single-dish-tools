@@ -2,6 +2,7 @@ import glob
 import os
 import shutil
 import subprocess as sp
+import warnings
 
 import numpy as np
 import pytest
@@ -12,6 +13,7 @@ from srttools.calibration import (
     CalibratorTable,
     _get_flux_quantity,
     _safe_fit_baseline_plus_bell,
+    _treat_scan,
     main_cal,
     main_lcurve,
 )
@@ -379,3 +381,18 @@ def test_flag_outliers_small_groups_untouched():
     caltable["Counts"][2] = 200
     caltable.flag_outliers(nsigma=5)
     assert not np.any(caltable["Outlier"])
+
+
+def test_treat_scan_multifeed_fits_each_channel_with_its_own_feed(tmp_path):
+    """On a 7-feed scan, each channel is fitted once, with its own feed's coordinates."""
+    datadir = os.path.join(os.path.dirname(__file__), "data")
+    fname = str(tmp_path / "srt_data_tp_multif.fits")
+    shutil.copyfile(os.path.join(datadir, "srt_data_tp_multif.fits"), fname)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        retval, rows = _treat_scan(fname)
+    assert retval
+    chans = [r[4] for r in rows]
+    feeds = [r[5] for r in rows]
+    assert len(chans) == len(set(chans))
+    assert feeds == [int(ch[4]) for ch in chans]
