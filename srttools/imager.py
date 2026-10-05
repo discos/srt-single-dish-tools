@@ -1234,15 +1234,12 @@ class ScanSet(Table):
         direction=None,
     ):
         """Calibrate the images."""
-        if self.images is None:
+        attr = {0: "images_hor", 1: "images_ver"}.get(direction, "images")
+        # The images of this direction, calibrated in place (calculate_images
+        # returns this same dictionary)
+        if getattr(self, attr) is None:
             self.calculate_images(direction=direction)
-
-        if direction == 0:
-            images = self.images_hor
-        elif direction == 1:
-            images = self.images_ver
-        else:
-            images = self.images
+        images = getattr(self, attr)
 
         caltable, conversion_units = _load_calibration(calibration, map_unit)
 
@@ -1270,13 +1267,6 @@ class ScanSet(Table):
                 images[f"{ch}-ERR"] = np.hypot(
                     images[f"{ch}-ERR"] * np.abs(factor), images[ch] * cal_rel_err
                 )
-
-        if direction == 0:
-            self.images_hor = images
-        elif direction == 1:
-            self.images_ver = images
-        else:
-            self.images = images
 
     def calibrate_crosses(self, calibration, elevation=np.pi / 4, map_unit="Jy/beam"):
         """Calibrate the average cross profiles, as `calibrate_images`."""
