@@ -125,6 +125,31 @@ class TestCalibration:
         Cj, Cje = caltable.counts_over_Jy(channel="Feed0_LCP")
         np.testing.assert_allclose(Jc, 1 / Cj)
 
+    def test_zero_amplitude_fits_are_ignored(self):
+        """Fits with zero amplitude (infinite Flux/Counts) neither crash nor change the calibration."""
+        caltable = CalibratorTable.read(self.calfile)
+        caltable.update()
+        calib = np.flatnonzero((caltable["Chan"] == "Feed0_LCP") & (caltable["Flux"] > 0))
+        zeroed = calib[:3]
+        reference = CalibratorTable(caltable.copy())
+        reference.remove_rows(zeroed)
+        reference.update()
+
+        caltable["Counts"][zeroed] = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            caltable.update()
+        assert np.all(np.isinf(caltable["Flux/Counts"][zeroed]))
+        el = np.radians(45)
+        np.testing.assert_allclose(
+            caltable.Jy_over_counts(channel="Feed0_LCP", elevation=el),
+            reference.Jy_over_counts(channel="Feed0_LCP", elevation=el),
+        )
+        np.testing.assert_allclose(
+            caltable.Jy_over_counts_rough(channel="Feed0_LCP"),
+            reference.Jy_over_counts_rough(channel="Feed0_LCP"),
+        )
+
     def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
         caltable = CalibratorTable.read(self.calfile)
 

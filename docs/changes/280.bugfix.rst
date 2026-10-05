@@ -19,3 +19,5 @@ Quick calibration of images (``calibrate_images``) no longer gives a flux of exa
 Average cross profiles in ``ScanSet`` (``calculate_avg_cross``, used by ``save_ds9_images`` with ``save_crosses``): quick calibration (without ``calibrate_scans``) no longer fails, calibrated profiles are stored under the right names, and Sdev, ERR and the calibration error are computed as for images (new ``err`` column in the saved tables).
 
 SDTcal on multi-feed receivers: each channel is fitted once, with the coordinates of its own feed. Before, every channel was fitted once per feed (e.g. 7 times with the K-band 7-feed receiver), six times with the coordinates of another feed, which multiplied the calibration and light-curve points and gave wrong fitted positions.
+
+The calibration (Jy/counts conversion) ignores fits with zero amplitude, which give an infinite Flux/Counts. Before, a single such fit made the elevation fit raise an error for the whole channel (e.g. with calibrator maps, where many subscans miss the source).
