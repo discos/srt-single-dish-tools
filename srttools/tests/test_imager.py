@@ -810,6 +810,25 @@ class TestLargeMap:
         good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (shortest_side // 4) ** 2
         assert np.isclose(np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=0.1)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
+    def test_destripe_err_where_one_direction_has_one_sample(self):
+        """Where one scan direction has a single sample (no Sdev), the destriped ERR
+        is the ERR of the image of all subscans, instead of NaN."""
+        ch = "Feed0_RCP"
+        scanset = ScanSet("test.hdf5")
+        plain_err = scanset.calculate_images()[f"{ch}-ERR"].copy()
+        scanset.calculate_images(direction=0)
+        scanset.calculate_images(direction=1)
+        hor = scanset.images_hor
+        i = np.unravel_index(np.argmax(hor[f"{ch}-EXPO"]), hor[f"{ch}-EXPO"].shape)
+        hor[f"{ch}-EXPO"][i] = 1
+        hor[f"{ch}-ERR"][i] = np.nan
+        images = scanset.destripe_images()
+        assert np.isclose(images[f"{ch}-ERR"][i], plain_err[i])
+        assert np.count_nonzero(np.isnan(images[f"{ch}-ERR"])) <= np.count_nonzero(
+            np.isnan(plain_err)
+        )
+
     def test_destripe_scrunch(self):
         """Test image production."""
 
