@@ -134,6 +134,19 @@ class TestFit:
         np.testing.assert_almost_equal(model.slope_0, 6.0, 1)
         assert np.abs(model.intercept_0 - 20.0) < 2
 
+    def test_fit_baseline_plus_bell_initial_position_and_width(self):
+        """A narrow source far from the scan centre (as in most subscans of a map) is found
+        if the fit starts from its expected position and width."""
+        rng = np.random.default_rng(1)
+        x = np.linspace(85.46, 85.77, 180)
+        y = 8 * np.exp(-((x - 85.645) ** 2) / (2 * 0.0055**2)) + 2 * (x - 85.46)
+        y += rng.normal(0, 0.3, x.size)
+
+        model, _ = fit_baseline_plus_bell(x, y, kind="gauss", mean=85.64, stddev=0.0055)
+
+        np.testing.assert_allclose(model.amplitude_1, 8, rtol=0.05)
+        np.testing.assert_allclose(model.mean_1, 85.645, atol=0.001)
+
     def test_fit_baseline_plus_bell_lorentz(self):
         """Test that the fit procedure works."""
 

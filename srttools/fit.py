@@ -663,7 +663,7 @@ def detrend_spectroscopic_data(x, spectrum, kind="als", mask=None, outlier_purgi
     return spectrum - tiled_baseline, tiled_baseline
 
 
-def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
+def fit_baseline_plus_bell(x, y, ye=None, kind="gauss", mean=None, stddev=None):
     """Fit a function composed of a linear baseline plus a bell function.
 
     Parameters
@@ -679,6 +679,11 @@ def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
         the errors on the data series
     kind: str
         Can be 'gauss' or 'lorentz'
+    mean : float
+        Initial position of the bell. Default: the centre of ``x``
+    stddev : float
+        Initial standard deviation of the bell (for 'lorentz', the FWHM starts
+        at the equivalent value). Default: 1/20 of the range of ``x``
 
     Returns
     -------
@@ -697,15 +702,23 @@ def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
 
     xrange = np.max(x) - np.min(x)
     yrange = np.max(y) - np.min(y)
+    if mean is None:
+        mean = np.mean(x)
+    # Defaults: the Gaussian stddev and the Lorentzian FWHM start at xrange / 20
+    fwhm = xrange / 20
+    if stddev is None:
+        stddev = xrange / 20
+    else:
+        fwhm = stddev * 2 * np.sqrt(2 * np.log(2))
 
     if kind == "gauss":
-        bell = models.Gaussian1D(mean=np.mean(x), stddev=xrange / 20, amplitude=yrange, name="Bell")
+        bell = models.Gaussian1D(mean=mean, stddev=stddev, amplitude=yrange, name="Bell")
         bell.amplitude.bounds = (0, None)
         bell.mean.bounds = (None, None)
         bell.stddev.bounds = (0, None)
         # max_name = 'mean'
     elif kind == "lorentz":
-        bell = models.Lorentz1D(x_0=np.mean(x), fwhm=xrange / 20, amplitude=yrange, name="Bell")
+        bell = models.Lorentz1D(x_0=mean, fwhm=fwhm, amplitude=yrange, name="Bell")
         bell.amplitude.bounds = (0, None)
         bell.x_0.bounds = (None, None)
         bell.fwhm.bounds = (0, None)
