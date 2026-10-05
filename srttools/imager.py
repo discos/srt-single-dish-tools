@@ -1114,7 +1114,12 @@ class ScanSet(Table):
                 eh = np.where(nh > 0, nh * images_hor[ch], 0)
                 ev = np.where(nv > 0, nv * images_ver[ch], 0)
                 with np.errstate(invalid="ignore", divide="ignore"):
-                    destriped[ch] = np.hypot(eh, ev) / (nh + nv)
+                    err = np.hypot(eh, ev) / (nh + nv)
+                # A direction with a single sample has no Sdev: use the error
+                # of the image of all subscans there
+                if ch in images:
+                    err = np.where(np.isnan(err), images[ch], err)
+                destriped[ch] = err
                 continue
             if "Sdev" in ch:
                 destriped[ch] = (images_hor[ch] ** 2 + images_ver[ch] ** 2) ** 0.5

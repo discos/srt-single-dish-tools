@@ -29,3 +29,5 @@ Baseline subtraction (``baseline_als``) now honours the excluded regions (``avoi
 ``ScanSet.calculate_images`` with ``direction`` (images of one scan direction) and quick calibration returned the uncalibrated images; only the copy stored in ``images_hor``/``images_ver`` was calibrated (the destriping, which uses those, was not affected).
 
 The destriping (``SDTimage --destripe``, ``ScanSet.destripe_images``) writes its diagnostic images (``<channel>_hor.png``, ``<channel>_destr.png``, ...) to the current directory only in debug mode; they were always written.
+
+Destriped images: the ERR of pixels where one scan direction has a single sample (whose Sdev is undefined) is the ERR of the image of all subscans, instead of NaN.
