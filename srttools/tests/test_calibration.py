@@ -150,6 +150,20 @@ class TestCalibration:
             reference.Jy_over_counts_rough(channel="Feed0_LCP"),
         )
 
+    def test_two_calibrator_fits_give_a_constant_calibration(self):
+        """A channel with only two calibrator fits (e.g. one cross scan) cannot constrain a
+        line in elevation: the calibration is the constant from Jy_over_counts_rough."""
+        caltable = CalibratorTable.read(self.calfile)
+        caltable.update()
+        calib = np.flatnonzero((caltable["Chan"] == "Feed0_LCP") & (caltable["Flux"] > 0))
+        caltable.remove_rows(calib[2:])
+        caltable.update()
+        el = np.radians(45)
+        np.testing.assert_allclose(
+            caltable.Jy_over_counts(channel="Feed0_LCP", elevation=el),
+            caltable.Jy_over_counts_rough(channel="Feed0_LCP"),
+        )
+
     def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
         caltable = CalibratorTable.read(self.calfile)
 
@@ -415,9 +429,22 @@ def test_treat_scan_multifeed_fits_each_channel_with_its_own_feed(tmp_path):
     shutil.copyfile(os.path.join(datadir, "srt_data_tp_multif.fits"), fname)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        retval, rows = _treat_scan(fname)
+        retval, rows = _treat_scan(fname, max_offset=None)
     assert retval
     chans = [r[4] for r in rows]
     feeds = [r[5] for r in rows]
     assert len(chans) == len(set(chans))
     assert feeds == [int(ch[4]) for ch in chans]
+
+
+def test_treat_scan_skips_subscans_missing_the_source(tmp_path):
+    """A calibrator subscan whose feeds all pass >10 beams from the source (here, a
+    map subscan) gives no fits: fitting noise would give a meaningless Flux/Counts."""
+    datadir = os.path.join(os.path.dirname(__file__), "data")
+    fname = str(tmp_path / "srt_data_tp_multif.fits")
+    shutil.copyfile(os.path.join(datadir, "srt_data_tp_multif.fits"), fname)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        retval, rows = _treat_scan(fname)
+    assert retval
+    assert rows == []

@@ -232,3 +232,32 @@ signals that the fits are unreliable. Set ``outlier_nsigma=None``
 
 Tables written by previous versions are read with ``Resid Std`` set to NaN
 (no fit is flagged for its residuals) and ``Outlier`` set to False.
+
+Calibrator maps and off-axis feeds
+----------------------------------
+
+``SDTcal`` fits each subscan as if it crossed the calibrator. This is true
+for the central feed of a cross scan, but not for most subscans of a
+calibrator map, nor for the off-axis feeds of a multi-feed receiver. The
+fit of a subscan that misses the source gives a small or zero amplitude, and
+a Flux/Counts many times too large. Therefore, a channel is fitted only if
+its feed passes within 1/4 of the beam FWHM (1.22 lambda / D at the centre
+of the band) of the catalogue position of the calibrator; there the peak is
+attenuated by at most 16% (by ~3% for the closest subscan of a map with the
+usual spacing of 1/3 of a beam).
+
+The Gaussian fit starts at the point of the subscan closest to the
+calibrator, with the width of the beam. Starting at the middle of the
+subscan, as ``fit_baseline_plus_bell`` does by default, the fit converges to
+zero amplitude when a narrow source is far from the middle, as in most
+subscans of a map.
+
+With few calibrator fits per channel (e.g. one per map, or the two arms of a
+single cross scan) a line in elevation cannot be fitted: with fewer than 3
+valid fits the conversion factor is the constant from
+``Jy_over_counts_rough``.
+
+On a K-band, 7-feed session (2018-07-24) with five 3C147 maps as
+calibrators, these changes bring the flux density of 3C84 from ~235 Jy to
+23.7 Jy, consistent with an independent 2D fit of the same maps (~25 Jy,
+with the same 10% map-to-map scatter).

@@ -20,6 +20,7 @@ from scipy.optimize import curve_fit
 import astropy.units as u
 from astropy.table import Column, Table
 
+from .crossscan import beam_fwhm_from_frequency
 from .fit import fit_baseline_plus_bell
 from .io import get_channel_feed, mkdir_p
 from .read_config import get_config_file, read_config, sample_config_file
@@ -251,7 +252,7 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
 
-def _safe_fit_baseline_plus_bell(x, y, label):
+def _safe_fit_baseline_plus_bell(x, y, label, **kwargs):
     """Run ``fit_baseline_plus_bell``, returning ``(None, None)`` if it raises.
 
     The fit can raise (e.g. ``NonFiniteValueError`` when the Gaussian width
@@ -259,13 +260,36 @@ def _safe_fit_baseline_plus_bell(x, y, label):
     processing of all the others, so this warns and lets the caller skip it.
     """
     try:
-        return fit_baseline_plus_bell(x, y, kind="gauss")
+        return fit_baseline_plus_bell(x, y, kind="gauss", **kwargs)
     except Exception as e:
         warnings.warn(f"Fit failed in {label}: {type(e).__name__}: {e}")
         return None, None
 
 
-def _treat_scan(scan_path, plot=False, **kwargs):
+def _closest_approach(ras, decs, ra0, dec0):
+    """Index and distance (deg) of the point of the track (ras, decs) closest to (ra0, dec0).
+
+    All coordinates in degrees.
+    """
+    dra = (ras - ra0 + 180) % 360 - 180
+    dist = np.hypot(dra * np.cos(np.radians(dec0)), decs - dec0)
+    i_min = np.argmin(dist)
+    return i_min, dist[i_min]
+
+
+def _track_length(ras, decs):
+    """Angular length (deg) of the track (ras, decs), in degrees."""
+    dra = (np.diff(ras) + 180) % 360 - 180
+    return np.sum(np.hypot(dra * np.cos(np.radians(decs[:-1])), np.diff(decs)))
+
+
+def _treat_scan(scan_path, plot=False, max_offset=0.25, **kwargs):
+    """Fit a Gaussian plus baseline to each channel of a calibrator subscan.
+
+    Channels whose feed never passes within ``max_offset`` beam FWHMs of the
+    source are skipped (``None`` fits them all): in a calibrator map most
+    subscans miss the source, and their fits give meaningless Flux/Counts.
+    """
     scandir, sname = os.path.split(scan_path)
     if plot and HAS_MPL:
         outdir = os.path.splitext(sname)[0] + "_scanfit"
@@ -305,6 +329,14 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         source = scan.meta["SOURCE"]
         pnt_ra = np.degrees(scan.meta["RA"])
         pnt_dec = np.degrees(scan.meta["Dec"])
+        i_closest, offset = _closest_approach(
+            ras, decs, pnt_ra.to_value(u.deg), pnt_dec.to_value(u.deg)
+        )
+        beam_fwhm = beam_fwhm_from_frequency(scan, channel)
+        if max_offset is not None:
+            if offset > max_offset * beam_fwhm:
+                logging.debug(f"{sname}, {channel}: misses {source} by {offset * 60:.2f}'")
+                continue
         frequency = scan[channel].meta["frequency"]
         bandwidth = scan[channel].meta["bandwidth"]
         temperature = scan[channel + "-Temp"]
@@ -322,7 +354,14 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         # Fit RA and/or Dec
         x, scan_type = scantype(ras, decs)
-        model, fit_info = _safe_fit_baseline_plus_bell(x, y, f"{sname}, {channel}")
+        # Start from where the feed passes closest to the source, with the beam width
+        # (in the units of x). The default start, the middle of the subscan, misses
+        # sources off centre, as in most subscans of a map.
+        beam_sigma = beam_fwhm / (2 * np.sqrt(2 * np.log(2)))
+        x_per_deg = np.sum(np.abs(np.diff(x))) / _track_length(ras, decs)
+        model, fit_info = _safe_fit_baseline_plus_bell(
+            x, y, f"{sname}, {channel}", mean=x[i_closest], stddev=beam_sigma * x_per_deg
+        )
         if model is None:
             continue
 
@@ -569,6 +608,9 @@ class CalibratorTable(Table):
         sources here, the fit is a Gaussian plus a slope. The centroid, width
         and amplitude of the fit fill out new rows of the CalibratorTable
         ('Fit RA' or 'Fit Dec', 'Width' and 'Counts' respectively).
+        Channels whose feed passes farther than 1/4 of the beam FWHM from the
+        source are not fitted: in a calibrator map, only the subscans crossing
+        the source are used.
 
         Parameters
         ----------
@@ -887,6 +929,16 @@ class CalibratorTable(Table):
             y_to_fit = y_to_fit[order]
             ye_to_fit = ye_to_fit[order]
 
+            if len(x_to_fit) < 3:
+                # Too few points for a line in elevation: constant calibration
+                fc, fce = self.Jy_over_counts_rough(
+                    channel=channel, map_unit=map_unit, good_mask=good_mask
+                )
+                self.calibration_coeffs[channel] = [fc, 0, 0]
+                self.calibration_uncerts[channel] = [fce, 0, 0]
+                self.calibration[channel] = None
+                continue
+
             X = np.column_stack((np.ones(len(x_to_fit)), x_to_fit))
             # X = np.c_[np.ones(len(x_to_fit)), X]
             # X = sm.add_constant(X)
@@ -943,6 +995,9 @@ class CalibratorTable(Table):
             use_rough = True
         elif self.valid_elevation == {}:
             warnings.warn(f"No elevation info found in the calibration for channel {channel}")
+            use_rough = True
+        elif self.calibration.get(channel) is None:
+            # Too few calibrator fits for an elevation dependence
             use_rough = True
         else:
             elevation_range = self.valid_elevation[channel]
