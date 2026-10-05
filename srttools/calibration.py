@@ -21,7 +21,7 @@ import astropy.units as u
 from astropy.table import Column, Table
 
 from .fit import fit_baseline_plus_bell
-from .io import mkdir_p
+from .io import get_channel_feed, mkdir_p
 from .read_config import get_config_file, read_config, sample_config_file
 from .scan import Scan, list_scans
 from .utils import (
@@ -284,18 +284,16 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         logging.warning(traceback.format_exc())
         return False, None
 
-    feeds = np.arange(scan["ra"].shape[1])
     chans = scan.chan_columns()
 
-    chan_nums = np.arange(len(chans))
-    F, N = np.meshgrid(feeds, chan_nums)
-    F = F.flatten()
-    N = N.flatten()
     rows = []
-    for feed, nch in zip(F, N):
-        channel = chans[nch]
+    for nch, channel in enumerate(chans):
         if channel[-1:] in ["Q", "U"]:
             continue
+        # Each channel only sees the sky through its own feed
+        feed = get_channel_feed(channel)
+        if feed is None:
+            feed = 0
 
         ras = np.degrees(scan["ra"][:, feed])
         decs = np.degrees(scan["dec"][:, feed])
