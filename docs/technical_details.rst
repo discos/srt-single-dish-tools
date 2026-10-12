@@ -7,9 +7,9 @@ developers, and the reasoning behind some non-obvious choices.
 Supported Python and dependency versions
 ----------------------------------------
 
-The package supports Python 3.12 and newer. Python 3.9 was the minimum until
+The package supports Python 3.12 and newer. Python 3.8 was the minimum until
 2026, for old production machines at the telescope; it was raised to 3.12
-because 3.9 and 3.10 have reached their end of life, and current releases of
+because Python 3.8 to 3.10 have reached their end of life, and current releases of
 the scientific stack (numpy, scipy, astropy, matplotlib) all support 3.12.
 
 The lower bounds of the dependencies in ``pyproject.toml`` are not guesses:

@@ -1,5 +1,7 @@
 #  From https://gist.github.com/neothemachine/e625cb7777376899adca
-"""This module contains a fast replacement for numpy's histogramdd and histogram2d. Two changes were made. The first was replacing.
+"""Fast replacements for numpy's histogramdd and histogram2d.
+
+Two changes were made. The first was replacing
 
 np.digitize(a, b)
 

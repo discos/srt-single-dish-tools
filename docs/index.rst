@@ -66,7 +66,7 @@ and install the dependencies (including a few optional but recommended):
 
 .. code-block:: console
 
-    (py3) $ conda install "astropy>=5.0" scipy numpy matplotlib pyyaml h5py statsmodels numba
+    (py3) $ conda install "astropy>=5.3.4" scipy numpy matplotlib pyyaml h5py statsmodels numba
 
 .. code-block:: console
 
@@ -81,7 +81,7 @@ recommended):
 
 .. code-block:: console
 
-    $ pip install "astropy>=5.0" scipy numpy matplotlib pyyaml h5py statsmodels numba regions
+    $ pip install "astropy>=5.3.4" scipy numpy matplotlib pyyaml h5py statsmodels numba regions
 
 
 Cloning and installation
