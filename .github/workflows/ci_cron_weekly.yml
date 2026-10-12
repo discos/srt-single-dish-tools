@@ -12,6 +12,8 @@ jobs:
   ci_tests:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    # Normal runs take ~10 minutes; don't let a hung test burn the 6-hour default
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
