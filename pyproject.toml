@@ -36,8 +36,6 @@ dependencies = [
     "astropy>=5.3.4",
     "scipy>=1.11.2",
     "matplotlib>=3.7.3,!=3.8.0",
-    "stingray>=2.2.3",
-    "tqdm>=4.60",
     "h5py>=3.10",
     "pyyaml>=6.0.1",
     "colorama>=0.4",
@@ -59,11 +57,13 @@ test_all = [
     "tornado",
     "statsmodels>=0.8.0",
     "sunpy",
+    "tqdm>=4.60",
 ]
 recommended = [
     "numba",
     "statsmodels",
     "pyfftw",
+    "tqdm>=4.60",
 ]
 all = [
     "srttools[recommended]",
