@@ -62,14 +62,6 @@ repos:
             .*.rmf|\
         )$"
 
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
-    hooks:
-      - id: codespell
-        args: ["--write-changes"]
-        additional_dependencies:
-          - tomli
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
     hooks:

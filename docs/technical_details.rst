@@ -34,13 +34,18 @@ The recommended way is through tox, with the ``tox-uv`` plugin:
     $ tox -e py313-test-alldeps     # latest versions, all optional dependencies
     $ tox -e py312-test-oldestdeps  # oldest supported versions
     $ tox -e py313-test-devdeps     # nightly builds of numpy, scipy, matplotlib, astropy
-    $ tox -e codestyle              # pre-commit checks (ruff, codespell, ...)
+    $ tox -e codestyle              # pre-commit checks (ruff, ...)
 
 Tox installs the package in a separate environment and runs the tests from
 ``.tmp/<envname>``, so that the source tree is not imported by mistake. On
 macOS, if tox picks up a "universal2" Python from python.org, the oldest
 versions of numpy will not install; ``UV_PYTHON_PREFERENCE=only-managed``
 forces tox-uv to use a uv-managed Python instead.
+
+The code style checks deliberately do not include ``codespell``: with
+``--write-changes`` it silently "corrected" the MBFITS header keyword
+``HESE`` into ``THESE``, and this code is full of FITS keywords and
+abbreviations that a spell checker cannot tell from typos.
 
 Time limits on hung tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~

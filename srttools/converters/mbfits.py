@@ -358,7 +358,7 @@ keywords_to_reset = [
     "HESA5",
     "HESA5RX",
     "HESARX",
-    "THESE",
+    "HESE",
     "HESERX",
     "HSCA",
     "HSCA2",

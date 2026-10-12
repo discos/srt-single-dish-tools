@@ -401,57 +401,6 @@ known-first-party = ["astropy", "extension_helpers"]
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
-[tool.codespell]
-skip = """
-    *.cff,
-    */data/*,
-    *extern/*,
-    *_lextab.py,
-    *_parsetab.py,
-    *.svg,
-    docs/scripts/cli.rst,
-    *.ipynb,
-    pyproject.toml,
-    experiments/*,
-"""
-# The following list of words for codespell to ignore may contain some
-# misspellings that should be revisited and fixed in the future.
-ignore-words-list = """
-    aas,
-    als,
-    ans,
-    bu,
-    bubu,
-    clen,
-    coo,
-    datas,
-    ded,
-    fom,
-    dum,
-    fo,
-    hel,
-    lightyear,
-    livetime,
-    livetimes,
-    lond,
-    nax,
-    nd,
-    ned,
-    nin,
-    numer,
-    observ,
-    precess,
-    precessed,
-    precesses,
-    precessing,
-    pres,
-    som,
-    splitted,
-    stil,
-    te,
-    wirth,
-"""
-
 [tool.docformatter]
     # The ``summaries`` are not (yet) 75 characters because the summary lines can't be
     # automatically wrapped and must be re-written, which should be done at some point.
