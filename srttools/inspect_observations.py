@@ -1,5 +1,7 @@
 """Read the relevant information and link observations to calibrators."""
 
+import datetime
+import itertools
 import logging
 import warnings
 from collections.abc import Iterable
@@ -28,11 +30,24 @@ __all__ = [
 ]
 
 
+def _utc_string_to_mjd(date_string):
+    """Convert a UTC date in the format YYYYMMDD-HHMMSS to MJD.
+
+    The string is always interpreted as UTC, independent of the local time
+    zone of the machine.
+
+    Examples
+    --------
+    >>> float(_utc_string_to_mjd("20000101-120000"))
+    51544.5
+    """
+    date = datetime.datetime.strptime(date_string + "+0000", "%Y%m%d-%H%M%S%z")
+    return Time(date, scale="utc").mjd
+
+
 def inspect_directories(
     directories, only_after=None, only_before=None, ignore_suffix=[], ignore_prefix=[]
 ):
-    import datetime
-
     info = Table()
     names = [
         "Dir",
@@ -54,20 +69,10 @@ def inspect_directories(
             info.add_column(Column(name=n, dtype=d))
 
     if only_after is not None:
-        only_after = Time(
-            datetime.datetime.strptime(only_after, "%Y%m%d-%H%M%S").astimezone(
-                datetime.timezone.utc
-            ),
-            scale="utc",
-        ).mjd
+        only_after = _utc_string_to_mjd(only_after)
         logging.info("Filtering out observations before " f"MJD {only_after}")
     if only_before is not None:
-        only_before = Time(
-            datetime.datetime.strptime(only_before, "%Y%m%d-%H%M%S").astimezone(
-                datetime.timezone.utc
-            ),
-            scale="utc",
-        ).mjd
+        only_before = _utc_string_to_mjd(only_before)
         logging.info("Filtering out observations after " f"MJD {only_before}")
 
     for d in directories:
@@ -138,7 +143,7 @@ def split_observation_table(
     indices = grouped_table.groups.indices
 
     groups = {}
-    for i, ind in enumerate(zip(indices[:-1], indices[1:])):
+    for i, ind in enumerate(itertools.pairwise(indices)):
         start_row = grouped_table[ind[0]]
         logging.info(
             f"Group {i}, Backend = {start_row['Backend']}, Receiver = {start_row['Receiver']}"

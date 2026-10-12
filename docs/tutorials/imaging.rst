@@ -85,7 +85,7 @@ a set of config files ready for the next step in the analysis:
     KKG_ROACH_Src1_Obs1.ini
 
 
-.. note ::
+.. note::
 
     Many observation schedules add labels to the source name (e.g. ``_RA`` or ``_Dec`` to
     indicate scans in a given direction, ``_K`` to indicate the band, etc). This is not ideal and should

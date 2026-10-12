@@ -1,13 +1,20 @@
 import glob
 import os
 import subprocess as sp
+import sys
+import time
 
 import numpy as np
 import pytest
 
 from astropy.logger import logging
 from astropy.table import Column, Table
-from srttools.inspect_observations import dump_config_files, main_inspector, split_observation_table
+from srttools.inspect_observations import (
+    _utc_string_to_mjd,
+    dump_config_files,
+    main_inspector,
+    split_observation_table,
+)
 
 try:
     from ConfigParser import ConfigParser
@@ -21,6 +28,19 @@ def logger():
     logger.setLevel(logging.WARN)
 
     return logger
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="time.tzset is not available")
+def test_utc_string_to_mjd_ignores_local_timezone(monkeypatch):
+    """Dates given on the command line are UTC, whatever the local time zone of the machine."""
+    monkeypatch.setenv("TZ", "Europe/Rome")
+    time.tzset()
+    try:
+        assert _utc_string_to_mjd("20000101-000000") == 51544.0
+        assert _utc_string_to_mjd("20000701-120000") == 51726.5
+    finally:
+        monkeypatch.undo()
+        time.tzset()
 
 
 class TestInspect:

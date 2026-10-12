@@ -1,12 +1,6 @@
-import pytest
+from importlib.util import find_spec
 
-try:
-    import tornado
-    import watchdog
-
-    MONITOR_DEPENDENCIES = True
-except ImportError:
-    MONITOR_DEPENDENCIES = False
+MONITOR_DEPENDENCIES = find_spec("tornado") is not None and find_spec("watchdog") is not None
 
 
 def pytest_ignore_collect(collection_path):

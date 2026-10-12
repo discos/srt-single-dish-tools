@@ -1,14 +1,14 @@
+import argparse
+import logging
 import os
+import signal
 import sys
+import threading
 import time
 import warnings
-import signal
-import argparse
-import threading
 
 # Replace the default logging configuration with a custom one
 from srttools import logger as log
-import logging
 
 log.name = "SDTmonitor"
 f = logging.Formatter("%(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")

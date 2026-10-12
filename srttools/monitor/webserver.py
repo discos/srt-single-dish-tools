@@ -1,10 +1,9 @@
 import asyncio
 import base64
 import json
-import threading
-import warnings
-import re
 import os
+import re
+import threading
 from string import Template
 
 try:
@@ -33,7 +32,7 @@ def create_index_file(**kwargs):
     }
     config.update(kwargs)
     with open("index.html", "w") as webpage:
-        with open(files("srttools.monitor").joinpath("resources", "index.html"), "r") as template:
+        with open(files("srttools.monitor").joinpath("resources", "index.html")) as template:
             print(Template(template.read()).safe_substitute(config), file=webpage, end="")
 
 
@@ -99,7 +98,7 @@ class WebServer:
     def __init__(self, extension, localhost=False, port=8080):
         self.extension = extension
         self.port = port
-        self.address = "127.0.0.1" if localhost else "0.0.0.0"
+        self.address = "127.0.0.1" if localhost else "0.0.0.0"  # noqa: S104
 
         # Load the current images
         self.images = {}

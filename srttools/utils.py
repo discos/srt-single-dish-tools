@@ -1,6 +1,4 @@
-"""
-Random utilities
-"""
+"""Random utilities."""
 
 from __future__ import annotations
 
@@ -14,7 +12,6 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from functools import lru_cache
 from logging import Logger
-from typing import List
 
 import numpy as np
 import scipy
@@ -105,7 +102,7 @@ except ImportError:
     HAS_STATSM = False
 
     def mad(data, c=0.6745, axis=None):
-        """Straight from statsmodels's source code, adapted"""
+        """Straight from statsmodels's source code, adapted."""
         data = np.asarray(data)
         if axis is not None:
             center = np.apply_over_axes(np.median, data, axis)
@@ -114,7 +111,7 @@ except ImportError:
         return np.median((np.fabs(data - center)) / c, axis=axis)
 
 
-ListOfStrings = List[str]
+ListOfStrings = list[str]
 TWOPI = 2 * np.pi
 
 if HAS_NUMBA:
@@ -186,7 +183,7 @@ def remove_suffixes_and_prefixes(
 ) -> str:
     """Eliminate a list of prefixes and suffixes from names.
 
-    Additionaly, this will remove any trailing or leading underscores.
+    Additionally, this will remove any trailing or leading underscores.
 
     Examples
     --------
@@ -234,7 +231,7 @@ def force_move_file(src, dst):
 
 
 def standard_string(s):
-    """Standard string representation for a given Python version
+    """Standard string representation for a given Python version.
 
     Examples
     --------
@@ -258,7 +255,7 @@ def standard_string(s):
 
 
 def standard_byte(s):
-    """Standard byte representation for a given Python version
+    """Standard byte representation for a given Python version.
 
     Examples
     --------
@@ -511,7 +508,6 @@ def calculate_zernike_moments(
         Dictionary containing the order, the sub-index and the moment, e.g.
         {0: {0: 0.3}, 1: {1: 1e-16}, 2: {0: 0.95, 2: 6e-19}, ...}
         Moments are symmetrical, so only the unique values are reported.
-
     """
     if np.all(np.isnan(im)):
         return None

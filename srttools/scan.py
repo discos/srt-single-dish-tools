@@ -982,7 +982,7 @@ class Scan(Table):
         debug_file_format=None,
         **kwargs,
     ):
-        """Load a Scan object
+        """Load a Scan object.
 
         Parameters
         ----------
@@ -1080,7 +1080,7 @@ class Scan(Table):
 
         date = Time(self["time"][0] * u.day, format="mjd", scale="utc")
         infostr = "Target: {}\n".format(self.meta["SOURCE"])
-        infostr += "Date: {}\n".format(date.iso)
+        infostr += f"Date: {date.iso}\n"
         infostr += "SubScan ID: {}\n".format(self.meta["SubScanID"])
         infostr += f"Channel: {ch}\n"
         infostr += "Mean RA: {:.2f} d\n".format(np.degrees(ra_stats["mean"]))
