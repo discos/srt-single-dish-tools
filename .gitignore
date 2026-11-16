@@ -76,3 +76,8 @@ srttools/_version.py
 
 # pyenv local version
 .python-version
+
+# Experiment scripts and outputs (kept locally, not useful to users)
+experiments/crossscan_mc/
+experiments/crossscan_real/
+experiments/maps_real/
