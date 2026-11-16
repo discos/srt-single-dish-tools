@@ -177,7 +177,7 @@ class FilterApp:
             self.scan_table = DataTable(
                 source=self.scan_source,
                 columns=[
-                    TableColumn(field="name", title="Scan", width=250),
+                    TableColumn(field="name", title="Scan", width=300),
                     TableColumn(field="direction", title="Along", width=50),
                     TableColumn(
                         field="masked",
@@ -187,7 +187,7 @@ class FilterApp:
                     ),
                     TableColumn(field="state", title="", width=60),
                 ],
-                width=440,
+                width=490,
                 height=420,
                 index_position=None,
                 sortable=False,

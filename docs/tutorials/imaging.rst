@@ -119,6 +119,7 @@ equals signs being changed to semicolons):
     [local]
     workdir = .
     datadir = .
+    productdir = my_products
 
     [analysis]
     projection = ARC
@@ -148,6 +149,36 @@ a larger value is better for sparse observations.
 
 Also, you might know already that some observations were bad. In this case,
 it's sufficient to take them out of the list above.
+
+``productdir`` is the directory where the programs write their products: the
+processed scans (``HDF5`` files, one per subscan) and the diagnostic plots.
+Inside it, the files keep the same directory structure they have in
+``datadir``.
+
+.. note::
+
+    **Where the products go: a change of behaviour.** Older versions of
+    ``srttools`` wrote the processed scans *next to the raw data* when the
+    config file had no ``productdir``. This is no longer the case: the raw
+    data directories are never written to.
+
+    + If the config file has no ``productdir`` (or ``productdir : None``),
+      all programs that read the config file (``SDTpreprocess``,
+      ``SDTimage``, ``SDTcal``, ``SDTlcurve``, ...) use a directory called
+      ``srttools_products``, created in the directory *where you launch the
+      program*, and print a warning that says so.
+
+    + To avoid the warning, and to be sure that all programs use the same
+      directory wherever you launch them from, set ``productdir`` in the
+      ``[local]`` section of the config file. ``SDTpreprocess`` can also take
+      it from the command line (``--productdir``).
+
+    + ``HDF5`` files written next to the raw data by an older version are
+      not found any more: the scans are processed again from the ``fits``
+      files, which is slower the first time but gives the same results. Edits
+      made by hand with the old interactive filter were stored only in those
+      files, so they are not applied. To keep using the old files, copy them
+      to a new directory with the same structure and set ``productdir`` to it.
 
 .. _all projections in this list are supported: https://docs.astropy.org/en/stable/wcs/supported_projections.html
 
@@ -210,11 +241,62 @@ steps:
    to be specified by hand, with the ``-e`` option followed by a valid ds9-compatible
    region file containing *circular* regions in the ``fk5`` frame.
 
-3. The results of the first points are saved as ``HDF5`` files in the same directory
-   as the original ``fits`` files. This makes it
+3. The results of the first points are saved as ``HDF5`` files in the product
+   directory (``productdir`` in the config file; see the note above for what
+   happens without one), never next to the original ``fits`` files. This makes it
    much faster to reload the scans for further use. **If the user wants to reprocess
    the files from scratch**, they need to delete these files first, or select the
    ``--refilt`` option.
+
+.. _preprocess_interactive:
+
+Check and clean the scans by hand
++++++++++++++++++++++++++++++++++
+The automatic cleaning does not catch everything. To look at the scans one by
+one, and fix them by hand, add ``--interactive``:
+
+.. code-block:: console
+
+    (py3) $ SDTpreprocess -c CCB_TP_Src1_Obs0.ini --splat 80:1100 --sub --interactive
+
+After the automatic cleaning, ``SDTpreprocess`` opens a web page (the same
+kind of page as the interactive filter of ``SDTimage`` described
+:ref:`below <interactive_map>`, where you also find how to install it and how
+to use it on a remote machine through ``ssh``). No map is calculated here:
+the page lists all the subscans instead.
+
+.. figure:: ../images/web_filter_scans.png
+   :width: 100 %
+   :alt: list of scans in the interactive filter page
+   :align: center
+
+   **Figure 3.** The page opened by ``SDTpreprocess --interactive``. On the
+   left, the list of subscans, with the coordinate that changes along each
+   of them, the fraction of masked samples in the current channel, and
+   whether the subscan is flagged. On the right, the subscan chosen in the
+   list. The grey dots on the left of the plot are masked samples; the red
+   strip is a range marked for the next operation.
+
++ **Click a row** of the list, or use **Previous scan** / **Next scan**, to
+  plot a subscan.
+
++ **Drag** horizontally on the plot to mark one or more ranges (red strips),
+  then use **Zap range** (mask the samples in the ranges) or **Fit baseline**
+  (fit a straight line to the samples in the ranges, which should contain no
+  source, and subtract it). **Flag** masks the whole subscan in all channels,
+  **Unflag** removes all its masks, **Undo** cancels the last edit.
+
++ **Save** writes the edited subscans to the directory in the "Save to" box.
+  The box is never empty: it starts with the product directory of the config
+  file. You can type another directory ("save as"); the page tells you at
+  once if it cannot be used (it cannot be created, or it is the raw data
+  directory, which is never written to), and reminds you to put it in the
+  config file as ``productdir`` so that ``SDTimage`` finds the edited scans.
+
++ **Close and continue** ends ``SDTpreprocess``. If there are edits that were
+  not saved, the first press only warns you; press again to discard them.
+
+``--interactive`` needs a config file: it does not work on single files.
 
 .. _Eilers and Boelens 2005: https://zanran_storage.s3.amazonaws.com/www.science.uva.nl/ContentPages/443199618.pdf
 
@@ -303,7 +385,9 @@ x,y=30,33 with radius 10 pixels, run
    :alt: map
    :align: center
 
-   **Figure 3.** Map produced by ``SDTimage``
+   **Figure 4.** Map produced by ``SDTimage``
+
+.. _interactive_map:
 
 Interactive filtering of the map
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -340,7 +424,7 @@ cannot reach it, but other users logged in to the same machine can.
    :alt: interactive filter page
    :align: center
 
-   **Figure 4.** The interactive filter page. A pixel near the left border of
+   **Figure 5.** The interactive filter page. A pixel near the left border of
    the map (cyan square) has three Dec subscans going through it. The grey
    dots are samples of a subscan that were masked ("zapped"); the red strip
    is a range selected for the next operation.
@@ -372,10 +456,11 @@ How to use the page:
 + **Apply** recomputes the map with the edits, **Undo** cancels the last
   edit. The list of edits is shown at the bottom.
 
-+ **Save to productdir** writes the edited subscans to their files in the
-  product directory (``productdir`` in the config file). The raw data are
-  never touched: without a ``productdir``, saving gives an error. Edits that
-  are not saved are still used for the images of the current run.
++ **Save** writes the edited subscans to the directory in the "Save to" box,
+  which starts with the product directory (``productdir`` in the config
+  file, or ``srttools_products``) and can be changed, as explained
+  :ref:`above <preprocess_interactive>`. The raw data are never touched. Edits
+  that are not saved are still used for the images of the current run.
 
 + **Close and continue**: ``SDTimage`` goes on and writes the final images.
 
@@ -546,4 +631,4 @@ The correctness of the processing can be quickly tested using ``SunPy``:
    :alt: sun obs
    :align: center
 
-   **Figure 5.** Example Sun observation, plotted with ``SunPy``
+   **Figure 6.** Example Sun observation, plotted with ``SunPy``

@@ -340,8 +340,31 @@ On a Medicina map of Cas A at 8.18 GHz (2022-12-13; subscans 1.25' apart),
 1' pixels leave 24% of the pixels empty and the flux density in a 12' aperture
 comes out 19% lower than with 1.5' pixels, which leave none.
 
-Interactive filter web page (``SDTimage --interactive``)
---------------------------------------------------------
+Where the products are written
+------------------------------
+
+Processed scans (one HDF5 file per subscan) and diagnostic plots go to the
+product directory, ``productdir`` in the ``[local]`` section of the config
+file. ``srttools.read_config.read_config`` never returns an empty
+``productdir``: if the config file has none (or ``None``), it sets it to
+``srttools_products`` in the current directory
+(``srttools.read_config.DEFAULT_PRODUCTDIR``) and gives a warning. Since
+every tool gets its settings from ``read_config``, this holds for all of
+them, and also for a ``Scan`` loaded without a config file. The reason is
+that the raw data directory should never be written to: archives are often
+read-only or shared, and files appearing next to the raw data were easy to
+mistake for data.
+
+Before this change, the default was to write next to the raw data. HDF5 files
+left there by older versions are not read any more.
+
+``read_config(fname, productdir=...)`` replaces the directory of the config
+file (used by ``SDTpreprocess --productdir``). ``read_config`` keeps the last
+config it read in memory, and the replacement is stored there, so the scans
+loaded later in the same run, which call ``read_config`` again, get it too.
+
+Interactive filter web page (``--interactive``)
+-----------------------------------------------
 
 The interactive filter has two layers:
 
@@ -352,9 +375,15 @@ The interactive filter has two layers:
   be computed straight away. A copy of the original columns is kept: *undo*
   restores it and repeats all edits but the last one. Nothing is written to
   disk until ``save``, which copies the edited columns into the ``Scan`` of
-  each edited subscan and writes it to the product directory. It refuses to
-  write if there is no product directory, or if the output file would end up
-  outside it, so the raw data directory is never written to.
+  each edited subscan and writes it to a directory: the one given by the
+  caller ("save as"), or the product directory. There is always somewhere to
+  save: without a config file, the default is ``srttools_products`` in the
+  current directory. ``check_productdir`` refuses a directory that cannot be
+  created or written to, and one where some scan would end up in the
+  directory of its raw data file, so the raw data directory is never written
+  to. ``config_hint`` gives the line to put in the config file when the
+  directory is not its ``productdir``: otherwise later runs would not find
+  the edited scans.
 
 + ``srttools.web_filter.FilterApp`` builds the page with Bokeh and calls the
   session. ``serve`` runs a Bokeh server (a small web server that keeps the
@@ -364,6 +393,26 @@ The interactive filter has two layers:
   ``localhost``: from another computer it can only be reached through an ssh
   tunnel, which requires a login on the machine. There is no password: other
   users logged in to the same machine can open the page too.
+
+The page has two views, chosen with the ``view`` argument of ``FilterApp``
+and ``serve``:
+
++ ``"map"`` (``SDTimage --interactive``): the map, and the subscans through
+  the clicked pixel.
+
++ ``"scans"`` (``SDTpreprocess --interactive``): no map is calculated. A
+  table lists all the subscans (``FilterSession.scan_summary``: name,
+  direction, fraction of masked samples in the current channel, flagged or
+  not) and the subscan chosen in the table is plotted. It uses the same two
+  plots as the map view, showing only the one of the direction of the
+  subscan, so that all the editing code is shared. There is no "Apply" (no
+  map to recompute) and no "Align all" (it needs the other subscans through
+  a pixel). Since here unsaved edits have no other use, "Close and continue"
+  with unsaved edits only warns the first time, and closes the second time.
+
+Both views have the "Save to" box, filled with the default directory when the
+page opens and checked with ``check_productdir`` every time it changes, so a
+directory that cannot be used is reported before any work is lost.
 
 The map looks much as in the old matplotlib display: the ds9-like logarithmic
 scale (``srttools.utils.ds9_like_log_scale``), colours from the 20th
