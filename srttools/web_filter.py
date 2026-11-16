@@ -278,6 +278,13 @@ class FilterApp:
                 masked["y"].extend(s.values[~s.good])
             self.line_sources[direction].data = lines
             self.masked_sources[direction].data = masked
+        # Keep the selected subscan if it crosses this pixel too, otherwise drop it
+        if self._selected_subscan() is None:
+            self.selected = None
+            self.ranges = []
+        for source in self.line_sources.values():
+            ids = source.data["scan_id"]
+            source.selected.indices = [ids.index(self.selected)] if self.selected in ids else []
         x, y = self.pixel
         self.info.text = f"Pixel ({int(x)}, {int(y)}): {len(self.subscans)} subscans"
         self.update_ranges()
