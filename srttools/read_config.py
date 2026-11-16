@@ -15,8 +15,12 @@ except ImportError:
     import ConfigParser as configparser
 
 
-__all__ = ["get_config_file", "read_config", "sample_config_file"]
+__all__ = ["DEFAULT_PRODUCTDIR", "get_config_file", "read_config", "sample_config_file"]
 
+
+#: Directory (relative to the current one) where products go when the config
+#: file does not specify a ``productdir``.
+DEFAULT_PRODUCTDIR = "srttools_products"
 
 SRT_tools_config_file = None
 SRT_tools_config = None
@@ -30,8 +34,11 @@ def sample_config_file(fname="sample_config_file.ini"):
 workdir : .
 ; the root directory of the data repository.
 datadir : .
-; the root directory of the data repository.
-productdir : None
+; the directory where the products (processed scans, plots) are saved. If not
+; specified, a directory called srttools_products is created in the directory
+; where the scripts are launched. The raw data directory is never written to,
+; unless productdir points to it.
+; productdir : my_products
 ; if True, output files will be saved directly inside productdir the full path.
 basename_only : False
 
@@ -152,6 +159,15 @@ def read_config(fname=None):
 
     if config_output["productdir"] is not None and config_output["productdir"].lower() == "none":
         config_output["productdir"] = None
+
+    if config_output["productdir"] is None:
+        config_output["productdir"] = os.path.abspath(DEFAULT_PRODUCTDIR)
+        warnings.warn(
+            f"No productdir in the config file {fname}: the products (processed scans, "
+            f"diagnostic plots) will be written to {config_output['productdir']}, "
+            "NOT next to the raw data. Set productdir in the [local] section of the "
+            "config file to choose another directory."
+        )
 
     if config_output["productdir"] is not None and not config_output["productdir"].startswith("/"):
         config_output["productdir"] = os.path.abspath(

@@ -1,9 +1,10 @@
 import os
 
 import numpy as np
+import pytest
 
 import astropy.units as u
-from srttools.read_config import read_config
+from srttools.read_config import DEFAULT_PRODUCTDIR, read_config
 
 
 class TestConfig:
@@ -30,3 +31,30 @@ class TestConfig:
 
         assert config["pixel_size"] == "auto"
         assert config["interpolation"] == "linear"
+
+
+CONFIG = "[local]\ndatadir : {datadir}\n{extra}[analysis]\nlist_of_directories :\n    bubu\n"
+
+
+@pytest.mark.parametrize("extra", ["", "productdir : None\n"])
+def test_missing_productdir_defaults_to_current_directory(tmp_path, monkeypatch, extra):
+    """Without a productdir, products go to ./srttools_products, with a warning; never next to the data."""
+    datadir = tmp_path / "raw"
+    datadir.mkdir()
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    config_file = tmp_path / "config.ini"
+    config_file.write_text(CONFIG.format(datadir=datadir, extra=extra))
+    monkeypatch.chdir(workdir)
+    with pytest.warns(UserWarning, match="NOT next to the raw data"):
+        config = read_config(str(config_file))
+    assert config["productdir"] == os.path.join(os.path.realpath(workdir), DEFAULT_PRODUCTDIR)
+
+
+def test_explicit_productdir_is_kept_without_warning(tmp_path, recwarn):
+    """A productdir given in the config file is used as it is (relative to the config file)."""
+    config_file = tmp_path / "config.ini"
+    config_file.write_text(CONFIG.format(datadir=tmp_path, extra="productdir : out\n"))
+    config = read_config(str(config_file))
+    assert config["productdir"] == str(tmp_path / "out")
+    assert not [w for w in recwarn if "productdir" in str(w.message)]
