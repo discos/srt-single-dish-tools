@@ -4,8 +4,9 @@ A :class:`FilterSession` holds the edits made to the subscans of a
 :class:`srttools.imager.ScanSet` (zapped intervals, flags, baseline
 corrections). Each edit changes the ScanSet columns immediately, so that new
 images can be computed at once, but nothing is written to disk until
-:meth:`FilterSession.save` is called, and then only into the product
-directory. Edits can be undone one by one.
+:meth:`FilterSession.save` is called, and then only into a product
+directory (the one of the configuration, or any other except the raw data
+directory). Edits can be undone one by one.
 
 This module has no graphics: front ends (e.g. the web page) call its methods.
 """
@@ -18,7 +19,7 @@ import numpy as np
 
 from .fit import align as fit_align
 from .fit import linear_fit, linear_fun
-from .io import get_channel_feed
+from .io import get_channel_feed, root_name
 
 __all__ = ["FilterSession", "Subscan"]
 
@@ -223,28 +224,95 @@ class FilterSession:
                 sids.add(edit["scan_id"])
         return sorted(sids)
 
-    def save(self):
-        """Write the edited subscans to their files in the product directory.
+    @property
+    def config_productdir(self):
+        """Product directory of the configuration file, or None without a configuration."""
+        from .read_config import read_config
+
+        productdir = self.scanset.meta.get("productdir")
+        config_file = self.scanset.meta.get("config_file")
+        if productdir is None and config_file is not None:
+            productdir = read_config(config_file).get("productdir")
+        return None if productdir is None else os.path.abspath(productdir)
+
+    @property
+    def default_productdir(self):
+        """Where :meth:`save` writes if no directory is given: never empty.
+
+        The product directory of the configuration file or, without one,
+        ``srttools_products`` in the current directory.
+        """
+        from .read_config import DEFAULT_PRODUCTDIR
+
+        return self.config_productdir or os.path.abspath(DEFAULT_PRODUCTDIR)
+
+    def _outfile(self, sname, productdir):
+        """File where the scan ``sname`` is saved under ``productdir``."""
+        from .scan import product_path_from_file_name
+
+        rootdir, fn = product_path_from_file_name(
+            sname,
+            workdir=self.scanset.meta.get("workdir") or os.curdir,
+            productdir=productdir,
+            basename_only=bool(self.scanset.meta.get("basename_only", False)),
+        )
+        return root_name(os.path.join(rootdir, fn)) + ".hdf5"
+
+    def check_productdir(self, productdir):
+        """Return the absolute ``productdir``, or raise if edits cannot be saved there.
 
         Raises
         ------
         ValueError
-            If the configuration has no product directory: the raw data
-            directory is never written to.
+            If the name is empty, or if some scan would be saved in the
+            directory of its raw data file: the raw data directory is never
+            written to.
         """
-        from .read_config import read_config
+        if productdir is None or not str(productdir).strip():
+            raise ValueError("Give a directory where to save the edits")
+        productdir = os.path.abspath(os.path.expanduser(str(productdir).strip()))
+        for sname in self.scanset.scan_list:
+            rawdir = os.path.dirname(os.path.abspath(sname))
+            if os.path.dirname(self._outfile(sname, productdir)) == rawdir:
+                raise ValueError(
+                    f"{productdir} would put the products in the raw data directory "
+                    f"{rawdir}, which is never written to: choose another directory"
+                )
+        return productdir
+
+    def config_hint(self, productdir):
+        """Explain how a later run finds files saved in ``productdir``; empty if it already does."""
+        productdir = os.path.abspath(os.path.expanduser(str(productdir).strip()))
+        if productdir == self.config_productdir:
+            return ""
+        return (
+            "This is not the productdir of the config file: to use these files in "
+            f"later runs, put `productdir : {productdir}` in its [local] section."
+        )
+
+    def save(self, productdir=None):
+        """Write the edited subscans to their files in a product directory.
+
+        Parameters
+        ----------
+        productdir : str, optional
+            Where to save. Default: :attr:`default_productdir`, so there is
+            always somewhere to save.
+
+        Returns
+        -------
+        productdir : str
+            The directory the files were written to.
+
+        Raises
+        ------
+        ValueError
+            If ``productdir`` would put the files next to the raw data.
+        """
         from .scan import Scan
 
+        productdir = self.check_productdir(productdir or self.default_productdir)
         config_file = self.scanset.meta.get("config_file")
-        productdir = self.scanset.meta.get("productdir")
-        if config_file is not None and productdir is None:
-            productdir = read_config(config_file).get("productdir")
-        if config_file is None or productdir is None:
-            raise ValueError(
-                "Saving the filter edits needs a config file with a productdir: "
-                "the raw data are never overwritten"
-            )
-        productdir = os.path.abspath(productdir)
 
         # Flags of the last flag/unflag edit of each scan
         flags = {}
@@ -255,9 +323,7 @@ class FilterSession:
         for sid in self._edited_scans():
             sname = self.scanset.scan_list[sid]
             s = Scan(sname, config_file=config_file, nosave=True)
-            outfile = os.path.abspath(s.root_name(s.meta.get("filename", sname)) + ".hdf5")
-            if os.path.commonpath([outfile, productdir]) != productdir:
-                raise ValueError(f"{outfile} is outside the productdir {productdir}")
+            outfile = self._outfile(sname, productdir)
             mask = self._mask(sid)
             if len(s) != np.count_nonzero(mask):
                 raise ValueError(f"{sname} has changed since the scan set was created")
@@ -265,5 +331,7 @@ class FilterSession:
                 s[col] = copy.deepcopy(np.asarray(self.scanset[col][mask]))
             if sid in flags:
                 s.meta["FLAG"] = flags[sid]
+            s.meta["productdir"] = productdir
             s.save(outfile)
         self._n_saved = len(self.edits)
+        return productdir
