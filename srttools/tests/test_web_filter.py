@@ -188,3 +188,25 @@ def test_click_elsewhere_after_zap(app):
     assert source.selected.indices == []
     app._report_errors(app.zap)()
     assert "Select a subscan first" in app.status.text
+
+
+def test_map_scaling_matches_old_display(app):
+    """Both views use the old display's look: ds9-like log scale from the 20th percentile, gnuplot2."""
+    from matplotlib import colormaps
+    from matplotlib.colors import to_hex
+
+    from srttools.utils import ds9_like_log_scale
+
+    assert app.color_mapper.palette[-1] == to_hex(colormaps["gnuplot2"](1.0))
+    ch = app.channel
+    expo = np.asarray(app.scanset.images[f"{ch}-EXPO"])
+    stat = "Outliers" if np.mean(expo[expo > 0]) > 6 else "Sdev"
+    for kind, name in [("Image", ch), ("Outliers", f"{ch}-{stat}")]:
+        app.set_map_kind(kind)
+        img = np.array(app.scanset.images[name], dtype=float)
+        if kind == "Outliers":
+            bad = (img == 0) | ~np.isfinite(img)
+            img[bad] = np.mean(img[~bad])
+        expected = ds9_like_log_scale(img)
+        assert np.allclose(app.image_source.data["image"][0], expected)
+        assert np.isclose(app.color_mapper.low, np.percentile(expected, 20))
