@@ -323,3 +323,52 @@ positions, do not count.
 On a Medicina map of Cas A at 8.18 GHz (2022-12-13; subscans 1.25' apart),
 1' pixels leave 24% of the pixels empty and the flux density in a 12' aperture
 comes out 19% lower than with 1.5' pixels, which leave none.
+
+Interactive filter web page (``SDTimage --interactive``)
+--------------------------------------------------------
+
+The interactive filter has two layers:
+
++ ``srttools.filter_session.FilterSession`` holds the edits (zapped ranges,
+  flags, baseline corrections, alignments) as a list, and has no graphics.
+  Each edit changes the channel columns of the ``ScanSet`` (and their
+  ``-filt`` masks, ``True`` for good samples) at once, so that new images can
+  be computed straight away. A copy of the original columns is kept: *undo*
+  restores it and repeats all edits but the last one. Nothing is written to
+  disk until ``save``, which copies the edited columns into the ``Scan`` of
+  each edited subscan and writes it to the product directory. It refuses to
+  write if there is no product directory, or if the output file would end up
+  outside it, so the raw data directory is never written to.
+
++ ``srttools.web_filter.FilterApp`` builds the page with Bokeh and calls the
+  session. ``serve`` runs a Bokeh server (a small web server that keeps the
+  page and the Python program in contact, so that clicks run Python code).
+  Every browser page gets its own widgets, but all of them share one session,
+  so reloading the page loses nothing. The server listens only on
+  ``localhost``: from another computer it can only be reached through an ssh
+  tunnel, which requires a login on the machine. There is no password: other
+  users logged in to the same machine can open the page too.
+
+The map is the image of one channel, with the same logarithmic scale as ds9.
+The "Outliers" view shows the ``-Outliers`` image when the pixels have more
+than 6 samples on average, and the standard deviation image otherwise.
+
+Speed. Measured on an Apple M1 Pro laptop, with bokeh 3.9, on the W44
+maps of 2016-02-25 (K band, two channels, 267,627 samples in 339 subscans,
+map of 180 x 151 pixels):
+
+=========================================  =========
+Step                                       Time
+=========================================  =========
+Load the scan set (HDF5 dump)              0.4 s
+Build the page                             54 ms
+Click a pixel (5 subscans, 3881 samples)   8 ms
+Zap a range and redraw the subscans        9 ms
+Apply (recompute the images and the map)   0.35 s
+Undo, with 20 edits to repeat              28 ms
+=========================================  =========
+
+The first image calculation of a run takes ~3 s longer, because the binning
+code is compiled (numba). The subscans through a pixel are sent to the browser
+in full (0.1 MB here), with no thinning. On the Medicina map of Cas A (25,000
+samples) all steps take less than 30 ms.

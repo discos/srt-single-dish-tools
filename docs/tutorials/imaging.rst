@@ -205,8 +205,9 @@ steps:
    are closer to the baseline and making a standard least-square fit.
    This procedure is very fast and aligns the vast majority
    of scans in a fraction of a second. For more complicated scans, an interactive
-   interface is also available, albeit with some portability issues that will be
-   solved in future versions (use the ``--interactive`` option).
+   interface is also available (use the ``--interactive`` option); to fix
+   single subscans while looking at the map, see the interactive filtering
+   of ``SDTimage`` below.
    It is possible to avoid regions with known strong sources. For now, they need
    to be specified by hand, with the ``-e`` option followed by a valid ds9-compatible
    region file containing *circular* regions in the ``fk5`` frame.
@@ -306,8 +307,8 @@ x,y=30,33 with radius 10 pixels, run
 
    **Figure 3.** Map produced by ``SDTimage``
 
-Advanced imaging (TBC)
-~~~~~~~~~~~~~~~~~~~~~~
+Interactive filtering of the map
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The automatic RFI removal procedure is often unable to clean all the data.
 The map might have some residual "stripes" due to bad scans. No worries! Launch
 the above command with the ``--interactive`` option
@@ -316,21 +317,91 @@ the above command with the ``--interactive`` option
 
     (py3) $ SDTimage -c MySource.ini --splat <freqmin>:<freqmax> --interactive
 
-This will open a screen like this:
+The interactive filter is a web page, built with `Bokeh`_. Install it with
+``pip install srttools[interactive]`` (or just ``pip install bokeh``).
+``SDTimage`` starts a small web server on your computer and prints the address
+of the page, by default ``http://localhost:5006/`` (choose another port with
+``--port``). If you are working on your own computer, the page opens in your
+browser.
 
-    <placeholder>
+**Working on a remote machine.** If you are logged in through ``ssh`` (e.g.
+on the observatory computers), ``SDTimage`` prints a command like
 
-where on the right you have the current status of the image, and on the left,
-larger, an image of the *standard deviation* of the pixels. Pixels with higher
-standard deviation might be due to a real source with high variability or high
-flux gradients, or to interferences. On this standard deviation image, you can
-point with the mouse and press 'A' on the keyboard to load all scans passing
-through that pixel. A second window will appear with a bunch of scans.
+.. code-block:: console
 
-    <placeholder>
+    ssh -N -L 5006:localhost:5006 obs@calc1
 
-Click on a bad scan and filter it according to the instructions printed in the
-terminal.
+Run it in a terminal *on your own computer*: it forwards ("tunnels") the port
+of the remote web server to your computer. Then open
+``http://localhost:5006/`` in your browser. The server only accepts
+connections from the machine it runs on: other computers on the network
+cannot reach it, but other users logged in to the same machine can.
+
+.. figure:: ../images/web_filter.png
+   :width: 100 %
+   :alt: interactive filter page
+   :align: center
+
+   **Figure 4.** The interactive filter page. A pixel near the left border of
+   the map (cyan square) has three Dec subscans going through it. The grey
+   dots are samples of a subscan that were masked ("zapped"); the red strip
+   is a range selected for the next operation.
+
+How to use the page:
+
++ On the left, the map. Choose the channel at the top. "Outliers" shows,
+  instead of the image, how much the samples in each pixel disagree with each
+  other: a bright pixel there often points to a bad subscan.
+
++ **Click a pixel**: the subscans passing through it appear on the right,
+  Dec scans (the declination changes along the scan) on top, RA scans below.
+
++ **Click a line** to select that subscan; **drag** horizontally on the plot
+  to select one or more ranges of the coordinate along the scan (red strips).
+  "Clear ranges" removes them.
+
++ Then:
+
+  - **Zap range**: mask the samples of the selected subscan inside the
+    ranges, in the current channel;
+  - **Flag** / **Unflag**: mask the whole subscan, in all channels / remove
+    all its masks;
+  - **Fit baseline**: fit a straight line to the samples inside the ranges
+    (choose ranges with no source!) and subtract it from the subscan;
+  - **Align all**: shift and tilt the other subscans through the pixel to
+    match the selected one.
+
++ **Apply** recomputes the map with the edits, **Undo** cancels the last
+  edit. The list of edits is shown at the bottom.
+
++ **Save to productdir** writes the edited subscans to their files in the
+  product directory (``productdir`` in the config file). The raw data are
+  never touched: without a ``productdir``, saving gives an error. Edits that
+  are not saved are still used for the images of the current run.
+
++ **Close and continue**: ``SDTimage`` goes on and writes the final images.
+
+Edits are kept in memory by the program, not by the page: reloading the page
+does not lose them.
+
+The same page also works in a Jupyter notebook, on a scan set you loaded or
+created there:
+
+.. code-block:: python
+
+    from bokeh.io import output_notebook, show
+    from srttools.imager import ScanSet
+    from srttools.web_filter import FilterApp
+
+    output_notebook()
+    scanset = ScanSet("MySource.ini")
+    scanset.calculate_images()
+    app = FilterApp(scanset)
+    show(app)
+    # ... edit, then:
+    images = scanset.calculate_images()
+
+.. _Bokeh: https://bokeh.org
 
 Calibration of images
 ~~~~~~~~~~~~~~~~~~~~~
@@ -477,4 +548,4 @@ The correctness of the processing can be quickly tested using ``SunPy``:
    :alt: sun obs
    :align: center
 
-   **Figure 4.** Example Sun observation, plotted with ``SunPy``
+   **Figure 5.** Example Sun observation, plotted with ``SunPy``
