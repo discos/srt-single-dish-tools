@@ -131,6 +131,7 @@ namespaces = false
     "data/*/*",
     "tests/data/*.fits*",
     "tests/data/*/*.fits*",
+    "tests/data/*/*/*.fits*",
     "tests/data/*.ini",
     "tests/data/*/*.ini",
     "tests/data/acs.xml",
