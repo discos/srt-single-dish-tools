@@ -191,7 +191,7 @@ def test_click_elsewhere_after_zap(app):
 
 
 def test_map_scaling_matches_old_display(app):
-    """Both views use the old display's look: ds9-like log scale from the 20th percentile, gnuplot2."""
+    """Both views keep the old look (ds9-like log scale from the 20th percentile, gnuplot2), over filled pixels."""
     from matplotlib import colormaps
     from matplotlib.colors import to_hex
 
@@ -204,9 +204,33 @@ def test_map_scaling_matches_old_display(app):
     for kind, name in [("Image", ch), ("Outliers", f"{ch}-{stat}")]:
         app.set_map_kind(kind)
         img = np.array(app.scanset.images[name], dtype=float)
+        filled = (expo > 0) & np.isfinite(img)
         if kind == "Outliers":
-            bad = (img == 0) | ~np.isfinite(img)
-            img[bad] = np.mean(img[~bad])
+            filled &= img != 0
+            img[~filled] = np.mean(img[filled])
+        else:
+            img[~filled] = np.min(img[filled])
         expected = ds9_like_log_scale(img)
         assert np.allclose(app.image_source.data["image"][0], expected)
-        assert np.isclose(app.color_mapper.low, np.percentile(expected, 20))
+        assert np.isclose(app.color_mapper.low, np.percentile(expected[filled], 20))
+
+
+def test_empty_pixels_do_not_set_map_scale(app):
+    """An offset of the filled pixels (e.g. no baseline subtraction) leaves the map unchanged."""
+    ch = app.channel
+    images = app.scanset.images
+    expo = np.asarray(images[f"{ch}-EXPO"])
+    expo[:2] = 0  # make sure some pixels are empty
+    images[ch][:2] = 0
+    app.update_map()
+    before = np.array(app.image_source.data["image"][0])
+    low = app.color_mapper.low
+    original = np.array(images[ch])
+    try:
+        images[ch][expo > 0] += 500
+        app.update_map()
+        assert np.allclose(app.image_source.data["image"][0], before)
+        assert np.isclose(app.color_mapper.low, low)
+    finally:
+        images[ch][:] = original
+        app.scanset.calculate_images()

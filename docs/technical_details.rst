@@ -349,13 +349,20 @@ The interactive filter has two layers:
   tunnel, which requires a login on the machine. There is no password: other
   users logged in to the same machine can open the page too.
 
-The map looks as in the old matplotlib display: the ds9-like logarithmic
+The map looks much as in the old matplotlib display: the ds9-like logarithmic
 scale (``srttools.utils.ds9_like_log_scale``), colours from the 20th
 percentile to the maximum, and the ``gnuplot2`` colour map, whose blue low end
 shows faint stripes better than darker colour maps. The "Outliers" view shows
 the ``-Outliers`` image when the pixels have more than 6 samples on average,
 and the standard deviation image otherwise, on the same scale, after setting
 empty pixels to the mean of the others.
+
+One difference from the old display: pixels with no samples do not enter the
+scaling or the percentile. They are drawn at the minimum of the filled pixels.
+In the old display they count as zeros, so in a map made without baseline
+subtraction (raw counts well above zero) they stretch the scale, and the sky
+background turns black. With this rule, adding a constant to all the samples
+does not change the picture.
 
 Speed. Measured on an Apple M1 Pro laptop, with bokeh 3.9, on the W44
 maps of 2016-02-25 (K band, two channels, 267,627 samples in 339 subscans,

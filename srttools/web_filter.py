@@ -47,16 +47,6 @@ def _gnuplot2_palette():
     return [to_hex(cmap(i / 255)) for i in range(256)]
 
 
-def _finite_image(img):
-    """Copy of the image with NaNs and infinities replaced by the median of the rest."""
-    img = np.array(img, dtype=float)
-    bad = ~np.isfinite(img)
-    if np.all(bad):
-        return np.zeros_like(img)
-    img[bad] = np.median(img[~bad])
-    return img
-
-
 class FilterApp:
     """The interactive filter page.
 
@@ -251,29 +241,39 @@ class FilterApp:
     # ----- Updates --------------------------------------------------------
 
     def _map_array(self):
+        """The map to show, on the ds9-like log scale, and the mask of the filled pixels.
+
+        Empty pixels (no samples, or not finite) do not enter the scaling:
+        they are set to the minimum (Image) or to the mean (Outliers) of
+        the others.
+        """
         images = self.scanset.images
         ch = self.channel
-        if self.map_kind == "Image":
-            return ds9_like_log_scale(_finite_image(images[ch]))
         expo = np.asarray(images[f"{ch}-EXPO"])
-        mean_expo = np.mean(expo[expo > 0]) if np.any(expo > 0) else 0
-        stat = "Outliers" if mean_expo > 6 and f"{ch}-Outliers" in images else "Sdev"
-        # As in the old display: empty pixels set to the mean, then log scale
-        img = np.array(images[f"{ch}-{stat}"], dtype=float)
-        bad = (img == 0) | ~np.isfinite(img)
-        if np.all(bad):
-            return np.zeros_like(img)
-        img[bad] = np.mean(img[~bad])
-        return ds9_like_log_scale(img)
+        if self.map_kind == "Image":
+            img = np.array(images[ch], dtype=float)
+            filled = (expo > 0) & np.isfinite(img)
+            fill_value = np.min
+        else:
+            mean_expo = np.mean(expo[expo > 0]) if np.any(expo > 0) else 0
+            stat = "Outliers" if mean_expo > 6 and f"{ch}-Outliers" in images else "Sdev"
+            img = np.array(images[f"{ch}-{stat}"], dtype=float)
+            filled = (expo > 0) & (img != 0) & np.isfinite(img)
+            fill_value = np.mean
+        if not np.any(filled):
+            return np.zeros_like(img), filled
+        img[~filled] = fill_value(img[filled])
+        return ds9_like_log_scale(img), filled
 
     def update_map(self):
         """Redraw the map from the current images of the scan set."""
-        img = self._map_array()
+        img, filled = self._map_array()
         ny, nx = img.shape
         self.image_source.data = dict(image=[img], x=[0], y=[0], dw=[nx], dh=[ny])
-        # Same limits as the old matplotlib display
-        self.color_mapper.low = float(np.percentile(img, 20))
-        self.color_mapper.high = float(np.max(img))
+        # Limits as in the old matplotlib display, but from the filled pixels only
+        shown = img[filled] if np.any(filled) else img
+        self.color_mapper.low = float(np.percentile(shown, 20))
+        self.color_mapper.high = float(np.max(shown))
 
     def update_subscans(self):
         """Redraw the subscans through the selected pixel."""
