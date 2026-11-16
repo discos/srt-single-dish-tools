@@ -35,6 +35,7 @@ import glob
 import os
 import shutil
 import subprocess as sp
+import warnings
 
 import pytest
 
@@ -47,7 +48,9 @@ from srttools.global_fit import display_intermediate
 from srttools.imager import (
     ScanSet,
     _binned_mean_sdev,
+    _count_inner_empty_pixels,
     _excluded_regions_from_args,
+    _warn_empty_pixels,
     main_imager,
     main_preprocess,
     merge_tables,
@@ -1369,6 +1372,36 @@ def test_binned_mean_sdev_matches_numpy():
             assert np.isnan(sdev[i, j])
         else:
             assert np.isclose(sdev[i, j], np.std(vals, ddof=1), rtol=1e-6)
+
+
+def test_count_empty_pixels_inside_map():
+    """Empty pixels between filled ones (pixel smaller than the subscan spacing)
+    are counted; empty pixels around the edge of the map, including gaps in its
+    ragged outer row (subscans ending at slightly different positions), are not."""
+    expo = np.zeros((7, 9))
+    expo[1:6, 1:8] = 3
+    expo[1, 2:7:2] = 0  # ragged edge
+    assert _count_inner_empty_pixels(expo) == 0
+    expo[1, 2:7:2] = 3
+    expo[:, 4] = 0  # an empty column across the map: 3 holes, plus 2 in the outer rows
+    expo[3, 2] = 0  # an isolated hole
+    assert _count_inner_empty_pixels(expo) == 4
+
+
+@pytest.mark.parametrize("spacing", [0.8, 1.25])
+def test_warn_empty_pixels_from_coarse_scans(spacing):
+    """Subscans farther apart than one pixel leave empty pixels inside the map,
+    which are set to 0 and bias sums over the image: warn. Closer subscans: no warning."""
+    x = np.repeat(np.arange(0.3, 20, spacing), 200)
+    y = np.tile(np.linspace(0, 20, 200, endpoint=False), x.size // 200)
+    expo = np.histogram2d(x, y, bins=[np.arange(21), np.arange(21)])[0]
+    if spacing > 1:
+        with pytest.warns(UserWarning, match="pixels inside the map have no samples"):
+            _warn_empty_pixels(expo, "Feed0_RCP")
+    else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _warn_empty_pixels(expo, "Feed0_RCP")
 
 
 def test_error_map_matches_scatter_of_pixel_means():
