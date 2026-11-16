@@ -81,3 +81,4 @@ srttools/_version.py
 experiments/crossscan_mc/
 experiments/crossscan_real/
 experiments/maps_real/
+experiments/medicina_real/
