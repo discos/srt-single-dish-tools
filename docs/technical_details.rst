@@ -280,3 +280,24 @@ without it, and the sky along the scans crossing W44 was 0.3-0.6 times the
 pixel noise below zero, on average. With the exclusion, the average is zero.
 Wide exclusions leave few samples for the baseline: the subscan-to-subscan
 offsets (stripes) along those scans become larger.
+
+Pixel size and empty pixels
+---------------------------
+
+Each image pixel is the mean of the samples that fall in it. A pixel with no
+samples has value 0 (and NaN standard deviation). If the pixel is smaller
+than the spacing between subscans, whole columns (or rows) of pixels inside
+the map get no samples: they show up as dark stripes through a bright source,
+and any sum over the image, e.g. the flux density of an extended source in
+Jy/pixel, is too low. The pixel should be at least as large as the subscan
+spacing.
+
+``ScanSet.calculate_images`` warns when more than 1% of the filled pixels are
+empty pixels inside the map: empty pixels with filled pixels on both sides
+along one axis that also lie within the map along the other axis. Gaps in the
+ragged outer rows of a map, where subscans end at slightly different
+positions, do not count.
+
+On a Medicina map of Cas A at 8.18 GHz (2022-12-13; subscans 1.25' apart),
+1' pixels leave 24% of the pixels empty and the flux density in a 12' aperture
+comes out 19% lower than with 1.5' pixels, which leave none.

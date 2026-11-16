@@ -300,6 +300,67 @@ def _binned_mean_sdev(coords, values, bins):
     return mean, sdev, expo
 
 
+def _between(mask, axis):
+    """True where ``mask`` is True strictly before and strictly after, along ``axis``."""
+    before = np.logical_or.accumulate(mask, axis=axis)
+    after = np.flip(np.logical_or.accumulate(np.flip(mask, axis=axis), axis=axis), axis=axis)
+    # Shift by one pixel, so that the pixel itself does not count
+    pad = [(1, 0) if ax == axis else (0, 0) for ax in range(mask.ndim)]
+    n = mask.shape[axis]
+    before = np.take(np.pad(before, pad), range(n), axis=axis)
+    pad = [(0, 1) if ax == axis else (0, 0) for ax in range(mask.ndim)]
+    after = np.take(np.pad(after, pad), range(1, n + 1), axis=axis)
+    return before & after
+
+
+def _dilate(mask, axis):
+    """Extend a boolean mask by one pixel on each side along ``axis``."""
+    padded = np.pad(mask, [(1, 1) if ax == axis else (0, 0) for ax in range(mask.ndim)])
+    n = mask.shape[axis]
+    return mask | np.take(padded, range(n), axis=axis) | np.take(padded, range(2, n + 2), axis=axis)
+
+
+def _count_inner_empty_pixels(expo):
+    """Count the pixels with no samples that lie inside a 2D map.
+
+    An empty pixel is "inner" if it has filled pixels on both sides along one
+    axis (e.g. a column missed by subscans farther apart than one pixel) and,
+    along the other axis, it lies within the map once the filled pixels are
+    extended by one pixel across the gap. Gaps in the ragged outer rows of the
+    map (subscans ending at slightly different positions) do not count.
+
+    Examples
+    --------
+    >>> _count_inner_empty_pixels(np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]]))
+    1
+    >>> _count_inner_empty_pixels(np.array([[1, 0, 1], [1, 1, 1], [1, 1, 1]]))
+    0
+    """
+    filled = np.asarray(expo) > 0
+    inner = (_between(filled, 1) & _between(_dilate(filled, 1), 0)) | (
+        _between(filled, 0) & _between(_dilate(filled, 0), 1)
+    )
+    return int(np.count_nonzero(inner & ~filled))
+
+
+def _warn_empty_pixels(expo, channel, max_fraction=0.01):
+    """Warn if more than ``max_fraction`` of the map pixels are inner empty pixels.
+
+    This happens when the pixel is smaller than the spacing between
+    subscans. Empty pixels have value 0 in the image, so they bias sums
+    over the image (e.g. the flux density of an extended source in
+    Jy/pixel).
+    """
+    n_empty = _count_inner_empty_pixels(expo)
+    n_filled = np.count_nonzero(np.asarray(expo) > 0)
+    if n_filled > 0 and n_empty > max_fraction * n_filled:
+        warnings.warn(
+            f"{channel}: {n_empty} pixels inside the map have no samples "
+            f"({n_empty / n_filled:.0%} of the filled ones). They are set to 0. "
+            "Is the pixel smaller than the spacing between subscans? Use a larger pixel_size."
+        )
+
+
 def find_outlier_subscans(counts, coord, scan_id, arm, nsigma=5.0):
     """Find subscans whose noise is anomalous, e.g. because of residual RFI.
 
@@ -846,6 +907,7 @@ class ScanSet(Table):
             mean, img_sdev, expomap = _binned_mean_sdev(
                 (filtered_x, filtered_y), counts, [xbins, ybins]
             )
+            _warn_empty_pixels(expomap, ch)
 
             img_outliers, _, _, _ = binned_statistic_2d(
                 filtered_x,
