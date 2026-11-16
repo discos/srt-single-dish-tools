@@ -1,0 +1,1 @@
+The command line page of the docs is now rebuilt at every docs build (also on Read the Docs) from the code being documented, and is no longer tracked by git; fixed the author list of the docs.

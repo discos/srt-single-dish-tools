@@ -63,6 +63,8 @@ srttools/tests/data/sim/
 
 # Sphinx documentation
 docs/_build/
+# Rebuilt at every docs build by docs/conf.py
+docs/scripts/cli.rst
 
 # PyBuilder
 target/

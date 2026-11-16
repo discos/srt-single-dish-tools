@@ -73,6 +73,22 @@ deprecated APIs of numpy, scipy, astropy etc., while ignoring deprecation
 warnings raised *between* third-party packages (e.g. Pillow or pyparsing
 warnings triggered inside old matplotlib versions), which we cannot fix.
 
+The command line page of the docs
+---------------------------------
+
+The page listing the options of every script (``docs/scripts/cli.rst``) is
+written again at each docs build by ``docs/conf.py``, which runs every script
+with ``--help``. So it always matches the code, also on Read the Docs. Two
+details:
+
+* The file is not tracked by git (it is in ``.gitignore``). When it was
+  tracked, every local docs build modified it, and the published page showed
+  an old copy.
+* Each script is run through its function (the one listed in
+  ``[project.scripts]`` of ``pyproject.toml``) with the Python interpreter
+  that builds the docs. The ``SDT*`` executables found on the ``PATH`` are not
+  used: they might belong to another, older installation.
+
 Dates and time zones
 --------------------
 
