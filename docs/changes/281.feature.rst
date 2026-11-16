@@ -1,0 +1,1 @@
+Interactive filtering of maps (``SDTimage --interactive``) is now a web page built with Bokeh, served locally (also through an ssh tunnel) or shown in a Jupyter notebook. Edits are kept in memory, can be undone, and are saved only to the product directory. Install with ``pip install srttools[interactive]``.

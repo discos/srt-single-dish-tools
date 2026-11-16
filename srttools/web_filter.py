@@ -118,7 +118,9 @@ class FilterApp:
             ("done", "Close and continue", self.done),
         ]:
             button = Button(
-                label=label, button_type="primary" if name == "save" else "default", width=110
+                label=label,
+                button_type="primary" if name == "save" else "default",
+                width=140 if name in ("save", "done") else 110,
             )
             button.on_click(self._report_errors(callback))
             self.buttons[name] = button

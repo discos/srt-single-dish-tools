@@ -90,6 +90,7 @@ docs = [
     "pandoc",
     "ipython",
     "towncrier",
+    "bokeh>=3.3",
 ]
 
 [project.urls]
