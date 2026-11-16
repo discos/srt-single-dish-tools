@@ -58,6 +58,10 @@ test_all = [
     "statsmodels>=0.8.0",
     "sunpy",
     "tqdm>=4.60",
+    "bokeh>=3.3",
+]
+interactive = [
+    "bokeh>=3.3",
 ]
 recommended = [
     "numba",
@@ -67,6 +71,7 @@ recommended = [
 ]
 all = [
     "srttools[recommended]",
+    "srttools[interactive]",
     "mahotas",
     "regions",
     "watchdog",
@@ -85,6 +90,7 @@ docs = [
     "pandoc",
     "ipython",
     "towncrier",
+    "bokeh>=3.3",
 ]
 
 [project.urls]

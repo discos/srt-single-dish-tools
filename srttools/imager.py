@@ -2075,7 +2075,15 @@ def main_imager(args=None):
         "--interactive",
         default=False,
         action="store_true",
-        help="Open the interactive display",
+        help="Open the interactive filter: a web page served locally (needs bokeh; "
+        "without it, the old matplotlib display)",
+    )
+
+    parser.add_argument(
+        "--port",
+        default=5006,
+        type=int,
+        help="Port of the interactive filter web page",
     )
 
     parser.add_argument(
@@ -2289,7 +2297,16 @@ def main_imager(args=None):
             outfile = infile.replace(".ini", "_dump.hdf5")
 
     if args.interactive:
-        scanset.interactive_display()
+        try:
+            from .web_filter import serve
+        except ImportError:
+            warnings.warn(
+                "bokeh is not installed (pip install srttools[interactive]): "
+                "using the old matplotlib display"
+            )
+            scanset.interactive_display()
+        else:
+            serve(scanset, port=args.port)
 
     if args.global_fit:
         scanset.fit_full_images(chans=args.chans, frame=args.frame, excluded=excluded_xy)

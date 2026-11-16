@@ -107,3 +107,19 @@ srttools.simulate module
     :members:
     :undoc-members:
     :show-inheritance:
+
+srttools.filter_session module
+------------------------------
+
+.. automodule:: srttools.filter_session
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+srttools.web_filter module
+--------------------------
+
+.. automodule:: srttools.web_filter
+    :members:
+    :undoc-members:
+    :show-inheritance:
