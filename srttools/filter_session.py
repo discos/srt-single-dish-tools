@@ -14,6 +14,7 @@ This module has no graphics: front ends (e.g. the web page) call its methods.
 import copy
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -111,6 +112,35 @@ class FilterSession:
         )
         scan_ids = sorted(set(np.asarray(self.scanset["Scan_id"][near]).tolist()))
         return [self.subscan(sid, channel) for sid in scan_ids]
+
+    def scan_summary(self, channel):
+        """One row per subscan, for a list of scans in a front end.
+
+        Returns
+        -------
+        summary : dict of lists
+            ``scan_id``, ``name`` (file name without directory), ``direction``
+            (``"ra"`` or ``"dec"``), ``masked`` (fraction of masked samples of
+            ``channel``) and ``flagged`` (True if all samples of all channels
+            are masked), in order of ``scan_id``.
+        """
+        ids, inverse = np.unique(np.asarray(self.scanset["Scan_id"]), return_inverse=True)
+        n = np.bincount(inverse)
+        masked = np.bincount(
+            inverse, weights=~np.asarray(self.scanset[f"{channel}-filt"], dtype=bool)
+        )
+        any_good = np.zeros(len(ids))
+        for c in self.scanset.chan_columns:
+            any_good += np.bincount(
+                inverse, weights=np.asarray(self.scanset[f"{c}-filt"], dtype=bool)
+            )
+        return dict(
+            scan_id=[int(i) for i in ids],
+            name=[os.path.basename(self.scanset.scan_list[i]) for i in ids],
+            direction=[self._direction(i) for i in ids],
+            masked=(masked / n).tolist(),
+            flagged=(any_good == 0).tolist(),
+        )
 
     # ----- Edits ----------------------------------------------------------
 
@@ -270,7 +300,7 @@ class FilterSession:
         """
         if productdir is None or not str(productdir).strip():
             raise ValueError("Give a directory where to save the edits")
-        productdir = os.path.abspath(os.path.expanduser(str(productdir).strip()))
+        productdir = os.path.abspath(Path(str(productdir).strip()).expanduser())
         for sname in self.scanset.scan_list:
             rawdir = os.path.dirname(os.path.abspath(sname))
             if os.path.dirname(self._outfile(sname, productdir)) == rawdir:
@@ -282,7 +312,7 @@ class FilterSession:
 
     def config_hint(self, productdir):
         """Explain how a later run finds files saved in ``productdir``; empty if it already does."""
-        productdir = os.path.abspath(os.path.expanduser(str(productdir).strip()))
+        productdir = os.path.abspath(Path(str(productdir).strip()).expanduser())
         if productdir == self.config_productdir:
             return ""
         return (

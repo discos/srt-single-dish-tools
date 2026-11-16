@@ -57,6 +57,23 @@ def test_subscans_through_pixel():
     assert session.subscans_through_pixel(0, 0, "Feed0_RCP") == []
 
 
+def test_scan_summary_follows_edits():
+    """The scan list gives name, direction, masked fraction of the channel, and whole-scan flags."""
+    session = FilterSession(_fake_scanset())
+    summary = session.scan_summary("Feed0_RCP")
+    assert summary["scan_id"] == [0, 1, 2, 3]
+    assert summary["name"] == [f"scan{i}.fits" for i in range(4)]
+    assert summary["direction"] == ["dec", "dec", "ra", "ra"]
+    assert summary["masked"] == [0, 0, 0, 0]
+    assert summary["flagged"] == [False] * 4
+    session.zap(1, "Feed0_RCP", -2, 0)  # half of scan 1, one channel only
+    session.flag(3)
+    summary = session.scan_summary("Feed0_RCP")
+    assert np.allclose(summary["masked"], [0, 0.5, 0, 1])
+    assert summary["flagged"] == [False, False, False, True]
+    assert session.scan_summary("Feed0_LCP")["masked"][1] == 0
+
+
 def test_zap_masks_one_channel_inside_interval():
     """A zap masks only the samples inside the interval, in one channel of one scan."""
     scanset = _fake_scanset()
