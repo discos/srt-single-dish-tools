@@ -1,5 +1,6 @@
 """Tests of the Bokeh filter page, calling its Python callbacks directly (no browser)."""
 
+import glob
 import os
 import warnings
 
@@ -114,3 +115,54 @@ def test_save_from_page(app):
     app.save()
     assert "No unsaved" in app.edit_list.text
     assert "Saved 1 edits" in app.status.text
+
+
+def test_server_serves_independent_pages(scanset):
+    """The server answers two page requests, each building its own widgets on a shared session."""
+    import asyncio
+    import threading
+
+    from tornado.httpclient import AsyncHTTPClient
+
+    from srttools.web_filter import _make_server
+
+    codes = []
+
+    def run():
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        server, session = _make_server(scanset, port=0)
+        server.start()
+
+        async def get_twice():
+            try:
+                for _ in range(2):
+                    response = await AsyncHTTPClient().fetch(f"http://localhost:{server.port}/")
+                    codes.append(response.code)
+            finally:
+                server.io_loop.stop()
+
+        server.io_loop.add_callback(get_twice)
+        server.io_loop.start()
+        server.stop()
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join(60)
+    assert codes == [200, 200]
+
+
+def test_sdtimage_interactive_calls_server(scanset, tmp_path, monkeypatch):
+    """SDTimage --interactive hands the scan set to the web server, then makes the images."""
+    import srttools.web_filter
+    from srttools.imager import main_imager
+
+    calls = []
+    monkeypatch.setattr(
+        srttools.web_filter, "serve", lambda scanset, port: calls.append((len(scanset), port))
+    )
+    outfile = str(tmp_path / "casa_dump.hdf5")
+    scanset.write(outfile, overwrite=True)
+    main_imager([outfile, "--interactive", "--port", "5123", "--noplot"])
+    assert calls == [(len(scanset), 5123)]
+    # The images are named after the config file
+    assert glob.glob(scanset.meta["config_file"].replace(".ini", "*.fits"))

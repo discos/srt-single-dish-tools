@@ -10,13 +10,17 @@ served by a Bokeh server (``SDTimage --interactive``) or shown in a Jupyter
 notebook. Bokeh is an optional dependency.
 """
 
+import os
+import socket
+
 import numpy as np
-from bokeh.events import SelectionGeometry, Tap
+from bokeh.events import DocumentReady, SelectionGeometry, Tap
 from bokeh.layouts import column, row
 from bokeh.models import (
     BoxSelectTool,
     Button,
     ColumnDataSource,
+    CustomJS,
     Div,
     LinearColorMapper,
     RadioButtonGroup,
@@ -28,7 +32,7 @@ from bokeh.plotting import figure
 from .filter_session import FilterSession
 from .utils import ds9_like_log_scale
 
-__all__ = ["FilterApp"]
+__all__ = ["FilterApp", "serve", "ssh_hint"]
 
 LINE_COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2"]
 MAP_KINDS = ["Image", "Outliers"]
@@ -58,9 +62,12 @@ class FilterApp:
         An existing session; by default a new one is created.
     channel : str, optional
         The channel shown first (default: the first one).
+    on_done : callable, optional
+        Called by the "Close and continue" button (e.g. to stop the server).
     """
 
-    def __init__(self, scanset, session=None, channel=None):
+    def __init__(self, scanset, session=None, channel=None, on_done=None):
+        self.on_done = on_done
         self.scanset = scanset
         self.session = FilterSession(scanset) if session is None else session
         self.channel = channel if channel is not None else str(scanset.chan_columns[0])
@@ -94,6 +101,8 @@ class FilterApp:
         self.info = Div(text="Click a pixel of the map to see the subscans through it.")
         self.status = Div(text="")
         self.edit_list = Div(text="")
+        # Read by the browser to warn before closing the page with unsaved edits
+        self.unsaved_flag = Div(text="0", visible=False)
 
         self.buttons = {}
         for name, label, callback in [
@@ -106,6 +115,7 @@ class FilterApp:
             ("undo", "Undo", self.undo),
             ("apply", "Apply", self.apply),
             ("save", "Save to productdir", self.save),
+            ("done", "Close and continue", self.done),
         ]:
             button = Button(
                 label=label, button_type="primary" if name == "save" else "default", width=110
@@ -123,8 +133,9 @@ class FilterApp:
                 column(self.scan_figures["dec"], self.scan_figures["ra"]),
             ),
             row(b["zap"], b["flag"], b["unflag"], b["baseline"], b["align"], b["clear"]),
-            row(b["undo"], b["apply"], b["save"], self.status),
+            row(b["undo"], b["apply"], b["save"], b["done"], self.status),
             self.edit_list,
+            self.unsaved_flag,
         )
 
     def _report_errors(self, callback):
@@ -294,6 +305,7 @@ class FilterApp:
             target = "" if edit["scan_id"] is None else f"subscan {edit['scan_id']}, "
             chan = edit["channel"] if edit["channel"] is not None else "all channels"
             lines.append(f"<li>{target}{chan}: {what}</li>")
+        self.unsaved_flag.text = str(session.n_unsaved)
         if lines:
             self.edit_list.text = (
                 f"<b>{session.n_unsaved} unsaved edits</b> (in memory)<ul>{''.join(lines)}</ul>"
@@ -414,7 +426,108 @@ class FilterApp:
         self.map_kind = kind
         self.update_map()
 
+    def done(self):
+        """Close the page and let the calling program continue."""
+        if self.on_done is None:
+            self.status.text = "Nothing to close here: just continue."
+            return
+        self.status.text = "Closed: the program continues. You can close this page."
+        self.on_done()
+
     def __call__(self, doc):
         """Add the page to a Bokeh document (used by the Bokeh server and in notebooks)."""
         doc.title = "SDTimage interactive filter"
         doc.add_root(self.layout)
+        doc.js_on_event(
+            DocumentReady,
+            CustomJS(
+                args=dict(flag=self.unsaved_flag),
+                code="""
+window.addEventListener("beforeunload", (event) => {
+    if (flag.text !== "0") { event.preventDefault(); event.returnValue = ""; }
+});
+""",
+            ),
+        )
+
+
+def ssh_hint(port, host=None, user=None):
+    """Command to forward ``port`` of this machine to the same port of a local computer.
+
+    Examples
+    --------
+    >>> ssh_hint(5006, host="calc1", user="obs")
+    'ssh -N -L 5006:localhost:5006 obs@calc1'
+    """
+    import getpass
+
+    host = socket.gethostname() if host is None else host
+    user = getpass.getuser() if user is None else user
+    return f"ssh -N -L {port}:localhost:{port} {user}@{host}"
+
+
+def _make_server(scanset, port):
+    """Bokeh server of the filter page, and the edit session shared by all its pages."""
+    from bokeh.server.server import Server
+
+    session = FilterSession(scanset)
+    server = None
+
+    def stop():
+        # Short delay: the page first shows that the program continues
+        server.io_loop.call_later(0.5, server.io_loop.stop)
+
+    def make_page(doc):
+        FilterApp(scanset, session=session, on_done=stop)(doc)
+
+    # Only reachable from this machine (or through an ssh tunnel)
+    server = Server({"/": make_page}, address="localhost", port=port, num_procs=1)
+    return server, session
+
+
+def serve(scanset, port=5006, open_browser=None):
+    """Serve the filter page and wait until the user presses "Close and continue".
+
+    Each browser page gets its own copy of the widgets, but all share one
+    :class:`srttools.filter_session.FilterSession`: reloading the page keeps
+    the edits. The edited scan set can be used by the caller afterwards,
+    whether or not the edits were saved to disk.
+
+    Parameters
+    ----------
+    scanset : :class:`srttools.imager.ScanSet`
+    port : int
+        Port of the web server (0: any free port).
+    open_browser : bool, optional
+        Open the page in a local browser. By default, only when not logged in
+        through ssh.
+
+    Returns
+    -------
+    session : :class:`srttools.filter_session.FilterSession`
+    """
+    server, session = _make_server(scanset, port)
+    server.start()
+    url = f"http://localhost:{server.port}/"
+    remote = "SSH_CONNECTION" in os.environ
+    print(f"\nInteractive filter: open {url} in a browser.")
+    if remote:
+        print(
+            "You are logged in through ssh. On your own computer, run\n\n"
+            f"    {ssh_hint(server.port)}\n\nthen open {url} there."
+        )
+    print('Press "Close and continue" on the page (or Ctrl-C here) when done.\n')
+    if open_browser if open_browser is not None else not remote:
+        server.io_loop.add_callback(server.show, "/")
+    try:
+        server.io_loop.start()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.stop()
+    if session.n_unsaved > 0:
+        print(
+            f"{session.n_unsaved} edits not saved to disk: they are used for the "
+            "images of this run only."
+        )
+    return session
