@@ -72,3 +72,45 @@ def test_channel_and_map_kind(app):
     img = app.image_source.data["image"][0]
     assert img.shape == app.scanset.images["Feed0_LCP"].shape
     assert np.all(np.isfinite(img))
+
+
+def _click_peak(app):
+    img = app.scanset.images[app.channel]
+    y, x = np.unravel_index(np.nanargmax(img), img.shape)
+    app.select_pixel(x, y)
+    return app.line_sources["dec"].data["scan_id"][0]
+
+
+def test_zap_apply_undo(app):
+    """Zapping the peak of a subscan masks it, changes the map after Apply; Undo restores it."""
+    sid = _click_peak(app)
+    app.select_subscan(sid)
+    s = app._selected_subscan()
+    peak = s.coord[np.argmax(s.values)]
+    app.add_range(peak - 0.05, peak + 0.05)
+    before = np.array(app.scanset.images[app.channel])
+    app.zap()
+    assert len(app.masked_sources["dec"].data["x"]) > 0
+    assert "1 unsaved" in app.edit_list.text
+    app.apply()
+    assert np.nansum(app.scanset.images[app.channel]) < np.nansum(before)
+    app.undo()
+    app.apply()
+    assert np.allclose(app.scanset.images[app.channel], before, equal_nan=True)
+    assert "No unsaved" in app.edit_list.text
+
+
+def test_errors_shown_on_page(app):
+    """A button pressed in the wrong state shows the reason on the page instead of failing."""
+    app._report_errors(app.zap)()
+    assert "Select a subscan first" in app.status.text
+
+
+def test_save_from_page(app):
+    """Save writes the edits and empties the list of unsaved edits."""
+    sid = _click_peak(app)
+    app.select_subscan(sid)
+    app.flag()
+    app.save()
+    assert "No unsaved" in app.edit_list.text
+    assert "Saved 1 edits" in app.status.text
