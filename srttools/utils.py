@@ -162,11 +162,6 @@ def new_figure(interactive=False, **kwargs):
 
 
 @lru_cache(10)
-def warn_once(logger: Logger, msg: str):
-    logger.warning(msg)
-
-
-@lru_cache(10)
 def info_once(logger: Logger, msg: str):
     logger.info(msg)
 
