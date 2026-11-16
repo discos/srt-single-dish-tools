@@ -18,6 +18,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 import astropy.units as u
+from astropy.stats import mad_std
 from astropy.table import Column, Table
 
 from .crossscan import beam_fwhm_from_frequency
@@ -1096,6 +1097,14 @@ class CalibratorTable(Table):
 
             if len(x_to_fit[bad]) > len(x_to_fit) - 5:
                 warnings.warn("Calibration fit is shaky")
+                # Too few points, or points scattered well beyond their
+                # formal errors: median, with the error of the median from
+                # the robust scatter of the points (never smaller than the
+                # formal errors allow)
+                n = len(y_to_fit)
+                scatter = max(mad_std(y_to_fit), np.median(ye_to_fit))
+                p = [np.median(y_to_fit)]
+                pcov = np.array([[(1.2533 * scatter / np.sqrt(n)) ** 2]])
                 break
 
             xbad = x_to_fit[bad]

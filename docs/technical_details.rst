@@ -233,6 +233,28 @@ signals that the fits are unreliable. Set ``outlier_nsigma=None``
 Tables written by previous versions are read with ``Resid Std`` set to NaN
 (no fit is flagged for its residuals) and ``Outlier`` set to False.
 
+Constant calibration and its error
+----------------------------------
+
+When the calibrators cannot constrain a line in elevation (fewer than 3
+fits), or the target lies outside the elevation range of the calibrators
+(by more than half that range), the calibration factor (Jy per count) is a
+constant, from ``CalibratorTable.Jy_over_counts_rough``. It rejects fits more
+than 5 formal errors away from the mean and averages the others, weighting
+them with their formal errors. If fewer than 5 fits would survive (few fits,
+or fits that scatter well beyond their formal errors, e.g. because of
+pointing errors or a bad calibrator scan) it warns "Calibration fit is
+shaky" and uses the median of the fits. The error of the median is
+1.2533 sigma / sqrt(N), where sigma is the robust standard deviation of the
+fits (from the median absolute deviation), or their median formal error if
+larger. Before this, the error was the median formal error of one fit.
+
+On a Medicina cross scan of NGC7027 (2022-12-13, 8.18 GHz, 14 fits per
+channel scattering by 26-41% with formal errors of ~1%), the error of the
+calibration factor goes from ~1% to 12% (RCP) and 18% (LCP), and the flux
+densities of Cas A from the two polarizations, which differ by 20%, become
+consistent.
+
 Calibrator maps and off-axis feeds
 ----------------------------------
 
