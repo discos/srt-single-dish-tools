@@ -1,13 +1,16 @@
 """Web page for the interactive filtering of a ScanSet, built with Bokeh.
 
-The page shows the map on the left; clicking a pixel shows, on the right, the
-subscans passing through it (Dec and RA scans separately). All edits go
+The page has two views. In the "map" view (``SDTimage --interactive``) the
+map is on the left; clicking a pixel shows, on the right, the subscans passing
+through it (Dec and RA scans separately). In the "scans" view
+(``SDTpreprocess --interactive``) there is no map: the left side lists all the
+subscans, and the right side plots the one chosen in the list. All edits go
 through a :class:`srttools.filter_session.FilterSession`, so nothing is
-written to disk until the user saves.
+written to disk until the user saves, and never next to the raw data.
 
 :class:`FilterApp` builds the page and holds the Python callbacks; it can be
-served by a Bokeh server (``SDTimage --interactive``) or shown in a Jupyter
-notebook. Bokeh is an optional dependency.
+served by a Bokeh server or shown in a Jupyter notebook. Bokeh is an optional
+dependency.
 """
 
 import os
@@ -21,11 +24,15 @@ from bokeh.models import (
     Button,
     ColumnDataSource,
     CustomJS,
+    DataTable,
     Div,
     LinearColorMapper,
+    NumberFormatter,
     RadioButtonGroup,
     Select,
+    TableColumn,
     TapTool,
+    TextInput,
 )
 from bokeh.plotting import figure
 
@@ -36,6 +43,11 @@ __all__ = ["FilterApp", "serve", "ssh_hint"]
 
 LINE_COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2"]
 MAP_KINDS = ["Image", "Outliers"]
+VIEWS = ("map", "scans")
+
+
+def _red(message):
+    return f"<span style='color:#c00'>{message}</span>"
 
 
 def _gnuplot2_palette():
@@ -63,9 +75,16 @@ class FilterApp:
         The channel shown first (default: the first one).
     on_done : callable, optional
         Called by the "Close and continue" button (e.g. to stop the server).
+    view : str, optional
+        ``"map"`` (default): map, and subscans through the clicked pixel.
+        ``"scans"``: list of all subscans, one plotted at a time; no map is
+        calculated.
     """
 
-    def __init__(self, scanset, session=None, channel=None, on_done=None):
+    def __init__(self, scanset, session=None, channel=None, on_done=None, view="map"):
+        if view not in VIEWS:
+            raise ValueError(f"view must be one of {VIEWS}")
+        self.view = view
         self.on_done = on_done
         self.scanset = scanset
         self.session = FilterSession(scanset) if session is None else session
@@ -75,7 +94,9 @@ class FilterApp:
         self.subscans = []
         self.selected = None  # scan_id of the selected subscan
         self.ranges = []  # (lo, hi) intervals marked on the subscan plots, degrees
-        if scanset.images is None:
+        self.scan_index = None  # row of the scan list shown ("scans" view)
+        self._close_asked = False
+        if view == "map" and scanset.images is None:
             scanset.calculate_images()
 
         self.image_source = ColumnDataSource(dict(image=[], x=[], y=[], dw=[], dh=[]))
@@ -86,8 +107,8 @@ class FilterApp:
         self.masked_sources = {d: ColumnDataSource(dict(x=[], y=[])) for d in ("dec", "ra")}
         self.range_sources = {d: ColumnDataSource(dict(left=[], right=[])) for d in ("dec", "ra")}
 
-        self.map_figure = self._make_map_figure()
-        self.scan_figures = {d: self._make_scan_figure(d) for d in ("dec", "ra")}
+        size = (520, 260) if view == "map" else (620, 420)
+        self.scan_figures = {d: self._make_scan_figure(d, *size) for d in ("dec", "ra")}
 
         self.channel_select = Select(
             title="Channel", value=self.channel, options=[str(c) for c in scanset.chan_columns]
@@ -103,6 +124,15 @@ class FilterApp:
         # Read by the browser to warn before closing the page with unsaved edits
         self.unsaved_flag = Div(text="0", visible=False)
 
+        # Where Save writes: never empty, and checked as soon as it is changed
+        self.save_dir = TextInput(
+            title="Save to (never the raw data directory)",
+            value=self.session.default_productdir,
+            width=520,
+        )
+        self.save_dir.on_change("value", lambda attr, old, new: self.check_save_dir())
+        self.save_note = Div(text="")
+
         self.buttons = {}
         for name, label, callback in [
             ("zap", "Zap range", self.zap),
@@ -113,8 +143,10 @@ class FilterApp:
             ("clear", "Clear ranges", self.clear_ranges),
             ("undo", "Undo", self.undo),
             ("apply", "Apply", self.apply),
-            ("save", "Save to productdir", self.save),
+            ("save", "Save", self.save),
             ("done", "Close and continue", self.done),
+            ("previous", "Previous scan", lambda: self.step_scan(-1)),
+            ("next", "Next scan", lambda: self.step_scan(1)),
         ]:
             button = Button(
                 label=label,
@@ -124,20 +156,56 @@ class FilterApp:
             button.on_click(self._report_errors(callback))
             self.buttons[name] = button
 
-        self.update_map()
         self.update_edit_list()
+        self.check_save_dir()
         b = self.buttons
-        self.layout = column(
-            row(self.channel_select, self.map_kind_buttons),
-            row(
-                column(self.map_figure, self.info),
-                column(self.scan_figures["dec"], self.scan_figures["ra"]),
-            ),
-            row(b["zap"], b["flag"], b["unflag"], b["baseline"], b["align"], b["clear"]),
-            row(b["undo"], b["apply"], b["save"], b["done"], self.status),
-            self.edit_list,
-            self.unsaved_flag,
-        )
+        for name in ("save", "done", "previous", "next"):
+            b[name].margin = (24, 5, 5, 5)  # level with the input boxes, which have a title
+        figures = column(self.scan_figures["dec"], self.scan_figures["ra"])
+        save_bar = [row(self.save_dir, b["save"], b["done"]), self.save_note]
+        if view == "map":
+            self.map_figure = self._make_map_figure()
+            self.update_map()
+            rows = [
+                row(self.channel_select, self.map_kind_buttons),
+                row(column(self.map_figure, self.info), figures),
+                row(b["zap"], b["flag"], b["unflag"], b["baseline"], b["align"], b["clear"]),
+                row(b["undo"], b["apply"], self.status),
+            ]
+        else:
+            self.scan_source = ColumnDataSource(self._scan_rows())
+            self.scan_table = DataTable(
+                source=self.scan_source,
+                columns=[
+                    TableColumn(field="name", title="Scan", width=250),
+                    TableColumn(field="direction", title="Along", width=50),
+                    TableColumn(
+                        field="masked",
+                        title="Masked",
+                        width=60,
+                        formatter=NumberFormatter(format="0%"),
+                    ),
+                    TableColumn(field="state", title="", width=60),
+                ],
+                width=440,
+                height=420,
+                index_position=None,
+                sortable=False,
+            )
+            self.scan_source.selected.on_change(
+                "indices", lambda attr, old, new: self._on_scan_row(new)
+            )
+            rows = [
+                row(self.channel_select, b["previous"], b["next"]),
+                row(column(self.scan_table, self.info), figures),
+                row(b["zap"], b["flag"], b["unflag"], b["baseline"], b["clear"], b["undo"]),
+                self.status,
+            ]
+            if len(self.scan_source.data["scan_id"]) > 0:
+                self.show_scan(self.scan_source.data["scan_id"][0])
+            else:
+                self.info.text = "No scans."
+        self.layout = column(*rows, *save_bar, self.edit_list, self.unsaved_flag)
 
     def _report_errors(self, callback):
         """Wrap a button callback: show errors on the page instead of losing them."""
@@ -146,7 +214,7 @@ class FilterApp:
             try:
                 callback()
             except Exception as e:
-                self.status.text = f"<span style='color:#c00'>{e}</span>"
+                self.status.text = _red(e)
 
         return wrapped
 
@@ -185,11 +253,11 @@ class FilterApp:
         fig.on_event(Tap, lambda event: self.select_pixel(event.x, event.y))
         return fig
 
-    def _make_scan_figure(self, direction):
+    def _make_scan_figure(self, direction, width, height):
         label = "Dec" if direction == "dec" else "RA"
         fig = figure(
-            width=520,
-            height=260,
+            width=width,
+            height=height,
             tools="pan,wheel_zoom,box_zoom,reset",
             title=f"{label} subscans through the pixel",
             x_axis_label=f"{label} (deg)",
@@ -276,10 +344,19 @@ class FilterApp:
         self.color_mapper.high = float(np.max(shown))
 
     def update_subscans(self):
-        """Redraw the subscans through the selected pixel."""
-        if self.pixel is None:
+        """Redraw the subscans through the selected pixel, or the scan chosen in the list."""
+        if self.view == "scans":
+            if self.selected is None:
+                return
+            shown = self.session.subscan(self.selected, self.channel)
+            self.subscans = [shown]
+            for direction, fig in self.scan_figures.items():
+                fig.visible = direction == shown.direction
+                fig.title.text = f"{os.path.basename(shown.name)} (subscan {shown.scan_id})"
+        elif self.pixel is None:
             return
-        self.subscans = self.session.subscans_through_pixel(*self.pixel, self.channel)
+        else:
+            self.subscans = self.session.subscans_through_pixel(*self.pixel, self.channel)
         for direction in ("dec", "ra"):
             lines = dict(xs=[], ys=[], scan_id=[], color=[])
             masked = dict(x=[], y=[])
@@ -301,9 +378,46 @@ class FilterApp:
         for source in self.line_sources.values():
             ids = source.data["scan_id"]
             source.selected.indices = [ids.index(self.selected)] if self.selected in ids else []
-        x, y = self.pixel
-        self.info.text = f"Pixel ({int(x)}, {int(y)}): {len(self.subscans)} subscans"
+        if self.view == "scans":
+            n = len(self.scan_source.data["scan_id"])
+            self.info.text = f"Scan {self.scan_index + 1} of {n}"
+        else:
+            x, y = self.pixel
+            self.info.text = f"Pixel ({int(x)}, {int(y)}): {len(self.subscans)} subscans"
         self.update_ranges()
+
+    # ----- List of scans ("scans" view) -----------------------------------
+
+    def _scan_rows(self):
+        rows = self.session.scan_summary(self.channel)
+        rows["state"] = ["flagged" if f else "" for f in rows.pop("flagged")]
+        return rows
+
+    def update_scan_table(self):
+        """Refresh the masked fractions and the flags in the list of scans."""
+        self.scan_source.data = self._scan_rows()
+
+    def _on_scan_row(self, indices):
+        if indices and indices[0] != self.scan_index:
+            self.show_scan(self.scan_source.data["scan_id"][indices[0]])
+
+    def show_scan(self, scan_id):
+        """Plot one scan of the list and make it the one the buttons act on."""
+        index = self.scan_source.data["scan_id"].index(int(scan_id))
+        self.scan_index = index
+        self.selected = int(scan_id)
+        self.ranges = []
+        if list(self.scan_source.selected.indices) != [index]:
+            self.scan_source.selected.indices = [index]
+        self.update_subscans()
+
+    def step_scan(self, step):
+        """Go ``step`` rows down the list of scans (negative: up), stopping at its ends."""
+        n = len(self.scan_source.data["scan_id"])
+        if n == 0:
+            return
+        index = int(np.clip((self.scan_index or 0) + step, 0, n - 1))
+        self.show_scan(self.scan_source.data["scan_id"][index])
 
     def update_ranges(self):
         """Draw the marked ranges on the plot of the selected subscan's direction."""
@@ -349,7 +463,10 @@ class FilterApp:
     def set_channel(self, channel):
         """Show another channel."""
         self.channel = channel
-        self.update_map()
+        if self.view == "map":
+            self.update_map()
+        else:
+            self.update_scan_table()
         self.update_subscans()
 
     # ----- Editing --------------------------------------------------------
@@ -368,7 +485,12 @@ class FilterApp:
     def _after_edit(self, message):
         self.update_subscans()
         self.update_edit_list()
-        self.status.text = message + " Press Apply to update the map."
+        self._close_asked = False
+        if self.view == "map":
+            message += " Press Apply to update the map."
+        else:
+            self.update_scan_table()
+        self.status.text = message
 
     def select_subscan(self, scan_id):
         """Select the subscan to edit (marked intervals are cleared if it changes)."""
@@ -439,12 +561,26 @@ class FilterApp:
         self.update_map()
         self.status.text = "Map updated."
 
+    def check_save_dir(self):
+        """Check the "Save to" directory, and say at once on the page if it cannot be used.
+
+        Returns the absolute directory, or None if edits cannot be saved
+        there.
+        """
+        try:
+            productdir = self.session.check_productdir(self.save_dir.value)
+        except ValueError as e:
+            self.save_note.text = _red(f"{e}. Edits cannot be saved until this is changed.")
+            return None
+        self.save_note.text = self.session.config_hint(productdir)
+        return productdir
+
     def save(self):
-        """Write the edits to the scan files in the product directory."""
+        """Write the edits to the scan files in the "Save to" directory."""
         n = self.session.n_unsaved
-        self.session.save()
+        productdir = self.session.save(productdir=self.save_dir.value)
         self.update_edit_list()
-        self.status.text = f"Saved {n} edits to the product directory."
+        self.status.text = f"Saved {n} edits to {productdir}."
 
     def set_map_kind(self, kind):
         """Show the image (``"Image"``) or the outlier map (``"Outliers"``)."""
@@ -456,12 +592,20 @@ class FilterApp:
         if self.on_done is None:
             self.status.text = "Nothing to close here: just continue."
             return
+        # Without a map the edits have no other use: do not drop them by accident
+        if self.view == "scans" and self.session.n_unsaved > 0 and not self._close_asked:
+            self._close_asked = True
+            raise ValueError(
+                f"{self.session.n_unsaved} unsaved edits would be lost: press Save, "
+                "or Close and continue again to discard them"
+            )
         self.status.text = "Closed: the program continues. You can close this page."
         self.on_done()
 
     def __call__(self, doc):
         """Add the page to a Bokeh document (used by the Bokeh server and in notebooks)."""
-        doc.title = "SDTimage interactive filter"
+        tool = "SDTimage" if self.view == "map" else "SDTpreprocess"
+        doc.title = f"{tool} interactive filter"
         doc.add_root(self.layout)
         doc.js_on_event(
             DocumentReady,
@@ -491,7 +635,7 @@ def ssh_hint(port, host=None, user=None):
     return f"ssh -N -L {port}:localhost:{port} {user}@{host}"
 
 
-def _make_server(scanset, port):
+def _make_server(scanset, port, view="map"):
     """Bokeh server of the filter page, and the edit session shared by all its pages."""
     from bokeh.server.server import Server
 
@@ -503,14 +647,14 @@ def _make_server(scanset, port):
         server.io_loop.call_later(0.5, server.io_loop.stop)
 
     def make_page(doc):
-        FilterApp(scanset, session=session, on_done=stop)(doc)
+        FilterApp(scanset, session=session, on_done=stop, view=view)(doc)
 
     # Only reachable from this machine (or through an ssh tunnel)
     server = Server({"/": make_page}, address="localhost", port=port, num_procs=1)
     return server, session
 
 
-def serve(scanset, port=5006, open_browser=None):
+def serve(scanset, port=5006, open_browser=None, view="map"):
     """Serve the filter page and wait until the user presses "Close and continue".
 
     Each browser page gets its own copy of the widgets, but all share one
@@ -526,12 +670,14 @@ def serve(scanset, port=5006, open_browser=None):
     open_browser : bool, optional
         Open the page in a local browser. By default, only when not logged in
         through ssh.
+    view : str, optional
+        ``"map"`` or ``"scans"``, see :class:`FilterApp`.
 
     Returns
     -------
     session : :class:`srttools.filter_session.FilterSession`
     """
-    server, session = _make_server(scanset, port)
+    server, session = _make_server(scanset, port, view=view)
     server.start()
     url = f"http://localhost:{server.port}/"
     remote = "SSH_CONNECTION" in os.environ
@@ -551,8 +697,6 @@ def serve(scanset, port=5006, open_browser=None):
     finally:
         server.stop()
     if session.n_unsaved > 0:
-        print(
-            f"{session.n_unsaved} edits not saved to disk: they are used for the "
-            "images of this run only."
-        )
+        fate = "they are used for the images of this run only." if view == "map" else "discarded."
+        print(f"{session.n_unsaved} edits not saved to disk: {fate}")
     return session

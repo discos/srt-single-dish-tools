@@ -247,3 +247,75 @@ def test_empty_pixels_do_not_set_map_scale(app):
     finally:
         images[ch][:] = original
         app.scanset.calculate_images()
+
+
+@pytest.fixture
+def scans_app(scanset):
+    closed = []
+    app = FilterApp(scanset, view="scans", on_done=lambda: closed.append(True))
+    app.closed = closed
+    yield app
+    app.session.reset()
+
+
+def test_scans_view_lists_and_steps_through_scans(scans_app):
+    """Without a map, the page lists all subscans, plots the first, and Next plots the following one."""
+    app = scans_app
+    doc = Document()
+    app(doc)
+    assert not hasattr(app, "map_figure")
+    ids = app.scan_source.data["scan_id"]
+    assert len(ids) == len(app.scanset.scan_list)
+    assert app.selected == ids[0]
+    assert len(app.line_sources["dec"].data["xs"]) == 1
+    assert app.scan_figures["dec"].visible and not app.scan_figures["ra"].visible
+    app.step_scan(1)
+    assert app.selected == ids[1]
+    assert list(app.scan_source.selected.indices) == [1]
+    app.step_scan(-5)  # stops at the top of the list
+    assert app.selected == ids[0]
+    assert "Scan 1 of" in app.info.text
+
+
+def test_scans_view_edits_update_the_list(scans_app):
+    """Flagging and zapping the plotted scan show up in the list; Undo clears them again."""
+    app = scans_app
+    app.step_scan(2)
+    app.flag()
+    assert app.scan_source.data["state"][2] == "flagged"
+    assert "Apply" not in app.status.text
+    app.undo()
+    s = app._selected_subscan()
+    app.add_range(s.coord.min(), np.median(s.coord))
+    app.zap()
+    assert 0.3 < app.scan_source.data["masked"][2] < 0.7
+    assert app.scan_source.data["state"][2] == ""
+
+
+def test_close_does_not_drop_edits_silently(scans_app):
+    """With unsaved edits and no map, Close first asks; it closes at the second press."""
+    app = scans_app
+    app.flag()
+    app._report_errors(app.done)()
+    assert "would be lost" in app.status.text and not app.closed
+    app._report_errors(app.done)()
+    assert app.closed
+
+
+def test_save_to_another_directory_from_page(scans_app, tmp_path):
+    """A bad "Save to" directory is refused at once; a good one outside the config gets the edits."""
+    app = scans_app
+    assert app.save_dir.value == app.session.default_productdir
+    assert app.save_note.text == ""
+    blocker = tmp_path / "a_file"
+    blocker.write_text("")
+    app.save_dir.value = str(blocker / "sub")
+    assert "cannot be written" in app.save_note.text
+    app.flag()
+    app._report_errors(app.save)()
+    assert "cannot be written" in app.status.text and app.session.n_unsaved == 1
+    app.save_dir.value = str(tmp_path / "elsewhere")
+    assert "productdir :" in app.save_note.text
+    app.save()
+    assert app.session.n_unsaved == 0
+    assert glob.glob(str(tmp_path / "elsewhere" / "**" / "*.hdf5"), recursive=True)

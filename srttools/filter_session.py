@@ -294,13 +294,18 @@ class FilterSession:
         Raises
         ------
         ValueError
-            If the name is empty, or if some scan would be saved in the
-            directory of its raw data file: the raw data directory is never
-            written to.
+            If the name is empty, if the directory cannot be created or
+            written to, or if some scan would be saved in the directory of
+            its raw data file: the raw data directory is never written to.
         """
         if productdir is None or not str(productdir).strip():
             raise ValueError("Give a directory where to save the edits")
         productdir = os.path.abspath(Path(str(productdir).strip()).expanduser())
+        parent = productdir  # the deepest part of the path that already exists
+        while not os.path.exists(parent) and os.path.dirname(parent) != parent:
+            parent = os.path.dirname(parent)
+        if not os.path.isdir(parent) or not os.access(parent, os.W_OK):
+            raise ValueError(f"{productdir} cannot be written to (check {parent})")
         for sname in self.scanset.scan_list:
             rawdir = os.path.dirname(os.path.abspath(sname))
             if os.path.dirname(self._outfile(sname, productdir)) == rawdir:
