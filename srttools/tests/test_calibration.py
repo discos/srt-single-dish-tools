@@ -164,6 +164,25 @@ class TestCalibration:
             caltable.Jy_over_counts_rough(channel="Feed0_LCP"),
         )
 
+    @pytest.mark.parametrize("scatter", [0.01, 0.3])
+    def test_Jy_over_counts_rough_error_includes_scatter(self, scatter):
+        """With formal errors of 1%, the error of the constant calibration matches the
+        scatter of the calibrator fits, also when they scatter by 30% (it used to be
+        the formal error, 30x too small)."""
+        caltable = CalibratorTable.read(self.calfile)
+        caltable.update()
+        rows = np.flatnonzero((caltable["Chan"] == "Feed0_LCP") & (caltable["Flux"] > 0))
+        rng = np.random.default_rng(42)
+        true = np.mean(caltable["Flux/Counts"][rows])
+        caltable["Flux/Counts"][rows] = true * (1 + rng.normal(0, scatter, rows.size))
+        caltable["Flux/Counts Err"][rows] = true * 0.01
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            fc, fce = caltable.Jy_over_counts_rough(channel="Feed0_LCP")
+        expected = true * scatter / np.sqrt(rows.size)
+        assert 0.6 * expected < fce < 2 * expected
+        assert abs(fc - true) < 4 * expected
+
     def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
         caltable = CalibratorTable.read(self.calfile)
 
