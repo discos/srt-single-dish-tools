@@ -2022,14 +2022,7 @@ def main_imager(args=None):
             outfile = infile.replace(".ini", "_dump.hdf5")
 
     if args.interactive:
-        try:
-            from .web_filter import serve
-        except ImportError as e:
-            raise ImportError(
-                "SDTimage --interactive needs bokeh. Install it with "
-                "`pip install srttools[interactive]` or `pip install bokeh`"
-            ) from e
-        serve(scanset, port=args.port)
+        _web_filter_serve("SDTimage")(scanset, port=args.port)
 
     if args.global_fit:
         scanset.fit_full_images(chans=args.chans, frame=args.frame, excluded=excluded_xy)
@@ -2049,6 +2042,18 @@ def main_imager(args=None):
     )
 
     scanset.write(outfile, overwrite=True)
+
+
+def _web_filter_serve(tool):
+    """The function serving the interactive filter page, or a clear error without bokeh."""
+    try:
+        from .web_filter import serve
+    except ImportError as e:
+        raise ImportError(
+            f"{tool} --interactive needs bokeh. Install it with "
+            "`pip install srttools[interactive]` or `pip install bokeh`"
+        ) from e
+    return serve
 
 
 def main_preprocess(args=None):
@@ -2144,9 +2149,47 @@ def main_preprocess(args=None):
         ". This will change in the future.",
     )
 
+    parser.add_argument(
+        "--productdir",
+        type=str,
+        default=None,
+        help="Directory where the processed scans are written, instead of the "
+        "productdir of the config file. The raw data directories are never "
+        "written to: without any productdir, ./srttools_products is used",
+    )
+
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        default=False,
+        help="After the automatic cleaning, open the interactive filter: a web page "
+        "served locally, to inspect and clean the scans one by one (needs bokeh "
+        "and a config file; see the documentation for use through ssh)",
+    )
+
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=5006,
+        help="Port of the interactive filter web page",
+    )
+
     args = parser.parse_args(args)
 
     excluded_xy, excluded_radec = _excluded_regions_from_args(args.exclude)
+
+    if args.interactive:
+        if args.files or args.config is None:
+            raise ValueError(
+                "--interactive works on all the scans of a config file: "
+                "give the config file with -c, and no single files"
+            )
+        # Fail now, not after the cleaning of all the scans
+        serve = _web_filter_serve("SDTpreprocess")
+
+    if args.productdir is not None:
+        # Remembered by read_config: valid for all the scans loaded below
+        read_config(args.config, productdir=args.productdir)
 
     if args.files is not None and args.files:
         for f in args.files:
@@ -2183,7 +2226,7 @@ def main_preprocess(args=None):
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
-        ScanSet(
+        scanset = ScanSet(
             args.config,
             norefilt=False,
             freqsplat=args.splat,
@@ -2195,4 +2238,6 @@ def main_preprocess(args=None):
             nosave=args.nosave,
             bad_intervals=args.bad_intervals,
         )
+        if args.interactive:
+            serve(scanset, port=args.port, view="scans")
     return 0

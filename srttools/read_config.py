@@ -94,15 +94,26 @@ def get_config_file():
     return SRT_tools_config_file
 
 
-def read_config(fname=None):
-    """Read a config file and return a dictionary of all entries."""
+def read_config(fname=None, productdir=None):
+    """Read a config file and return a dictionary of all entries.
+
+    Parameters
+    ----------
+    fname : str, optional
+        The config file. Default: the last one read or, if none was read
+        yet, a sample one.
+    productdir : str, optional
+        Directory of the products, replacing the one of the config file
+        (e.g. given on the command line). Relative paths start from the
+        current directory. It stays valid for the later calls that read the
+        same config file.
+    """
     global SRT_tools_config_file, SRT_tools_config
 
     # --- If already read, use existing config ---
-    if fname == SRT_tools_config_file and SRT_tools_config is not None:
-        return SRT_tools_config
-
-    if fname is None and SRT_tools_config is not None:
+    if SRT_tools_config is not None and (fname is None or fname == SRT_tools_config_file):
+        if productdir is not None:
+            SRT_tools_config["productdir"] = os.path.abspath(productdir)
         return SRT_tools_config
 
     # ---------------------------------------------
@@ -159,6 +170,9 @@ def read_config(fname=None):
 
     if config_output["productdir"] is not None and config_output["productdir"].lower() == "none":
         config_output["productdir"] = None
+
+    if productdir is not None:
+        config_output["productdir"] = os.path.abspath(productdir)
 
     if config_output["productdir"] is None:
         config_output["productdir"] = os.path.abspath(DEFAULT_PRODUCTDIR)

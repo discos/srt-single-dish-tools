@@ -2,6 +2,7 @@
 
 import glob
 import os
+import sys
 import warnings
 
 import numpy as np
@@ -170,8 +171,6 @@ def test_sdtimage_interactive_calls_server(scanset, tmp_path, monkeypatch):
 
 def test_sdtimage_interactive_without_bokeh(scanset, tmp_path, monkeypatch):
     """Without bokeh, SDTimage --interactive stops with an error that says how to install it."""
-    import sys
-
     from srttools.imager import main_imager
 
     monkeypatch.setitem(sys.modules, "srttools.web_filter", None)
@@ -179,6 +178,32 @@ def test_sdtimage_interactive_without_bokeh(scanset, tmp_path, monkeypatch):
     scanset.write(outfile, overwrite=True)
     with pytest.raises(ImportError, match="pip install bokeh"):
         main_imager([outfile, "--interactive", "--noplot"])
+
+
+def test_sdtpreprocess_interactive_and_productdir(scanset, tmp_path, monkeypatch):
+    """SDTpreprocess --interactive opens the scan list on the cleaned scans, which
+    --productdir sends to the directory given on the command line."""
+    import srttools.web_filter
+    from srttools.imager import main_preprocess
+
+    calls = []
+
+    def fake_serve(scanset, port, view):
+        calls.append((len(scanset.scan_list), port, view, scanset.meta["productdir"]))
+
+    monkeypatch.setattr(srttools.web_filter, "serve", fake_serve)
+    config = scanset.meta["config_file"]
+    out = str(tmp_path / "out")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        main_preprocess(["-c", config, "--interactive", "--port", "5124", "--productdir", out])
+    assert calls == [(len(scanset.scan_list), 5124, "scans", out)]
+    assert glob.glob(os.path.join(out, "**", "*.hdf5"), recursive=True)
+    with pytest.raises(ValueError, match="config file"):
+        main_preprocess(["some_scan.fits", "--interactive"])
+    monkeypatch.setitem(sys.modules, "srttools.web_filter", None)
+    with pytest.raises(ImportError, match="SDTpreprocess --interactive needs bokeh"):
+        main_preprocess(["-c", config, "--interactive"])
 
 
 def test_click_elsewhere_after_zap(app):
