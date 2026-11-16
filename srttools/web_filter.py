@@ -38,6 +38,15 @@ LINE_COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b",
 MAP_KINDS = ["Image", "Outliers"]
 
 
+def _gnuplot2_palette():
+    """The gnuplot2 colour map of the old matplotlib display, as 256 hex colours."""
+    from matplotlib import colormaps
+    from matplotlib.colors import to_hex
+
+    cmap = colormaps["gnuplot2"]
+    return [to_hex(cmap(i / 255)) for i in range(256)]
+
+
 def _finite_image(img):
     """Copy of the image with NaNs and infinities replaced by the median of the rest."""
     img = np.array(img, dtype=float)
@@ -163,7 +172,7 @@ class FilterApp:
             x_axis_label="x (pixel)",
             y_axis_label="y (pixel)",
         )
-        self.color_mapper = LinearColorMapper(palette="Inferno256")
+        self.color_mapper = LinearColorMapper(palette=_gnuplot2_palette())
         fig.image(
             image="image",
             x="x",
@@ -249,14 +258,21 @@ class FilterApp:
         expo = np.asarray(images[f"{ch}-EXPO"])
         mean_expo = np.mean(expo[expo > 0]) if np.any(expo > 0) else 0
         stat = "Outliers" if mean_expo > 6 and f"{ch}-Outliers" in images else "Sdev"
-        return _finite_image(images[f"{ch}-{stat}"])
+        # As in the old display: empty pixels set to the mean, then log scale
+        img = np.array(images[f"{ch}-{stat}"], dtype=float)
+        bad = (img == 0) | ~np.isfinite(img)
+        if np.all(bad):
+            return np.zeros_like(img)
+        img[bad] = np.mean(img[~bad])
+        return ds9_like_log_scale(img)
 
     def update_map(self):
         """Redraw the map from the current images of the scan set."""
         img = self._map_array()
         ny, nx = img.shape
         self.image_source.data = dict(image=[img], x=[0], y=[0], dw=[nx], dh=[ny])
-        self.color_mapper.low = float(np.percentile(img, 20 if self.map_kind == "Image" else 1))
+        # Same limits as the old matplotlib display
+        self.color_mapper.low = float(np.percentile(img, 20))
         self.color_mapper.high = float(np.max(img))
 
     def update_subscans(self):
