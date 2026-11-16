@@ -109,8 +109,7 @@ def _save_iteration(par):
 
 
 def _obj_fun(par, data, data_idx, excluded, bx, by):
-    """
-    This is the function we have to minimize.
+    """This is the function we have to minimize.
 
     Parameters
     ----------
@@ -124,7 +123,6 @@ def _obj_fun(par, data, data_idx, excluded, bx, by):
     excluded : [[centerx0, centery0, radius0]]
         list of circular regions to exclude from fitting (e.g. strong sources
         that might alter the total rms)
-
     """
     newd_t, _, newd_x, newd_y, newd_c, newd_e = data
 
@@ -328,7 +326,6 @@ def display_intermediate(scanset, chan="Feed0_RCP", feed=0, excluded=None, parfi
         that might alter the total rms)
     parfile : str
         File containing the parameters, in the same format saved by _callback
-
     """
     if not HAS_MPL:
         raise ImportError("display_intermediate: matplotlib is not installed")

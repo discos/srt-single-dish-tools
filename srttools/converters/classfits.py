@@ -54,7 +54,6 @@ The conversion is performed as follows:
                   S
             Ta = --- Tc
                   C
-
 """
 
 import copy
@@ -301,7 +300,10 @@ def on_or_off(subscan, feed):
 
 
 def cal_is_on(subscan):
-    """Is the calibration mark on? Try to understand."""
+    """Is the calibration mark on?
+
+    Try to understand.
+    """
     is_on = False
     if "SIGNAL" in subscan.meta and subscan.meta["SIGNAL"] in [
         "REFSIG",
@@ -372,7 +374,7 @@ def find_cycles(table, list_of_keys):
 
 
 def normalize_on_off_cal(table, smooth=False, apply_cal=True, use_calon=False):
-    """Do the actuall onoff/onoffcal calibration.
+    """Do the actual onoff/onoffcal calibration.
 
     The first passage is to combine the ON-source signal with the closest
     OFF-source signal (alternatively, SIGNAL/on-source vs REFERENCE/off-source)
@@ -721,7 +723,6 @@ class CLASSFITS_creator:
             If False, only the OFF + CAL is used for the calibration. If True,
             Also the ON + CAL is used and the calibration constant is averaged
             with that obtained through OFF + CAL.
-
         """
         new_tables = {}
         for caltype in ["cal", "onoff"]:

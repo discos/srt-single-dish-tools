@@ -290,3 +290,18 @@ class Test1_Scan:
             assert np.isclose(header["OBSGEO-X"], locations["srt"].x.value)
 
         shutil.rmtree(self.emptydir + "_sdfits")
+
+
+def test_sdfits_model_tdim_roundtrip(tmp_path):
+    """SDFITS DATA/FLAGGED columns must write TDIM in FITS (reversed) axis order
+    and read back with the original numpy shape, for a non-square cell."""
+    from srttools.converters.sdfits import get_model_HDUlist
+
+    fname = tmp_path / "model.fits"
+    get_model_HDUlist(data_format=(2, 1024), length=3).writeto(fname)
+    with fits.open(fname) as hdul:
+        hdu = hdul["SINGLE DISH"]
+        for col in ["DATA", "FLAGGED"]:
+            idx = hdu.columns.names.index(col) + 1
+            assert hdu.header[f"TDIM{idx}"] == "(1024,2)"
+            assert hdu.data[col].shape == (3, 2, 1024)

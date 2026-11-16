@@ -216,7 +216,6 @@ def correct_offsets(obs_angle, xoffset, yoffset):
     >>> xoff, yoff = correct_offsets(angle, x, y)
     >>> np.allclose([xoff, yoff], 2 ** 0.5)
     True
-
     """
     sep = np.sqrt(xoffset**2.0 + yoffset**2.0)
 
@@ -253,7 +252,7 @@ def observing_angle(rest_angle, derot_angle):
 
 
 def _rest_angle_default(n_lat_feeds):
-    """Default rest angles for a multifeed, in units of a circle
+    """Default rest angles for a multifeed, in units of a circle.
 
     Assumes uniform coverage.
 
@@ -432,7 +431,7 @@ def update_table_with_offsets(
 
 
 def print_obs_info_fitszilla(fname):
-    """Placeholder for function that prints out oberving information."""
+    """Placeholder for function that prints out observing information."""
     with fits.open(fname, memmap=False) as lchdulist:
         section_table_data = lchdulist["SECTION TABLE"].data
         sample_rates = get_value_with_units(section_table_data, "sampleRate")
@@ -864,7 +863,7 @@ def _read_data_fitszilla(lchdulist):
             new_table["el"][:, i] = el
             new_table["az"][:, i] = az
 
-    # Don't know if better euristics is needed
+    # Don't know if better heuristics is needed
     obstime = Time(np.mean(new_table["time"]) * u.day, format="mjd", scale="utc")
     if is_close_to_sun(
         new_table.meta["RA"],

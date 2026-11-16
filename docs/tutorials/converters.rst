@@ -95,4 +95,3 @@ To get the data in the SDFITS format, with the scan divided in multiple files un
 .. code-block:: console
 
     (py3) $ SDTconvert -f sdfits directory_of_observation
-

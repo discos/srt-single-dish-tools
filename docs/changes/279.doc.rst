@@ -1,0 +1,1 @@
+New "Technical details" page (supported versions, how to run the tests, warning policy); fixed the Python and dependency versions in the installation instructions.

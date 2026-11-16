@@ -86,7 +86,7 @@ def contiguous_regions(condition):
     -----
     From https://stackoverflow.com/questions/4494404/find-large-number-of-consecutive-values-fulfilling-condition-in-a-numpy-array
     """
-    # Find the indicies of changes in "condition"
+    # Find the indices of changes in "condition"
     diff = np.logical_xor(condition[1:], condition[:-1])
     (idx,) = diff.nonzero()
     # We need to start things after the change in "condition". Therefore,
@@ -99,14 +99,15 @@ def contiguous_regions(condition):
         # If the end of condition is True, append the length of the array
         idx = np.r_[idx, condition.size]
     # Reshape the result into two columns
-    idx.shape = (-1, 2)
+    idx = idx.reshape(-1, 2)
     return idx
 
 
 def _rolling_window(a, window, **kwargs):
     """A smart rolling window.
 
-    Found at http://www.rigtorp.se/2011/01/01/rolling-statistics-numpy.html
+    Found at
+    http://www.rigtorp.se/2011/01/01/rolling-statistics-numpy.html
     """
     return np.lib.stride_tricks.sliding_window_view(a, window, **kwargs)
 
@@ -481,9 +482,9 @@ def _als(y, lam, p, niter=30):
     .. [eilers-2005] https://www.researchgate.net/publication/228961729_Technical_Report_Baseline_Correction_with_Asymmetric_Least_Squares_Smoothing
     .. [so-als] https://stackoverflow.com/questions/29156532/python-baseline-correction-library
     .. [Stingray] https://github.com/StingraySoftware/stingray/pull/725
-
     """
     from scipy import sparse
+    from scipy.sparse.linalg import spsolve
 
     L = len(y)
 
@@ -492,13 +493,13 @@ def _als(y, lam, p, niter=30):
         (np.arange(0, L - 2).T, np.arange(0, L - 2).T + 1, np.arange(0, L - 2).T + 2)
     ).T.flatten()
     data = np.tile([1, -2, 1], L - 2)
-    D = sparse.csc_matrix((data, indices, indptr), shape=(L, L - 2))
+    D = sparse.csc_array((data, indices, indptr), shape=(L, L - 2))
 
     w = np.ones(L)
     for _ in range(niter):
-        W = sparse.spdiags(w, 0, L, L)
-        Z = W + lam * D.dot(D.transpose())
-        z = sparse.linalg.spsolve(Z, w * y)
+        W = sparse.dia_array((w[np.newaxis, :], [0]), shape=(L, L)).tocsc()
+        Z = W + lam * (D @ D.T)
+        z = spsolve(Z, w * y)
         w = p * (y > z) + (1 - p) * (y < z)
     return z
 

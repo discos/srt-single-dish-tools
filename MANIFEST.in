@@ -1,12 +1,9 @@
-include README.rst
-include CHANGES.rst
-include LICENSE.rst
+include README.md
+include CHANGELOG.rst
 include pyproject.toml
 
-recursive-include srttools *.pyx *.c *.pxd
 recursive-include docs *
 recursive-include licenses *
-recursive-include scripts *
 recursive-include srttools/data *.ini
 
 graft srttools/monitor/resources
