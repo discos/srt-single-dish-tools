@@ -56,7 +56,6 @@ from srttools.imager import (
     merge_tables,
 )
 from srttools.inspect_observations import main_inspector
-from srttools.interactive_filter import intervals
 from srttools.io import mkdir_p
 from srttools.read_config import read_config
 from srttools.rfistat import main_rfistat
@@ -185,12 +184,6 @@ class TestScanSet:
             avoid_regions=excluded_radec,
         )
         klass.scanset.write("test.hdf5", overwrite=True)
-
-        klass.stdinfo = {}
-        klass.stdinfo["FLAG"] = None
-        klass.stdinfo["zap"] = intervals()
-        klass.stdinfo["base"] = intervals()
-        klass.stdinfo["fitpars"] = np.array([0, 0])
 
         def scan_no(scan_str):
             basename = os.path.splitext(os.path.basename(scan_str))[0]
@@ -722,12 +715,6 @@ class TestLargeMap:
         )
         klass.scanset.write("test.hdf5", overwrite=True)
 
-        klass.stdinfo = {}
-        klass.stdinfo["FLAG"] = None
-        klass.stdinfo["zap"] = intervals()
-        klass.stdinfo["base"] = intervals()
-        klass.stdinfo["fitpars"] = np.array([0, 0])
-
         def scan_no(scan_str):
             basename = os.path.splitext(os.path.basename(scan_str))[0]
             return int(basename.replace("Dec", "").replace("Ra", ""))
@@ -742,47 +729,6 @@ class TestLargeMap:
 
     def test_prepare(self):
         pass
-
-    @pytest.mark.skipif("not HAS_MPL")
-    def test_interactive_quit(self):
-        scanset = ScanSet("test.hdf5")
-        imgsel = scanset.interactive_display("Feed0_RCP", test=True)
-        fake_event = type("event", (), {})()
-        fake_event.key = "q"
-        fake_event.xdata, fake_event.ydata = (130, 30)
-
-        retval = imgsel.on_key(fake_event)
-        assert retval == (130, 30, "q")
-
-    @pytest.mark.skipif("HAS_MPL")
-    def test_interactive_quit_raises(self):
-        scanset = ScanSet("test.hdf5")
-        with pytest.raises(ImportError) as excinfo:
-            imgsel = scanset.interactive_display("Feed0_RCP", test=True)
-            assert "matplotlib is not installed" in str(excinfo.value)
-
-    @pytest.mark.skipif("not HAS_MPL")
-    def test_interactive_scans_all_calibrated_channels(self, capsys):
-        scanset = ScanSet("test.hdf5")
-        scanset.calibrate_images(calibration=self.calfile)
-        images = scanset.images
-        ysize, xsize = images["Feed0_RCP"].shape
-
-        imgsel = scanset.interactive_display(test=True)
-        fake_event = type("event", (), {})()
-        fake_event.key = "a"
-        fake_event.xdata, fake_event.ydata = (xsize // 2, ysize - 1)
-
-        imgsel.on_key(fake_event)
-        fake_event.key = "h"
-        fake_event.xdata, fake_event.ydata = (xsize // 2, ysize - 1)
-        out, err = capsys.readouterr()
-        assert "a    open a window to filter all" in out
-
-        imgsel.on_key(fake_event)
-        fake_event.key = "v"
-        fake_event.xdata, fake_event.ydata = (xsize // 2, ysize - 1)
-        imgsel.on_key(fake_event)
 
     def test_calc_and_calibrate_image_pixel(self):
         scanset = ScanSet("test.hdf5")
@@ -983,252 +929,9 @@ class TestLargeMap:
 
         # It works after calculating images
 
-    def test_find_scan_through_pixel0(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(
-            xsize // 2, ysize - 1, test=True
-        )
-
-        dec_scan = os.path.join(self.obsdir_dec, self.dec_scans[self.n_dec_scans // 2])
-        assert dec_scan in coord
-        assert coord[dec_scan] == "dec"
-        ra_scan = os.path.join(self.obsdir_ra, self.ra_scans[self.n_ra_scans - 1])
-        assert ra_scan in coord
-        assert coord[ra_scan] == "ra"
-
-    def test_find_scan_through_pixel1(self):
-        scanset = ScanSet("test.hdf5")
-        for i in scanset.chan_columns:
-            scanset.remove_column(i + "-filt")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
-
-        dec_scan = os.path.join(self.obsdir_dec, self.dec_scans[self.n_dec_scans // 2])
-        assert dec_scan in coord
-        assert coord[dec_scan] == "dec"
-        ra_scan = os.path.join(self.obsdir_ra, "Ra0.fits")
-        assert ra_scan in coord
-        assert coord[ra_scan] == "ra"
-
-    def test_find_scan_through_invalid_pixel(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(xsize // 2, -2, test=True)
-        assert coord == {}
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(
-            xsize // 2, ysize + 2, test=True
-        )
-        assert coord == {}
-
-    def test_find_scan_through_pixel_bad_scan(self, logger, caplog):
-        scanset = ScanSet("test.hdf5")
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        x, y = xsize // 2, 0
-        good_entries = np.logical_and(
-            np.abs(scanset["x"][:, 0] - x) < 1,
-            np.abs(scanset["y"][:, 0] - y) < 1,
-        )
-
-        sids = list(set(scanset["Scan_id"][good_entries]))
-        scanset.scan_list[sids[0]] = "skd"
-        scanset.find_scans_through_pixel(x, y, test=True)
-        assert "Errors while opening scan skd" in caplog.text
-
-    def test_update_scan_invalid(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            coord,
-        ) = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
-
-        sname = "xkd"
-        coord["xkd"] = None
-        scan_ids["xkd"] = None
-
-        info = {sname: copy.copy(self.stdinfo)}
-        info[sname]["FLAG"] = True
-        with pytest.warns(UserWarning):
-            scanset.update_scan(
-                sname,
-                scan_ids[sname],
-                coord[sname],
-                info[sname]["zap"],
-                info[sname]["fitpars"],
-                info[sname]["FLAG"],
-                test=True,
-            )
-
-    def test_update_scan_flag(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            coord,
-        ) = scanset.find_scans_through_pixel(xsize // 3, 0, test=True)
-
-        sname = list(scan_ids.keys())[0]
-
-        info = {sname: copy.copy(self.stdinfo)}
-        info[sname]["FLAG"] = True
-        sid = scan_ids[sname]
-        mask = scanset["Scan_id"] == sid
-        before = scanset["Feed0_RCP-filt"][mask]
-        scanset.update_scan(
-            sname,
-            scan_ids[sname],
-            coord[sname],
-            info[sname]["zap"],
-            info[sname]["fitpars"],
-            info[sname]["FLAG"],
-            test=True,
-        )
-        after = scanset["Feed0_RCP-filt"][mask]
-        assert np.all(before != after)
-        s = Scan(sname)
-        assert np.all(after == s["Feed0_RCP-filt"])
-        assert s.meta["FLAG"] is True
-
-    def test_update_scan_fit(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            coord,
-        ) = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
-
-        sname = list(scan_ids.keys())[0]
-
-        info = {sname: copy.copy(self.stdinfo)}
-        info[sname]["fitpars"] = np.array([0.1, 0.3])
-        sid = scan_ids[sname]
-        mask = scanset["Scan_id"] == sid
-        before = scanset["Feed0_RCP"][mask]
-        scanset.update_scan(
-            sname,
-            scan_ids[sname],
-            coord[sname],
-            info[sname]["zap"],
-            info[sname]["fitpars"],
-            info[sname]["FLAG"],
-            test=True,
-        )
-        after = scanset["Feed0_RCP"][mask]
-        assert np.all(before != after)
-        s = Scan(sname)
-        assert np.all(after == s["Feed0_RCP"])
         # os.unlink(sname.replace('fits', 'hdf5'))
 
-    def test_update_scan_zap(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            coord,
-        ) = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
-
-        sname = sorted(dec_xs.keys())[0]
-        s = Scan(sname)
-
-        info = {sname: copy.copy(self.stdinfo)}
-        info[sname]["zap"].xs = [float(s["dec"][0][0]), float(s["dec"][10][0])]
-        sid = scan_ids[sname]
-        mask = scanset["Scan_id"] == sid
-        before = scanset["Feed0_RCP-filt"][mask]
-        scanset.update_scan(
-            sname,
-            scan_ids[sname],
-            coord[sname],
-            info[sname]["zap"],
-            info[sname]["fitpars"],
-            info[sname]["FLAG"],
-            test=True,
-        )
-        after = scanset["Feed0_RCP-filt"][mask]
-
-        assert np.all(before[:10] != after[:10])
-        s = Scan(sname)
-
-        assert np.all(np.array(after, dtype=bool) == np.array(s["Feed0_RCP-filt"], dtype=bool))
         # os.unlink(sname.replace('fits', 'hdf5'))
-
-    def test_update_scan_combines_flags(self, tmp_path):
-        """A new zap adds to the flags; unflag clears them but keeps the new zap; a zero
-        baseline changes nothing."""
-        import shutil
-
-        scanset = ScanSet("test.hdf5")
-        sid = scanset["Scan_id"][0]
-        sname = str(tmp_path / os.path.basename(scanset.scan_list[sid]))
-        shutil.copy(scanset.scan_list[sid], sname)
-        mask = scanset["Scan_id"] == sid
-        s = Scan(sname)
-        dim = "ra" if np.ptp(s["ra"][:, 0]) > np.ptp(s["dec"][:, 0]) else "dec"
-        x = np.array(s[dim][:, 0])
-
-        def update(zap_idx=None, fitpars=(0, 0), flag=None):
-            zap = intervals()
-            if zap_idx is not None:
-                zap.xs = [x[zap_idx[1]], x[zap_idx[0]]]
-            scanset.update_scan(sname, sid, dim, zap, np.array(fitpars), flag, test=True)
-            return np.array(scanset["Feed0_RCP-filt"][mask], dtype=bool)
-
-        def inside(i0, i1):
-            lo, hi = sorted([x[i0], x[i1]])
-            return (x >= lo) & (x <= hi)
-
-        data = np.array(scanset["Feed0_RCP"][mask])
-        assert np.allclose(scanset["Feed0_RCP"][mask], data)
-        update()
-        assert np.allclose(scanset["Feed0_RCP"][mask], data)
-
-        update((0, 9))
-        filt = update((20, 29))
-        assert not np.any(filt[inside(0, 9) | inside(20, 29)])
-
-        filt = update((40, 49), flag=False)
-        assert np.all(filt == ~inside(40, 49))
-        assert np.all(np.array(Scan(sname)["Feed0_RCP-filt"], dtype=bool) == filt)
 
     def test_imager_global_fit_invalid(self):
         """Test image production."""

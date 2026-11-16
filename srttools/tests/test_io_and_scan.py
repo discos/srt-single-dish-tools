@@ -259,26 +259,6 @@ class Test1_Scan:
         for m in scan_from_table.meta.keys():
             assert scan_from_table.meta[m] == scan.meta[m]
 
-    @pytest.mark.skipif("not HAS_MPL")
-    def test_interactive(self):
-        scan = Scan(self.fname)
-        scan.interactive_filter("Feed0_RCP", test=True)
-
-    def test_interactive_no_changes(self):
-        """Closing the interactive filter without changes leaves the scan as it was."""
-        import matplotlib as mpl
-
-        if mpl.get_backend().lower() != "agg":
-            pytest.skip("Needs the Agg backend")
-        scan = Scan(self.fname)
-        before = {ch: np.array(scan[f"{ch}-filt"]) for ch in scan.chan_columns()}
-        data = {ch: np.array(scan[ch]) for ch in scan.chan_columns()}
-        with pytest.warns(UserWarning, match="interactive matplotlib backend"):
-            scan.interactive_filter(save=False)
-        for ch in scan.chan_columns():
-            assert np.all(np.array(scan[f"{ch}-filt"]) == before[ch])
-            assert np.allclose(scan[ch], data[ch])
-
     @pytest.mark.parametrize("fname", ["med_data.fits", "srt_data_tp_multif.fits"])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(os.path.join(self.datadir, fname), norefilt=False)

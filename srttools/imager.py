@@ -6,7 +6,7 @@ cleaning the data.
 """
 
 import copy
-import functools
+import importlib.util
 import logging
 import os
 import traceback
@@ -27,10 +27,8 @@ from astropy.time import Time
 from astropy.utils.metadata import MergeConflictWarning
 
 from .calibration import CalibratorTable
-from .fit import eliminate_spiky_outliers, linear_fun
+from .fit import eliminate_spiky_outliers
 from .global_fit import fit_full_image
-from .interactive_filter import create_empty_info, select_data
-from .interactive_filter import mask as interactive_mask
 from .io import chan_re, detect_data_kind, get_channel_feed
 from .opacity import calculate_opacity
 from .read_config import read_config, sample_config_file
@@ -39,8 +37,6 @@ from .utils import (
     HAS_MAHO,
     calculate_beam_fom,
     calculate_zernike_moments,
-    compare_anything,
-    ds9_like_log_scale,
     get_circular_statistics,
     new_figure,
     njit,
@@ -55,13 +51,7 @@ except ImportError:
         return a
 
 
-try:
-    import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
-
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
+HAS_MPL = importlib.util.find_spec("matplotlib") is not None
 
 
 IMG_STR = "__img_dump_"
@@ -495,7 +485,6 @@ class ScanSet(Table):
 
         if data is not None and "x" not in self.colnames:
             self.convert_coordinates()
-        self.current = None
         self._scan_list = None
         self._chan_columns = None
 
@@ -1372,270 +1361,6 @@ class ScanSet(Table):
 
         self.crosses = avg_subscan
 
-    def interactive_display(self, ch=None, recreate=False, test=False):
-        """Modify original scans from the image display."""
-        from .interactive_filter import ImageSelector
-
-        if not HAS_MPL:
-            raise ImportError("interactive_display: " "matplotlib is not installed")
-
-        if self.images is None:
-            recreate = True
-
-        self.display_instructions = """
-        -------------------------------------------------------------
-
-        Imageactive display.
-
-        You see here two images. The left one gives, for each bin, a number
-        measuring the probability of outliers (based on the median absolute
-        deviation if there are >10 scans per bin, and on the standard deviation
-        otherwise), The right one is the output image of the processing.
-        The right image is normalized with a ds9-like log scale.
-
-        -------------------------------------------------------------
-
-        Point the mouse on a pixel in the Outlier image and press a key:
-
-        a    open a window to filter all scans passing through this pixel
-        h    print help
-        q    quit
-
-        -------------------------------------------------------------
-        """
-        print(self.display_instructions)
-
-        if ch is None:
-            chs = self.chan_columns
-        else:
-            chs = [ch]
-        if test:
-            chs = ["Feed0_RCP"]
-
-        for local_ch in chs:
-            if recreate:
-                self.calculate_images(onlychans=local_ch)
-            fig = plt.figure("Imageactive Display - " + local_ch)
-            gs = GridSpec(1, 2)
-            ax = fig.add_subplot(gs[0])
-            ax.set_title("Outlier plot")
-            ax2 = fig.add_subplot(gs[1])
-            ax2.set_title("Draft image")
-            imgch = local_ch
-
-            expo = np.mean(self.images[f"{local_ch}-EXPO"])
-            mean_expo = np.mean(expo[expo > 0])
-
-            stats_for_outliers = "Outliers" if mean_expo > 6 else "Sdev"
-            sdevch = f"{local_ch}-{stats_for_outliers}"
-            if f"{local_ch}-RAW" in self.images.keys():
-                imgch = f"{local_ch}-RAW"
-                if stats_for_outliers == "Sdev":
-                    sdevch = f"{local_ch}-RAW-{stats_for_outliers}"
-            img = ds9_like_log_scale(self.images[imgch])
-            ax2.imshow(
-                img,
-                origin="lower",
-                vmin=np.percentile(img, 20),
-                cmap="gnuplot2",
-                interpolation="nearest",
-            )
-
-            img = self.images[sdevch].copy()
-            self.current = local_ch
-            bad = np.logical_or(img == 0, img != img)
-            img[bad] = np.mean(img[np.logical_not(bad)])
-            fun = functools.partial(self.rerun_scan_analysis, test=test)
-
-            imgsel = ImageSelector(img, ax, fun=fun, test=test)
-        return imgsel
-
-    def rerun_scan_analysis(self, x, y, key, test=False):
-        """Rerun the analysis of single scans."""
-        logging.debug(f"{x} {y} {key}")
-        if key == "a":
-            self.reprocess_scans_through_pixel(x, y, test=test)
-        elif key == "h":
-            print(self.display_instructions)
-        elif key == "v":
-            pass
-
-    def reprocess_scans_through_pixel(self, x, y, test=False):
-        """Given a pixel in the image, find all scans passing through it."""
-        ch = self.current
-
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            vars_to_filter,
-        ) = self.find_scans_through_pixel(x, y, test=test)
-
-        if ra_xs != {}:
-            empty = create_empty_info(ra_xs.keys())
-            info = select_data(
-                ra_xs,
-                ra_ys,
-                masks=ra_masks,
-                xlabel="RA",
-                title="RA",
-                test=test,
-            )
-
-            if not compare_anything(empty, info):
-                for sname in info.keys():
-                    self.update_scan(
-                        sname,
-                        scan_ids[sname],
-                        vars_to_filter[sname],
-                        info[sname]["zap"],
-                        info[sname]["fitpars"],
-                        info[sname]["FLAG"],
-                    )
-
-        if dec_xs != {}:
-            empty = create_empty_info(ra_xs.keys())
-            info = select_data(
-                dec_xs,
-                dec_ys,
-                masks=dec_masks,
-                xlabel="Dec",
-                title="Dec",
-                test=test,
-            )
-
-            if not compare_anything(empty, info):
-                for sname in info.keys():
-                    self.update_scan(
-                        sname,
-                        scan_ids[sname],
-                        vars_to_filter[sname],
-                        info[sname]["zap"],
-                        info[sname]["fitpars"],
-                        info[sname]["FLAG"],
-                    )
-
-        # Only recreate images if there were changes!
-        display = self.interactive_display(ch=ch, recreate=(dec_xs != {} or ra_xs != {}), test=test)
-        return display
-
-    def find_scans_through_pixel(self, x, y, test=False):
-        """Find scans passing through a pixel."""
-        ra_xs = {}
-        ra_ys = {}
-        dec_xs = {}
-        dec_ys = {}
-        scan_ids = {}
-        ra_masks = {}
-        dec_masks = {}
-        vars_to_filter = {}
-
-        if not test:
-            ch = self.current
-        else:
-            ch = "Feed0_RCP"
-
-        feed = get_channel_feed(ch)
-
-        # Select data inside the pixel +- 1
-
-        good_entries = np.logical_and(
-            np.abs(self["x"][:, feed] - x) < 1,
-            np.abs(self["y"][:, feed] - y) < 1,
-        )
-
-        sids = list(set(self["Scan_id"][good_entries]))
-
-        for sid in sids:
-            sname = self.scan_list[sid]
-            try:
-                s = Scan(sname)
-            except Exception:
-                logging.warning(f"Errors while opening scan {sname}")
-                continue
-            try:
-                chan_mask = s[f"{ch}-filt"]
-            except Exception:
-                chan_mask = np.zeros_like(s[ch])
-
-            scan_ids[sname] = sid
-            ras = s["ra"][:, feed]
-            decs = s["dec"][:, feed]
-
-            z = s[ch]
-
-            ravar = np.max(ras) - np.min(ras)
-            decvar = np.max(decs) - np.min(decs)
-            if ravar > decvar:
-                vars_to_filter[sname] = "ra"
-                ra_xs[sname] = ras
-                ra_ys[sname] = z
-                ra_masks[sname] = chan_mask
-            else:
-                vars_to_filter[sname] = "dec"
-                dec_xs[sname] = decs
-                dec_ys[sname] = z
-                dec_masks[sname] = chan_mask
-
-        return (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            vars_to_filter,
-        )
-
-    def update_scan(self, sname, sid, dim, zap_info, fit_info, flag_info, test=False):
-        """Update a scan in the scanset after filtering."""
-        ch = self.current
-        if test:
-            ch = "Feed0_RCP"
-        feed = get_channel_feed(ch)
-        mask = self["Scan_id"] == sid
-        try:
-            logging.info(f"Updating scan {sname}")
-            s = Scan(sname)
-        except Exception as e:
-            warnings.warn(f"Impossible to write to scan {sname}")
-            warnings.warn(str(e))
-            return
-
-        resave = False
-        # Unflagging ("v") removes all previous flags of the scan, in all
-        # channels, before the new zap intervals are applied
-        if flag_info is not None:
-            resave = True
-            s.meta["FLAG"] = flag_info
-            for c in self.chan_columns:
-                s[f"{c}-filt"] = np.zeros(len(s[dim]), dtype=bool) + (not flag_info)
-                self[f"{c}-filt"][mask] = s[f"{c}-filt"]
-
-        if len(zap_info.xs) > 0:
-            resave = True
-            good = interactive_mask(s[dim][:, feed], zap_info.xs)
-            if f"{ch}-filt" in s.colnames:
-                good &= np.asarray(s[f"{ch}-filt"], dtype=bool)
-            s[f"{ch}-filt"] = good
-            self[f"{ch}-filt"][mask] = good
-
-        if len(fit_info) > 1 and np.any(np.asarray(fit_info) != 0):
-            resave = True
-            sub = linear_fun(s[dim][:, feed], *fit_info)
-            s[ch][:] = np.array(s[ch]) - sub
-            # TODO: make it channel-independent
-            s.meta["backsub"] = True
-            self[ch][mask] = s[ch]
-
-        if resave:
-            s.save()
-
     def barycenter_times(self):
         """Create barytime column with observing times converted to TDB."""
         obstimes_tdb = self.get_obstimes().tdb.mjd
@@ -2299,14 +2024,12 @@ def main_imager(args=None):
     if args.interactive:
         try:
             from .web_filter import serve
-        except ImportError:
-            warnings.warn(
-                "bokeh is not installed (pip install srttools[interactive]): "
-                "using the old matplotlib display"
-            )
-            scanset.interactive_display()
-        else:
-            serve(scanset, port=args.port)
+        except ImportError as e:
+            raise ImportError(
+                "SDTimage --interactive needs bokeh. Install it with "
+                "`pip install srttools[interactive]` or `pip install bokeh`"
+            ) from e
+        serve(scanset, port=args.port)
 
     if args.global_fit:
         scanset.fit_full_images(chans=args.chans, frame=args.frame, excluded=excluded_xy)
@@ -2353,13 +2076,6 @@ def main_preprocess(args=None):
         default=False,
         action="store_true",
         help="Subtract the baseline from single scans",
-    )
-
-    parser.add_argument(
-        "--interactive",
-        default=False,
-        action="store_true",
-        help="Open the interactive display for each scan",
     )
 
     parser.add_argument(
@@ -2453,7 +2169,6 @@ def main_preprocess(args=None):
                     norefilt=False,
                     debug=args.debug,
                     plot=args.plot,
-                    interactive=args.interactive,
                     avoid_regions=excluded_radec,
                     config_file=args.config,
                     nosave=args.nosave,
@@ -2476,7 +2191,6 @@ def main_preprocess(args=None):
             nofilt=args.nofilt,
             debug=args.debug,
             plot=args.plot,
-            interactive=args.interactive,
             avoid_regions=excluded_radec,
             nosave=args.nosave,
             bad_intervals=args.bad_intervals,

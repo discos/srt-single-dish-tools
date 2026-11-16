@@ -204,10 +204,8 @@ steps:
    of the scan, and then improves it by selecting the data that
    are closer to the baseline and making a standard least-square fit.
    This procedure is very fast and aligns the vast majority
-   of scans in a fraction of a second. For more complicated scans, an interactive
-   interface is also available (use the ``--interactive`` option); to fix
-   single subscans while looking at the map, see the interactive filtering
-   of ``SDTimage`` below.
+   of scans in a fraction of a second. To fix single subscans by hand while
+   looking at the map, see the interactive filtering of ``SDTimage`` below.
    It is possible to avoid regions with known strong sources. For now, they need
    to be specified by hand, with the ``-e`` option followed by a valid ds9-compatible
    region file containing *circular* regions in the ``fk5`` frame.

@@ -168,6 +168,19 @@ def test_sdtimage_interactive_calls_server(scanset, tmp_path, monkeypatch):
     assert glob.glob(scanset.meta["config_file"].replace(".ini", "*.fits"))
 
 
+def test_sdtimage_interactive_without_bokeh(scanset, tmp_path, monkeypatch):
+    """Without bokeh, SDTimage --interactive stops with an error that says how to install it."""
+    import sys
+
+    from srttools.imager import main_imager
+
+    monkeypatch.setitem(sys.modules, "srttools.web_filter", None)
+    outfile = str(tmp_path / "casa_dump.hdf5")
+    scanset.write(outfile, overwrite=True)
+    with pytest.raises(ImportError, match="pip install bokeh"):
+        main_imager([outfile, "--interactive", "--noplot"])
+
+
 def test_click_elsewhere_after_zap(app):
     """Clicking a pixel the selected subscan does not cross deselects it; one it crosses keeps it."""
     sid = _click_peak(app)

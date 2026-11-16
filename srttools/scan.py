@@ -25,9 +25,7 @@ try:
 except ImportError:
     HAS_MPL = False
 
-from .fit import baseline_als, baseline_rough, contiguous_regions, linear_fun, ref_mad
-from .interactive_filter import mask as interval_mask
-from .interactive_filter import select_data
+from .fit import baseline_als, baseline_rough, contiguous_regions, ref_mad
 from .io import get_chan_columns, get_channel_feed, mkdir_p, read_data, root_name
 from .read_config import get_config_file, read_config
 from .utils import TWOPI, get_circular_statistics, new_figure, normalize_angle_mpPI
@@ -969,7 +967,6 @@ class Scan(Table):
         data=None,
         config_file=None,
         norefilt=True,
-        interactive=False,
         nosave=False,
         debug=False,
         plot=False,
@@ -1053,9 +1050,6 @@ class Scan(Table):
                     save_spectrum=save_spectrum,
                     plot=plot,
                 )
-
-            if interactive:
-                self.interactive_filter()
 
             if ("backsub" not in self.meta.keys() or not self.meta["backsub"]) and not nosub:
                 logging.debug(f"Subtracting the baseline from " f'{self.meta["filename"]}')
@@ -1299,56 +1293,6 @@ class Scan(Table):
         """Check that times in a scan are monotonically increasing."""
         if not np.all(self["time"] == np.sort(self["time"])):
             raise ValueError("The order of times in the table is wrong")
-
-    def interactive_filter(self, save=True, test=False):
-        """Run the interactive filter."""
-        for ch in self.chan_columns():
-            # Temporary, waiting for AstroPy's metadata handling improvements
-            feed = get_channel_feed(ch)
-
-            selection = self["ra"][:, feed]
-
-            ravar = np.abs(selection[-1] - selection[0])
-
-            selection = self["dec"][:, feed]
-            decvar = np.abs(selection[-1] - selection[0])
-
-            # Choose if plotting by R.A. or Dec.
-            if ravar > decvar:
-                dim = "ra"
-            else:
-                dim = "dec"
-
-            # ------- CALL INTERACTIVE FITTER ---------
-            info = select_data(self[dim][:, feed], self[ch], xlabel=dim, test=test)
-
-            # -----------------------------------------
-
-            if test:
-                info["Ch"]["zap"].xs = [-1e32, 1e32]
-                info["Ch"]["FLAG"] = True
-
-            # The filter only returns the channels that were changed
-            if "Ch" not in info:
-                continue
-
-            # Treat zapped intervals, keeping the previous flags
-            xs = info["Ch"]["zap"].xs
-            if len(xs) >= 2:
-                self[f"{ch}-filt"] = np.asarray(self[f"{ch}-filt"], dtype=bool) & interval_mask(
-                    self[dim][:, feed], xs
-                )
-
-            fitpars = np.asarray(info["Ch"]["fitpars"])
-            if len(fitpars) > 1 and np.any(fitpars != 0):
-                self[ch] -= linear_fun(self[dim][:, feed], *fitpars)
-                self.meta["backsub"] = True
-
-            if info["Ch"]["FLAG"]:
-                self.meta["FLAG"] = True
-        if save:
-            self.save()
-        self.meta["ifilt"] = True
 
     def root_name(self, fname):
         rootdir, fn = os.path.split(fname)
