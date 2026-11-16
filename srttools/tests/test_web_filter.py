@@ -166,3 +166,25 @@ def test_sdtimage_interactive_calls_server(scanset, tmp_path, monkeypatch):
     assert calls == [(len(scanset), 5123)]
     # The images are named after the config file
     assert glob.glob(scanset.meta["config_file"].replace(".ini", "*.fits"))
+
+
+def test_click_elsewhere_after_zap(app):
+    """Clicking a pixel the selected subscan does not cross deselects it; one it crosses keeps it."""
+    sid = _click_peak(app)
+    app.select_subscan(sid)
+    s = app._selected_subscan()
+    app.add_range(s.coord[0], s.coord[5])
+    app.zap()
+    # Same subscan, other pixel along it: still selected, and highlighted at its new position
+    x0 = app.pixel[0]
+    app.select_pixel(x0, 2)
+    assert app.selected == sid
+    source = app.line_sources["dec"]
+    assert [source.data["scan_id"][i] for i in source.selected.indices] == [sid]
+    # A pixel far from it in x: no selection, no marked intervals
+    img = app.scanset.images[app.channel]
+    app.select_pixel((x0 + img.shape[1] // 2) % img.shape[1], 2)
+    assert app.selected is None and app.ranges == []
+    assert source.selected.indices == []
+    app._report_errors(app.zap)()
+    assert "Select a subscan first" in app.status.text
