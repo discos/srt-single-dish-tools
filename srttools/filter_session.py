@@ -255,41 +255,44 @@ class FilterSession:
         return sorted(sids)
 
     @property
-    def config_productdir(self):
-        """Product directory of the configuration file, or None without a configuration."""
+    def config_intermediatedir(self):
+        """Intermediate product directory of the configuration, or None without one."""
         from .read_config import read_config
 
-        productdir = self.scanset.meta.get("productdir")
+        intermediatedir = self.scanset.meta.get("intermediatedir")
         config_file = self.scanset.meta.get("config_file")
-        if productdir is None and config_file is not None:
-            productdir = read_config(config_file).get("productdir")
-        return None if productdir is None else os.path.abspath(productdir)
+        if intermediatedir is None and config_file is not None:
+            intermediatedir = read_config(config_file).get("intermediatedir")
+        return None if intermediatedir is None else os.path.abspath(intermediatedir)
 
     @property
-    def default_productdir(self):
+    def default_intermediatedir(self):
         """Where :meth:`save` writes if no directory is given: never empty.
 
-        The product directory of the configuration file or, without one,
-        ``srttools_products`` in the current directory.
+        The intermediate product directory of the configuration file or,
+        without one, ``srttools_products/intermediate`` in the current
+        directory.
         """
-        from .read_config import DEFAULT_PRODUCTDIR
+        from .read_config import DEFAULT_INTERMEDIATE_SUBDIR, DEFAULT_PRODUCTDIR
 
-        return self.config_productdir or os.path.abspath(DEFAULT_PRODUCTDIR)
+        return self.config_intermediatedir or os.path.abspath(
+            os.path.join(DEFAULT_PRODUCTDIR, DEFAULT_INTERMEDIATE_SUBDIR)
+        )
 
-    def _outfile(self, sname, productdir):
-        """File where the scan ``sname`` is saved under ``productdir``."""
+    def _outfile(self, sname, intermediatedir):
+        """File where the scan ``sname`` is saved under ``intermediatedir``."""
         from .scan import product_path_from_file_name
 
         rootdir, fn = product_path_from_file_name(
             sname,
             workdir=self.scanset.meta.get("workdir") or os.curdir,
-            productdir=productdir,
+            productdir=intermediatedir,
             basename_only=bool(self.scanset.meta.get("basename_only", False)),
         )
         return root_name(os.path.join(rootdir, fn)) + ".hdf5"
 
-    def check_productdir(self, productdir):
-        """Return the absolute ``productdir``, or raise if edits cannot be saved there.
+    def check_intermediatedir(self, intermediatedir):
+        """Return the absolute ``intermediatedir``, or raise if edits cannot be saved there.
 
         Raises
         ------
@@ -298,55 +301,57 @@ class FilterSession:
             written to, or if some scan would be saved in the directory of
             its raw data file: the raw data directory is never written to.
         """
-        if productdir is None or not str(productdir).strip():
+        if intermediatedir is None or not str(intermediatedir).strip():
             raise ValueError("Give a directory where to save the edits")
-        productdir = os.path.abspath(Path(str(productdir).strip()).expanduser())
-        parent = productdir  # the deepest part of the path that already exists
+        intermediatedir = os.path.abspath(Path(str(intermediatedir).strip()).expanduser())
+        parent = intermediatedir  # the deepest part of the path that already exists
         while not os.path.exists(parent) and os.path.dirname(parent) != parent:
             parent = os.path.dirname(parent)
         if not os.path.isdir(parent) or not os.access(parent, os.W_OK):
-            raise ValueError(f"{productdir} cannot be written to (check {parent})")
+            raise ValueError(f"{intermediatedir} cannot be written to (check {parent})")
         for sname in self.scanset.scan_list:
             rawdir = os.path.dirname(os.path.abspath(sname))
-            if os.path.dirname(self._outfile(sname, productdir)) == rawdir:
+            if os.path.dirname(self._outfile(sname, intermediatedir)) == rawdir:
                 raise ValueError(
-                    f"{productdir} would put the products in the raw data directory "
+                    f"{intermediatedir} would put the products in the raw data directory "
                     f"{rawdir}, which is never written to: choose another directory"
                 )
-        return productdir
+        return intermediatedir
 
-    def config_hint(self, productdir):
-        """Explain how a later run finds files saved in ``productdir``; empty if it already does."""
-        productdir = os.path.abspath(Path(str(productdir).strip()).expanduser())
-        if productdir == self.config_productdir:
+    def config_hint(self, intermediatedir):
+        """Explain how a later run finds files saved in ``intermediatedir``; empty if it does."""
+        intermediatedir = os.path.abspath(Path(str(intermediatedir).strip()).expanduser())
+        if intermediatedir == self.config_intermediatedir:
             return ""
         return (
-            "This is not the productdir of the config file: to use these files in "
-            f"later runs, put `productdir : {productdir}` in its [local] section."
+            "This is not the intermediatedir of the config file: to use these files in "
+            f"later runs, put `intermediatedir : {intermediatedir}` in its [local] section."
         )
 
-    def save(self, productdir=None):
-        """Write the edited subscans to their files in a product directory.
+    def save(self, intermediatedir=None):
+        """Write the edited subscans to their files in an intermediate product directory.
 
         Parameters
         ----------
-        productdir : str, optional
-            Where to save. Default: :attr:`default_productdir`, so there is
-            always somewhere to save.
+        intermediatedir : str, optional
+            Where to save. Default: :attr:`default_intermediatedir`, so there
+            is always somewhere to save.
 
         Returns
         -------
-        productdir : str
+        intermediatedir : str
             The directory the files were written to.
 
         Raises
         ------
         ValueError
-            If ``productdir`` would put the files next to the raw data.
+            If ``intermediatedir`` would put the files next to the raw data.
         """
         from .scan import Scan
 
-        productdir = self.check_productdir(productdir or self.default_productdir)
+        intermediatedir = self.check_intermediatedir(
+            intermediatedir or self.default_intermediatedir
+        )
         config_file = self.scanset.meta.get("config_file")
 
         # Flags of the last flag/unflag edit of each scan
@@ -358,7 +363,7 @@ class FilterSession:
         for sid in self._edited_scans():
             sname = self.scanset.scan_list[sid]
             s = Scan(sname, config_file=config_file, nosave=True)
-            outfile = self._outfile(sname, productdir)
+            outfile = self._outfile(sname, intermediatedir)
             mask = self._mask(sid)
             if len(s) != np.count_nonzero(mask):
                 raise ValueError(f"{sname} has changed since the scan set was created")
@@ -366,7 +371,7 @@ class FilterSession:
                 s[col] = copy.deepcopy(np.asarray(self.scanset[col][mask]))
             if sid in flags:
                 s.meta["FLAG"] = flags[sid]
-            s.meta["productdir"] = productdir
+            s.meta["intermediatedir"] = intermediatedir
             s.save(outfile)
         self._n_saved = len(self.edits)
-        return productdir
+        return intermediatedir

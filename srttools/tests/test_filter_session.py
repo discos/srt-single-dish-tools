@@ -142,25 +142,25 @@ def test_undo_and_reset():
 
 
 def test_save_always_has_a_directory_but_never_the_raw_one(tmp_path, monkeypatch):
-    """Without a config, the default is ./srttools_products; the raw data directory is refused."""
+    """Without a config, the default is ./srttools_products/intermediate; raw data dir refused."""
     monkeypatch.chdir(tmp_path)
     session = FilterSession(_fake_scanset())  # raw scans "scan0.fits"... in the current directory
-    assert session.default_productdir == os.path.join(
-        os.path.realpath(tmp_path), "srttools_products"
+    assert session.default_intermediatedir == os.path.join(
+        os.path.realpath(tmp_path), "srttools_products", "intermediate"
     )
-    assert session.check_productdir("~/somewhere") == os.path.expanduser("~/somewhere")
-    assert "productdir : " in session.config_hint("elsewhere")
+    assert session.check_intermediatedir("~/somewhere") == os.path.expanduser("~/somewhere")
+    assert "intermediatedir : " in session.config_hint("elsewhere")
     for bad in ["", "  ", "."]:
         with pytest.raises(ValueError, match="directory"):
-            session.check_productdir(bad)
+            session.check_intermediatedir(bad)
     session.flag(0)
     with pytest.raises(ValueError, match="raw data directory"):
-        session.save(productdir=str(tmp_path))
+        session.save(intermediatedir=str(tmp_path))
     assert session.n_unsaved == 1
 
 
-def test_save_writes_only_to_productdir(tmp_path):
-    """Saved edits go to the scan files in productdir, and nothing is written next to the data."""
+def test_save_writes_only_to_intermediatedir(tmp_path):
+    """Saved edits go to the scan files in intermediatedir, and nothing is written next to the data."""
     config = str(tmp_path / "casa.ini")
     with open(config, "w") as fobj:
         print(
@@ -183,12 +183,14 @@ def test_save_writes_only_to_productdir(tmp_path):
     assert not np.any(saved["Feed0_RCP-filt"][:10])
     assert np.all(saved["Feed0_LCP-filt"] == scanset["Feed0_LCP-filt"][scanset["Scan_id"] == sid])
     assert sorted(glob.glob(os.path.join(MEDICINA, "**"), recursive=True)) == data_before
-    assert session.config_hint(str(tmp_path / "products")) == ""
+    intermediatedir = tmp_path / "products" / "intermediate"
+    assert glob.glob(os.path.join(intermediatedir, "**", "*.hdf5"), recursive=True)
+    assert session.config_hint(str(intermediatedir)) == ""
 
     # "Save as": another directory works too, and reports where the files went
     other = str(tmp_path / "other")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        assert session.save(productdir=other) == other
+        assert session.save(intermediatedir=other) == other
     assert glob.glob(os.path.join(other, "**", "*.hdf5"), recursive=True)
     assert sorted(glob.glob(os.path.join(MEDICINA, "**"), recursive=True)) == data_before

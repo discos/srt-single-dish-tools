@@ -652,12 +652,12 @@ class TestScanSet:
                 os.unlink(o)
             out_fits_files = glob.glob(os.path.join(klass.config["datadir"], "test_config*.fits"))
             out_hdf5_files = glob.glob(
-                os.path.join(klass.config["productdir"], "sim", "*/", "*.hdf5")
+                os.path.join(klass.config["intermediatedir"], "sim", "*/", "*.hdf5")
             )
 
             for o in out_fits_files + out_hdf5_files:
                 os.unlink(o)
-            shutil.rmtree(os.path.join(klass.config["productdir"], "sim"))
+            shutil.rmtree(os.path.join(klass.config["intermediatedir"], "sim"))
 
 
 class TestLargeMap:
@@ -1041,12 +1041,12 @@ class TestLargeMap:
                 os.unlink(o)
             out_fits_files = glob.glob(os.path.join(klass.config["datadir"], "test_config*.fits"))
             out_hdf5_files = glob.glob(
-                os.path.join(klass.config["productdir"], "sim", "*/", "*.hdf5")
+                os.path.join(klass.config["intermediatedir"], "sim", "*/", "*.hdf5")
             )
 
             for o in out_fits_files + out_hdf5_files:
                 os.unlink(o)
-            shutil.rmtree(os.path.join(klass.config["productdir"], "sim"))
+            shutil.rmtree(os.path.join(klass.config["intermediatedir"], "sim"))
 
 
 def test_binned_mean_sdev_matches_numpy():

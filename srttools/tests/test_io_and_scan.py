@@ -95,7 +95,7 @@ class Test1_Scan:
 
         config = read_config(klass.config_file)
 
-        h5file = os.path.join(config["productdir"], "gauss_dec", "Dec0.hdf5")
+        h5file = os.path.join(config["intermediatedir"], "gauss_dec", "Dec0.hdf5")
         if os.path.exists(h5file):
             os.unlink(h5file)
 
@@ -311,7 +311,7 @@ class Test2_Scan:
         klass.config_file = os.path.abspath(os.path.join(klass.datadir, "spectrum.ini"))
         config = read_config(klass.config_file)
 
-        h5file = os.path.join(config["productdir"], "spectrum", "roach_template.hdf5")
+        h5file = os.path.join(config["intermediatedir"], "spectrum", "roach_template.hdf5")
         if os.path.exists(h5file):
             os.unlink(h5file)
         klass.config = config
@@ -342,7 +342,7 @@ class Test2_Scan:
         Scan(os.path.join(self.datadir, "spectrum", fname), plot=True)
         assert os.path.exists(
             os.path.join(
-                self.config["productdir"],
+                self.config["intermediatedir"],
                 "spectrum",
                 fname.replace(".fits", "") + ".hdf5",
             )
@@ -359,7 +359,7 @@ class Test2_Scan:
         assert np.any(["Bad channels in the data set" in r.message.args[0] for r in record])
         assert os.path.exists(
             os.path.join(
-                self.config["productdir"],
+                self.config["intermediatedir"],
                 "spectrum",
                 fname.replace(".fits", "") + ".hdf5",
             )

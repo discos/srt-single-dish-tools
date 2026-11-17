@@ -58,3 +58,36 @@ def test_explicit_productdir_is_kept_without_warning(tmp_path, recwarn):
     config = read_config(str(config_file))
     assert config["productdir"] == str(tmp_path / "out")
     assert not [w for w in recwarn if "productdir" in str(w.message)]
+
+
+def test_intermediatedir_defaults_to_subdirectory_of_productdir(tmp_path):
+    """Without an intermediatedir, intermediate products go to <productdir>/intermediate."""
+    config_file = tmp_path / "config.ini"
+    config_file.write_text(CONFIG.format(datadir=tmp_path, extra="productdir : out\n"))
+    config = read_config(str(config_file))
+    assert config["intermediatedir"] == str(tmp_path / "out" / "intermediate")
+
+
+def test_explicit_intermediatedir_is_relative_to_config_file(tmp_path):
+    """An intermediatedir in the config file is used as it is, relative to the config file."""
+    config_file = tmp_path / "config.ini"
+    extra = "productdir : out\nintermediatedir : scans\n"
+    config_file.write_text(CONFIG.format(datadir=tmp_path, extra=extra))
+    config = read_config(str(config_file))
+    assert config["productdir"] == str(tmp_path / "out")
+    assert config["intermediatedir"] == str(tmp_path / "scans")
+
+
+def test_directory_overrides_on_cached_config(tmp_path, monkeypatch):
+    """Overriding productdir moves the default intermediatedir too; an explicit one stays."""
+    monkeypatch.chdir(tmp_path)
+    config_file = tmp_path / "config.ini"
+    config_file.write_text(CONFIG.format(datadir=tmp_path, extra="productdir : out\n"))
+    read_config(str(config_file))
+    config = read_config(str(config_file), productdir="new")
+    assert config["productdir"] == str(tmp_path / "new")
+    assert config["intermediatedir"] == str(tmp_path / "new" / "intermediate")
+    config = read_config(str(config_file), intermediatedir="mid")
+    assert config["intermediatedir"] == str(tmp_path / "mid")
+    config = read_config(str(config_file), productdir="newer")
+    assert config["intermediatedir"] == str(tmp_path / "mid")

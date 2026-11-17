@@ -15,12 +15,22 @@ except ImportError:
     import ConfigParser as configparser
 
 
-__all__ = ["DEFAULT_PRODUCTDIR", "get_config_file", "read_config", "sample_config_file"]
+__all__ = [
+    "DEFAULT_INTERMEDIATE_SUBDIR",
+    "DEFAULT_PRODUCTDIR",
+    "get_config_file",
+    "read_config",
+    "sample_config_file",
+]
 
 
 #: Directory (relative to the current one) where products go when the config
 #: file does not specify a ``productdir``.
 DEFAULT_PRODUCTDIR = "srttools_products"
+
+#: Subdirectory of ``productdir`` where intermediate products go when the
+#: config file does not specify an ``intermediatedir``.
+DEFAULT_INTERMEDIATE_SUBDIR = "intermediate"
 
 SRT_tools_config_file = None
 SRT_tools_config = None
@@ -34,11 +44,15 @@ def sample_config_file(fname="sample_config_file.ini"):
 workdir : .
 ; the root directory of the data repository.
 datadir : .
-; the directory where the products (processed scans, plots) are saved. If not
-; specified, a directory called srttools_products is created in the directory
-; where the scripts are launched. The raw data directory is never written to,
-; unless productdir points to it.
+; the directory where the final products (images, calibration tables, light
+; curves, cross scan results) are saved. If not specified, a directory called
+; srttools_products is created in the directory where the scripts are launched.
+; The raw data directory is never written to, unless productdir points to it.
 ; productdir : my_products
+; the directory where the intermediate products (processed scans, diagnostic
+; plots, the _dump.hdf5 files of SDTimage) are saved. Default: the subdirectory
+; "intermediate" of productdir.
+; intermediatedir : my_products/intermediate
 ; if True, output files will be saved directly inside productdir the full path.
 basename_only : False
 
@@ -94,7 +108,13 @@ def get_config_file():
     return SRT_tools_config_file
 
 
-def read_config(fname=None, productdir=None):
+def _set_default_intermediatedir(config):
+    """Put ``intermediatedir`` under ``productdir``, unless it was chosen explicitly."""
+    if not config["_explicit_intermediatedir"]:
+        config["intermediatedir"] = os.path.join(config["productdir"], DEFAULT_INTERMEDIATE_SUBDIR)
+
+
+def read_config(fname=None, productdir=None, intermediatedir=None):
     """Read a config file and return a dictionary of all entries.
 
     Parameters
@@ -107,6 +127,11 @@ def read_config(fname=None, productdir=None):
         (e.g. given on the command line). Relative paths start from the
         current directory. It stays valid for the later calls that read the
         same config file.
+    intermediatedir : str, optional
+        Directory of the intermediate products, replacing the one of the
+        config file. Same rules as ``productdir``. Without it, and without
+        ``intermediatedir`` in the config file, the intermediate products go
+        to the subdirectory ``intermediate`` of ``productdir``.
     """
     global SRT_tools_config_file, SRT_tools_config
 
@@ -114,6 +139,10 @@ def read_config(fname=None, productdir=None):
     if SRT_tools_config is not None and (fname is None or fname == SRT_tools_config_file):
         if productdir is not None:
             SRT_tools_config["productdir"] = os.path.abspath(productdir)
+        if intermediatedir is not None:
+            SRT_tools_config["intermediatedir"] = os.path.abspath(intermediatedir)
+            SRT_tools_config["_explicit_intermediatedir"] = True
+        _set_default_intermediatedir(SRT_tools_config)
         return SRT_tools_config
 
     # ---------------------------------------------
@@ -138,6 +167,7 @@ def read_config(fname=None, productdir=None):
     config_output["workdir"] = os.path.abspath(os.curdir) + "/"
     config_output["datadir"] = os.path.abspath(os.curdir) + "/"
     config_output["productdir"] = None
+    config_output["intermediatedir"] = None
     config_output["basename_only"] = False
     config_output["list_of_directories"] = "*"
     config_output["calibrator_directories"] = []
@@ -187,6 +217,20 @@ def read_config(fname=None, productdir=None):
         config_output["productdir"] = os.path.abspath(
             os.path.join(os.path.split(fname)[0], config_output["productdir"])
         )
+
+    if (
+        config_output["intermediatedir"] is not None
+        and config_output["intermediatedir"].lower() == "none"
+    ):
+        config_output["intermediatedir"] = None
+    if intermediatedir is not None:
+        config_output["intermediatedir"] = os.path.abspath(intermediatedir)
+    elif config_output["intermediatedir"] is not None:
+        config_output["intermediatedir"] = os.path.abspath(
+            os.path.join(os.path.split(fname)[0], config_output["intermediatedir"])
+        )
+    config_output["_explicit_intermediatedir"] = config_output["intermediatedir"] is not None
+    _set_default_intermediatedir(config_output)
 
     try:
         # Read analysis information

@@ -129,7 +129,7 @@ class TestMonitor:
 
         dummy = os.path.join(klass.datadir, "srt_data_dummy.fits")
         klass.proddir, _ = product_path_from_file_name(
-            dummy, workdir=klass.config["workdir"], productdir=klass.config["productdir"]
+            dummy, workdir=klass.config["workdir"], productdir=klass.config["intermediatedir"]
         )
 
         klass.file_empty_init = os.path.abspath(

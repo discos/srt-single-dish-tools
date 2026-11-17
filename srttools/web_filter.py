@@ -127,7 +127,7 @@ class FilterApp:
         # Where Save writes: never empty, and checked as soon as it is changed
         self.save_dir = TextInput(
             title="Save to (never the raw data directory)",
-            value=self.session.default_productdir,
+            value=self.session.default_intermediatedir,
             width=520,
         )
         self.save_dir.on_change("value", lambda attr, old, new: self.check_save_dir())
@@ -568,19 +568,19 @@ class FilterApp:
         there.
         """
         try:
-            productdir = self.session.check_productdir(self.save_dir.value)
+            intermediatedir = self.session.check_intermediatedir(self.save_dir.value)
         except ValueError as e:
             self.save_note.text = _red(f"{e}. Edits cannot be saved until this is changed.")
             return None
-        self.save_note.text = self.session.config_hint(productdir)
-        return productdir
+        self.save_note.text = self.session.config_hint(intermediatedir)
+        return intermediatedir
 
     def save(self):
         """Write the edits to the scan files in the "Save to" directory."""
         n = self.session.n_unsaved
-        productdir = self.session.save(productdir=self.save_dir.value)
+        intermediatedir = self.session.save(intermediatedir=self.save_dir.value)
         self.update_edit_list()
-        self.status.text = f"Saved {n} edits to {productdir}."
+        self.status.text = f"Saved {n} edits to {intermediatedir}."
 
     def set_map_kind(self, kind):
         """Show the image (``"Image"``) or the outlier map (``"Outliers"``)."""

@@ -330,7 +330,7 @@ def test_close_does_not_drop_edits_silently(scans_app):
 def test_save_to_another_directory_from_page(scans_app, tmp_path):
     """A bad "Save to" directory is refused at once; a good one outside the config gets the edits."""
     app = scans_app
-    assert app.save_dir.value == app.session.default_productdir
+    assert app.save_dir.value == app.session.default_intermediatedir
     assert app.save_note.text == ""
     blocker = tmp_path / "a_file"
     blocker.write_text("")
@@ -340,7 +340,7 @@ def test_save_to_another_directory_from_page(scans_app, tmp_path):
     app._report_errors(app.save)()
     assert "cannot be written" in app.status.text and app.session.n_unsaved == 1
     app.save_dir.value = str(tmp_path / "elsewhere")
-    assert "productdir :" in app.save_note.text
+    assert "intermediatedir :" in app.save_note.text
     app.save()
     assert app.session.n_unsaved == 0
     assert glob.glob(str(tmp_path / "elsewhere" / "**" / "*.hdf5"), recursive=True)

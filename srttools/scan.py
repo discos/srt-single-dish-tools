@@ -1299,11 +1299,13 @@ class Scan(Table):
         if rootdir == "":
             rootdir = "."
 
-        if self.meta["productdir"] is not None:
+        # Files written by versions without intermediatedir only have productdir
+        outdir = self.meta.get("intermediatedir") or self.meta.get("productdir")
+        if outdir is not None:
             rootdir, _ = product_path_from_file_name(
                 fname,
                 workdir=self.meta["workdir"],
-                productdir=self.meta["productdir"],
+                productdir=outdir,
                 basename_only=self.meta["basename_only"],
             )
 
