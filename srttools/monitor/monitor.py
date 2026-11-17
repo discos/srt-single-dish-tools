@@ -137,6 +137,7 @@ class Monitor:
         # The scans, and their plots, are written to intermediatedir
         self._productdir = configuration["intermediatedir"]
         self._workdir = configuration["workdir"]
+        self._datadir = configuration["datadir"]
         self._basename_only = configuration["basename_only"]
         self._extension = configuration["debug_file_format"]
 
@@ -270,7 +271,7 @@ class Monitor:
         productdir, fname = product_path_from_file_name(
             infile,
             productdir=self._productdir,
-            workdir=self._workdir,
+            datadir=self._datadir,
             basename_only=self._basename_only,
         )
         root = os.path.join(productdir, fname.rsplit(".fits")[0])

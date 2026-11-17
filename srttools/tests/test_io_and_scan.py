@@ -476,36 +476,31 @@ class TestSummary:
 
 
 class TestScanUtils:
-    def test_product_path_from_file_name(self):
-        # f, w and p below are respectively fname, workdir and productdir
-        # The expected path should be composed in the following way
-        # productdir + (fname - the directories in common with workdir)
-        # and we take out the file name at the end
-        # resulting in '/tmp/.tox/cov/d/e'
-        # By using os.path.commonprefix, the resulting path is instead
-        # '/tmp/../.tox/cov/d/e', which normalized is '/.tox/cov/d/e'
-        # which not only is the wrong directory,
-        # but it is also a directory where, in this example,
-        # the process cannot write, and even if it could, it should definitely not!
-        f = "/a/b/c/.tox/cov/d/e/pippo.pippo"
-        w = "/a/b/c/.tmp/cov"
-        p = "/tmp"  # noqa: S108
-        expected = Path("/tmp/.tox/cov/d/e").absolute()  # noqa: S108
-        path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
-        assert Path(path).absolute() == expected
+    def test_product_path_mirrors_datadir(self):
+        """Products of files inside datadir mirror the directory structure below datadir only."""
+        d = os.path.join(os.sep + "a", "b", ".tox", "data")
+        f = os.path.join(d, "obs1", "sub", "pippo.fits")
+        p = os.path.abspath("prod")
+        path, fname = product_path_from_file_name(f, datadir=d, productdir=p)
+        assert fname == "pippo.fits"
+        assert path == os.path.join(p, "obs1", "sub")
+        # Relative datadir
+        path, _ = product_path_from_file_name(f, datadir=os.path.relpath(d), productdir=p)
+        assert path == os.path.join(p, "obs1", "sub")
 
-        # Use a relative path for workdir
-        path, fname = product_path_from_file_name(f, workdir=os.path.relpath(w), productdir=p)
-        assert Path(path).absolute() == expected
-        # Exception not raised
+    def test_product_path_outside_datadir(self):
+        """Products of files outside datadir go to a folder named as their own, not to a
+        copy of their whole absolute path."""
+        f = os.path.join(os.sep + "x", "y", "obs2", "pippo.fits")
+        d = os.path.join(os.sep + "a", "b", "data")
+        p = os.path.abspath("prod")
+        path, _ = product_path_from_file_name(f, datadir=d, productdir=p)
+        assert path == os.path.join(p, "obs2")
 
-        # We mock commonpath by using commonprefix instead
-        from unittest.mock import patch
-
-        with patch(
-            "srttools.scan.os.path.commonpath", side_effect=os.path.commonprefix
-        ) as mock_patch:
-            path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
-            mock_patch.assert_called_once()
-            # Resulting path is not correct
-            assert Path(path).absolute() != expected
+    @pytest.mark.skipif(os.name != "nt", reason="Drive letters exist only on Windows")
+    def test_product_path_other_drive(self):
+        """Data on a different drive than datadir do not raise an error."""
+        path, _ = product_path_from_file_name(
+            "D:\\data\\obs3\\pippo.fits", datadir="C:\\work", productdir="C:\\prod"
+        )
+        assert path == "C:\\prod\\obs3"

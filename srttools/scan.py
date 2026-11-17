@@ -38,20 +38,30 @@ __all__ = [
 ]
 
 
-def product_path_from_file_name(fname, workdir=".", productdir=None, basename_only=False):
-    """
+def product_path_from_file_name(fname, datadir=".", productdir=None, basename_only=False):
+    """Directory where the products of the raw file ``fname`` are written.
+
+    Without ``productdir``, it is the directory of the raw file. With
+    ``basename_only``, it is ``productdir``. Otherwise, the products of a file
+    inside ``datadir`` go to ``productdir`` in the same directory structure as
+    below ``datadir``; those of a file outside it go to a directory of
+    ``productdir`` with the name of the file's own directory.
+
     Examples
     --------
     >>> curpath = os.path.abspath('.')
-    >>> path, fname = product_path_from_file_name('ciao.ciao', workdir='.', productdir=None)
+    >>> path, fname = product_path_from_file_name('ciao.ciao', datadir='.', productdir=None)
     >>> os.path.abspath(path) == curpath
     True
     >>> dumdir = os.path.join('bu', 'bla')
     >>> dumfile = os.path.join(dumdir, 'ciao.ciao')
-    >>> path, fname = product_path_from_file_name(dumfile, workdir=dumdir, productdir=None)
+    >>> path, fname = product_path_from_file_name(dumfile, datadir=dumdir, productdir=None)
     >>> os.path.abspath(path) == os.path.abspath(dumdir)
     True
-    >>> path, fname = product_path_from_file_name(dumfile, workdir='bu', productdir='be')
+    >>> path, fname = product_path_from_file_name(dumfile, datadir='bu', productdir='be')
+    >>> os.path.abspath(path) == os.path.abspath(os.path.join('be', 'bla'))
+    True
+    >>> path, fname = product_path_from_file_name(dumfile, datadir='bo', productdir='be')
     >>> os.path.abspath(path) == os.path.abspath(os.path.join('be', 'bla'))
     True
     """
@@ -60,16 +70,22 @@ def product_path_from_file_name(fname, workdir=".", productdir=None, basename_on
         filedir = os.curdir
     filedir = os.path.abspath(filedir)
     if productdir is None:
-        rootdir = filedir
+        return os.path.normpath(filedir), fn
+
+    productdir = os.path.abspath(productdir)
+    if basename_only:
+        return os.path.normpath(productdir), fn
+
+    datadir = os.path.abspath(datadir)
+    try:
+        inside = os.path.commonpath([filedir, datadir]) == datadir
+    except ValueError:  # On Windows, paths on different drives
+        inside = False
+    if inside:
+        relpath = os.path.relpath(filedir, datadir)
     else:
-        productdir = os.path.abspath(productdir)
-        if basename_only:
-            rootdir = productdir
-        else:
-            workdir = os.path.abspath(workdir)
-            base = os.path.commonpath([filedir, workdir])
-            relpath = os.path.relpath(filedir, base)
-            rootdir = os.path.join(productdir, relpath)
+        relpath = os.path.basename(filedir)
+    rootdir = os.path.join(productdir, relpath)
 
     return os.path.normpath(rootdir), fn
 
@@ -944,11 +960,16 @@ def find_summary_file_in_dir(directory, warn_if_absent=True):
     return summary_files
 
 
+def _data_directory(meta):
+    """The ``datadir`` of a config or scan ``meta``; ``workdir`` for files written without it."""
+    return meta.get("datadir") or meta.get("workdir") or os.curdir
+
+
 def processed_file_name(fname, meta, outdir=None):
     """Name of the processed (HDF5) file of the raw file ``fname``.
 
     ``meta`` is a config dictionary (or the ``meta`` of a scan set) with
-    ``workdir`` and, optionally, ``basename_only`` and ``intermediatedir``.
+    ``datadir`` and, optionally, ``basename_only`` and ``intermediatedir``.
     The file is in ``outdir`` (default: ``meta["intermediatedir"]``), in the
     same directory structure as the raw data.
     """
@@ -956,7 +977,7 @@ def processed_file_name(fname, meta, outdir=None):
         outdir = meta["intermediatedir"]
     rootdir, fn = product_path_from_file_name(
         fname,
-        workdir=meta.get("workdir") or os.curdir,
+        datadir=_data_directory(meta),
         productdir=outdir,
         basename_only=bool(meta.get("basename_only", False)),
     )
@@ -1323,7 +1344,7 @@ class Scan(Table):
         if outdir is not None:
             rootdir, _ = product_path_from_file_name(
                 fname,
-                workdir=self.meta["workdir"],
+                datadir=_data_directory(self.meta),
                 productdir=outdir,
                 basename_only=self.meta["basename_only"],
             )
