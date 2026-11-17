@@ -1,0 +1,2 @@
+Require ``jinja2>=3.1.6`` for the documentation build, instead of pinning the
+vulnerable ``jinja2==3.1.3``.

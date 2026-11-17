@@ -80,7 +80,7 @@ all = [
     "sunpy"
 ]
 docs = [
-    "jinja2==3.1.3",
+    "jinja2>=3.1.6",
     "docutils",
     "sphinx>=7,<9",
     "sphinx-astropy",
