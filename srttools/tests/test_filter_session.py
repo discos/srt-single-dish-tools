@@ -148,7 +148,8 @@ def test_save_always_has_a_directory_but_never_the_raw_one(tmp_path, monkeypatch
     assert session.default_intermediatedir == os.path.join(
         os.path.realpath(tmp_path), "srttools_products", "intermediate"
     )
-    assert session.check_intermediatedir("~/somewhere") == os.path.expanduser("~/somewhere")
+    expected = os.path.abspath(os.path.expanduser(os.path.join("~", "somewhere")))
+    assert session.check_intermediatedir("~/somewhere") == expected
     assert "intermediatedir : " in session.config_hint("elsewhere")
     for bad in ["", "  ", "."]:
         with pytest.raises(ValueError, match="directory"):
