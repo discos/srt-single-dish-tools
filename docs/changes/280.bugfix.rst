@@ -33,3 +33,5 @@ Constant calibration (``Jy_over_counts_rough``, used with fewer than 3 calibrato
 ``SDTrfistat -c`` looked for the processed scans next to the raw data, where they are no longer written: it now finds them in ``intermediatedir``, and writes its RFI tables and plots to ``productdir``. ``--outroot`` was ignored when the tables were written, and the tables could then not be plotted: fixed.
 
 ``CalibratorTable.from_scans`` loads the subscans with its ``config_file``: called from Python without reading the config file first, its temporary files went to ``./srttools_products`` regardless of ``productdir``. The calibrator fit plots of ``SDTcal --show`` (``<subscan>_scanfit``) go to ``intermediatedir`` instead of next to the raw data.
+
+``ScanSet.read_images_from_meta`` read back only the last saved image of each kind (images, horizontal and vertical scan images): it now reads them all.

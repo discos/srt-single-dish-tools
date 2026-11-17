@@ -1403,17 +1403,19 @@ class ScanSet(Table):
                 self.meta[IMG_VER_STR + key] = self.images_ver[key]
 
     def read_images_from_meta(self):
+        """Read the images saved in the metadata by ``update_meta_with_images``."""
+        found = {IMG_STR: {}, IMG_HOR_STR: {}, IMG_VER_STR: {}}
         for key in self.meta.keys():
-            logging.info(f"Caught key press: {key}")
-            if IMG_STR in key:
-                self.images = {}
-                self.images[key.replace(IMG_STR, "")] = self.meta[key]
-            elif IMG_HOR_STR in key:
-                self.images_hor = {}
-                self.images_hor[key.replace(IMG_HOR_STR, "")] = self.meta[key]
-            elif IMG_VER_STR in key:
-                self.images_ver = {}
-                self.images_ver[key.replace(IMG_VER_STR, "")] = self.meta[key]
+            for prefix, images in found.items():
+                if key.startswith(prefix):
+                    images[key[len(prefix) :]] = self.meta[key]
+        # Kinds without saved images keep what they had
+        if found[IMG_STR]:
+            self.images = found[IMG_STR]
+        if found[IMG_HOR_STR]:
+            self.images_hor = found[IMG_HOR_STR]
+        if found[IMG_VER_STR]:
+            self.images_ver = found[IMG_VER_STR]
 
     def calculate_zernike_moments(
         self, im, cm=None, radius=0.3, norder=8, label=None, use_log=False

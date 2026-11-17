@@ -1130,3 +1130,20 @@ def test_table_merge():
     t1.meta["filename"] = "asd"
     with pytest.raises(ValueError, match=".*ERROR while merging tables.*"):
         s = merge_tables([t0, t1])
+
+
+def test_read_images_from_meta_keeps_all_images():
+    """Images saved in the metadata of a scan set (as ``write`` does) are all read back,
+    not only the last one of each kind."""
+    from srttools.imager import IMG_HOR_STR, IMG_STR, IMG_VER_STR
+
+    scanset = ScanSet()
+    images = {"Feed0_LCP": np.zeros((2, 2)), "Feed0_RCP": np.ones((2, 2))}
+    for prefix in [IMG_STR, IMG_HOR_STR, IMG_VER_STR]:
+        for key, img in images.items():
+            scanset.meta[prefix + key] = img
+    scanset.read_images_from_meta()
+    for imgs in [scanset.images, scanset.images_hor, scanset.images_ver]:
+        assert sorted(imgs) == sorted(images)
+        for key, img in images.items():
+            assert np.all(imgs[key] == img)
