@@ -395,7 +395,11 @@ class FilterApp:
 
     def update_scan_table(self):
         """Refresh the masked fractions and the flags in the list of scans."""
-        self.scan_source.data = self._scan_rows()
+        rows = self._scan_rows()
+        # The browser table redraws only when the number of rows changes
+        # (Bokeh 3.9): empty it first, or it keeps showing the old values
+        self.scan_source.data = {key: [] for key in rows}
+        self.scan_source.data = rows
 
     def _on_scan_row(self, indices):
         if indices and indices[0] != self.scan_index:
@@ -436,7 +440,8 @@ class FilterApp:
         for edit in session.edits[n_saved:]:
             what = edit["kind"]
             if what == "zap":
-                what += " {:.4f}-{:.4f} deg".format(*sorted(edit["range"]))
+                what += " " + ", ".join("{:.4f}-{:.4f}".format(*sorted(r)) for r in edit["ranges"])
+                what += " deg"
             elif what == "baseline":
                 what += " (q={:.3g}, m={:.3g})".format(*edit["pars"])
             elif what == "align":
@@ -516,8 +521,7 @@ class FilterApp:
         sid = self._need_selection()
         if not self.ranges:
             raise ValueError("Mark an interval first (box select along the x axis)")
-        for lo, hi in self.ranges:
-            self.session.zap(sid, self.channel, lo, hi)
+        self.session.zap_ranges(sid, self.channel, self.ranges)
         self.ranges = []
         self._after_edit(f"Zapped subscan {sid}.")
 

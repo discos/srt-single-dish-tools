@@ -397,6 +397,36 @@ def test_scans_view_edits_update_the_list(scans_app):
     assert app.scan_source.data["state"][2] == ""
 
 
+def test_scans_view_undo_unzaps(scans_app):
+    """In the scans view, Undo after a zap restores the plotted samples and the list."""
+    app = scans_app
+    app(Document())
+    app.step_scan(2)
+    before = app.scan_source.data["masked"][2]
+    n_good = np.count_nonzero(np.isfinite(app.line_sources["dec"].data["ys"][0]))
+    s = app._selected_subscan()
+    app.add_range(s.coord.min(), np.median(s.coord))
+    app.zap()
+    assert np.count_nonzero(np.isfinite(app.line_sources["dec"].data["ys"][0])) < n_good
+    app.undo()
+    assert app.scan_source.data["masked"][2] == before
+    assert np.count_nonzero(np.isfinite(app.line_sources["dec"].data["ys"][0])) == n_good
+
+
+def test_one_undo_per_zap_press(scans_app):
+    """Zapping several marked ranges at once is a single edit: one Undo restores them all."""
+    app = scans_app
+    app.step_scan(2)
+    n_good = np.count_nonzero(np.isfinite(app.line_sources["dec"].data["ys"][0]))
+    c = app._selected_subscan().coord
+    app.add_range(*np.percentile(c, [10, 20]))
+    app.add_range(*np.percentile(c, [60, 70]))
+    app.zap()
+    assert len(app.session.edits) == 1
+    app.undo()
+    assert np.count_nonzero(np.isfinite(app.line_sources["dec"].data["ys"][0])) == n_good
+
+
 def test_close_does_not_drop_edits_silently(scans_app):
     """With unsaved edits and no map, Close first asks; it closes at the second press."""
     app = scans_app

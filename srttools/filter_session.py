@@ -150,7 +150,15 @@ class FilterSession:
 
     def zap(self, scan_id, channel, lo, hi):
         """Mask the samples of one channel of a subscan between ``lo`` and ``hi`` (degrees)."""
-        self._add(dict(kind="zap", scan_id=int(scan_id), channel=channel, range=(lo, hi)))
+        self.zap_ranges(scan_id, channel, [(lo, hi)])
+
+    def zap_ranges(self, scan_id, channel, ranges):
+        """Mask the samples of one channel of a subscan inside ``ranges`` (degrees).
+
+        All the ranges are one edit: a single ``undo`` restores them all.
+        """
+        ranges = [(float(lo), float(hi)) for lo, hi in ranges]
+        self._add(dict(kind="zap", scan_id=int(scan_id), channel=channel, ranges=ranges))
 
     def flag(self, scan_id):
         """Mask the whole subscan, in all channels."""
@@ -229,7 +237,7 @@ class FilterSession:
         kind, sid, ch = edit["kind"], edit["scan_id"], edit["channel"]
         if kind == "zap":
             mask = self._mask(sid)
-            zapped = _inside(self._coord(sid, ch), [edit["range"]])
+            zapped = _inside(self._coord(sid, ch), edit["ranges"])
             self.scanset[f"{ch}-filt"][mask] = self.scanset[f"{ch}-filt"][mask] & ~zapped
         elif kind in ("flag", "unflag"):
             mask = self._mask(sid)
