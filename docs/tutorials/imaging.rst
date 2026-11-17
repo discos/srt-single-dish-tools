@@ -326,7 +326,12 @@ the page lists all the subscans instead.
 + **Close and continue** ends ``SDTpreprocess``. If there are edits that were
   not saved, the first press only warns you; press again to discard them.
 
-``--interactive`` needs a config file: it does not work on single files.
+``--interactive`` always needs the config file, which says where the cleaned
+scans are saved. To clean again only a few subscans, give their files too::
+
+    (py3) $ SDTpreprocess -c MySource.ini --interactive path/to/subscan1.fits path/to/subscan2.fits
+
+and the page lists only those.
 
 .. _Eilers and Boelens 2005: https://zanran_storage.s3.amazonaws.com/www.science.uva.nl/ContentPages/443199618.pdf
 

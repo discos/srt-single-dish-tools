@@ -199,11 +199,33 @@ def test_sdtpreprocess_interactive_and_productdir(scanset, tmp_path, monkeypatch
         main_preprocess(["-c", config, "--interactive", "--port", "5124", "--productdir", out])
     assert calls == [(len(scanset.scan_list), 5124, "scans", out)]
     assert glob.glob(os.path.join(out, "**", "*.hdf5"), recursive=True)
-    with pytest.raises(ValueError, match="config file"):
+    with pytest.raises(ValueError, match="needs the config file"):
         main_preprocess(["some_scan.fits", "--interactive"])
     monkeypatch.setitem(sys.modules, "srttools.web_filter", None)
     with pytest.raises(ImportError, match="SDTpreprocess --interactive needs bokeh"):
         main_preprocess(["-c", config, "--interactive"])
+
+
+def test_sdtpreprocess_interactive_single_files(scanset, tmp_path, monkeypatch):
+    """SDTpreprocess --interactive also works on single files (e.g. to clean one subscan
+    again), with the config file still required to know where the products go."""
+    import srttools.web_filter
+    from srttools.imager import main_preprocess
+
+    calls = []
+
+    def fake_serve(scanset, port, view):
+        calls.append((sorted(scanset.scan_list), view))
+
+    monkeypatch.setattr(srttools.web_filter, "serve", fake_serve)
+    files = sorted(scanset.scan_list)[:2]
+    out = str(tmp_path / "out")
+    args = files + ["-c", scanset.meta["config_file"], "--interactive", "--productdir", out]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        main_preprocess(args)
+    assert calls == [(files, "scans")]
+    assert len(glob.glob(os.path.join(out, "**", "*.hdf5"), recursive=True)) == 2
 
 
 def test_sdtimage_directories_from_command_line(scanset, tmp_path, monkeypatch):

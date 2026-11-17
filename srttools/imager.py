@@ -419,6 +419,7 @@ class ScanSet(Table):
         nosub=False,
         plot=False,
         debug=False,
+        scan_list=None,
         **kwargs,
     ):
         """Class obtained by a set of scans.
@@ -447,6 +448,10 @@ class ScanSet(Table):
             See :class:`srttools.scan.clean_scan_using_variability`
         nosub : bool
             See :class:`srttools.scan.Scan`
+        scan_list : list of str, optional
+            With a config file as ``data``: load these subscan files instead
+            of those in the directories listed in the config file. The config
+            file still gives the other parameters (e.g. where the products go).
 
         Other Parameters
         ----------------
@@ -478,7 +483,7 @@ class ScanSet(Table):
         elif isinstance(data, str) and data.endswith("hdf5"):
             data = Table.read(data)
         elif isinstance(data, str) and data.endswith("ini"):  # data is a config file
-            data = self._read_data_from_config(data, **kwargs)
+            data = self._read_data_from_config(data, scan_list=scan_list, **kwargs)
         elif not isinstance(data, Table):  # data needs to be a Table object
             raise ValueError(f"Invalid data: \n{data}")
 
@@ -506,14 +511,17 @@ class ScanSet(Table):
             self._scan_list = self.meta["scan_list"]
         return self._scan_list
 
-    def _read_data_from_config(self, data, **kwargs):
+    def _read_data_from_config(self, data, scan_list=None, **kwargs):
         config_file = data
         config = read_config(config_file)
 
         self.meta.update(config)
         self.meta["config_file"] = config_file
 
-        scan_list = self.list_scans()
+        if scan_list is None:
+            scan_list = self.list_scans()
+        else:
+            scan_list = [os.path.abspath(f) for f in scan_list]
 
         scan_list.sort()
 
@@ -2173,7 +2181,8 @@ def main_preprocess(args=None):
         default=False,
         help="After the automatic cleaning, open the interactive filter: a web page "
         "served locally, to inspect and clean the scans one by one (needs bokeh "
-        "and a config file; see the documentation for use through ssh)",
+        "and the config file; with single files, only those are shown; see the "
+        "documentation for use through ssh)",
     )
 
     parser.add_argument(
@@ -2188,10 +2197,10 @@ def main_preprocess(args=None):
     excluded_xy, excluded_radec = _excluded_regions_from_args(args.exclude)
 
     if args.interactive:
-        if args.files or args.config is None:
+        if args.config is None:
             raise ValueError(
-                "--interactive works on all the scans of a config file: "
-                "give the config file with -c, and no single files"
+                "--interactive needs the config file (-c), also with single files: "
+                "it says where the cleaned scans are saved"
             )
         # Fail now, not after the cleaning of all the scans
         serve = _web_filter_serve("SDTpreprocess")
@@ -2199,19 +2208,18 @@ def main_preprocess(args=None):
     # Remembered by read_config: valid for all the scans loaded below
     apply_directory_arguments(args)
 
-    if args.files is not None and args.files:
-        for f in args.files:
-            if not os.path.exists(f):
-                warnings.warn(f"File {f} does not exist")
-                continue
+    files = []
+    for f in args.files or []:
+        if not os.path.exists(f):
+            warnings.warn(f"File {f} does not exist")
+            continue
+        if detect_data_kind(f) is None or _is_summary_file(f):
+            continue
+        files.append(f)
 
-            kind = detect_data_kind(f)
-
-            if kind is None:
-                continue
-            if _is_summary_file(f):
-                continue
-            logging.info(f"Processing {f} ({kind})")
+    if args.files and not args.interactive:
+        for f in files:
+            logging.info(f"Processing {f} ({detect_data_kind(f)})")
             try:
                 Scan(
                     f,
@@ -2234,8 +2242,11 @@ def main_preprocess(args=None):
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
+        if args.files and not files:
+            raise ValueError("None of the files given can be processed")
         scanset = ScanSet(
             args.config,
+            scan_list=files or None,
             norefilt=False,
             freqsplat=args.splat,
             nosub=not args.sub,
