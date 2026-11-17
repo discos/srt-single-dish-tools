@@ -158,7 +158,7 @@ per-subscan difference, which accounts for the noise they share.
 
 The settings were chosen with Monte Carlo simulations reproducing the noise
 (white and 1/f), baseline drifts, RFI and pointing errors of real SRT cross
-scans (``experiments/crossscan_mc``, section 7 of its notes). All the
+scans (described in `pull request 280`_). All the
 variants tested (baseline fitted outside a window around the source and
 amplitude measured afterwards, or fitted together with the Gaussian; knots
 every 2, 3, 5 FWHM; mean or median) give correct errors: the scatter of the
@@ -209,7 +209,7 @@ long for the spike filter. Before averaging cross scans,
 Every flagged subscan is reported in a warning, with a further warning if
 more than 20% of the subscans of a channel are flagged. The default
 ``rfi_nsigma = 5`` was chosen with Monte Carlo simulations reproducing the
-noise and RFI of real SRT cross scans (``experiments/crossscan_mc``): it
+noise and RFI of real SRT cross scans (`pull request 280`_): it
 flags 0.2-0.3% of the clean subscans with 1/f noise (none with white noise),
 including when a bright source is observed with a pointing offset, and
 misses only 0.1% of the subscans containing RFI bursts. Set ``rfi_nsigma=None``
@@ -236,7 +236,7 @@ fits are excluded from the calibration, from the source fluxes and from the
 light curves written by ``SDTlcurve``, and are reported in warnings.
 
 The default ``outlier_nsigma = 5`` was chosen with the Monte Carlo
-simulations of ``experiments/crossscan_mc``. For a bright source (peak ~40
+simulations of `pull request 280`_. For a bright source (peak ~40
 times the per-sample noise) it flags 0.4% of the clean fits; with RFI it
 brings the flux back to its RFI-free value (without rejection, the RFI model
 of the simulations biases the flux by ~20%). For faint sources (below S/N
@@ -625,3 +625,5 @@ The first image calculation of a run takes ~3 s longer, because the binning
 code is compiled (numba). The subscans through a pixel are sent to the browser
 in full (0.1 MB here), with no thinning. On the Medicina map of Cas A (25,000
 samples) all steps take less than 30 ms.
+
+.. _pull request 280: https://github.com/discos/srt-single-dish-tools/pull/280
