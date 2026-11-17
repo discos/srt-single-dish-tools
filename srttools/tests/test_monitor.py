@@ -83,24 +83,26 @@ class WebSocketClient:
         self.close()
 
     def close(self):
-        self.connection.close()
+        if self.connection is not None:
+            self.connection.close()
 
     def connect(self):
-        websocket_connect(self.url, callback=self.on_connect)
+        # tornado >= 6.6 deprecates the callback arguments: use the returned futures
+        websocket_connect(self.url).add_done_callback(self.on_connect)
 
     def on_connect(self, future):
         try:
             self.connection = future.result()
-            self.connection.read_message(self.on_message)
+            self.connection.read_message().add_done_callback(self.on_message)
         except Exception as e:
             print(e)
 
-    def on_message(self, message):
-        if message is None:
+    def on_message(self, future):
+        message = future.result()
+        if message is None:  # The connection was closed
             return
-        else:
-            self.messages.put(message.result())
-        self.connection.read_message(self.on_message)
+        self.messages.put(message)
+        self.connection.read_message().add_done_callback(self.on_message)
 
     def get_messages(self, n, timeout=None):
         t0 = time.time()
