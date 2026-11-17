@@ -59,7 +59,7 @@ from srttools.inspect_observations import main_inspector
 from srttools.io import mkdir_p
 from srttools.read_config import read_config
 from srttools.rfistat import main_rfistat
-from srttools.scan import Scan
+from srttools.scan import Scan, processed_file_name
 from srttools.simulate import simulate_sun
 
 try:
@@ -140,8 +140,6 @@ class TestScanSet:
 
         klass.obsdir_ra = os.path.join(klass.datadir, "sim", "gauss_ra")
         klass.obsdir_dec = os.path.join(klass.datadir, "sim", "gauss_dec")
-        klass.prodir_ra = os.path.join(klass.datadir, "sim", "test_image", "gauss_ra")
-        klass.prodir_dec = os.path.join(klass.datadir, "sim", "test_image", "gauss_dec")
         klass.config_file = os.path.abspath(
             os.path.join(klass.sim_dir, "test_config_sim_small.ini")
         )
@@ -238,12 +236,15 @@ class TestScanSet:
         files = glob.glob(os.path.join(self.obsdir_ra, "*.fits"))
 
         main_preprocess(files[:2] + ["--debug", "-c", self.config_file, "--plot"])
+        config = read_config(self.config_file)
         for file in files[:2]:
             # I used debug_file_format : png in the config
             if HAS_MPL:
+                # Debug plots go next to the processed scans, in intermediatedir
+                outdir = os.path.dirname(processed_file_name(file, config))
                 f = os.path.basename(file).replace(".fits", "_000.png")
 
-                assert os.path.exists(os.path.join(self.prodir_ra, f))
+                assert os.path.exists(os.path.join(outdir, f))
 
     def test_script_is_installed_prep(self):
         sp.check_call("SDTpreprocess -h".split(" "))
@@ -670,8 +671,6 @@ class TestLargeMap:
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
         klass.sim_dir = os.path.join(klass.datadir, "sim")
-        klass.prodir_ra = os.path.join(klass.datadir, "sim", "test_image", "gauss_ra")
-        klass.prodir_dec = os.path.join(klass.datadir, "sim", "test_image", "gauss_dec")
 
         klass.obsdir_ra = os.path.join(klass.datadir, "sim", "gauss_ra")
         klass.obsdir_dec = os.path.join(klass.datadir, "sim", "gauss_dec")
