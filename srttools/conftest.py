@@ -21,6 +21,12 @@ try:
 except ImportError:
     ASTROPY_HEADER = False
 
+try:
+    import bokeh  # noqa: F401
+except ImportError:
+    # The interactive filter needs the optional bokeh: do not import it to look for doctests
+    collect_ignore = ["web_filter.py"]
+
 
 def pytest_configure(config):
     """Configure Pytest with Astropy.
