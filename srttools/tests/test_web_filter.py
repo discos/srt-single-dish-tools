@@ -250,6 +250,7 @@ def test_sdtimage_directories_from_command_line(scanset, tmp_path, monkeypatch):
         "srttools.calibration:main_cal",
         "srttools.calibration:main_lcurve",
         "srttools.crossscan:main_cross",
+        "srttools.rfistat:main_rfistat",
     ],
 )
 def test_config_tools_have_directory_options(main, capsys):

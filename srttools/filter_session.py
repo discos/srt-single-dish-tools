@@ -20,7 +20,7 @@ import numpy as np
 
 from .fit import align as fit_align
 from .fit import linear_fit, linear_fun
-from .io import get_channel_feed, root_name
+from .io import get_channel_feed
 
 __all__ = ["FilterSession", "Subscan"]
 
@@ -281,15 +281,9 @@ class FilterSession:
 
     def _outfile(self, sname, intermediatedir):
         """File where the scan ``sname`` is saved under ``intermediatedir``."""
-        from .scan import product_path_from_file_name
+        from .scan import processed_file_name
 
-        rootdir, fn = product_path_from_file_name(
-            sname,
-            workdir=self.scanset.meta.get("workdir") or os.curdir,
-            productdir=intermediatedir,
-            basename_only=bool(self.scanset.meta.get("basename_only", False)),
-        )
-        return root_name(os.path.join(rootdir, fn)) + ".hdf5"
+        return processed_file_name(sname, self.scanset.meta, outdir=intermediatedir)
 
     def check_intermediatedir(self, intermediatedir):
         """Return the absolute ``intermediatedir``, or raise if edits cannot be saved there.

@@ -944,6 +944,25 @@ def find_summary_file_in_dir(directory, warn_if_absent=True):
     return summary_files
 
 
+def processed_file_name(fname, meta, outdir=None):
+    """Name of the processed (HDF5) file of the raw file ``fname``.
+
+    ``meta`` is a config dictionary (or the ``meta`` of a scan set) with
+    ``workdir`` and, optionally, ``basename_only`` and ``intermediatedir``.
+    The file is in ``outdir`` (default: ``meta["intermediatedir"]``), in the
+    same directory structure as the raw data.
+    """
+    if outdir is None:
+        outdir = meta["intermediatedir"]
+    rootdir, fn = product_path_from_file_name(
+        fname,
+        workdir=meta.get("workdir") or os.curdir,
+        productdir=outdir,
+        basename_only=bool(meta.get("basename_only", False)),
+    )
+    return root_name(os.path.join(rootdir, fn)) + ".hdf5"
+
+
 def list_scans(datadir, dirlist):
     """List all scans contained in the directory listed in config."""
     scan_list = []

@@ -397,7 +397,8 @@ in the same run, which call ``read_config`` again, get them too. If only
 ``productdir`` is replaced, and the config file has no ``intermediatedir``,
 the default ``intermediatedir`` moves with it. The command-line options
 ``--productdir`` and ``--intermediatedir`` of ``SDTpreprocess``,
-``SDTimage``, ``SDTcal``, ``SDTlcurve`` and ``SDTcross`` are added by
+``SDTimage``, ``SDTcal``, ``SDTlcurve``, ``SDTcross`` and ``SDTrfistat`` are
+added by
 ``srttools.read_config.add_directory_arguments`` and applied, before any scan
 is loaded, by ``apply_directory_arguments``. When the input is a dump file
 without a config file, there is no config to change: the directories are
@@ -406,6 +407,12 @@ written in the ``meta`` of the loaded ``ScanSet`` instead, which is where
 Dump files of older versions have no ``productdir`` in their ``meta``: their
 products are written next to the config file (``SDTimage``) or the dump
 (``SDTcross``), as before.
+
+The name of the processed file of a raw file is given by
+``srttools.scan.processed_file_name``, used by the interactive filter (to
+save) and by ``SDTrfistat -c`` (to find the processed scans of the
+directories of the config file; it writes its RFI tables and plots to
+``productdir``).
 
 Interactive filter web page (``--interactive``)
 -----------------------------------------------
