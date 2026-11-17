@@ -20,6 +20,7 @@ __all__ = [
     "DEFAULT_INTERMEDIATE_SUBDIR",
     "DEFAULT_PRODUCTDIR",
     "get_config_file",
+    "output_file_name",
     "read_config",
     "sample_config_file",
     "upgrade_config",
@@ -108,6 +109,31 @@ debug_file_format : jpg
 def get_config_file():
     """Get the current config file."""
     return SRT_tools_config_file
+
+
+def output_file_name(config_file, tail, outdir=None, intermediate=False):
+    """Name of an output file of a tool run on ``config_file``, creating its directory.
+
+    The name is ``<outdir>/<config file name without .ini><tail>``, e.g.
+    ``products/casa_cal.hdf5`` for ``casa.ini`` and ``tail="_cal.hdf5"``.
+
+    Parameters
+    ----------
+    config_file : str
+        The config file. Only its name is used if ``outdir`` is given.
+    tail : str
+        What follows the root of the config file name.
+    outdir : str, optional
+        The directory. Default: ``productdir`` of the config file, for final
+        products, or ``intermediatedir`` if ``intermediate`` is True.
+    intermediate : bool
+        The file is an intermediate product (e.g. a cache).
+    """
+    if outdir is None:
+        outdir = read_config(config_file)["intermediatedir" if intermediate else "productdir"]
+    os.makedirs(outdir, exist_ok=True)
+    root = os.path.splitext(os.path.basename(config_file))[0]
+    return os.path.join(outdir, root + tail)
 
 
 def upgrade_config(fname):

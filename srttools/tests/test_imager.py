@@ -650,7 +650,9 @@ class TestScanSet:
             out_iter_files = glob.glob("out_iter_*")
             for o in out_iter_files:
                 os.unlink(o)
-            out_fits_files = glob.glob(os.path.join(klass.config["datadir"], "test_config*.fits"))
+            out_fits_files = glob.glob(
+                os.path.join(klass.config["productdir"], "test_config*.fits")
+            )
             out_hdf5_files = glob.glob(
                 os.path.join(klass.config["intermediatedir"], "sim", "*/", "*.hdf5")
             )
@@ -1039,7 +1041,9 @@ class TestLargeMap:
             out_iter_files = glob.glob("out_iter_*")
             for o in out_iter_files:
                 os.unlink(o)
-            out_fits_files = glob.glob(os.path.join(klass.config["datadir"], "test_config*.fits"))
+            out_fits_files = glob.glob(
+                os.path.join(klass.config["productdir"], "test_config*.fits")
+            )
             out_hdf5_files = glob.glob(
                 os.path.join(klass.config["intermediatedir"], "sim", "*/", "*.hdf5")
             )

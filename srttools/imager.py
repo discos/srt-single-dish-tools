@@ -31,7 +31,7 @@ from .fit import eliminate_spiky_outliers
 from .global_fit import fit_full_image
 from .io import chan_re, detect_data_kind, get_channel_feed
 from .opacity import calculate_opacity
-from .read_config import read_config, sample_config_file
+from .read_config import output_file_name, read_config, sample_config_file
 from .scan import Scan, _is_summary_file, list_scans
 from .utils import (
     HAS_MAHO,
@@ -1529,7 +1529,10 @@ class ScanSet(Table):
                 tail = tail.replace(".fits", "_cal.fits")
             if destripe:
                 tail = tail.replace(".fits", "_destripe.fits")
-            fname = self.meta["config_file"].replace(".ini", tail)
+            config_file = self.meta["config_file"]
+            # Dumps of older versions may have no productdir: next to the config file
+            outdir = self.meta.get("productdir") or os.path.dirname(os.path.abspath(config_file))
+            fname = output_file_name(config_file, tail, outdir=outdir)
 
         if save_images and destripe:
             logging.info("Destriping....")
@@ -2019,7 +2022,9 @@ def main_imager(args=None):
         infile = args.config
 
         if outfile is None:
-            outfile = infile.replace(".ini", "_dump.hdf5")
+            outfile = output_file_name(
+                infile, "_dump.hdf5", outdir=scanset.meta.get("intermediatedir")
+            )
 
     if args.interactive:
         _web_filter_serve("SDTimage")(scanset, port=args.port)

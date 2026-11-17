@@ -18,7 +18,7 @@ from srttools.calibration import (
     main_lcurve,
 )
 from srttools.io import mkdir_p
-from srttools.read_config import read_config
+from srttools.read_config import output_file_name, read_config
 from srttools.scan import list_scans
 from srttools.simulate import _2d_gauss, sim_crossscans
 from srttools.utils import HAS_MPL, compare_strings
@@ -329,15 +329,18 @@ class TestCalibration:
     @pytest.mark.skipif("not HAS_MPL")
     def test_sdtcal_show_with_config(self):
         main_cal(("-c " + self.config_file + " --check --show").split(" "))
-        outfile = self.config_file.replace(".ini", "_cal.hdf5")
-        plotfile = outfile.replace("ini", "jpg")
+        outfile = output_file_name(self.config_file, "_cal.hdf5")
+        plotfile = outfile.replace(".hdf5", ".jpg")
         assert os.path.exists(outfile)
         assert os.path.exists(plotfile)
         os.unlink(plotfile)
 
-        # Reload unfiltered cal
+        # Reload unfiltered cal, a cache in intermediatedir
+        unfilt = output_file_name(self.config_file, "_cal_unfilt.hdf5", intermediate=True)
+        assert os.path.exists(unfilt)
+        os.unlink(outfile)
         main_cal(("-c " + self.config_file).split(" "))
-        assert os.path.exists(plotfile)
+        assert os.path.exists(outfile)
 
     def test_sdtcal_with_sample_config(self):
         if os.path.exists("sample_config_file.ini"):

@@ -166,7 +166,7 @@ def test_sdtimage_interactive_calls_server(scanset, tmp_path, monkeypatch):
     main_imager([outfile, "--interactive", "--port", "5123", "--noplot"])
     assert calls == [(len(scanset), 5123)]
     # The images are named after the config file
-    assert glob.glob(scanset.meta["config_file"].replace(".ini", "*.fits"))
+    assert glob.glob(os.path.join(scanset.meta["productdir"], "casa*.fits"))
 
 
 def test_sdtimage_interactive_without_bokeh(scanset, tmp_path, monkeypatch):

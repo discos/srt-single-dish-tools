@@ -66,6 +66,8 @@ goodchans =
         scanset = ScanSet(config)
         images = scanset.calculate_images(calibration=calfile, map_unit="Jy/pixel")
     return dict(
+        config=config,
+        tmp=tmp,
         caltable=caltable,
         scanset=scanset,
         images=images,
@@ -112,3 +114,22 @@ def test_medicina_calibration_error_includes_scatter(casa):
     for ch in ["Feed0_RCP", "Feed0_LCP"]:
         fc, fce = casa["caltable"].Jy_over_counts_rough(channel=ch, map_unit="Jy/pixel")
         assert fce / fc > 0.05
+
+
+def test_medicina_command_line_output_directories(casa):
+    """SDTcal and SDTimage put final products in productdir, caches and dumps in intermediatedir."""
+    from srttools.calibration import main_cal
+    from srttools.imager import main_imager
+
+    tmp = casa["tmp"]
+    products = tmp / "products"
+    intermediate = products / "intermediate"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        main_cal(["-c", casa["config"]])
+        main_imager(["-c", casa["config"], "--noplot"])
+    for fname in ["casa_cal.hdf5", "casa_cal.csv", "casa.fits"]:
+        assert (products / fname).exists(), fname
+    for fname in ["casa_cal_unfilt.hdf5", "casa_dump.hdf5"]:
+        assert (intermediate / fname).exists(), fname
+    assert sorted(os.listdir(tmp)) == ["cal_NGC7027.hdf5", "casa.ini", "products"]

@@ -1,3 +1,5 @@
+import glob
+
 import numpy as np
 import pytest
 
@@ -189,17 +191,22 @@ def test_measure_crosses_offset_position():
     assert abs(dec_arm["flux"] - 10.0) < 4 * dec_arm["err"]
 
 
-@pytest.mark.usefixtures("no_pyplot_figures")
-def test_sdtcross_command_line(tmp_path):
-    """SDTcross reads a dump file and writes the FITS, ECSV and plot files."""
+def _fake_dump(fname, **meta):
+    """Write a dump file of a simulated cross scan, as SDTimage would."""
     t = _cross_table(5.0)
     t["x"] = np.zeros((len(t), 1))
     t["y"] = np.zeros((len(t), 1))
-    t.meta.update(RA=RA0 * u.rad, Dec=DEC0 * u.rad, SOURCE="Fake")
+    t.meta.update(RA=RA0 * u.rad, Dec=DEC0 * u.rad, SOURCE="Fake", **meta)
     for ch in CHANS:
         t[ch].meta.update(frequency=6200 * u.MHz, bandwidth=1500 * u.MHz)
-    fname = str(tmp_path / "fake_dump.hdf5")
     t.write(fname, serialize_meta=True)
+    return fname
+
+
+@pytest.mark.usefixtures("no_pyplot_figures")
+def test_sdtcross_command_line(tmp_path):
+    """SDTcross reads a dump file and writes the FITS, ECSV and plot files."""
+    fname = _fake_dump(str(tmp_path / "fake_dump.hdf5"))
     with pytest.warns(UserWarning, match="No calibration"):
         main_cross([fname, "--beam-fwhm", str(FWHM_DEG * 60), "--rfi-nsigma", "0"])
     root = str(tmp_path / "fake")
@@ -213,3 +220,15 @@ def test_sdtcross_command_line(tmp_path):
     assert "TOTAL" in summary["label"]
     for suffix in ["_cross.png", "_cross_total.png"]:
         assert (tmp_path / ("fake" + suffix)).exists()
+
+
+def test_sdtcross_writes_to_productdir_of_dump(tmp_path):
+    """Without -o, the results go to the productdir stored in the dump, not next to it."""
+    (tmp_path / "intermediate").mkdir()
+    fname = _fake_dump(
+        str(tmp_path / "intermediate" / "fake_dump.hdf5"), productdir=str(tmp_path / "prod")
+    )
+    with pytest.warns(UserWarning, match="No calibration"):
+        main_cross([fname, "--beam-fwhm", str(FWHM_DEG * 60), "--rfi-nsigma", "0", "--noplot"])
+    assert (tmp_path / "prod" / "fake_cross.fits").exists()
+    assert not glob.glob(str(tmp_path / "intermediate" / "*_cross*"))

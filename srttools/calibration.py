@@ -24,7 +24,7 @@ from astropy.table import Column, Table
 from .crossscan import beam_fwhm_from_frequency
 from .fit import fit_baseline_plus_bell
 from .io import get_channel_feed, mkdir_p
-from .read_config import get_config_file, read_config, sample_config_file
+from .read_config import get_config_file, output_file_name, read_config, sample_config_file
 from .scan import Scan, list_scans
 from .utils import (
     HAS_STATSM,
@@ -1596,8 +1596,9 @@ def main_cal(args=None):
 
     outfile = args.output
     if outfile is None:
-        outfile = args.config.replace(".ini", "_cal.hdf5")
-    outfile_unfilt = args.config.replace(".ini", "_cal_unfilt.hdf5")
+        outfile = output_file_name(args.config, "_cal.hdf5")
+    # A cache, reused by later runs
+    outfile_unfilt = output_file_name(args.config, "_cal_unfilt.hdf5", intermediate=True)
     if not os.path.exists(outfile_unfilt):
         caltable = CalibratorTable()
         caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt, plot=args.show)
@@ -1727,7 +1728,7 @@ def main_lcurve(args=None):
 
         outfile = args.output
         if outfile is None:
-            outfile = args.config.replace(".ini", "_cal.hdf5")
+            outfile = output_file_name(args.config, "_cal.hdf5")
 
         caltable.write(outfile, overwrite=True)
 
