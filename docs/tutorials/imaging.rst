@@ -327,7 +327,9 @@ the page lists all the subscans instead.
   not saved, the first press only warns you; press again to discard them.
 
 ``--interactive`` always needs the config file, which says where the cleaned
-scans are saved. To clean again only a few subscans, give their files too::
+scans are saved. To clean again only a few subscans, give their files too:
+
+.. code-block:: console
 
     (py3) $ SDTpreprocess -c MySource.ini --interactive path/to/subscan1.fits path/to/subscan2.fits
 
