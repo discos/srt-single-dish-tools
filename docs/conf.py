@@ -187,6 +187,7 @@ def write_cli_docs(cli_file):
     env = dict(os.environ, PYTHONWARNINGS="ignore", COLUMNS="80")
     logging_re = re.compile(r"\[([EWID])\]\s2[0-9]{3}")
 
+    os.makedirs(os.path.dirname(cli_file), exist_ok=True)
     with open(cli_file, "w") as fobj:
         print("Command line interface", file=fobj)
         print("======================\n", file=fobj)
