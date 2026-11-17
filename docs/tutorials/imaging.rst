@@ -150,35 +150,63 @@ a larger value is better for sparse observations.
 Also, you might know already that some observations were bad. In this case,
 it's sufficient to take them out of the list above.
 
-``productdir`` is the directory where the programs write their products: the
-processed scans (``HDF5`` files, one per subscan) and the diagnostic plots.
-Inside it, the files keep the same directory structure they have in
+``productdir`` is the directory where the programs write their *final*
+products: the images of ``SDTimage``, the calibration tables of ``SDTcal``,
+the light curves of ``SDTlcurve``, the results of ``SDTcross``. Their names
+start with the name of the config file (e.g. ``CCB_ROACH_Src1_Obs0.fits``).
+
+The *intermediate* products, i.e. the processed scans (``HDF5`` files, one
+per subscan), the diagnostic plots, and the ``_dump.hdf5`` files of
+``SDTimage``, go to another directory, ``intermediatedir``. By default, it is
+the subdirectory ``intermediate`` of ``productdir``; you can choose another
+one with an ``intermediatedir`` line in the ``[local]`` section. Inside it,
+the processed scans keep the same directory structure they have in
 ``datadir``.
+
+Both directories can also be given on the command line, with
+``--productdir`` and ``--intermediatedir``, to all the programs that read
+the config file (``SDTpreprocess``, ``SDTimage``, ``SDTcal``,
+``SDTlcurve``, ``SDTcross``). They replace the ones of the config file for
+that run.
 
 .. note::
 
-    **Where the products go: a change of behaviour.** Older versions of
-    ``srttools`` wrote the processed scans *next to the raw data* when the
-    config file had no ``productdir``. This is no longer the case: the raw
-    data directories are never written to.
+    **Where the products go: a change of behaviour.**
 
-    + If the config file has no ``productdir`` (or ``productdir : None``),
-      all programs that read the config file (``SDTpreprocess``,
-      ``SDTimage``, ``SDTcal``, ``SDTlcurve``, ...) use a directory called
-      ``srttools_products``, created in the directory *where you launch the
-      program*, and print a warning that says so.
-
-    + To avoid the warning, and to be sure that all programs use the same
+    + Older versions of ``srttools`` wrote the processed scans *next to the
+      raw data* when the config file had no ``productdir``. This is no longer
+      the case: the raw data directories are never written to. If the config
+      file has no ``productdir`` (or ``productdir : None``), all programs use
+      a directory called ``srttools_products``, created in the directory
+      *where you launch the program*, and print a warning that says so. To
+      avoid the warning, and to be sure that all programs use the same
       directory wherever you launch them from, set ``productdir`` in the
-      ``[local]`` section of the config file. ``SDTpreprocess`` can also take
-      it from the command line (``--productdir``).
+      ``[local]`` section of the config file.
+
+    + Older versions wrote the processed scans directly in ``productdir``,
+      and the images, calibration tables and dump files next to the config
+      file. Now the processed scans go to ``intermediatedir`` (by default
+      ``productdir/intermediate``), and the final products to
+      ``productdir``. With an old config file, the processed scans of the
+      old version are not found, and the scans are processed again. If you
+      want to keep them (e.g. because you cleaned them by hand), run
+
+      .. code-block:: console
+
+          (py3) $ SDTupgradeconfig CCB_ROACH_Src1_Obs0.ini
+
+      which adds ``intermediatedir`` (equal to the old ``productdir``) to the
+      config file, and keeps the original as ``CCB_ROACH_Src1_Obs0.ini.bak``.
+      The programs print a warning pointing to ``SDTupgradeconfig`` when they
+      find old processed scans in ``productdir``.
 
     + ``HDF5`` files written next to the raw data by an older version are
       not found any more: the scans are processed again from the ``fits``
       files, which is slower the first time but gives the same results. Edits
       made by hand with the old interactive filter were stored only in those
       files, so they are not applied. To keep using the old files, copy them
-      to a new directory with the same structure and set ``productdir`` to it.
+      to a new directory with the same structure and set ``intermediatedir``
+      to it.
 
 .. _all projections in this list are supported: https://docs.astropy.org/en/stable/wcs/supported_projections.html
 
@@ -241,9 +269,10 @@ steps:
    to be specified by hand, with the ``-e`` option followed by a valid ds9-compatible
    region file containing *circular* regions in the ``fk5`` frame.
 
-3. The results of the first points are saved as ``HDF5`` files in the product
-   directory (``productdir`` in the config file; see the note above for what
-   happens without one), never next to the original ``fits`` files. This makes it
+3. The results of the first points are saved as ``HDF5`` files in the
+   intermediate product directory (``intermediatedir``, by default
+   ``productdir/intermediate``; see above), never next to the original
+   ``fits`` files. This makes it
    much faster to reload the scans for further use. **If the user wants to reprocess
    the files from scratch**, they need to delete these files first, or select the
    ``--refilt`` option.
@@ -287,11 +316,12 @@ the page lists all the subscans instead.
   **Unflag** removes all its masks, **Undo** cancels the last edit.
 
 + **Save** writes the edited subscans to the directory in the "Save to" box.
-  The box is never empty: it starts with the product directory of the config
-  file. You can type another directory ("save as"); the page tells you at
-  once if it cannot be used (it cannot be created, or it is the raw data
-  directory, which is never written to), and reminds you to put it in the
-  config file as ``productdir`` so that ``SDTimage`` finds the edited scans.
+  The box is never empty: it starts with the intermediate product directory
+  (``intermediatedir``) of the config file, where the processed scans are.
+  You can type another directory ("save as"); the page tells you at once if
+  it cannot be used (it cannot be created, or it is the raw data directory,
+  which is never written to), and reminds you to put it in the config file
+  as ``intermediatedir`` so that ``SDTimage`` finds the edited scans.
 
 + **Close and continue** ends ``SDTpreprocess``. If there are edits that were
   not saved, the first press only warns you; press again to discard them.
@@ -457,8 +487,9 @@ How to use the page:
   edit. The list of edits is shown at the bottom.
 
 + **Save** writes the edited subscans to the directory in the "Save to" box,
-  which starts with the product directory (``productdir`` in the config
-  file, or ``srttools_products``) and can be changed, as explained
+  which starts with the intermediate product directory (``intermediatedir``
+  of the config file, or ``srttools_products/intermediate``) and can be
+  changed, as explained
   :ref:`above <preprocess_interactive>`. The raw data are never touched. Edits
   that are not saved are still used for the images of the current run.
 

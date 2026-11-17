@@ -343,25 +343,69 @@ comes out 19% lower than with 1.5' pixels, which leave none.
 Where the products are written
 ------------------------------
 
-Processed scans (one HDF5 file per subscan) and diagnostic plots go to the
-product directory, ``productdir`` in the ``[local]`` section of the config
-file. ``srttools.read_config.read_config`` never returns an empty
-``productdir``: if the config file has none (or ``None``), it sets it to
+There are two output directories, both in the ``[local]`` section of the
+config file:
+
++ ``productdir``: the final products, i.e. the images of ``SDTimage``, the
+  calibration tables of ``SDTcal`` and ``SDTlcurve``, the results of
+  ``SDTcross``. Their names are built by
+  ``srttools.read_config.output_file_name``: the name of the config file
+  without ``.ini``, plus a tail (``.fits``, ``_cal.hdf5``, ``_cross.fits``,
+  ...). An explicit output name on the command line (``-o``, ``--output``,
+  ``--outroot``) is used as it is.
+
++ ``intermediatedir``: the intermediate products, i.e. the processed scans
+  (one HDF5 file per subscan, in the same directory structure as the raw
+  data), the diagnostic plots, the ``_dump.hdf5`` files of ``SDTimage`` and
+  the ``_cal_unfilt.hdf5`` cache of ``SDTcal``. Default: ``productdir``
+  followed by ``intermediate``
+  (``srttools.read_config.DEFAULT_INTERMEDIATE_SUBDIR``).
+
+``srttools.read_config.read_config`` never returns an empty ``productdir``:
+if the config file has none (or ``None``), it sets it to
 ``srttools_products`` in the current directory
 (``srttools.read_config.DEFAULT_PRODUCTDIR``) and gives a warning. Since
 every tool gets its settings from ``read_config``, this holds for all of
 them, and also for a ``Scan`` loaded without a config file. The reason is
 that the raw data directory should never be written to: archives are often
 read-only or shared, and files appearing next to the raw data were easy to
-mistake for data.
+mistake for data. Relative paths in the config file start from the directory
+of the config file; relative paths on the command line start from the
+current directory.
 
-Before this change, the default was to write next to the raw data. HDF5 files
-left there by older versions are not read any more.
+The reason for two directories is that the processed scans are many small
+files, useful only to speed up later runs and to keep the edits made by hand,
+while the final products are the few files the user looks at.
 
-``read_config(fname, productdir=...)`` replaces the directory of the config
-file (used by ``SDTpreprocess --productdir``). ``read_config`` keeps the last
-config it read in memory, and the replacement is stored there, so the scans
-loaded later in the same run, which call ``read_config`` again, get it too.
+Older versions behaved differently: the default was to write next to the raw
+data (HDF5 files left there are not read any more); the processed scans were
+written directly in ``productdir``; images, calibration tables and dumps were
+written next to the config file. With an old config file the processed scans
+are therefore not found and are made again. ``read_config`` warns when the
+config file has no ``intermediatedir``, the default one does not exist yet,
+and ``productdir`` contains HDF5 files at most one directory level down
+(files named after the config file, i.e. final products, are ignored). The
+warning points to ``SDTupgradeconfig`` (``srttools.read_config.upgrade_config``),
+which adds ``intermediatedir``, equal to ``productdir``, right after the
+``productdir`` line, editing the file as text so that comments survive, and
+keeps the original as ``<file>.bak``.
+
+``read_config(fname, productdir=..., intermediatedir=...)`` replaces the
+directories of the config file. ``read_config`` keeps the last config it read
+in memory, and the replacements are stored there, so the scans loaded later
+in the same run, which call ``read_config`` again, get them too. If only
+``productdir`` is replaced, and the config file has no ``intermediatedir``,
+the default ``intermediatedir`` moves with it. The command-line options
+``--productdir`` and ``--intermediatedir`` of ``SDTpreprocess``,
+``SDTimage``, ``SDTcal``, ``SDTlcurve`` and ``SDTcross`` are added by
+``srttools.read_config.add_directory_arguments`` and applied, before any scan
+is loaded, by ``apply_directory_arguments``. When the input is a dump file
+without a config file, there is no config to change: the directories are
+written in the ``meta`` of the loaded ``ScanSet`` instead, which is where
+``save_ds9_images``, ``SDTcross`` and the interactive filter look for them.
+Dump files of older versions have no ``productdir`` in their ``meta``: their
+products are written next to the config file (``SDTimage``) or the dump
+(``SDTcross``), as before.
 
 Interactive filter web page (``--interactive``)
 -----------------------------------------------
@@ -376,13 +420,14 @@ The interactive filter has two layers:
   restores it and repeats all edits but the last one. Nothing is written to
   disk until ``save``, which copies the edited columns into the ``Scan`` of
   each edited subscan and writes it to a directory: the one given by the
-  caller ("save as"), or the product directory. There is always somewhere to
-  save: without a config file, the default is ``srttools_products`` in the
-  current directory. ``check_productdir`` refuses a directory that cannot be
+  caller ("save as"), or the intermediate product directory. There is always
+  somewhere to save: without a config file, the default is
+  ``srttools_products/intermediate`` in the current directory.
+  ``check_intermediatedir`` refuses a directory that cannot be
   created or written to, and one where some scan would end up in the
   directory of its raw data file, so the raw data directory is never written
   to. ``config_hint`` gives the line to put in the config file when the
-  directory is not its ``productdir``: otherwise later runs would not find
+  directory is not its ``intermediatedir``: otherwise later runs would not find
   the edited scans.
 
 + ``srttools.web_filter.FilterApp`` builds the page with Bokeh and calls the
@@ -411,7 +456,7 @@ and ``serve``:
   with unsaved edits only warns the first time, and closes the second time.
 
 Both views have the "Save to" box, filled with the default directory when the
-page opens and checked with ``check_productdir`` every time it changes, so a
+page opens and checked with ``check_intermediatedir`` every time it changes, so a
 directory that cannot be used is reported before any work is lost.
 
 The map looks much as in the old matplotlib display: the ds9-like logarithmic

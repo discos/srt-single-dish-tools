@@ -29,7 +29,10 @@ data interactively):
 .. code-block:: console
 
     (py3) $ SDTimage -c MySource.ini
-    (py3) $ SDTcross MySource_dump.hdf5 --calibrate calibration.hdf5
+    (py3) $ SDTcross my_products/intermediate/MySource_dump.hdf5 --calibrate calibration.hdf5
+
+(the dump file is in the intermediate product directory, here with
+``productdir = my_products`` in the config file).
 
 If the dump file already contains calibrated ``<channel>_cal`` columns,
 ``--calibrate`` can be omitted; without any calibration, fluxes are in
@@ -58,7 +61,9 @@ quadrature.
 Outputs
 ~~~~~~~
 For an input ``MySource_dump.hdf5`` (or ``MySource.ini``), ``SDTcross``
-writes:
+writes, in the product directory (``productdir`` of the config file, or
+``--productdir``; for dump files of older versions, next to the dump), or
+with the root given with ``-o``:
 
 - ``MySource_cross.fits``: the main results as keywords of the primary
   header (``FLUX``, ``FLUXERR``, ``UPLIM``, ``NSIGMA``, ``DETECTED``,
