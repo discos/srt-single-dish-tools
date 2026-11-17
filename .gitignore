@@ -51,6 +51,7 @@ coverage.xml
 *.xml
 *.png
 srttools/tests/data/sim/
+srttools/tests/data/*_classfits/
 *.zip
 *.ini
 

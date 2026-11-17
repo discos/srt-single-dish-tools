@@ -171,6 +171,7 @@ class Test1_Scan:
         # test that a new conversion does not make this fail
         newdir = main_convert([self.onoff, "-f", "classfits", "--test"])[0]
         assert os.path.isdir(newdir)
+        shutil.rmtree(newdir)
 
     def test_main_classfits_sim(self):
         newdir = main_convert([self.pswdir, "-f", "classfits", "--test"])[0]
