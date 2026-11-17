@@ -479,7 +479,9 @@ config file:
 + ``intermediatedir``: the intermediate products, i.e. the processed scans
   (one HDF5 file per subscan, in the same directory structure as the raw
   data below ``datadir``; raw files outside ``datadir`` go to a subdirectory
-  with the name of their own directory), the diagnostic plots, the ``_dump.hdf5`` files of ``SDTimage`` and
+  with the name of their own directory), the diagnostic plots (e.g. the
+  calibrator fits of ``SDTcal --show``, in ``<subscan>_scanfit`` next to the
+  processed subscan), the ``_dump.hdf5`` files of ``SDTimage`` and
   the ``_cal_unfilt.hdf5`` cache of ``SDTcal``. Default: ``productdir``
   followed by ``intermediate``
   (``srttools.read_config.DEFAULT_INTERMEDIATE_SUBDIR``).

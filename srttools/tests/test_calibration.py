@@ -377,14 +377,8 @@ class TestCalibration:
         if HAS_MPL:
             for f in glob.glob("*.jpg"):
                 os.unlink(f)
-        for d in klass.config["list_of_directories"]:
-            hfiles = glob.glob(os.path.join(klass.config["datadir"], d, "*.hdf5"))
-            for h in hfiles:
-                os.unlink(h)
-
-            dirs = glob.glob(os.path.join(klass.config["datadir"], d, "*_scanfit"))
-            for dirname in dirs:
-                shutil.rmtree(dirname)
+        # Processed scans and fit plots are all below productdir
+        shutil.rmtree(klass.config["productdir"], ignore_errors=True)
         if os.path.exists(klass.calfile):
             os.remove(klass.calfile)
 
@@ -474,3 +468,33 @@ def test_treat_scan_skips_subscans_missing_the_source(tmp_path, monkeypatch):
         retval, rows = _treat_scan(fname)
     assert retval
     assert rows == []
+
+
+def test_calibrator_fits_write_only_below_productdir(tmp_path, monkeypatch):
+    """SDTcal fits honour the config file: plots and temporary files go below
+    its intermediatedir, never next to the raw data or into the current directory."""
+    datadir = tmp_path / "data"
+    datadir.mkdir()
+    fname = str(datadir / "srt_data_tp_multif.fits")
+    shutil.copyfile(
+        os.path.join(os.path.dirname(__file__), "data", "srt_data_tp_multif.fits"), fname
+    )
+    config_file = tmp_path / "cal.ini"
+    config_file.write_text(
+        f"[local]\ndatadir : {datadir}\nproductdir : {tmp_path / 'out'}\n"
+        "[analysis]\nlist_of_directories :\n    ./\n"
+    )
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        CalibratorTable().from_scans([fname], config_file=str(config_file))
+        retval, _ = _treat_scan(fname, plot=True, max_offset=None, config_file=str(config_file))
+    assert retval
+    assert os.listdir(cwd) == []
+    assert os.listdir(datadir) == ["srt_data_tp_multif.fits"]
+    plotdirs = glob.glob(
+        str(tmp_path / "out" / "intermediate" / "**" / "*_scanfit"), recursive=True
+    )
+    assert len(plotdirs) == 1 and os.listdir(plotdirs[0])

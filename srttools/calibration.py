@@ -299,10 +299,6 @@ def _treat_scan(scan_path, plot=False, max_offset=0.25, **kwargs):
     subscans miss the source, and their fits give meaningless Flux/Counts.
     """
     scandir, sname = os.path.split(scan_path)
-    if plot and HAS_MPL:
-        outdir = os.path.splitext(sname)[0] + "_scanfit"
-        outdir = os.path.join(scandir, outdir)
-        mkdir_p(outdir)
 
     try:
         # For now, use nosave. HDF5 doesn't store meta, essential for
@@ -315,6 +311,11 @@ def _treat_scan(scan_path, plot=False, max_offset=0.25, **kwargs):
         logging.warning(f"Error while processing {sname}: {str(e)}")
         logging.warning(traceback.format_exc())
         return False, None
+
+    if plot and HAS_MPL:
+        # Diagnostic plots go next to the processed scan, in intermediatedir
+        outdir = scan.root_name(scan_path) + "_scanfit"
+        mkdir_p(outdir)
 
     chans = scan.chan_columns()
 
@@ -667,7 +668,12 @@ class CalibratorTable(Table):
             logging.info(f"{i_s + 1}/{nscan}: Loading {s}")
 
             retval, rows = _treat_scan(
-                s, plot=plot, debug=debug, freqsplat=freqsplat, nofilt=nofilt
+                s,
+                plot=plot,
+                debug=debug,
+                freqsplat=freqsplat,
+                nofilt=nofilt,
+                config_file=config_file,
             )
 
             if retval:
@@ -1611,7 +1617,13 @@ def main_cal(args=None):
     outfile_unfilt = output_file_name(args.config, "_cal_unfilt.hdf5", intermediate=True)
     if not os.path.exists(outfile_unfilt):
         caltable = CalibratorTable()
-        caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt, plot=args.show)
+        caltable.from_scans(
+            scan_list,
+            freqsplat=args.splat,
+            nofilt=args.nofilt,
+            plot=args.show,
+            config_file=args.config,
+        )
         caltable.write(outfile_unfilt)
     else:
         logging.info(
