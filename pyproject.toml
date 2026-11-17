@@ -380,7 +380,6 @@ lint.ignore = [  # NOTE: non-permanent exclusions should be added to `.ruff.toml
 "setup.py" = ["INP001"]  # Part of configuration, not a package.
 ".github/workflows/*.py" = ["INP001"]
 "notebooks/*.py" = ["INP001"]
-"experiments/*.py" = ["INP001"]  # Standalone scripts, not a package.
 
 "test_*.py" = [
     "ANN201",  # Public function without return type annotation

@@ -81,8 +81,4 @@ srttools/_version.py
 .python-version
 
 # Experiment scripts and outputs (kept locally, not useful to users)
-experiments/crossscan_mc/
-experiments/crossscan_real/
-experiments/maps_real/
-experiments/medicina_real/
-experiments/web_filter_timing/
+experiments/
