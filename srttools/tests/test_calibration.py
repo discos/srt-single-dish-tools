@@ -390,10 +390,10 @@ class TestCalibration:
 
 
 def test_safe_fit_baseline_plus_bell_does_not_crash():
-    """A single huge spike makes the Gaussian fit raise; the safe wrapper warns and returns None."""
-    x = 23.83 + np.linspace(-0.24, 0.24, 475)
-    y = np.zeros(475)
-    y[237] = 100.0
+    """When the Gaussian fit raises, the safe wrapper warns and returns None. A strong spike
+    makes it raise only with some astropy/scipy versions: x and y of different lengths always do."""
+    x = np.linspace(-0.24, 0.24, 475)
+    y = np.zeros(474)
     with pytest.warns(UserWarning, match="Fit failed in test_scan"):
         model, fit_info = _safe_fit_baseline_plus_bell(x, y, "test_scan")
     assert model is None
