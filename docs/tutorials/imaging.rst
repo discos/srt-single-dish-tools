@@ -556,6 +556,13 @@ Finally, call ``SDTimage`` with the ``--calibrate`` option, e.g.
 applying a region with DS9 and calculating the total flux inside the given region will
 return the actual total flux contained in the region.
 
+Each channel also has a ``-Sdev`` map (scatter of the samples in each pixel),
+an ``-EXPO`` map (number of samples) and an ``-ERR`` map (error of the pixel
+value, including the calibration error). ERR does not include the noise
+correlated along the scans, and the calibration error does not average down
+when pixels are summed: see :ref:`image-errors` before using them for flux
+errors.
+
 Calibrated light curves
 ~~~~~~~~~~~~~~~~~~~~~~~
 Go to a directory close to your data set. For example

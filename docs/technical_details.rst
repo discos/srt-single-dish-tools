@@ -340,6 +340,128 @@ On a Medicina map of Cas A at 8.18 GHz (2022-12-13; subscans 1.25' apart),
 1' pixels leave 24% of the pixels empty and the flux density in a 12' aperture
 comes out 19% lower than with 1.5' pixels, which leave none.
 
+.. _image-errors:
+
+Image maps: Sdev, ERR and calibration
+-------------------------------------
+
+What each map contains
+~~~~~~~~~~~~~~~~~~~~~~
+
+For each channel (e.g. ``Feed0_LCP``), ``SDTimage`` saves several maps on the
+same pixel grid. If a pixel contains the :math:`N` samples
+:math:`x_1, \dots, x_N`:
+
++ ``<channel>``: the mean, :math:`\bar{x} = \frac{1}{N}\sum_i x_i`;
++ ``<channel>-EXPO``: the number of samples, :math:`N`;
++ ``<channel>-Sdev``: the standard deviation of the samples,
+  :math:`s = \sqrt{\frac{1}{N-1}\sum_i (x_i - \bar{x})^2}`. It is NaN when
+  :math:`N < 2`, where a scatter cannot be measured;
++ ``<channel>-ERR``: the error of the mean, :math:`s/\sqrt{N}`, plus, in
+  calibrated maps, the calibration error (see below);
++ ``<channel>-Outliers``: a score that is larger when the samples of the
+  pixel are more likely to contain outliers.
+
+Sdev describes the samples, ERR describes the pixel value: with more samples
+per pixel, Sdev stays about the same and ERR decreases.
+
+Two ways of calibrating
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The calibration (``SDTimage --calibrate``) converts counts to Jy/beam or
+Jy/pixel with a factor :math:`f` (Jy per count) that depends on elevation,
+with a relative error :math:`\epsilon = \sigma_f / f`.
+
++ **Per-sample calibration** (default; ``calibrate_scans=True`` in
+  ``ScanSet.calculate_images``): each sample is multiplied by the factor at
+  its own elevation, then the samples are binned. Sdev is the standard
+  deviation of the calibrated samples.
++ **Quick calibration** (``SDTimage --quick``;
+  ``ScanSet.calibrate_images``): the images are made in counts and then
+  multiplied by a single factor, the one at the mean elevation of the map.
+  Sdev is multiplied by :math:`|f|` (a scatter is never negative). The
+  uncalibrated maps are kept with ``-RAW`` in their name (e.g.
+  ``Feed0_LCP-RAW-Sdev``). It is faster, but wrong if the gain changes over
+  the elevation range of the map.
+
+In both cases the calibration error of a pixel with value :math:`F` (in Jy)
+is :math:`\epsilon F`, added in quadrature to the statistical error:
+
+.. math::
+
+    \mathrm{ERR} = \sqrt{\left(\frac{s}{\sqrt{N}}\right)^2 + (\epsilon F)^2}
+
+(with per-sample calibration, :math:`\epsilon` is the average over the
+samples).
+
+The calibration error is the *same* error for the whole map: if the factor is
+5% too high, every pixel is 5% too high. It does not average down when pixels
+are added. For example, take the flux density of an extended source as the
+sum of 100 pixels of 0.1 Jy/pixel, each with a statistical error of 0.02 Jy,
+and :math:`\epsilon = 5\%`. The total is 10 Jy; its statistical error is
+:math:`\sqrt{100} \times 0.02 = 0.2` Jy, and its calibration error is
+:math:`5\% \times 10 = 0.5` Jy, giving :math:`\sqrt{0.2^2 + 0.5^2} = 0.54`
+Jy. Adding the ERR of the pixels in quadrature would instead give only
+:math:`\sqrt{100} \times 0.005 = 0.05` Jy of calibration error. So, for sums
+over pixels, take the statistical part from Sdev and EXPO
+(:math:`s/\sqrt{N}`), sum it in quadrature, and add the calibration error of
+the total once.
+
+Combined maps
+~~~~~~~~~~~~~
+
++ **Destriped maps** (``SDTimage --destripe``) combine the map of the RA
+  subscans and the map of the Dec subscans. Their ERR is the error of the mean
+  of the two, weighted with the number of samples:
+  :math:`\sqrt{(N_h e_h)^2 + (N_v e_v)^2} / (N_h + N_v)`, where :math:`e_h`
+  and :math:`e_v` are the ERR of the two maps. Where one direction has a
+  single sample (no Sdev), the ERR of the map of all subscans is used.
++ **Maps averaged over channels** (``SDTimage --scrunch-channels``):
+  ``TOTAL-Sdev`` and ``TOTAL-ERR`` are :math:`\sqrt{\sum_c \sigma_c^2} / n`,
+  for :math:`n` channels, as for the mean of independent measurements.
+  Channels of the same feed share the atmosphere and the baseline drifts, so
+  they are not fully independent: the true error is somewhat larger.
+
+What ERR does not include
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ERR is computed only from the scatter of the samples *inside* each pixel.
+Tests on real SRT maps (3C84 and empty sky at K band, 2018; W44, 2016) show
+what it misses:
+
++ **Noise correlated along the scans.** Baseline drifts and residual
+  offsets between subscans (stripes) move all the samples of a subscan
+  together, so they do not appear in the scatter inside a pixel. On empty
+  sky (K band), the robust standard deviation of value / ERR is 1.38-1.39, not 1
+  (robust standard deviation: 1.4826 times the median absolute deviation from
+  the median, which ignores the tails). The difference between the W44 maps
+  made with RA and with Dec subscans, divided by its ERR, has a robust
+  standard deviation of 1.60. The scatter of the row (or column) averages is
+  2-6 times what uncorrelated noise of the size of ERR would give.
+  On W44, destriping with the source excluded from the baseline fit
+  (``--exclude``) removes most of the stripes, reduces the sky noise by 14%,
+  and the empty-sky ratio from 1.50 to 1.38.
++ **Pixels with few samples.** With 3-6 samples, Sdev itself is very
+  uncertain: some pixels, whose samples agree by chance, get a tiny ERR.
+  Because of these, the plain standard deviation of value / ERR on empty sky
+  is 2.1, instead of 1.38.
++ **Bright sources.** Near the peak of a source, the samples in a pixel
+  differ because the beam response changes across the pixel, not because of
+  noise: ERR becomes large (up to 80 times the empty-sky value on the peak of
+  3C84). It is not the error of the peak value.
++ **Systematic effects.** Consecutive maps of 3C84 agree to 6-10%, about 30
+  times their statistical error: pointing errors, atmosphere and gain changes
+  dominate, and no single map can measure them.
+
+In practice:
+
++ for the noise of a map, use the robust standard deviation of an empty
+  region, not ERR;
++ fit sources with uniform weights, not with weights :math:`1/\mathrm{ERR}^2`,
+  which would make the fit ignore the core of the source;
++ add the repeatability of repeated observations (or of the calibrators) to
+  the error of a flux density.
+
 Where the products are written
 ------------------------------
 
