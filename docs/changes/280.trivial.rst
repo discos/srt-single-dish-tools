@@ -2,3 +2,5 @@ Require ``jinja2>=3.1.6`` for the documentation build, instead of pinning the
 vulnerable ``jinja2==3.1.3``.
 
 The old experiment scripts (``experiments/``) are no longer in the repository.
+
+Publish the package to PyPI automatically when a GitHub release is published.
