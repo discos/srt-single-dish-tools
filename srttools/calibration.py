@@ -24,7 +24,14 @@ from astropy.table import Column, Table
 from .crossscan import beam_fwhm_from_frequency
 from .fit import fit_baseline_plus_bell
 from .io import get_channel_feed, mkdir_p
-from .read_config import get_config_file, output_file_name, read_config, sample_config_file
+from .read_config import (
+    add_directory_arguments,
+    apply_directory_arguments,
+    get_config_file,
+    output_file_name,
+    read_config,
+    sample_config_file,
+)
 from .scan import Scan, list_scans
 from .utils import (
     HAS_STATSM,
@@ -1516,6 +1523,7 @@ def main_cal(args=None):
     )
 
     parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
+    add_directory_arguments(parser)
 
     parser.add_argument(
         "--splat",
@@ -1571,6 +1579,8 @@ def main_cal(args=None):
     )
 
     args = parser.parse_args(args)
+    # Before loading any scan: remembered by read_config for the whole run
+    apply_directory_arguments(args)
 
     if args.sample_config:
         sample_config_file()
@@ -1676,6 +1686,7 @@ def main_lcurve(args=None):
     )
 
     parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
+    add_directory_arguments(parser)
 
     parser.add_argument(
         "--splat",
@@ -1710,6 +1721,8 @@ def main_lcurve(args=None):
     )
 
     args = parser.parse_args(args)
+    # Before loading any scan: remembered by read_config for the whole run
+    apply_directory_arguments(args)
 
     if args.sample_config:
         sample_config_file()

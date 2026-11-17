@@ -206,6 +206,63 @@ def test_sdtpreprocess_interactive_and_productdir(scanset, tmp_path, monkeypatch
         main_preprocess(["-c", config, "--interactive"])
 
 
+def test_sdtimage_directories_from_command_line(scanset, tmp_path, monkeypatch):
+    """SDTimage --productdir/--intermediatedir: with a config file, images go to the first and
+    processed scans and dump to the second; with a dump alone, they reach the web filter."""
+    import srttools.read_config
+    import srttools.web_filter
+    from srttools.imager import main_imager
+
+    # Start from a fresh config: the overrides must not leak into the other tests
+    monkeypatch.setattr(srttools.read_config, "SRT_tools_config", None)
+    prod, mid = tmp_path / "prod", tmp_path / "mid"
+    config = scanset.meta["config_file"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        main_imager(
+            ["-c", config, "--noplot", "--productdir", str(prod)] + ["--intermediatedir", str(mid)]
+        )
+    assert (prod / "casa.fits").exists()
+    assert (mid / "casa_dump.hdf5").exists()
+    assert glob.glob(str(mid / "**" / "*.hdf5"), recursive=True)
+
+    calls = []
+
+    def fake_serve(scanset, port):
+        calls.append((scanset.meta["productdir"], scanset.meta["intermediatedir"]))
+
+    monkeypatch.setattr(srttools.web_filter, "serve", fake_serve)
+    prod2 = tmp_path / "prod2"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        main_imager(
+            [str(mid / "casa_dump.hdf5"), "--interactive", "--noplot", "--productdir", str(prod2)]
+        )
+    assert calls == [(str(prod2), str(prod2 / "intermediate"))]
+    assert (prod2 / "casa.fits").exists()
+
+
+@pytest.mark.parametrize(
+    "main",
+    [
+        "srttools.imager:main_imager",
+        "srttools.imager:main_preprocess",
+        "srttools.calibration:main_cal",
+        "srttools.calibration:main_lcurve",
+        "srttools.crossscan:main_cross",
+    ],
+)
+def test_config_tools_have_directory_options(main, capsys):
+    """Every tool that loads scans from a config file accepts --productdir and --intermediatedir."""
+    import importlib
+
+    module, func = main.split(":")
+    with pytest.raises(SystemExit):
+        getattr(importlib.import_module(module), func)(["--help"])
+    out = capsys.readouterr().out
+    assert "--productdir" in out and "--intermediatedir" in out
+
+
 def test_click_elsewhere_after_zap(app):
     """Clicking a pixel the selected subscan does not cross deselects it; one it crosses keeps it."""
     sid = _click_peak(app)

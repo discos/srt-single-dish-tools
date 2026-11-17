@@ -17,6 +17,8 @@ except ImportError:
 
 
 __all__ = [
+    "add_directory_arguments",
+    "apply_directory_arguments",
     "DEFAULT_INTERMEDIATE_SUBDIR",
     "DEFAULT_PRODUCTDIR",
     "get_config_file",
@@ -109,6 +111,55 @@ debug_file_format : jpg
 def get_config_file():
     """Get the current config file."""
     return SRT_tools_config_file
+
+
+def add_directory_arguments(parser):
+    """Add ``--productdir`` and ``--intermediatedir`` to a command-line parser."""
+    parser.add_argument(
+        "--productdir",
+        type=str,
+        default=None,
+        help="Directory of the final products (images, calibration tables, cross "
+        "scan results), instead of the productdir of the config file. Without any "
+        "productdir, ./srttools_products is used. The raw data directories are "
+        "never written to",
+    )
+    parser.add_argument(
+        "--intermediatedir",
+        type=str,
+        default=None,
+        help="Directory of the intermediate products (processed scans, diagnostic "
+        "plots, dump files), instead of the intermediatedir of the config file. "
+        "Default: the subdirectory 'intermediate' of productdir",
+    )
+
+
+def apply_directory_arguments(args, meta=None):
+    """Apply ``--productdir`` and ``--intermediatedir`` from the command line.
+
+    With ``args.config``, the directories are stored in the config kept in
+    memory by :func:`read_config`, so all the scans loaded later in the run
+    use them: call this before loading any scan. Otherwise, if ``meta`` is
+    given (the ``meta`` of a scan set loaded from a dump file), they are
+    written there. As in :func:`read_config`, without ``--intermediatedir``
+    a new ``--productdir`` also moves the intermediate products to its
+    ``intermediate`` subdirectory.
+    """
+    productdir = getattr(args, "productdir", None)
+    intermediatedir = getattr(args, "intermediatedir", None)
+    if productdir is None and intermediatedir is None:
+        return
+    if getattr(args, "config", None) is not None:
+        read_config(args.config, productdir=productdir, intermediatedir=intermediatedir)
+        return
+    if meta is None:
+        return
+    if productdir is not None:
+        meta["productdir"] = os.path.abspath(productdir)
+        if intermediatedir is None:
+            meta["intermediatedir"] = os.path.join(meta["productdir"], DEFAULT_INTERMEDIATE_SUBDIR)
+    if intermediatedir is not None:
+        meta["intermediatedir"] = os.path.abspath(intermediatedir)
 
 
 def output_file_name(config_file, tail, outdir=None, intermediate=False):

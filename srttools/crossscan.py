@@ -40,7 +40,7 @@ from scipy.interpolate import BSpline
 from astropy.table import Table
 
 from .io import get_channel_feed
-from .read_config import output_file_name
+from .read_config import add_directory_arguments, apply_directory_arguments, output_file_name
 
 __all__ = [
     "arm_offsets",
@@ -713,6 +713,7 @@ def main_cross(args=None):
     parser.add_argument(
         "-c", "--config", type=str, default=None, help="Config file (instead of files)"
     )
+    add_directory_arguments(parser)
     parser.add_argument(
         "--calibrate",
         type=str,
@@ -776,11 +777,13 @@ def main_cross(args=None):
 
     from .imager import ScanSet
 
+    apply_directory_arguments(args)
     if args.config is not None:
         table = ScanSet(args.config, norefilt=True, nosub=True, plot=False)
         default_root = output_file_name(args.config, "")
     elif len(args.files) > 0:
         table = ScanSet(args.files[0] if len(args.files) == 1 else args.files)
+        apply_directory_arguments(args, meta=table.meta)
         default_root = args.files[0].replace("_dump.hdf5", "").replace(".hdf5", "")
         # Dumps of older versions may have no productdir: next to the dump
         if table.meta.get("productdir"):

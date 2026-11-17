@@ -31,7 +31,13 @@ from .fit import eliminate_spiky_outliers
 from .global_fit import fit_full_image
 from .io import chan_re, detect_data_kind, get_channel_feed
 from .opacity import calculate_opacity
-from .read_config import output_file_name, read_config, sample_config_file
+from .read_config import (
+    add_directory_arguments,
+    apply_directory_arguments,
+    output_file_name,
+    read_config,
+    sample_config_file,
+)
 from .scan import Scan, _is_summary_file, list_scans
 from .utils import (
     HAS_MAHO,
@@ -1814,6 +1820,8 @@ def main_imager(args=None):
         help="Port of the interactive filter web page",
     )
 
+    add_directory_arguments(parser)
+
     parser.add_argument(
         "--crosses-only",
         default=False,
@@ -1999,8 +2007,11 @@ def main_imager(args=None):
     if args.altaz:
         args.frame = "altaz"
 
+    # Before loading the scans, which read the directories from the config
+    apply_directory_arguments(args)
     if args.file is not None:
         scanset = ScanSet(args.file, config_file=args.config, plot=not args.noplot)
+        apply_directory_arguments(args, meta=scanset.meta)
         infile = args.file
         if outfile is None:
             outfile = infile
@@ -2154,14 +2165,7 @@ def main_preprocess(args=None):
         ". This will change in the future.",
     )
 
-    parser.add_argument(
-        "--productdir",
-        type=str,
-        default=None,
-        help="Directory where the processed scans are written, instead of the "
-        "productdir of the config file. The raw data directories are never "
-        "written to: without any productdir, ./srttools_products is used",
-    )
+    add_directory_arguments(parser)
 
     parser.add_argument(
         "--interactive",
@@ -2192,9 +2196,8 @@ def main_preprocess(args=None):
         # Fail now, not after the cleaning of all the scans
         serve = _web_filter_serve("SDTpreprocess")
 
-    if args.productdir is not None:
-        # Remembered by read_config: valid for all the scans loaded below
-        read_config(args.config, productdir=args.productdir)
+    # Remembered by read_config: valid for all the scans loaded below
+    apply_directory_arguments(args)
 
     if args.files is not None and args.files:
         for f in args.files:
