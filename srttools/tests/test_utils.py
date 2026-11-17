@@ -44,7 +44,8 @@ def test_matplotlib_backend_not_forced(display):
     out = subprocess.run(
         [sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True
     )
-    assert out.stdout.strip().lower() == "svg"
+    # Warnings (e.g. on missing optional dependencies) may be logged before the backend
+    assert out.stdout.strip().splitlines()[-1].lower() == "svg"
 
 
 def test_new_figure_is_new():
