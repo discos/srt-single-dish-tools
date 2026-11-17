@@ -91,3 +91,31 @@ def test_directory_overrides_on_cached_config(tmp_path, monkeypatch):
     assert config["intermediatedir"] == str(tmp_path / "mid")
     config = read_config(str(config_file), productdir="newer")
     assert config["intermediatedir"] == str(tmp_path / "mid")
+
+
+def test_upgrade_config_adds_intermediatedir(tmp_path):
+    """SDTupgradeconfig keeps old processed scans usable: intermediatedir = old productdir, .bak kept."""
+    from srttools.read_config import main_upgrade_config
+
+    config_file = tmp_path / "config.ini"
+    text = CONFIG.format(datadir=tmp_path, extra="; my comment\nproductdir : out\n")
+    config_file.write_text(text)
+    main_upgrade_config([str(config_file)])
+    assert (tmp_path / "config.ini.bak").read_text() == text
+    assert "; my comment" in config_file.read_text()
+    config = read_config(str(config_file))
+    assert config["intermediatedir"] == config["productdir"] == str(tmp_path / "out")
+    # A second run changes nothing
+    upgraded = config_file.read_text()
+    main_upgrade_config([str(config_file)])
+    assert config_file.read_text() == upgraded
+
+
+def test_old_product_layout_warns(tmp_path):
+    """Processed scans of older versions in productdir, without intermediatedir: point to the converter."""
+    (tmp_path / "out" / "scan1").mkdir(parents=True)
+    (tmp_path / "out" / "scan1" / "subscan.hdf5").write_text("")
+    config_file = tmp_path / "config.ini"
+    config_file.write_text(CONFIG.format(datadir=tmp_path, extra="productdir : out\n"))
+    with pytest.warns(UserWarning, match="SDTupgradeconfig"):
+        read_config(str(config_file))

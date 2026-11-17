@@ -2,6 +2,7 @@
 
 import glob
 import os
+import shutil
 import warnings
 
 import numpy as np
@@ -21,6 +22,7 @@ __all__ = [
     "get_config_file",
     "read_config",
     "sample_config_file",
+    "upgrade_config",
 ]
 
 
@@ -106,6 +108,100 @@ debug_file_format : jpg
 def get_config_file():
     """Get the current config file."""
     return SRT_tools_config_file
+
+
+def upgrade_config(fname):
+    """Make an old config file keep using its processed scans.
+
+    Older versions wrote the processed scans directly into ``productdir``,
+    which now holds the final products, while the processed scans go to
+    ``intermediatedir`` (default: ``<productdir>/intermediate``). This adds
+    ``intermediatedir`` with the same value as ``productdir`` right after the
+    ``productdir`` line, keeping the rest of the file (comments included)
+    as it is. The original is saved as ``<fname>.bak``.
+
+    Returns True if the file was changed. Nothing is done if the file
+    already has an ``intermediatedir``, or has no ``productdir``.
+    """
+    with open(fname) as fobj:
+        lines = fobj.readlines()
+
+    def _key(line):
+        line = line.strip()
+        if not line or line[0] in ";#[":
+            return None, None
+        for sep in ":=":
+            if sep in line:
+                key, value = line.split(sep, 1)
+                return key.strip().lower(), value.strip()
+        return None, None
+
+    keys = [_key(line) for line in lines]
+    if any(k == "intermediatedir" for k, _ in keys):
+        return False
+    idx = [i for i, (k, v) in enumerate(keys) if k == "productdir" and v.lower() != "none"]
+    if not idx:
+        return False
+    i = idx[0]
+    value = keys[i][1]
+    line = lines[i]
+    indent = line[: len(line) - len(line.lstrip())]
+    shutil.copyfile(fname, fname + ".bak")
+    lines.insert(
+        i + 1,
+        f"{indent}; added by SDTupgradeconfig: processed scans of older versions are here\n"
+        f"{indent}intermediatedir : {value}\n",
+    )
+    with open(fname, "w") as fobj:
+        fobj.writelines(lines)
+    return True
+
+
+def main_upgrade_config(args=None):
+    """Add ``intermediatedir`` to old config files (see :func:`upgrade_config`)."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Upgrade config files of older srttools versions: add "
+        "intermediatedir, equal to productdir, so that the scans processed by "
+        "older versions are used again. The originals are saved as <file>.bak"
+    )
+    parser.add_argument("files", nargs="+", help="Config files to upgrade")
+    args = parser.parse_args(args)
+    for fname in args.files:
+        if upgrade_config(fname):
+            print(f"{fname}: intermediatedir added (original in {fname}.bak)")
+        else:
+            print(f"{fname}: nothing to do")
+
+
+def _warn_old_product_layout(config, fname):
+    """Warn if ``productdir`` holds processed scans of an older version.
+
+    Only when no ``intermediatedir`` was given and the default one does not
+    exist yet; looks at most two directory levels deep.
+    """
+    productdir = config["productdir"]
+    if (
+        config["_explicit_intermediatedir"]
+        or os.path.exists(config["intermediatedir"])
+        or not os.path.isdir(productdir)
+    ):
+        return
+    # Final products, named after the config file, are not processed scans
+    final_root = os.path.splitext(os.path.basename(fname))[0]
+    old = [
+        f
+        for f in glob.glob(os.path.join(productdir, "*.hdf5"))
+        if not os.path.basename(f).startswith(final_root)
+    ] + glob.glob(os.path.join(productdir, "*", "*.hdf5"))
+    if old:
+        warnings.warn(
+            f"{productdir} contains processed scans of an older srttools version, "
+            f"which are not used any more: processed scans now go to "
+            f"{config['intermediatedir']}. To keep using the old ones, run "
+            f"`SDTupgradeconfig {fname}`"
+        )
 
 
 def _set_default_intermediatedir(config):
@@ -231,6 +327,7 @@ def read_config(fname=None, productdir=None, intermediatedir=None):
         )
     config_output["_explicit_intermediatedir"] = config_output["intermediatedir"] is not None
     _set_default_intermediatedir(config_output)
+    _warn_old_product_layout(config_output, fname)
 
     try:
         # Read analysis information
