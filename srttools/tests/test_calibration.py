@@ -444,11 +444,13 @@ def test_flag_outliers_small_groups_untouched():
     assert not np.any(caltable["Outlier"])
 
 
-def test_treat_scan_multifeed_fits_each_channel_with_its_own_feed(tmp_path):
+def test_treat_scan_multifeed_fits_each_channel_with_its_own_feed(tmp_path, monkeypatch):
     """On a 7-feed scan, each channel is fitted once, with its own feed's coordinates."""
     datadir = os.path.join(os.path.dirname(__file__), "data")
     fname = str(tmp_path / "srt_data_tp_multif.fits")
     shutil.copyfile(os.path.join(datadir, "srt_data_tp_multif.fits"), fname)
+    # Without a config, the default ./srttools_products goes to tmp_path
+    monkeypatch.chdir(tmp_path)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         retval, rows = _treat_scan(fname, max_offset=None)
@@ -459,12 +461,14 @@ def test_treat_scan_multifeed_fits_each_channel_with_its_own_feed(tmp_path):
     assert feeds == [int(ch[4]) for ch in chans]
 
 
-def test_treat_scan_skips_subscans_missing_the_source(tmp_path):
+def test_treat_scan_skips_subscans_missing_the_source(tmp_path, monkeypatch):
     """A calibrator subscan whose feeds all pass >10 beams from the source (here, a
     map subscan) gives no fits: fitting noise would give a meaningless Flux/Counts."""
     datadir = os.path.join(os.path.dirname(__file__), "data")
     fname = str(tmp_path / "srt_data_tp_multif.fits")
     shutil.copyfile(os.path.join(datadir, "srt_data_tp_multif.fits"), fname)
+    # Without a config, the default ./srttools_products goes to tmp_path
+    monkeypatch.chdir(tmp_path)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         retval, rows = _treat_scan(fname)
