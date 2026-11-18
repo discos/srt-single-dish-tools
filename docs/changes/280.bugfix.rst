@@ -35,3 +35,5 @@ Constant calibration (``Jy_over_counts_rough``, used with fewer than 3 calibrato
 ``CalibratorTable.from_scans`` loads the subscans with its ``config_file``: called from Python without reading the config file first, its temporary files went to ``./srttools_products`` regardless of ``productdir``. The calibrator fit plots of ``SDTcal --show`` (``<subscan>_scanfit``) go to ``intermediatedir`` instead of next to the raw data.
 
 ``ScanSet.read_images_from_meta`` read back only the last saved image of each kind (images, horizontal and vertical scan images): it now reads them all.
+
+Simulated cross scans (``sim_crossscans``): in the odd crosses, scanned backwards, the positions were reversed but the data were not, so the source was one sample (0.08 arcmin) away from its nominal position, and on the wrong side when a ``pointing_offset`` was given. Positions and data are now reversed together.

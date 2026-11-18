@@ -124,6 +124,9 @@ fluxes from cross scans. Its noise model is:
   cross. Along each arm the profile is shifted; across the arm it is
   attenuated by :math:`\exp[-d^2/(2\sigma_{\rm beam}^2)]` (``beam_sigma``,
   default the 2.5' sigma of the simulated beam).
+- **Scan direction**: the odd crosses are scanned backwards (positions and
+  data reversed together in time), as in real observations, so the source
+  stays at the same position on the sky.
 
 All random draws accept ``rng``: a seed or a ``numpy.random.Generator``.
 With ``rng=None`` the global ``numpy.random`` state is used, as before.

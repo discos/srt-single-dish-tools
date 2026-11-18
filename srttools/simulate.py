@@ -390,8 +390,10 @@ def sim_crossscans(
         times, ras, scan0, scan1 = _sim_arm(dra, ddec, 0)
 
         ras = ras / np.cos(np.radians(src_dec)) + src_ra
+        # Odd crosses are scanned backwards: reverse positions and data
+        # together, so that the source stays where it is on the sky
         if i % 2 != 0:
-            ras = ras[::-1]
+            ras, scan0, scan1 = ras[::-1], scan0[::-1], scan1[::-1]
 
         decs = np.zeros_like(ras) + src_dec
 
@@ -411,7 +413,7 @@ def sim_crossscans(
         times, decs, scan0, scan1 = _sim_arm(ddec, dra, src_dec)
 
         if i % 2 != 0:
-            decs = decs[::-1]
+            decs, scan0, scan1 = decs[::-1], scan0[::-1], scan1[::-1]
 
         ras = np.zeros_like(decs) + src_ra
 

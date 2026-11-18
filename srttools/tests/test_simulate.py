@@ -76,6 +76,21 @@ class TestSimulate:
             pointing_offset=(0.01, -0.01),
         )
 
+    def test_sim_crossscans_source_centered_in_both_directions(self, tmp_path):
+        """The source is at the nominal position also in the crosses scanned backwards."""
+        sim_crossscans(2, str(tmp_path), noise_amplitude=0.0, rng=1)
+        for fname, col, ref in [("Ra", "raj2000", 185.0), ("Dec", "decj2000", 75.0)]:
+            for i in range(2):
+                data = fits.getdata(tmp_path / f"{i}_{fname}.fits", "DATA TABLE")
+                pos = np.degrees(data[col]) - ref
+                if col == "raj2000":
+                    pos *= np.cos(np.radians(75.0))
+                step = np.median(np.abs(np.diff(pos)))
+                y = data["Ch0"]
+                good = y > 0.1 * y.max()
+                centroid = np.sum(pos[good] * y[good]) / np.sum(y[good])
+                assert np.abs(centroid) < 0.2 * step, (fname, i, centroid / step)
+
     def test_sim_map_empty(self):
         """Test the simulation of an empty map."""
         out_ra, _ = simulate_map(width_ra=2, width_dec=2.0, outdir=self.emptydir)
