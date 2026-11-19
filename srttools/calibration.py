@@ -398,7 +398,8 @@ def _treat_scan(scan_path, plot=False, max_offset=0.25, **kwargs):
             fit_ra = bell.mean.value
             fit_width = bell.stddev.value * np.cos(np.radians(pnt_dec))
             fit_dec = None
-            ra_err = fit_ra * u.degree - pnt_ra
+            # Offset on the sky, like Dec err
+            ra_err = (fit_ra * u.degree - pnt_ra) * np.cos(np.radians(pnt_dec))
             dec_err = None
             fit_mean = fit_ra
             fit_label = "RA"

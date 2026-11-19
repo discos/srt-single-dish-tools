@@ -535,3 +535,37 @@ def test_calibrator_fits_write_only_below_productdir(tmp_path, monkeypatch):
         str(tmp_path / "out" / "intermediate" / "**" / "*_scanfit"), recursive=True
     )
     assert len(plotdirs) == 1 and os.listdir(plotdirs[0])
+
+
+@pytest.fixture(scope="module")
+def offset_crosses(tmp_path_factory):
+    """Calibrator table of simulated crosses at Dec 75 deg, with the source 0.5'
+    off in RA and 1' off in Dec (on the sky) from the pointed position."""
+    tmp_path = tmp_path_factory.mktemp("offset_crosses")
+    caldir = tmp_path / "data" / "cal"
+    caldir.mkdir(parents=True)
+    sim_crossscans(
+        2, str(caldir), pointing_offset=(0.5 / 60, 1.0 / 60), noise_amplitude=0.05, rng=4
+    )
+    config_file = tmp_path / "cal.ini"
+    config_file.write_text(
+        f"[local]\ndatadir : {tmp_path / 'data'}\nproductdir : {tmp_path / 'out'}\n"
+        "[analysis]\nlist_of_directories :\n    cal\n"
+    )
+    caltable = CalibratorTable()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        caltable.from_scans(
+            list_scans(str(tmp_path / "data"), ["cal"]), config_file=str(config_file)
+        )
+    return caltable
+
+
+def test_pointing_errors_are_offsets_on_the_sky(offset_crosses):
+    """``RA err`` and ``Dec err`` are the fitted source offsets on the sky (arcmin
+    here): the RA one includes cos(Dec), so at Dec 75 deg it is not 3.9 times too large."""
+    is_ra = np.array([str(s).startswith("RA") for s in offset_crosses["Scan Type"]])
+    ra_err = np.asarray(offset_crosses["RA err"][is_ra], dtype=float) * 60
+    dec_err = np.asarray(offset_crosses["Dec err"][~is_ra], dtype=float) * 60
+    assert np.allclose(ra_err, 0.5, atol=0.05)
+    assert np.allclose(dec_err, 1.0, atol=0.05)
