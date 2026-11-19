@@ -1,1 +1,0 @@
-Use padded number for feed in output images

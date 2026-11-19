@@ -1,1 +1,0 @@
-Replaced ``commonprefix`` with ``commonpath`` in *scan.py*.
