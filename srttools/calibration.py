@@ -8,6 +8,7 @@ counts into a density flux value in Jy.
 import configparser
 import copy
 import glob
+import json
 import logging
 import os
 import re
@@ -1613,9 +1614,29 @@ def main_cal(args=None):
     outfile = args.output
     if outfile is None:
         outfile = output_file_name(args.config, "_cal.hdf5")
-    # A cache, reused by later runs
+    # A cache, reused by later runs with the same calibrator scans and options
     outfile_unfilt = output_file_name(args.config, "_cal_unfilt.hdf5", intermediate=True)
-    if not os.path.exists(outfile_unfilt):
+    settings = json.dumps(
+        {
+            "scans": [os.path.abspath(s) for s in scan_list],
+            "splat": args.splat,
+            "nofilt": bool(args.nofilt),
+        }
+    )
+    caltable = None
+    if os.path.exists(outfile_unfilt):
+        caltable = CalibratorTable.read(outfile_unfilt)
+        if caltable.meta.get("sdtcal_settings") == settings:
+            logging.info(
+                f"Loading unfiltered calibration table from {outfile_unfilt} (delete to reprocess)"
+            )
+        else:
+            warnings.warn(
+                "The calibrator scans or the options (--splat, --nofilt) changed since the "
+                f"cached calibration table {outfile_unfilt} was made: recalculating it."
+            )
+            caltable = None
+    if caltable is None:
         caltable = CalibratorTable()
         caltable.from_scans(
             scan_list,
@@ -1624,12 +1645,8 @@ def main_cal(args=None):
             plot=args.show,
             config_file=args.config,
         )
-        caltable.write(outfile_unfilt)
-    else:
-        logging.info(
-            f"Loading unfiltered calibration table from {outfile_unfilt} " f"(delete to reprocess)"
-        )
-        caltable = CalibratorTable.read(outfile_unfilt)
+        caltable.meta["sdtcal_settings"] = settings
+        caltable.write(outfile_unfilt, overwrite=True)
 
     snr = caltable["Counts"] / caltable["Data Std"]
     N = len(caltable)

@@ -342,6 +342,43 @@ class TestCalibration:
         main_cal(("-c " + self.config_file).split(" "))
         assert os.path.exists(outfile)
 
+    def test_sdtcal_cache_follows_config_changes(self, tmp_path):
+        """The SDTcal cache is rebuilt when the calibrators or the cleaning options change.
+
+        Before, a cache named after the config file was reused even after the config
+        file was rewritten with other calibrators, silently giving the old calibration.
+        """
+        config_file = str(tmp_path / "cache_test.ini")
+        template = (
+            "[local]\nworkdir : {d}\ndatadir : {d}\nproductdir : {p}\n\n"
+            "[analysis]\nlist_of_directories :\n  sim/crossscans/\n"
+            "calibrator_directories :\n{cals}\n"
+        )
+
+        def run(cals, *args):
+            with open(config_file, "w") as fobj:
+                fobj.write(
+                    template.format(
+                        d=self.datadir,
+                        p=tmp_path / "prod",
+                        cals="\n".join(f"  {c}" for c in cals),
+                    )
+                )
+            main_cal(["-c", config_file, *args])
+            unfilt = output_file_name(config_file, "_cal_unfilt.hdf5", intermediate=True)
+            dirs = CalibratorTable.read(unfilt)["Dir"]
+            return {os.path.basename(os.path.normpath(str(d))) for d in dirs}
+
+        assert run(["sim/calibration/", "sim/calibration2/"]) == {"calibration", "calibration2"}
+        with pytest.warns(UserWarning, match="changed since the cached"):
+            assert run(["sim/calibration/"]) == {"calibration"}
+        with pytest.warns(UserWarning, match="changed since the cached"):
+            run(["sim/calibration/"], "--nofilt")
+        # Same settings: the cache is reused without warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error", message=".*changed since the cached")
+            run(["sim/calibration/"], "--nofilt")
+
     def test_sdtcal_with_sample_config(self):
         if os.path.exists("sample_config_file.ini"):
             os.unlink("sample_config_file.ini")

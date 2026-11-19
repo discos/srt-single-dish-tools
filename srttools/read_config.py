@@ -4,6 +4,7 @@ import glob
 import os
 import shutil
 import warnings
+from pathlib import Path
 
 import numpy as np
 
@@ -39,6 +40,8 @@ DEFAULT_INTERMEDIATE_SUBDIR = "intermediate"
 
 SRT_tools_config_file = None
 SRT_tools_config = None
+# Modification time and size of the config file when it was read
+SRT_tools_config_stamp = None
 
 
 def sample_config_file(fname="sample_config_file.ini"):
@@ -287,6 +290,15 @@ def _set_default_intermediatedir(config):
         config["intermediatedir"] = os.path.join(config["productdir"], DEFAULT_INTERMEDIATE_SUBDIR)
 
 
+def _file_stamp(fname):
+    """Modification time (ns) and size of a file, or None if it does not exist."""
+    try:
+        stat = Path(fname).stat()
+    except OSError:
+        return None
+    return stat.st_mtime_ns, stat.st_size
+
+
 def read_config(fname=None, productdir=None, intermediatedir=None):
     """Read a config file and return a dictionary of all entries.
 
@@ -294,7 +306,8 @@ def read_config(fname=None, productdir=None, intermediatedir=None):
     ----------
     fname : str, optional
         The config file. Default: the last one read or, if none was read
-        yet, a sample one.
+        yet, a sample one. A config file is read again if it was modified
+        since the last time.
     productdir : str, optional
         Directory of the products, replacing the one of the config file
         (e.g. given on the command line). Relative paths start from the
@@ -306,10 +319,13 @@ def read_config(fname=None, productdir=None, intermediatedir=None):
         ``intermediatedir`` in the config file, the intermediate products go
         to the subdirectory ``intermediate`` of ``productdir``.
     """
-    global SRT_tools_config_file, SRT_tools_config
+    global SRT_tools_config_file, SRT_tools_config, SRT_tools_config_stamp
 
-    # --- If already read, use existing config ---
-    if SRT_tools_config is not None and (fname is None or fname == SRT_tools_config_file):
+    # --- If already read, and not modified since, use existing config ---
+    if SRT_tools_config is not None and (
+        fname is None
+        or (fname == SRT_tools_config_file and _file_stamp(fname) == SRT_tools_config_stamp)
+    ):
         if productdir is not None:
             SRT_tools_config["productdir"] = os.path.abspath(productdir)
         if intermediatedir is not None:
@@ -331,6 +347,7 @@ def read_config(fname=None, productdir=None, intermediatedir=None):
             raise FileNotFoundError("Please specify an existing config file")
 
     SRT_tools_config_file = fname
+    SRT_tools_config_stamp = _file_stamp(fname)
     Config.read(fname)
 
     # ---------- Set default values --------------------------------------
