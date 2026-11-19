@@ -131,11 +131,10 @@ We measured 15 cross-scan observations of 3C286, 3C295 and 3C147 taken at
 SRT: two C-band sessions in 2025 (7 GHz, four crosses per observation) and
 one K-band night in 2016 (21 GHz, one cross per observation). Each
 observation was calibrated by ``SDTcal`` on the *other* calibrators of the
-same session (leave-one-out), measured with ``SDTcross --calibrate``, and
-compared with the flux catalog of srttools (Perley & Butler 2013).
-(The figure was made without ``--fit-position``; with it, the fluxes change by
-less than 2%: the pointing offsets are at most 5% of the beam at C band, and
-10% at K band.)
+same session (leave-one-out), measured with ``SDTcross --calibrate
+--fit-position``, and compared with the flux catalog of srttools (Perley &
+Butler 2013). Everything is automatic: ``SDTcal`` and ``SDTcross`` both
+correct for the pointing offsets, and the beam width is the default one.
 
 .. image:: ../images/crossscan_calibrators.png
    :width: 100%
@@ -147,7 +146,7 @@ white noise alone would give.
 
 What this shows:
 
-- At C band the measured fluxes agree with the catalog within 1-3%, inside
+- At C band the measured fluxes agree with the catalog within 1-2.6%, inside
   the uncertainty of the catalog itself (3-4%). The statistical error of ``SDTcross``
   (0.1-0.3% on these bright sources) is negligible: on bright sources the
   accuracy is set by the calibration, not by the measurement.
@@ -170,7 +169,8 @@ What this shows:
 
 The consistency checks behave differently on bright sources:
 
-- ``CONS_SHP`` was between +5 and +21 in all these observations. The beam
+- ``CONS_SHP`` was between +2 and +22 in these observations (+0.5 for
+  3C147 at 11 degrees of elevation). The beam
   fitted by ``SDTcal`` on the same calibrators is narrower than the default
   (1.22 lambda / D): by 1.5% at C band and by 7% at K band. Passing the fitted
   width with ``--beam-fwhm`` increases the fluxes by 0.15% at C band and by
@@ -181,15 +181,16 @@ The consistency checks behave differently on bright sources:
   fits (the ``Width`` column of the ``SDTcal`` table is the standard
   deviation of the Gaussian, in degrees: multiply by 2.355 and by 60 to get
   the FWHM in arcmin).
-- ``CONS_ARM`` was -9.5 in one observation of 3C286: the RA scans gave 3%
+- ``CONS_ARM`` was -7.9 in one observation of 3C286: the RA scans gave 3%
   less than the Dec scans. This is not a pointing offset: the offsets fitted
-  by ``SDTcal`` (at most 0.15', 5% of the beam) cost only a few tenths of a
-  percent, and about the same on both arms. The RA profiles are narrower
+  on these data are at most 0.15' (5% of the beam) at C band, the
+  corrections for them are below 1%, and without ``--fit-position``
+  ``CONS_ARM`` is about the same (-9.5). The RA profiles are narrower
   than the Dec ones (2.74' against 2.79') and 1.6% lower even in the fits of
   ``SDTcal``, where position and width are free: the beam is slightly
   elongated, and a circular beam model cannot fit both arms at this
-  precision. The flux of that observation is 2.4% below the catalog.
-- ``CONS_POL`` scattered more than expected (standard deviation 2.2 instead
+  precision. The flux of that observation is 2.6% below the catalog.
+- ``CONS_POL`` scattered more than expected (standard deviation 2.3 instead
   of 1). On bright sources, it measures how well each polarization channel
   is calibrated: a 1% difference is 5 standard deviations at a precision
   of 0.2%.
