@@ -1146,7 +1146,9 @@ class CalibratorTable(Table):
         fc : float
             flux density /count ratio
         fce : float
-            uncertainty on ``fc``
+            uncertainty on ``fc``: never smaller than the robust standard
+            deviation of all the fits (including those rejected as outliers)
+            divided by the square root of their number
         """
         self.check_up_to_date()
 
@@ -1177,6 +1179,11 @@ class CalibratorTable(Table):
         p = [np.median(y_to_fit)]
         pcov = np.array([[np.median(ye_to_fit) ** 2]])
         first = True
+        # Error of the mean from the robust scatter of all the fits, before
+        # rejecting outliers: the fits that survive the rejection can agree
+        # among themselves much better than the calibration is known
+        n_all = len(y_to_fit)
+        scatter_err = mad_std(y_to_fit) / np.sqrt(n_all) if n_all > 1 else 0.0
 
         while 1:
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
@@ -1209,7 +1216,7 @@ class CalibratorTable(Table):
             p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p)
             first = False
         fc = p[0]
-        fce = np.sqrt(pcov[0, 0])
+        fce = max(np.sqrt(pcov[0, 0]), scatter_err)
 
         return fc, fce
 

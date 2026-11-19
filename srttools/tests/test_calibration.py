@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from astropy.logger import logging
+from astropy.stats import mad_std
 from astropy.table import Table
 from srttools.calibration import (
     CalibratorTable,
@@ -182,6 +183,25 @@ class TestCalibration:
         expected = true * scatter / np.sqrt(rows.size)
         assert 0.6 * expected < fce < 2 * expected
         assert abs(fc - true) < 4 * expected
+
+    def test_Jy_over_counts_rough_error_includes_scatter_of_rejected_fits(self):
+        """Five fits agreeing within their 1% formal errors, the others scattering by 30%:
+        the error reflects the scatter of all the fits, not only of the five that survive
+        the rejection of outliers."""
+        caltable = CalibratorTable.read(self.calfile)
+        caltable.update()
+        rows = np.flatnonzero((caltable["Chan"] == "Feed0_LCP") & (caltable["Flux"] > 0))
+        assert rows.size >= 10
+        rng = np.random.default_rng(42)
+        true = np.mean(caltable["Flux/Counts"][rows])
+        values = true * (1 + rng.normal(0, 0.3, rows.size))
+        values[:5] = true * (1 + rng.normal(0, 0.003, 5))
+        caltable["Flux/Counts"][rows] = values
+        caltable["Flux/Counts Err"][rows] = true * 0.01
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            fc, fce = caltable.Jy_over_counts_rough(channel="Feed0_LCP")
+        assert fce > 0.5 * mad_std(values) / np.sqrt(rows.size)
 
     def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
         caltable = CalibratorTable.read(self.calfile)

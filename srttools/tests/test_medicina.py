@@ -104,11 +104,6 @@ def test_medicina_casa_flux(casa):
     assert np.abs(fluxes[0] - fluxes[1]) < 2 * np.hypot(*errors)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="The rough calibration rejects most calibrator fits as 5-sigma outliers "
-    "using their formal errors, and the error of the rest ignores the scatter",
-)
 def test_medicina_calibration_error_includes_scatter(casa):
     """The calibration error reflects the >10% scatter of the calibrator fits, in both channels."""
     for ch in ["Feed0_RCP", "Feed0_LCP"]:

@@ -269,11 +269,20 @@ shaky" and uses the median of the fits. The error of the median is
 fits (from the median absolute deviation), or their median formal error if
 larger. Before this, the error was the median formal error of one fit.
 
+When 5 or more fits survive, their weighted mean is used, but its error is
+never smaller than sigma / sqrt(N), with sigma the robust standard deviation
+of *all* the fits, including the rejected ones. With formal errors much
+smaller than the real scatter, the rejection keeps only the few fits that
+happen to agree, and the error of their mean alone would hide the scatter of
+the others. Without this floor the error jumped by a factor of ~4 when one
+more fit survived the rejection.
+
 On a Medicina cross scan of NGC7027 (2022-12-13, 8.18 GHz, 14 fits per
 channel scattering by 26-41% with formal errors of ~1%), the error of the
-calibration factor goes from ~1% to 12% (RCP) and 18% (LCP), and the flux
-densities of Cas A from the two polarizations, which differ by 20%, become
-consistent.
+calibration factor is 17% (RCP) and 27% (LCP), instead of ~1% with the
+formal errors alone, or 4% with the weighted mean of the fits surviving the
+rejection. The flux densities of Cas A from the two polarizations, which
+differ by ~20%, are consistent within these errors.
 
 Calibrator maps and off-axis feeds
 ----------------------------------

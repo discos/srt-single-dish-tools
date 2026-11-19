@@ -28,7 +28,7 @@ The destriping (``SDTimage --destripe``, ``ScanSet.destripe_images``) writes its
 
 Destriped images: the ERR of pixels where one scan direction has a single sample (whose Sdev is undefined) is the ERR of the image of all subscans, instead of NaN.
 
-Constant calibration (``Jy_over_counts_rough``, used with fewer than 3 calibrator fits or outside their elevation range): when the fits scatter well beyond their formal errors, or there are fewer than 5, the error of the calibration factor is now the error of the median from the robust scatter of the fits. It used to be the median formal error of a single fit, e.g. 1% instead of 12-18% on a Medicina calibrator scan whose fits scatter by 26-41%.
+Constant calibration (``Jy_over_counts_rough``, used with fewer than 3 calibrator fits or outside their elevation range): when the fits scatter well beyond their formal errors, or there are fewer than 5, the error of the calibration factor is now the error of the median from the robust scatter of the fits. It used to be the median formal error of a single fit, e.g. 1% instead of 17-27% on a Medicina calibrator scan whose fits scatter by 26-41%. When enough fits survive the rejection of outliers, the error is never smaller than the robust scatter of all the fits divided by the square root of their number: the few fits that survive can agree among themselves much better than the calibration is known (4% instead of 17% on the same scan).
 
 ``SDTrfistat -c`` looked for the processed scans next to the raw data, where they are no longer written: it now finds them in ``intermediatedir``, and writes its RFI tables and plots to ``productdir``. ``--outroot`` was ignored when the tables were written, and the tables could then not be plotted: fixed.
 
