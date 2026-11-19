@@ -120,8 +120,14 @@ FWHM_DEG = 0.0463
 CHANS = ["Feed0_LCP", "Feed0_RCP"]
 
 
-def _cross_table(amplitude, seed=0, nsub=40, src_offset_deg=0.0, src_width=1.0):
-    """Cross scans as stored in a ScanSet: ra/dec in radians, one feed, two channels."""
+def _cross_table(
+    amplitude, seed=0, nsub=40, src_offset_deg=0.0, src_width=1.0, pointing_offset=(0.0, 0.0)
+):
+    """Cross scans as stored in a ScanSet: ra/dec in radians, one feed, two channels.
+
+    ``pointing_offset``: source position (deg, on the sky) in RA and Dec from
+    the scan centre; it moves the source along each arm and attenuates it across.
+    """
     rng = np.random.default_rng(seed)
     sigma = src_width * FWHM_DEG / 2.3548
     off = np.linspace(-0.24, 0.24, NSAMP)
@@ -134,7 +140,10 @@ def _cross_table(amplitude, seed=0, nsub=40, src_offset_deg=0.0, src_width=1.0):
         cols["dec"].append(DEC0 + np.radians(ddec))
         cols["direction"].append(np.full(NSAMP, isra))
         cols["Scan_id"].append(np.full(NSAMP, i))
-        src = amplitude * np.exp(-((off - src_offset_deg) ** 2) / (2 * sigma**2))
+        along, across = pointing_offset if isra else pointing_offset[::-1]
+        src = amplitude * np.exp(
+            -((off - src_offset_deg - along) ** 2 + across**2) / (2 * sigma**2)
+        )
         for ch in CHANS:
             cols[ch].append(src + 0.5 * off + rng.normal(0, 1, NSAMP))
     t = Table()
@@ -192,9 +201,45 @@ def test_measure_crosses_offset_position():
     assert abs(dec_arm["flux"] - 10.0) < 4 * dec_arm["err"]
 
 
-def _fake_dump(fname, **meta):
+POINTING = (0.2 * FWHM_DEG, -0.3 * FWHM_DEG)
+
+
+def test_measure_crosses_fit_position():
+    """With a pointing offset of 0.2 and 0.3 FWHM, the forced fit at the nominal
+    position loses ~30% of the flux; fitting the position of each arm finds the
+    offsets and, correcting for them, gives the right flux."""
+    t = _cross_table(30.0, pointing_offset=POINTING)
+    forced = measure_crosses(t, RA0, DEC0, FWHM_DEG, channels=CHANS, rfi_nsigma=None)
+    total = forced["summary"][forced["summary"]["label"] == "TOTAL"][0]
+    assert total["flux"] < 25
+    res = measure_crosses(
+        t, RA0, DEC0, FWHM_DEG, channels=CHANS, rfi_nsigma=None, fit_position=True
+    )
+    total = res["summary"][res["summary"]["label"] == "TOTAL"][0]
+    assert abs(total["flux"] - 30.0) < 4 * total["err"]
+    assert abs(res["consistency"]["RA-Dec"]) < 4
+    pos = res["position"]
+    assert np.isclose(pos["RA"]["offset"], POINTING[0], atol=0.02 * FWHM_DEG)
+    assert np.isclose(pos["Dec"]["offset"], POINTING[1], atol=0.02 * FWHM_DEG)
+    # The RA arm passes 0.3 FWHM beside the source: exp(4 ln2 0.3**2) = 1.28
+    assert np.isclose(pos["RA"]["correction"], np.exp(4 * np.log(2) * 0.3**2), rtol=0.03)
+
+
+def test_measure_crosses_fit_position_faint_source():
+    """Without a detection there is no position to fit: warn, and use the nominal one."""
+    t = _cross_table(0.0, pointing_offset=POINTING)
+    forced = measure_crosses(t, RA0, DEC0, FWHM_DEG, channels=CHANS, rfi_nsigma=None)
+    with pytest.warns(UserWarning, match="too faint to fit its position"):
+        res = measure_crosses(
+            t, RA0, DEC0, FWHM_DEG, channels=CHANS, rfi_nsigma=None, fit_position=True
+        )
+    assert np.allclose(res["summary"]["flux"], forced["summary"]["flux"])
+    assert np.isnan(res["position"]["RA"]["offset"])
+
+
+def _fake_dump(fname, pointing_offset=(0.0, 0.0), amplitude=5.0, **meta):
     """Write a dump file of a simulated cross scan, as SDTimage would."""
-    t = _cross_table(5.0)
+    t = _cross_table(amplitude, pointing_offset=pointing_offset)
     t["x"] = np.zeros((len(t), 1))
     t["y"] = np.zeros((len(t), 1))
     t.meta.update(RA=RA0 * u.rad, Dec=DEC0 * u.rad, SOURCE="Fake", **meta)
@@ -221,6 +266,19 @@ def test_sdtcross_command_line(tmp_path):
     assert "TOTAL" in summary["label"]
     for suffix in ["_cross.png", "_cross_total.png"]:
         assert (tmp_path / ("fake" + suffix)).exists()
+
+
+def test_sdtcross_fit_position_command_line(tmp_path):
+    """SDTcross --fit-position writes the fitted offsets (arcmin) and corrections."""
+    fname = _fake_dump(str(tmp_path / "off_dump.hdf5"), pointing_offset=POINTING, amplitude=30.0)
+    args = [fname, "--beam-fwhm", str(FWHM_DEG * 60), "--rfi-nsigma", "0", "--noplot"]
+    with pytest.warns(UserWarning, match="No calibration"):
+        main_cross([*args, "--fit-position"])
+    header = fits.getheader(str(tmp_path / "off_cross.fits"))
+    assert np.isclose(header["OFF_RA"], POINTING[0] * 60, atol=0.02 * FWHM_DEG * 60)
+    assert np.isclose(header["OFF_DEC"], POINTING[1] * 60, atol=0.02 * FWHM_DEG * 60)
+    assert header["COR_RA"] > header["COR_DEC"] > 1
+    assert abs(header["FLUX"] - 30.0) < 4 * header["FLUXERR"]
 
 
 def test_sdtcross_writes_to_productdir_of_dump(tmp_path):

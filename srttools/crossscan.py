@@ -49,6 +49,7 @@ __all__ = [
     "calibrate_crosses",
     "combine_amplitudes",
     "consistency",
+    "fit_arm_positions",
     "fit_subscan",
     "main_cross",
     "measure_crosses",
@@ -75,7 +76,15 @@ def _spline_basis(x, knots):
 
 
 def fit_subscan(
-    x, y, beam_sigma, center=0.0, window=None, knot_spacing=None, joint=True, min_points=20
+    x,
+    y,
+    beam_sigma,
+    center=0.0,
+    window=None,
+    knot_spacing=None,
+    joint=True,
+    min_points=20,
+    knot_center=None,
 ):
     """Forced-fit amplitude of a Gaussian over a spline baseline, in one subscan.
 
@@ -104,6 +113,10 @@ def fit_subscan(
     min_points : int
         Minimum number of samples used in the fit beyond the number of free
         parameters. Below it, NaN is returned
+    knot_center : float
+        Centre of the window, if different from ``center``: keeps the
+        baseline model the same while ``center`` changes (see
+        `fit_arm_positions`)
 
     Returns
     -------
@@ -125,7 +138,9 @@ def fit_subscan(
     if np.count_nonzero(good) < min_points:
         return np.nan, resid
     xg, yg = x[good], y[good]
-    knots = _knots(xg.min(), xg.max(), knot_spacing, center=center, window=window)
+    if knot_center is None:
+        knot_center = center
+    knots = _knots(xg.min(), xg.max(), knot_spacing, center=knot_center, window=window)
     basis = _spline_basis(xg, knots)
     template = np.exp(-((xg - center) ** 2) / (2 * beam_sigma**2))
     if joint:
@@ -136,7 +151,7 @@ def fit_subscan(
         resid[good] = yg - basis @ coef[:-1]
         return coef[-1], resid
 
-    outside = np.abs(xg - center) > window
+    outside = np.abs(xg - knot_center) > window
     if np.count_nonzero(outside) < basis.shape[1] + min_points:
         return np.nan, resid
     coef = np.linalg.lstsq(basis[outside], yg[outside], rcond=None)[0]
@@ -332,6 +347,116 @@ def _profile_stats(binned, min_frac=0.5):
     return profile, err
 
 
+def _arm_amplitudes(table, offsets, goods, channels, beam_sigma, isra, center, suffix, **kwargs):
+    """Forced fits of the subscans of one arm, with the Gaussian at ``center``.
+
+    Returns the channel-averaged amplitude of each subscan and the sum of
+    the squared residuals of all fits.
+    """
+    scan_id = np.asarray(table["Scan_id"])
+    ids = np.unique(scan_id)
+    amps = np.full((ids.size, len(channels)), np.nan)
+    rss = 0.0
+    for ich, ch in enumerate(channels):
+        offset, arm = offsets[ch]
+        values = np.asarray(table[ch + suffix], dtype=float)
+        for i, sid in enumerate(ids):
+            mask = (scan_id == sid) & goods[ch] & (arm == isra)
+            if not np.any(mask):
+                continue
+            x = offset[mask]
+            amp, resid = fit_subscan(x, values[mask], beam_sigma, center=center, **kwargs)
+            amps[i, ich] = amp
+            if np.isfinite(amp):
+                model = amp * np.exp(-((x - center) ** 2) / (2 * beam_sigma**2))
+                rss += np.nansum((resid - model) ** 2)
+    return _channel_average(amps), rss
+
+
+def fit_arm_positions(
+    table, offsets, goods, channels, beam_sigma, suffix="", nsigma=3.0, max_offset=0.5, **kwargs
+):
+    """Source position along each arm, and the correction for the offset across it.
+
+    The position along an arm is where a Gaussian of the beam width best
+    fits the subscans of that arm (all channels together: smallest sum of
+    squared residuals; with the joint fit, the position of the largest
+    amplitude is biased away from the nominal one, by ~2% of the offset): a
+    grid of positions within ``max_offset`` beam FWHM of the nominal one,
+    refined with a parabola through the three best points. The
+    baseline model is the same for all positions (no knots within 1.5 beam
+    FWHM plus ``max_offset`` of the nominal position): otherwise knots
+    appearing and disappearing near the source make the amplitude jump. One
+    position per arm for the whole observation, not one per subscan: the
+    pointing changes slowly, and fitting the position of each subscan would
+    bias the amplitudes upwards (the fit chases the noise).
+
+    The offset measured along one arm is the offset across the other: there
+    the track passes beside the peak, and the amplitude is lower by
+    ``exp(-offset**2 / (2 beam_sigma**2))``. The correction is the inverse.
+
+    If the source is not detected in both arms (mean amplitude below
+    ``nsigma`` times its error), or the best position is at the edge of the
+    grid, nothing is fitted (offset NaN, correction 1), with a warning.
+
+    Returns
+    -------
+    position : dict
+        For ``"RA"`` and ``"Dec"``: ``offset`` (deg, along the arm, on the
+        sky) and ``correction`` (factor to apply to its amplitudes)
+    """
+    fwhm = beam_sigma * 2 * np.sqrt(2 * np.log(2))
+    step = fwhm / 50
+    kwargs = {
+        **kwargs,
+        "knot_center": 0.0,
+        "window": kwargs.get("window", 1.5 * fwhm) + max_offset * fwhm,
+    }
+    grid = np.arange(-max_offset * fwhm, max_offset * fwhm + step / 2, step)
+    found = {}
+    for isra in [True, False]:
+        name = ARM_NAMES[isra]
+        means = np.full(grid.size, np.nan)
+        errs = np.full(grid.size, np.nan)
+        rss = np.full(grid.size, np.nan)
+        for k, c in enumerate(grid):
+            per_sub, rss[k] = _arm_amplitudes(
+                table, offsets, goods, channels, beam_sigma, isra, c, suffix, **kwargs
+            )
+            means[k], errs[k] = combine_amplitudes(per_sub)
+        if not np.any(np.isfinite(means)):
+            found[name] = None
+            continue
+        k = int(np.nanargmin(rss))
+        if not means[k] > nsigma * errs[k]:
+            warnings.warn(
+                f"{name} arm: the source is too faint to fit its position "
+                f"({means[k]:.3g} +- {errs[k]:.2g}): using the nominal position"
+            )
+            found[name] = None
+            continue
+        if k == 0 or k == grid.size - 1:
+            warnings.warn(
+                f"{name} arm: the source is more than {max_offset} beam FWHM from the "
+                "nominal position: using the nominal position"
+            )
+            found[name] = None
+            continue
+        y0, y1, y2 = rss[k - 1 : k + 2]
+        denom = y0 - 2 * y1 + y2
+        shift = 0.5 * (y0 - y2) / denom if denom > 0 else 0.0
+        found[name] = grid[k] + shift * step
+
+    position = {}
+    for name, other in [("RA", "Dec"), ("Dec", "RA")]:
+        offset = found[name] if found[name] is not None else np.nan
+        correction = 1.0
+        if found[name] is not None and found[other] is not None:
+            correction = float(np.exp(found[other] ** 2 / (2 * beam_sigma**2)))
+        position[name] = dict(offset=float(offset), correction=correction)
+    return position
+
+
 def measure_crosses(
     table,
     ra0,
@@ -344,6 +469,7 @@ def measure_crosses(
     nsigma=3.0,
     cal_rel_err=0.0,
     bin_width=None,
+    fit_position=False,
     **kwargs,
 ):
     """Flux, error and upper limit of a point source from cross scans.
@@ -378,6 +504,12 @@ def measure_crosses(
         Relative calibration error, added in quadrature in upper limits
     bin_width : float
         Width of the profile bins, degrees. Default: 1/4 beam FWHM
+    fit_position : bool
+        Measure the source position along each arm (see `fit_arm_positions`)
+        and correct for the pointing offset: the Gaussian is centred at the
+        measured position, and the amplitudes are divided by the attenuation
+        due to the offset across the arm. Only for sources detected in both
+        arms; otherwise the nominal position is used, with a warning
     **kwargs
         Passed to `fit_subscan` (``window``, ``knot_spacing`` in degrees,
         ``joint``)
@@ -397,7 +529,10 @@ def measure_crosses(
         source), whose flux the joint fit underestimates.
         ``profiles``: (bin centers, profile, error) for each channel and
         arm (key ``"<channel> <arm>"``), for each arm and for ``"TOTAL"``.
-        ``flagged``: subscans rejected for anomalous noise, per channel
+        ``flagged``: subscans rejected for anomalous noise, per channel.
+        ``position``: for each arm, ``offset`` (deg, on the sky: the source
+        position along the arm from the nominal one, NaN if not fitted) and
+        ``correction`` (the factor applied to its amplitudes, 1 if not fitted)
     """
     from .imager import find_outlier_subscans
 
@@ -423,6 +558,7 @@ def measure_crosses(
     binned = np.full((ids.size, nchan, edges.size - 1), np.nan)
 
     flagged = {}
+    goods = {}
     for ich, ch in enumerate(channels):
         offset, arm = offsets[ch]
         values = np.asarray(table[ch + suffix], dtype=float)
@@ -444,18 +580,37 @@ def measure_crosses(
                     f"RFI rejection: {ch}: ignored {len(flagged[ch])}/{ids.size} subscans "
                     f"with anomalous noise (Scan_id {flagged[ch]}). Use --rfi-nsigma 0 to disable."
                 )
+        goods[ch] = good
+
+    position = {ARM_NAMES[a]: dict(offset=np.nan, correction=1.0) for a in [True, False]}
+    if fit_position:
+        position = fit_arm_positions(
+            table, offsets, goods, channels, beam_sigma, suffix=suffix, nsigma=nsigma, **kwargs
+        )
+
+    for ich, ch in enumerate(channels):
+        offset, arm = offsets[ch]
+        values = np.asarray(table[ch + suffix], dtype=float)
+        good = goods[ch]
         for i, sid in enumerate(ids):
             mask = (scan_id == sid) & good
             if not np.any(mask):
                 continue
             sub_arm[i] = arm[mask][0]
-            amp, resid = fit_subscan(offset[mask], values[mask], beam_sigma, **kwargs)
-            amps[i, ich] = amp
+            pos = position[ARM_NAMES[sub_arm[i]]]
+            center = pos["offset"] if np.isfinite(pos["offset"]) else 0.0
+            amp, resid = fit_subscan(
+                offset[mask], values[mask], beam_sigma, center=center, **kwargs
+            )
+            amps[i, ich] = amp * pos["correction"]
             if joint:
                 window_kwargs = {**kwargs, "joint": False}
-                amps_window[i, ich] = fit_subscan(
-                    offset[mask], values[mask], beam_sigma, **window_kwargs
-                )[0]
+                amps_window[i, ich] = (
+                    fit_subscan(
+                        offset[mask], values[mask], beam_sigma, center=center, **window_kwargs
+                    )[0]
+                    * pos["correction"]
+                )
             ok = np.isfinite(resid)
             if not np.any(ok):
                 continue
@@ -517,6 +672,7 @@ def measure_crosses(
         consistency=consist,
         profiles=profiles,
         flagged=flagged,
+        position=position,
     )
 
 
@@ -607,6 +763,14 @@ def write_cross_results(result, outroot, header):
         header[names.get(key, "CONS_POL")] = float(value)
     for ch, bad in result["flagged"].items():
         header[f"RFI_{ch}"[:8]] = len(bad)
+    if "position" in result and np.any(
+        [np.isfinite(p["offset"]) for p in result["position"].values()]
+    ):
+        # Fitted pointing offsets (arcmin, on the sky) and amplitude corrections
+        for arm, key in [("RA", "RA"), ("Dec", "DEC")]:
+            pos = result["position"][arm]
+            header[f"OFF_{key}"] = float(pos["offset"] * 60)
+            header[f"COR_{key}"] = float(pos["correction"])
 
     primary = fits.PrimaryHDU()
     for key, value in header.items():
@@ -670,7 +834,13 @@ def plot_cross_results(result, outroot, beam_fwhm, unit="", title=""):
         row = summary[summary["label"] == label][0]
         arcmin = centers * 60
         ax.errorbar(arcmin, prof * factor, err * factor, fmt="o", ms=2, lw=0.6, color="k")
-        model = row["flux"] * np.exp(-(centers**2) / (2 * beam_sigma**2))
+        # With --fit-position: the beam at the fitted position, attenuated by
+        # the offset across the arm, as it appears in the data
+        pos = result.get("position", {}).get(row["arm"], {})
+        center = pos.get("offset", np.nan)
+        center = center if np.isfinite(center) else 0.0
+        scale = 1 / pos.get("correction", 1.0)
+        model = scale * row["flux"] * np.exp(-((centers - center) ** 2) / (2 * beam_sigma**2))
         ax.plot(arcmin, model * factor, color="C3", lw=1)
         ax.axhline(0, color="grey", lw=0.5)
         status = "detected" if row["detected"] else f"UL {row['ul'] * factor:.3g}"
@@ -785,6 +955,14 @@ def main_cross(args=None):
     parser.add_argument(
         "-o", "--outroot", type=str, default=None, help="Root of the output file names"
     )
+    parser.add_argument(
+        "--fit-position",
+        action="store_true",
+        default=False,
+        help="Fit the source position along each arm and correct the flux for the "
+        "pointing offset (the source is off the track of the other arm). For "
+        "sources detected at high signal-to-noise ratio, such as calibrators",
+    )
     parser.add_argument("--noplot", action="store_true", default=False, help="Do not plot")
     args = parser.parse_args(args)
 
@@ -848,6 +1026,7 @@ def main_cross(args=None):
         statistic=args.statistic,
         nsigma=args.nsigma,
         cal_rel_err=cal_rel_err,
+        fit_position=args.fit_position,
     )
     for key, value in result["consistency"].items():
         if np.abs(value) <= args.nsigma:
