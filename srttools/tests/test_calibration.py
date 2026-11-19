@@ -569,3 +569,30 @@ def test_pointing_errors_are_offsets_on_the_sky(offset_crosses):
     dec_err = np.asarray(offset_crosses["Dec err"][~is_ra], dtype=float) * 60
     assert np.allclose(ra_err, 0.5, atol=0.05)
     assert np.allclose(dec_err, 1.0, atol=0.05)
+
+
+def test_amplitudes_corrected_for_offset_across_the_scan(offset_crosses):
+    """RA subscans pass 1' beside the source (Dec offset), Dec subscans 0.5': the
+    amplitudes, corrected with the offsets of the perpendicular subscans, agree
+    (uncorrected, the RA ones would be 6% lower)."""
+    is_ra = np.array([str(s).startswith("RA") for s in offset_crosses["Scan Type"]])
+    sigma = 2.5
+    for ch in ["Feed0_LCP", "Feed0_RCP"]:
+        good = np.array([str(c) == ch for c in offset_crosses["Chan"]])
+        ra, dec = good & is_ra, good & ~is_ra
+        corr = np.asarray(offset_crosses["Offset Corr"])
+        assert np.allclose(corr[ra], np.exp(1.0**2 / (2 * sigma**2)), rtol=0.005)
+        assert np.allclose(corr[dec], np.exp(0.5**2 / (2 * sigma**2)), rtol=0.005)
+        counts = np.asarray(offset_crosses["Counts"])
+        assert np.isclose(np.mean(counts[ra]) / np.mean(counts[dec]), 1, atol=0.005)
+
+
+def test_no_offset_correction_without_perpendicular_subscans(offset_crosses):
+    """Subscans in one direction only (e.g. a calibrator map) give no estimate of the
+    offset across them: they are left uncorrected, also when corrected before."""
+    is_ra = np.array([str(s).startswith("RA") for s in offset_crosses["Scan Type"]])
+    caltable = CalibratorTable(offset_crosses[is_ra], copy=True)
+    raw = caltable["Counts"] / caltable["Offset Corr"]
+    caltable.correct_pointing_offsets()
+    assert np.all(caltable["Offset Corr"] == 1)
+    assert np.allclose(caltable["Counts"], raw)

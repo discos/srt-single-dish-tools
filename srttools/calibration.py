@@ -58,6 +58,11 @@ CALIBRATOR_CONFIG = None
 __all__ = ["CalibratorTable", "read_calibrator_config"]
 
 
+# Version of the calibrator fits (2: amplitudes corrected for the offset across
+# the subscan, RA err on the sky). Cached fits of other versions are recalculated.
+CALIBRATOR_FIT_VERSION = 2
+
+
 def _constant(x, p):
     return p
 
@@ -403,6 +408,8 @@ def _treat_scan(scan_path, plot=False, max_offset=0.25, **kwargs):
             dec_err = None
             fit_mean = fit_ra
             fit_label = "RA"
+            # Where the track passes, across the scan, from the pointed position
+            track_offset = decs[i_closest] - pnt_dec.to_value(u.deg)
             pnt = pnt_ra
         elif scan_type.startswith("Dec"):
             fit_ra = None
@@ -412,6 +419,7 @@ def _treat_scan(scan_path, plot=False, max_offset=0.25, **kwargs):
             ra_err = None
             fit_mean = fit_dec
             fit_label = "Dec"
+            track_offset = (ras[i_closest] - pnt_ra.to_value(u.deg)) * np.cos(np.radians(pnt_dec))
             pnt = pnt_dec
         else:
             raise ValueError("Unknown scan type")
@@ -462,6 +470,8 @@ def _treat_scan(scan_path, plot=False, max_offset=0.25, **kwargs):
             kurtosis,
             resid_std,
             False,
+            track_offset,
+            1.0,
         ]
         rows.append(new_row)
 
@@ -558,6 +568,8 @@ class CalibratorTable(Table):
             "Kurtosis",
             "Resid Std",
             "Outlier",
+            "Track Offset",
+            "Offset Corr",
         ]
 
         dtype = [
@@ -596,13 +608,16 @@ class CalibratorTable(Table):
             float,
             float,
             bool,
+            float,
+            float,
         ]
 
         defaults = {"S200": "", int: 0, np.double: np.nan, float: np.nan, bool: False}
         for n, d in zip(names, dtype):
             if n not in self.keys():
                 # Tables written by older versions lack the newest columns
-                self.add_column(Column(name=n, dtype=d, data=[defaults[d]] * len(self)))
+                default = 1.0 if n == "Offset Corr" else defaults[d]
+                self.add_column(Column(name=n, dtype=d, data=[default] * len(self)))
 
     def from_scans(
         self,
@@ -684,7 +699,66 @@ class CalibratorTable(Table):
                 for r in rows:
                     self.add_row(r)
 
+        self.correct_pointing_offsets()
         return out_retval
+
+    def correct_pointing_offsets(self, max_corr=2.0):
+        """Correct the amplitudes for the offset of the source across each subscan.
+
+        The fit of a subscan measures the source position along it, not
+        across it: if the source is off by ``d`` across the subscan, the
+        track passes beside the peak and the amplitude is lower by
+        ``exp(-d**2 / (2 sigma**2))``, with ``sigma`` the beam width in that
+        direction. The offset across an RA subscan is measured by the Dec
+        subscans of the same observation and channel, and vice versa: we use
+        the mean ``Dec err`` (or ``RA err``) and ``Width`` of the (up to) two
+        perpendicular subscans closest in time, and ``Track Offset``, where
+        the track passes across the scan with respect to the pointed
+        position. ``Counts`` and ``Counts Err`` are multiplied by the
+        correction factor, stored in ``Offset Corr``.
+
+        Subscans without perpendicular subscans (e.g. a map scanned in one
+        direction) are not corrected (``Offset Corr`` = 1); nor, with a
+        warning, those whose correction would be larger than ``max_corr``:
+        the source is too far off the track for a reliable amplitude.
+        Calling it again recomputes the correction from the uncorrected
+        amplitudes.
+        """
+        if len(self) == 0:
+            return
+        old_corr = np.array(self["Offset Corr"], dtype=float)
+        old_corr[~np.isfinite(old_corr)] = 1.0
+        new_corr = np.ones(len(self))
+        is_ra = np.array([str(s).startswith("RA") for s in self["Scan Type"]])
+        times = np.array(self["Time"], dtype=float)
+        width = np.array(self["Width"], dtype=float)
+        track = np.array(self["Track Offset"], dtype=float)
+        # Source offset measured along each subscan, on the sky
+        along = np.where(
+            is_ra, np.array(self["RA err"], dtype=float), np.array(self["Dec err"], dtype=float)
+        )
+        keys = np.array([f"{d}::{c}" for d, c in zip(self["Dir"], self["Chan"])])
+        for key in np.unique(keys):
+            group = np.flatnonzero(keys == key)
+            for i in group:
+                perp = group[(is_ra[group] != is_ra[i]) & np.isfinite(along[group])]
+                perp = perp[np.isfinite(width[perp]) & (width[perp] > 0)]
+                if len(perp) == 0 or not np.isfinite(track[i]):
+                    continue
+                closest = perp[np.argsort(np.abs(times[perp] - times[i]))[:2]]
+                across = track[i] - np.mean(along[closest])
+                corr = np.exp(across**2 / (2 * np.mean(width[closest]) ** 2))
+                if corr > max_corr:
+                    warnings.warn(
+                        f"{self['File'][i]}, {self['Chan'][i]}: the source is "
+                        f"{across * 60:.2f}' across the subscan; amplitude not corrected"
+                    )
+                    continue
+                new_corr[i] = corr
+        factor = new_corr / old_corr
+        self["Counts"] *= factor
+        self["Counts Err"] *= factor
+        self["Offset Corr"] = new_corr
 
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
@@ -1622,6 +1696,8 @@ def main_cal(args=None):
             "scans": [os.path.abspath(s) for s in scan_list],
             "splat": args.splat,
             "nofilt": bool(args.nofilt),
+            # Increase when the fits change, to recalculate older caches
+            "fit_version": CALIBRATOR_FIT_VERSION,
         }
     )
     caltable = None
@@ -1633,7 +1709,8 @@ def main_cal(args=None):
             )
         else:
             warnings.warn(
-                "The calibrator scans or the options (--splat, --nofilt) changed since the "
+                "The calibrator scans, the options (--splat, --nofilt) or the version of the "
+                "fits changed since the "
                 f"cached calibration table {outfile_unfilt} was made: recalculating it."
             )
             caltable = None
