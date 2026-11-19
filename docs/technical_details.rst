@@ -60,11 +60,27 @@ the ``slow`` marker; do not define it again in ``conftest.py``):
     $ pytest --pyargs srttools --run-slow
     $ tox -e py313-test-alldeps -- --run-slow
 
-In CI, the Linux job with coverage (``py313-test-alldeps-cov``) and the
-weekly scheduled jobs run them; the other jobs do not. All jobs print the 20
-slowest tests at the end of the log (``--durations=20``): a new test that
-takes more than a few seconds should be made faster, or marked as slow if a
-faster test already covers the same code.
+Adding ``-m slow`` runs *only* the slow tests.
+
+In CI, the Linux tests with all optional dependencies and coverage
+(``py313-test-alldeps-cov``) are split into two jobs that run at the same
+time: one runs the normal tests, the other only the slow ones
+(``-- -m slow --run-slow``). The weekly scheduled jobs run all tests,
+slow ones included; the other jobs skip the slow tests.
+
+Each coverage job stores its ``coverage.xml`` report with the test run,
+instead of sending it to Codecov. Once the tests finish, the separate
+workflow ``codecov_upload.yml`` sends all the reports of the run to Codecov
+together, and Codecov adds them up: a line counts as covered if any job ran
+it. Sending them from there is needed because GitHub does not give pull
+requests opened from a fork the repository's Codecov token, and uploads
+without the token are rate limited and get dropped. GitHub only runs the
+copy of ``codecov_upload.yml`` that is on the default branch, so changes to
+it take effect after they are merged.
+
+All jobs print the 20 slowest tests at the end of the log
+(``--durations=20``): a new test that takes more than a few seconds should be
+made faster, or marked as slow if a faster test already covers the same code.
 
 Time limits on hung tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -5,4 +5,4 @@ The old experiment scripts (``experiments/``) are no longer in the repository.
 
 Publish the package to PyPI automatically when a GitHub release is published.
 
-Tests that take several seconds and duplicate a faster test are marked ``slow`` and run only with ``--run-slow``: in CI, in the Linux coverage job and in the weekly jobs. All CI jobs print the 20 slowest tests. ``SDTrfistat`` collects the flagged channels 4 times faster (the tables were stacked row by row). The imager test setups no longer draw debug plots, halving their time (the plots are tested elsewhere).
+Tests that take several seconds and duplicate a faster test are marked ``slow`` and run only with ``--run-slow``: in CI, in a separate Linux coverage job, in parallel with the others, and in the weekly jobs. The coverage reports of all jobs are sent to Codecov together by a new workflow, ``codecov_upload.yml``, which also works for pull requests from forks. All CI jobs print the 20 slowest tests. ``SDTrfistat`` collects the flagged channels 4 times faster (the tables were stacked row by row). The imager test setups no longer draw debug plots, halving their time (the plots are tested elsewhere).

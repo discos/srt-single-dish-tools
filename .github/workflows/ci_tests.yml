@@ -109,6 +109,15 @@ jobs:
             toxenv: py313-test-alldeps-cov
             experimental: false
 
+          # The tests marked slow, alone, in parallel with the job above. Codecov
+          # adds up the coverage of the two.
+          - name: Linux - Python 3.13 slow tests, with all optional dependencies and coverage checking
+            os: ubuntu-latest
+            python: '3.13'
+            toxenv: py313-test-alldeps-cov
+            experimental: false
+            slow: true
+
           - name: OS X - Python 3.13 with all optional dependencies
             os: macos-latest
             python: '3.13'
@@ -141,10 +150,20 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install tox tox-uv
     - name: Test with tox
+      if: ${{ ! matrix.slow }}
       run: tox -e ${{ matrix.toxenv }}
-    - name: Upload coverage to codecov
+    - name: Test with tox, only the slow tests
+      if: ${{ matrix.slow }}
+      run: tox -e ${{ matrix.toxenv }} -- -m slow --run-slow
+    # The report is not sent to Codecov from here. Pull requests opened from a
+    # fork do not get repository secrets, so CODECOV_TOKEN would be empty and
+    # the upload would be anonymous (and rate limited). The separate
+    # codecov_upload.yml workflow sends all the stored reports together.
+    - name: Store the coverage report
       if: "endsWith(matrix.toxenv, '-cov')"
-      uses: codecov/codecov-action@v5
+      uses: actions/upload-artifact@v7
       with:
-        files: ./coverage.xml
-        token: ${{ secrets.CODECOV_TOKEN }}
+        name: coverage-${{ matrix.toxenv }}-${{ matrix.os }}${{ matrix.slow && '-slow' || '' }}
+        path: ./coverage.xml
+        if-no-files-found: error
+        retention-days: 1
