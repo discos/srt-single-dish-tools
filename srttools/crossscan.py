@@ -638,6 +638,19 @@ def write_cross_results(result, outroot, header):
     out.write(outroot + "_cross.ecsv", overwrite=True)
 
 
+def _plot_flux_unit(unit, values):
+    """Factor and label of the flux unit in plots: mJy if all |values| < 1 Jy.
+
+    Uncalibrated data (``unit`` not ``"Jy"``) are plotted as they are.
+    """
+    if unit != "Jy":
+        return 1.0, unit or "counts"
+    values = np.asarray(values, dtype=float)
+    if np.all(np.abs(values[np.isfinite(values)]) < 1):
+        return 1e3, "mJy"
+    return 1.0, "Jy"
+
+
 def plot_cross_results(result, outroot, beam_fwhm, unit="", title=""):
     """Plot the profiles, with the fitted beam, in ``<outroot>_cross.png``.
 
@@ -648,8 +661,8 @@ def plot_cross_results(result, outroot, beam_fwhm, unit="", title=""):
 
     from .utils import new_figure
 
-    factor, unit_label = (1e3, "mJy") if unit == "Jy" else (1.0, unit or "counts")
     summary = result["summary"]
+    factor, unit_label = _plot_flux_unit(unit, np.concatenate([summary["flux"], summary["ul"]]))
     beam_sigma = beam_fwhm / (2 * np.sqrt(2 * np.log(2)))
 
     def panel(ax, label):

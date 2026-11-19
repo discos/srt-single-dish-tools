@@ -7,6 +7,7 @@ import astropy.units as u
 from astropy.io import fits
 from astropy.table import Table
 from srttools.crossscan import (
+    _plot_flux_unit,
     _shape_warning,
     binned_profile,
     combine_amplitudes,
@@ -232,3 +233,17 @@ def test_sdtcross_writes_to_productdir_of_dump(tmp_path):
         main_cross([fname, "--beam-fwhm", str(FWHM_DEG * 60), "--rfi-nsigma", "0", "--noplot"])
     assert (tmp_path / "prod" / "fake_cross.fits").exists()
     assert not glob.glob(str(tmp_path / "intermediate" / "*_cross*"))
+
+
+@pytest.mark.parametrize(
+    "unit, values, expected",
+    [
+        ("Jy", [0.0123, 0.02], (1e3, "mJy")),
+        ("Jy", [3.96, 0.08], (1.0, "Jy")),
+        ("Jy", [0.5, -1.2], (1.0, "Jy")),
+        ("", [1234.0], (1.0, "counts")),
+    ],
+)
+def test_plot_flux_unit(unit, values, expected):
+    """Plots use mJy only for sub-Jy fluxes: a 4 Jy calibrator was labelled '3.96e+03 mJy'."""
+    assert _plot_flux_unit(unit, values) == expected
