@@ -1240,6 +1240,10 @@ class Scan(Table):
             else:
                 self.remove_column(ch)
             self[ch + "TEMP"].name = ch
+            # freqmin and freqmax are in MHz from the start of the band: only
+            # this part of the band is left in the cleaned data.
+            freqmin, freqmax = u.Quantity(freqmin, u.MHz), u.Quantity(freqmax, u.MHz)
+            self[ch].meta["frequency"] = u.Quantity(self[ch].meta["frequency"], u.MHz) + freqmin
             self[ch].meta["bandwidth"] = freqmax - freqmin
             self[ch].meta["bad_chans"] = bad_chan_dict
 

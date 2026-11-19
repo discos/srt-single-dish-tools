@@ -37,3 +37,5 @@ Constant calibration (``Jy_over_counts_rough``, used with fewer than 3 calibrato
 ``ScanSet.read_images_from_meta`` read back only the last saved image of each kind (images, horizontal and vertical scan images): it now reads them all.
 
 Simulated cross scans (``sim_crossscans``): in the odd crosses, scanned backwards, the positions were reversed but the data were not, so the source was one sample (0.08 arcmin) away from its nominal position, and on the wrong side when a ``pointing_offset`` was given. Positions and data are now reversed together.
+
+When spectral data are cleaned, only part of the band is kept (by default 10-90% of it, or the ``--splat`` range): the start frequency of the channels now moves with it, not only the bandwidth. Before, the band looked lower than it was (by 150 MHz with the default range on a 1500 MHz band), and calibrator fluxes from the catalog and beam widths were computed at the wrong frequency (about 1% and 2% off at C band).

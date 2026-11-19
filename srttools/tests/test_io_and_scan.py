@@ -25,6 +25,7 @@ from srttools.scan import (
     Scan,
     clean_scan_using_variability,
     find_summary_file_in_dir,
+    interpret_frequency_range,
     product_path_from_file_name,
 )
 from srttools.utils import compare_anything
@@ -347,6 +348,24 @@ class Test2_Scan:
                 fname.replace(".fits", "") + ".hdf5",
             )
         )
+
+    @pytest.mark.parametrize("freqsplat", [None, "100:400"])
+    def test_scan_frequency_after_splat(self, freqsplat):
+        """Cleaning keeps only part of the band: the start frequency must move with it.
+
+        Before the fix, only the bandwidth changed, so the band looked shifted down.
+        """
+        raw = read_data_fitszilla(self.fname)
+        scan = Scan(self.fname, freqsplat=freqsplat, nosave=True, norefilt=False)
+        for ch in scan.chan_columns():
+            bw = raw[ch].meta["bandwidth"].to(u.MHz).value
+            fmin, fmax, _, _ = interpret_frequency_range(freqsplat, bw, raw[ch].shape[1])
+            meta = scan[ch].meta
+            assert np.isclose(
+                u.Quantity(meta["frequency"], u.MHz).value,
+                raw[ch].meta["frequency"].to(u.MHz).value + fmin,
+            )
+            assert np.isclose(u.Quantity(meta["bandwidth"], u.MHz).value, fmax - fmin)
 
     def test_scan_loading_badchans(self):
         """Test that data are read."""
