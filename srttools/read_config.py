@@ -307,7 +307,7 @@ def read_config(fname=None, productdir=None, intermediatedir=None):
     fname : str, optional
         The config file. Default: the last one read or, if none was read
         yet, a sample one. A config file is read again if it was modified
-        since the last time.
+        since the last time; if it was deleted, the copy read before is used.
     productdir : str, optional
         Directory of the products, replacing the one of the config file
         (e.g. given on the command line). Relative paths start from the
@@ -321,10 +321,10 @@ def read_config(fname=None, productdir=None, intermediatedir=None):
     """
     global SRT_tools_config_file, SRT_tools_config, SRT_tools_config_stamp
 
-    # --- If already read, and not modified since, use existing config ---
+    # --- If already read, and not modified (or deleted) since, use existing config ---
     if SRT_tools_config is not None and (
         fname is None
-        or (fname == SRT_tools_config_file and _file_stamp(fname) == SRT_tools_config_stamp)
+        or (fname == SRT_tools_config_file and _file_stamp(fname) in (SRT_tools_config_stamp, None))
     ):
         if productdir is not None:
             SRT_tools_config["productdir"] = os.path.abspath(productdir)

@@ -93,6 +93,15 @@ def test_directory_overrides_on_cached_config(tmp_path, monkeypatch):
     assert config["intermediatedir"] == str(tmp_path / "mid")
 
 
+def test_deleted_config_file_keeps_cached_config(tmp_path):
+    """A config file deleted after reading is not read again: the cached config stays in use."""
+    config_file = tmp_path / "config.ini"
+    config_file.write_text(CONFIG.format(datadir=tmp_path, extra="productdir : out\n"))
+    config = read_config(str(config_file))
+    config_file.unlink()
+    assert read_config(str(config_file)) is config
+
+
 def test_upgrade_config_adds_intermediatedir(tmp_path):
     """SDTupgradeconfig keeps old processed scans usable: intermediatedir = old productdir, .bak kept."""
     from srttools.read_config import main_upgrade_config
