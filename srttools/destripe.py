@@ -1,13 +1,7 @@
 import numpy as np
 
-try:
-    import matplotlib.pyplot as plt
-
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
-
 from .fit import mad
+from .utils import HAS_MPL, new_figure
 
 
 def mask_zeros(image, expo=None, npix_tol=None):
@@ -155,6 +149,13 @@ def basket_weaving(
     return img_final
 
 
+def _save_image(img, fname):
+    """Save an image to a file."""
+    fig = new_figure()
+    fig.add_subplot().imshow(img)
+    fig.savefig(fname)
+
+
 def destripe_wrapper(
     image_hor,
     image_ver,
@@ -165,7 +166,13 @@ def destripe_wrapper(
     npix_tol=None,
     clip_sigma=3,
     label="img",
+    debug=False,
 ):
+    """Destripe the images of the two scan directions and combine them.
+
+    With ``debug``, the input and output images are saved to
+    ``<label>_<suffix>.png`` files in the current directory.
+    """
     if expo_hor is None or expo_ver is None:
         image_mean = (image_hor + image_ver) / 2
         expo_hor = expo_ver = np.ones_like(image_mean)
@@ -174,25 +181,17 @@ def destripe_wrapper(
         image_mean = (image_hor * expo_hor + image_ver * expo_ver) / (expo_hor + expo_ver)
         masked_image, mask = mask_zeros(image_mean, expo_hor + expo_ver, npix_tol=npix_tol)
 
-    if HAS_MPL:
-        fig = plt.figure()
-        plt.imshow(image_hor[mask].reshape(masked_image.shape))
-        plt.savefig(label + "_hor.png")
-        plt.imshow(image_ver[mask].reshape(masked_image.shape))
-        plt.savefig(label + "_ver.png")
+    if HAS_MPL and debug:
         diff_img = image_ver[mask] - image_hor[mask]
-        plt.imshow(diff_img.reshape(masked_image.shape))
-        plt.savefig(label + "_diff.png")
-        plt.close(fig)
-
-        fig = plt.figure()
-        plt.imshow(expo_hor[mask].reshape(masked_image.shape))
-        plt.savefig(label + "_expoh.png")
-        plt.imshow(expo_ver[mask].reshape(masked_image.shape))
-        plt.savefig(label + "_expov.png")
-        plt.imshow(image_mean[mask].reshape(masked_image.shape))
-        plt.savefig(label + "_initial.png")
-        plt.close(fig)
+        for img, suffix in [
+            (image_hor[mask], "hor"),
+            (image_ver[mask], "ver"),
+            (diff_img, "diff"),
+            (expo_hor[mask], "expoh"),
+            (expo_ver[mask], "expov"),
+            (image_mean[mask], "initial"),
+        ]:
+            _save_image(img.reshape(masked_image.shape), f"{label}_{suffix}.png")
 
     image_mean[mask] = basket_weaving(
         image_hor[mask].reshape(masked_image.shape),
@@ -203,9 +202,8 @@ def destripe_wrapper(
         clip_sigma=clip_sigma,
     ).flatten()
 
-    if HAS_MPL:
-        plt.imshow(image_mean[mask].reshape(masked_image.shape))
-        plt.savefig(label + "_destr.png")
+    if HAS_MPL and debug:
+        _save_image(image_mean[mask].reshape(masked_image.shape), f"{label}_destr.png")
 
     if alg == "basket-weaving":
         return image_mean

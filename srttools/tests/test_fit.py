@@ -4,6 +4,7 @@ import pytest
 from srttools.fit import (
     _rolling_window,
     align,
+    baseline_als,
     baseline_rough,
     detrend_spectroscopic_data,
     fit_baseline_plus_bell,
@@ -111,6 +112,7 @@ class TestFit:
 
     # For some reasons this sometimes doesn't work
     @pytest.mark.xfail(strict=False)
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_outliers_bell_larger(self):
         """Test that outlier detection works."""
         series = np.copy(self.series) + _test_shape(self.t)
@@ -132,6 +134,19 @@ class TestFit:
         np.testing.assert_almost_equal(model.mean_1, 50.0, 1)
         np.testing.assert_almost_equal(model.slope_0, 6.0, 1)
         assert np.abs(model.intercept_0 - 20.0) < 2
+
+    def test_fit_baseline_plus_bell_initial_position_and_width(self):
+        """A narrow source far from the scan centre (as in most subscans of a map) is found
+        if the fit starts from its expected position and width."""
+        rng = np.random.default_rng(1)
+        x = np.linspace(85.46, 85.77, 180)
+        y = 8 * np.exp(-((x - 85.645) ** 2) / (2 * 0.0055**2)) + 2 * (x - 85.46)
+        y += rng.normal(0, 0.3, x.size)
+
+        model, _ = fit_baseline_plus_bell(x, y, kind="gauss", mean=85.64, stddev=0.0055)
+
+        np.testing.assert_allclose(model.amplitude_1, 8, rtol=0.05)
+        np.testing.assert_allclose(model.mean_1, 85.645, atol=0.001)
 
     def test_fit_baseline_plus_bell_lorentz(self):
         """Test that the fit procedure works."""
@@ -214,3 +229,19 @@ class TestFit:
             _, err = offset_fit(x, y, 0, return_err=True)
             assert np.any(["return_err not implemented" in r.message.args[0] for r in record])
         assert err is None
+
+
+@pytest.mark.parametrize("nbin", [200, 1000])
+def test_baseline_als_masked_extended_source(nbin):
+    """Excluding an extended source from the baseline fit leaves the sky around it at zero,
+    for short subscans and for long ones (>= 300 samples, fitted on a subsample)."""
+    rng = np.random.default_rng(42)
+    x = np.linspace(0, 100, nbin)
+    source = 10 * np.exp(-((x - 50) ** 2) / (2 * 10**2))
+    y = 3 + 0.05 * x + source + rng.normal(0, 0.1, nbin)
+    mask = np.abs(x - 50) > 30
+
+    ysub = baseline_als(x, y, mask=mask)
+
+    assert np.abs(np.median(ysub[mask])) < 0.05
+    np.testing.assert_allclose(np.max(ysub), 10, rtol=0.05)

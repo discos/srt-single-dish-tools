@@ -1,0 +1,71 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  # Manual runs only build and check the package; they never upload it.
+  workflow_dispatch:
+
+jobs:
+  # Build separately from publishing, so that the job holding the PyPI
+  # credentials runs no project code.
+  # See https://github.com/pypa/gh-action-pypi-publish/issues/217#issuecomment-1965727093
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # setuptools_scm needs the full history and tags to set the version.
+          # (fetch-tags: true fails on release events, where the tag is also the ref.)
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check --strict dist/*
+          ls -lh dist/
+
+      - name: Check that the wheel installs and imports
+        run: |
+          python -m pip install dist/*.whl
+          cd /tmp
+          python -c "import srttools; print(srttools.__version__)"
+
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    if: >-
+      github.repository_owner == 'discos'
+      && github.event_name == 'release'
+      && github.event.action == 'published'
+    needs: [build]
+    runs-on: ubuntu-latest
+    # The environment name must match the one registered as trusted publisher on PyPI
+    environment:
+      name: pypi
+      url: https://pypi.org/p/srttools
+    permissions:
+      id-token: write  # mandatory for PyPI trusted publishing
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

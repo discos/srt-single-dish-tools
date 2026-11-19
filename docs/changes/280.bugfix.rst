@@ -1,0 +1,45 @@
+SDTcal no longer stops when the Gaussian fit of a single subscan raises an error (e.g. on a strong spike): the subscan is skipped with a warning.
+
+In the ``<channel>_cal`` columns that ``ScanSet.calculate_avg_cross`` writes (saved in the dump file), flagged samples are now NaN instead of zero.
+
+srttools no longer forces the matplotlib backend (it used TkAgg whenever DISPLAY was set, Agg otherwise): the backend chosen by the user (``MPLBACKEND``, ``matplotlibrc``) or the platform default is used, e.g. the native macOS one.
+
+Plots that are only saved to files (debug plots, calibration summaries, ``SDTcross`` profiles, RFI statistics, ...) are now drawn on figures not attached to pyplot: they never open a window with interactive backends. Some were also left open (RFI statistics, destriping) or saved before adding the legend (outlier removal).
+
+The alt-az diagnostic plots (``delta_altaz.png``, ``altaz_with_src.png``) are written to the current directory only in debug mode.
+
+Quick calibration of images (``calibrate_images``) no longer gives a flux of exactly one calibration factor to pixels with NaN Sdev; the Sdev is calculated around the pixel mean, so it is never NaN by rounding and keeps its precision with large offsets.
+
+``scrunch_images``: ``TOTAL-Sdev`` took the square root twice; it is now the square root of the sum of the squared Sdev of the channels divided by their number, and there is a ``TOTAL-ERR`` computed in the same way.
+
+Average cross profiles in ``ScanSet`` (``calculate_avg_cross``, used by ``save_ds9_images`` with ``save_crosses``): quick calibration (without ``calibrate_scans``) no longer fails, calibrated profiles are stored under the right names, and Sdev, ERR and the calibration error are computed as for images (new ``err`` column in the saved tables).
+
+SDTcal on multi-feed receivers: each channel is fitted once, with the coordinates of its own feed. Before, every channel was fitted once per feed (e.g. 7 times with the K-band 7-feed receiver), six times with the coordinates of another feed, which multiplied the calibration and light-curve points and gave wrong fitted positions.
+
+The calibration (Jy/counts conversion) ignores fits with zero amplitude, which give an infinite Flux/Counts. Before, a single such fit made the elevation fit raise an error for the whole channel (e.g. with calibrator maps, where many subscans miss the source).
+
+SDTcal with calibrator maps and multi-feed receivers: only the channels whose feed passes within 1/4 of the beam FWHM of the calibrator are fitted; the others (most subscans of a map, the off-axis feeds of a cross scan) gave meaningless Flux/Counts. The Gaussian fit starts at the calibrator position with the beam width: from the middle of the subscan it often ended at zero amplitude. Channels with fewer than 3 calibrator fits get a constant calibration instead of failing the elevation fit (``ZeroDivisionError`` from statsmodels).
+
+Baseline subtraction (``baseline_als``) now honours the excluded regions (``avoid_regions``, ``SDTimage --exclude``) also in subscans with 300 samples or more, where they were silently ignored; the final zero-level correction uses only the samples outside the excluded regions. Before, the sky around an extended source excluded from the fit ended up below zero ("bowls" along the scans crossing it).
+
+``ScanSet.calculate_images`` with ``direction`` (images of one scan direction) and quick calibration returned the uncalibrated images; only the copy stored in ``images_hor``/``images_ver`` was calibrated (the destriping, which uses those, was not affected).
+
+The destriping (``SDTimage --destripe``, ``ScanSet.destripe_images``) writes its diagnostic images (``<channel>_hor.png``, ``<channel>_destr.png``, ...) to the current directory only in debug mode; they were always written.
+
+Destriped images: the ERR of pixels where one scan direction has a single sample (whose Sdev is undefined) is the ERR of the image of all subscans, instead of NaN.
+
+Constant calibration (``Jy_over_counts_rough``, used with fewer than 3 calibrator fits or outside their elevation range): when the fits scatter well beyond their formal errors, or there are fewer than 5, the error of the calibration factor is now the error of the median from the robust scatter of the fits. It used to be the median formal error of a single fit, e.g. 1% instead of 17-27% on a Medicina calibrator scan whose fits scatter by 26-41%. When enough fits survive the rejection of outliers, the error is never smaller than the robust scatter of all the fits divided by the square root of their number: the few fits that survive can agree among themselves much better than the calibration is known (4% instead of 17% on the same scan).
+
+``SDTrfistat -c`` looked for the processed scans next to the raw data, where they are no longer written: it now finds them in ``intermediatedir``, and writes its RFI tables and plots to ``productdir``. ``--outroot`` was ignored when the tables were written, and the tables could then not be plotted: fixed.
+
+``CalibratorTable.from_scans`` loads the subscans with its ``config_file``: called from Python without reading the config file first, its temporary files went to ``./srttools_products`` regardless of ``productdir``. The calibrator fit plots of ``SDTcal --show`` (``<subscan>_scanfit``) go to ``intermediatedir`` instead of next to the raw data.
+
+``ScanSet.read_images_from_meta`` read back only the last saved image of each kind (images, horizontal and vertical scan images): it now reads them all.
+
+Simulated cross scans (``sim_crossscans``): in the odd crosses, scanned backwards, the positions were reversed but the data were not, so the source was one sample (0.08 arcmin) away from its nominal position, and on the wrong side when a ``pointing_offset`` was given. Positions and data are now reversed together.
+
+When spectral data are cleaned, only part of the band is kept (by default 10-90% of it, or the ``--splat`` range): the start frequency of the channels now moves with it, not only the bandwidth. Before, the band looked lower than it was (by 150 MHz with the default range on a 1500 MHz band), and calibrator fluxes from the catalog and beam widths were computed at the wrong frequency (about 1% and 2% off at C band).
+
+``SDTcal`` reused its cache of calibrator fits (``<config>_cal_unfilt.hdf5``) even when the calibrator directories, ``--splat`` or ``--nofilt`` had changed, silently giving the old calibration. The cache now records them, and is recalculated with a warning when they differ. ``read_config`` also reads a config file again if it was modified after the last reading in the same Python session (e.g. in a notebook).
+
+The pointing error of RA subscans in the ``SDTcal`` table (``RA err``, plotted by ``SDTcal --show``) is now an offset on the sky, like ``Dec err``: it was the difference of RA coordinates, too large by 1/cos(Dec) (by 1.6 times at Dec 50 degrees).

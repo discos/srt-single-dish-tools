@@ -60,14 +60,6 @@ srttools.imager module
     :undoc-members:
     :show-inheritance:
 
-srttools.interactive_filter module
-----------------------------------
-
-.. automodule:: srttools.interactive_filter
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 srttools.io module
 ------------------
 
@@ -104,6 +96,22 @@ srttools.simulate module
 ------------------------
 
 .. automodule:: srttools.simulate
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+srttools.filter_session module
+------------------------------
+
+.. automodule:: srttools.filter_session
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+srttools.web_filter module
+--------------------------
+
+.. automodule:: srttools.web_filter
     :members:
     :undoc-members:
     :show-inheritance:

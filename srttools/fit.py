@@ -432,15 +432,15 @@ def purge_outliers(y, window_size=5, up=True, down=True, mask=None, plot=False):
             ) + previous
 
     if plot and HAS_MPL:
-        import matplotlib.pyplot as plt
+        from .utils import new_figure
 
-        fig = plt.figure()
-        plt.plot(ysave, label="Input data")
-        plt.plot(y, zorder=3, label="Filtered data")
-        plt.plot(medfilt(ysave, window_size), zorder=6, lw=1, label="Medfilt")
-        plt.savefig("Bubu_" + str(np.random.randint(0, 10000000)) + ".png")
-        plt.legend()
-        plt.close(fig)
+        fig = new_figure()
+        ax = fig.add_subplot()
+        ax.plot(ysave, label="Input data")
+        ax.plot(y, zorder=3, label="Filtered data")
+        ax.plot(medfilt(ysave, window_size), zorder=6, lw=1, label="Medfilt")
+        ax.legend()
+        fig.savefig("Bubu_" + str(np.random.randint(0, 10000000)) + ".png")
 
     return y
 
@@ -504,6 +504,16 @@ def _als(y, lam, p, niter=30):
     return z
 
 
+def _fill_masked(y, mask):
+    """Replace the samples where ``mask`` is False by linear interpolation of the others."""
+    if mask is None or np.all(mask) or np.count_nonzero(mask) < 2:
+        return y
+    idx = np.arange(y.size)
+    y = np.array(y, dtype=float)
+    y[~mask] = np.interp(idx[~mask], idx[mask], y[mask])
+    return y
+
+
 def baseline_als(x, y, **kwargs):
     """Baseline Correction with Asymmetric Least Squares Smoothing.
 
@@ -553,12 +563,21 @@ def baseline_als(x, y, **kwargs):
 
     _ = kwargs.pop("outlier_purging", False)
     return_baseline = kwargs.pop("return_baseline", False)
+    mask = kwargs.pop("mask", None)
+    if mask is not None:
+        mask = np.asarray(mask, dtype=bool)
 
-    y_medf = medfilt(y, 31)
+    # Masked samples (e.g. an extended source) must not drive the subsample
+    y_medf = medfilt(_fill_masked(y, mask), 31)
 
     els = np.array(np.rint(np.linspace(0, y.size - 1, 31)), dtype=int)
     y_sub, base = _baseline_als(
-        x[els], y_medf[els], outlier_purging=False, return_baseline=True, **kwargs
+        x[els],
+        y_medf[els],
+        outlier_purging=False,
+        return_baseline=True,
+        mask=None if mask is None else mask[els],
+        **kwargs,
     )
 
     func = interp1d(x[els], base)
@@ -600,7 +619,11 @@ def _baseline_als(
     approx_baseline = approx_m * np.arange(N) + approx_q
     y = y - approx_baseline
 
+    if mask is not None:
+        mask = np.asarray(mask, dtype=bool)
     y_mod = purge_outliers(y, up=outlier_purging[0], down=outlier_purging[1], mask=mask)
+    # purge_outliers only applies the mask when purging outliers
+    y_mod = _fill_masked(y_mod, mask)
 
     z = _als(y_mod, lam, p, niter=niter)
 
@@ -610,6 +633,9 @@ def _baseline_als(
         std = ref_std(ysub, np.max([len(y) // 20, 20]))
 
         good = np.abs(ysub) < 10 * std
+        if mask is not None and np.count_nonzero(good & mask) >= 20:
+            # A source in the masked region would bias the offset
+            good &= mask
 
         if len(ysub[good]) < 20:
             good = np.ones(len(ysub), dtype=bool)
@@ -663,7 +689,7 @@ def detrend_spectroscopic_data(x, spectrum, kind="als", mask=None, outlier_purgi
     return spectrum - tiled_baseline, tiled_baseline
 
 
-def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
+def fit_baseline_plus_bell(x, y, ye=None, kind="gauss", mean=None, stddev=None):
     """Fit a function composed of a linear baseline plus a bell function.
 
     Parameters
@@ -679,6 +705,11 @@ def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
         the errors on the data series
     kind: str
         Can be 'gauss' or 'lorentz'
+    mean : float
+        Initial position of the bell. Default: the centre of ``x``
+    stddev : float
+        Initial standard deviation of the bell (for 'lorentz', the FWHM starts
+        at the equivalent value). Default: 1/20 of the range of ``x``
 
     Returns
     -------
@@ -697,15 +728,23 @@ def fit_baseline_plus_bell(x, y, ye=None, kind="gauss"):
 
     xrange = np.max(x) - np.min(x)
     yrange = np.max(y) - np.min(y)
+    if mean is None:
+        mean = np.mean(x)
+    # Defaults: the Gaussian stddev and the Lorentzian FWHM start at xrange / 20
+    fwhm = xrange / 20
+    if stddev is None:
+        stddev = xrange / 20
+    else:
+        fwhm = stddev * 2 * np.sqrt(2 * np.log(2))
 
     if kind == "gauss":
-        bell = models.Gaussian1D(mean=np.mean(x), stddev=xrange / 20, amplitude=yrange, name="Bell")
+        bell = models.Gaussian1D(mean=mean, stddev=stddev, amplitude=yrange, name="Bell")
         bell.amplitude.bounds = (0, None)
         bell.mean.bounds = (None, None)
         bell.stddev.bounds = (0, None)
         # max_name = 'mean'
     elif kind == "lorentz":
-        bell = models.Lorentz1D(x_0=np.mean(x), fwhm=xrange / 20, amplitude=yrange, name="Bell")
+        bell = models.Lorentz1D(x_0=mean, fwhm=fwhm, amplitude=yrange, name="Bell")
         bell.amplitude.bounds = (0, None)
         bell.x_0.bounds = (None, None)
         bell.fwhm.bounds = (0, None)

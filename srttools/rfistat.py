@@ -10,17 +10,13 @@ from astropy.time import Time
 
 from . import logging
 from .fit import contiguous_regions
-from .read_config import read_config
-
-try:
-    import matplotlib.pyplot as plt
-
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
+from .read_config import add_directory_arguments, apply_directory_arguments, read_config
+from .scan import list_scans, processed_file_name
+from .utils import HAS_MPL, new_figure
 
 
-def load_data(fnames, outroot=None):
+def load_data(fnames, outroot=None, outdir="."):
+    """Collect the RFI-flagged channels of processed scans in ``<outdir>/<outroot>_<label>_rfi.hdf5``."""
     if outroot is None:
         outroot = ""
     else:
@@ -58,13 +54,13 @@ def load_data(fnames, outroot=None):
             }
             for coord in "ra", "dec", "az", "el":
                 new_tab[coord] = [np.rad2deg(full_table[coord][0])] * len(bad_freqs)
-            tables[label].extend(Table(new_tab))
+            tables[label].append(Table(new_tab))
 
     outfiles = []
     for label, local_tables in tables.items():
         if len(local_tables) == 0:
             continue
-        outfile = f"{outroot}{label}_rfi.hdf5"
+        outfile = os.path.join(outdir, f"{outroot}{label}_rfi.hdf5")
         table = vstack(local_tables)
         table.write(outfile, path="data", overwrite=True)
         outfiles.append(outfile)
@@ -87,32 +83,54 @@ def main_rfistat(args=None):
     parser.add_argument(
         "--threshold", help=r"Threshold (%% from maximum) for RFI flagging", default=10, type=float
     )
-    parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default=None,
+        help="Config file: use the processed scans of its directories (run "
+        "SDTpreprocess first), and write the outputs to its productdir",
+    )
+    add_directory_arguments(parser)
 
     parser.add_argument("--outroot", help="Root for output files", default=None, type=str)
     args = parser.parse_args(args)
+    apply_directory_arguments(args)
 
     preproc_files = args.files
+    outdir = "."
 
     if len(preproc_files) == 0 and args.config is not None:
         config = read_config(args.config)
-        datadir = config["datadir"]
-        dirlist = config["list_of_directories"]
-        preproc_files = []
-        for d in dirlist:
-            preproc_files.extend(glob.glob(os.path.join(datadir, d, "*.hdf5")))
+        outdir = config["productdir"]
+        os.makedirs(outdir, exist_ok=True)
+        dirs = config["list_of_directories"] + config["calibrator_directories"]
+        preproc_files = [
+            f
+            for f in (
+                processed_file_name(fname, config)
+                for fname in sorted(set(list_scans(config["datadir"], dirs)))
+            )
+            if os.path.exists(f)
+        ]
+        if not preproc_files:
+            warnings.warn(
+                f"No processed scans in {config['intermediatedir']}: run SDTpreprocess "
+                f"-c {args.config} first. Using the RFI tables already in {outdir}, if any."
+            )
 
     if len(preproc_files) == 0:
-        outfiles = glob.glob("*rfi.hdf5")
+        outfiles = sorted(glob.glob(os.path.join(outdir, "*rfi.hdf5")))
     else:
-        outfiles = load_data(preproc_files)
+        outfiles = load_data(preproc_files, outroot=args.outroot, outdir=outdir)
 
     receiver_class_data = {}
     for fname in outfiles:
+        name = os.path.basename(fname)
         if args.outroot is not None:
-            fname = fname.replace(args.outroot + "_", "")
+            name = name.replace(args.outroot.rstrip("_") + "_", "", 1)
 
-        receiver = fname[:3]
+        receiver = name[:3]
         if receiver not in receiver_class_data:
             receiver_class_data[receiver] = []
         receiver_class_data[receiver].append(fname)
@@ -123,15 +141,14 @@ def main_rfistat(args=None):
 
     for receiver, outfiles in receiver_class_data.items():
         logging.info(f"Treating data from {receiver}")
-        fig1, axs = plt.subplots(
+        fig1 = new_figure(layout="constrained", figsize=(10, 3.3333 * len(outfiles)))
+        axs = fig1.subplots(
             nrows=len(outfiles) + 1,
             ncols=2,
             width_ratios=(3, 2),
             height_ratios=[0.6] + [1] * len(outfiles),
-            constrained_layout=True,
             sharex="col",
             sharey="row",
-            figsize=(10, 3.3333 * len(outfiles)),
         )
         tmin, tmax = np.inf, -np.inf
         fmin, fmax = np.inf, -np.inf
@@ -139,7 +156,7 @@ def main_rfistat(args=None):
         for ax_row, outfile in zip(axs[1:], outfiles):
             logging.info(f"Plotting{outfile}")
             ax_scatter, ax_hist = ax_row
-            label = outfile.replace("_rfi.hdf5", "")
+            label = os.path.basename(outfile).replace("_rfi.hdf5", "")
             t = Table.read(outfile, path="data")
             mjd = t["time"]
 
@@ -151,7 +168,7 @@ def main_rfistat(args=None):
 
             if not coords_plotted:
                 time_label = Time(central_mjd, format="mjd").to_value("iso", subfmt="date")
-                plt.suptitle(f"RFI stats for {receiver} on {time_label}")
+                fig1.suptitle(f"RFI stats for {receiver} on {time_label}")
                 coords_plotted = True
                 axs[0][0].plot(time, t["el"][:, 0], label="El", color="b", lw=0.5)
                 axs[0][0].plot(time, t["az"][:, 0], label="Az", color="r", lw=0.5)
@@ -207,6 +224,4 @@ def main_rfistat(args=None):
         axs[0][0].set_ylabel("Angle (deg)")
         axs[0][0].legend()
         axs[0][0].grid(True)
-        plt.tight_layout()
-        plt.savefig(f"rfi_stats_{receiver}_{time_label}.jpg", dpi=300)
-        # plt.show()
+        fig1.savefig(os.path.join(outdir, f"rfi_stats_{receiver}_{time_label}.jpg"), dpi=300)

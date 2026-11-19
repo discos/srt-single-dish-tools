@@ -58,6 +58,10 @@ test_all = [
     "statsmodels>=0.8.0",
     "sunpy",
     "tqdm>=4.60",
+    "bokeh>=3.3",
+]
+interactive = [
+    "bokeh>=3.3",
 ]
 recommended = [
     "numba",
@@ -67,6 +71,7 @@ recommended = [
 ]
 all = [
     "srttools[recommended]",
+    "srttools[interactive]",
     "mahotas",
     "regions",
     "watchdog",
@@ -75,7 +80,7 @@ all = [
     "sunpy"
 ]
 docs = [
-    "jinja2==3.1.3",
+    "jinja2>=3.1.6",
     "docutils",
     "sphinx>=7,<9",
     "sphinx-astropy",
@@ -85,6 +90,7 @@ docs = [
     "pandoc",
     "ipython",
     "towncrier",
+    "bokeh>=3.3",
 ]
 
 [project.urls]
@@ -95,6 +101,7 @@ repository = "https://github.com/discos/srt-single-dish-tools"
 
 [project.scripts]
 SDTcal = "srttools.calibration:main_cal"
+SDTcross = "srttools.crossscan:main_cross"
 SDTfake = "srttools.simulate:main_simulate"
 SDTimage = "srttools.imager:main_imager"
 SDTinspect = "srttools.inspect_observations:main_inspector"
@@ -106,6 +113,7 @@ SDTconvert = "srttools.convert:main_convert"
 SDTbulkchange = "srttools.io:main_bulk_change"
 SDTparselog = "srttools.parse_acs_logs:main_parse_acs_logs"
 SDTrfistat = "srttools.rfistat:main_rfistat"
+SDTupgradeconfig = "srttools.read_config:main_upgrade_config"
 
 [build-system]
 
@@ -130,6 +138,7 @@ namespaces = false
     "data/*/*",
     "tests/data/*.fits*",
     "tests/data/*/*.fits*",
+    "tests/data/*/*/*.fits*",
     "tests/data/*.ini",
     "tests/data/*/*.ini",
     "tests/data/acs.xml",
@@ -371,7 +380,6 @@ lint.ignore = [  # NOTE: non-permanent exclusions should be added to `.ruff.toml
 "setup.py" = ["INP001"]  # Part of configuration, not a package.
 ".github/workflows/*.py" = ["INP001"]
 "notebooks/*.py" = ["INP001"]
-"experiments/*.py" = ["INP001"]  # Standalone scripts, not a package.
 
 "test_*.py" = [
     "ANN201",  # Public function without return type annotation

@@ -6,7 +6,7 @@ cleaning the data.
 """
 
 import copy
-import functools
+import importlib.util
 import logging
 import os
 import traceback
@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 
 import numpy as np
-from scipy.stats import binned_statistic, binned_statistic_2d
+from scipy.stats import binned_statistic, binned_statistic_2d, binned_statistic_dd
 
 import astropy
 import astropy.constants as c
@@ -27,20 +27,24 @@ from astropy.time import Time
 from astropy.utils.metadata import MergeConflictWarning
 
 from .calibration import CalibratorTable
-from .fit import eliminate_spiky_outliers, linear_fun
+from .fit import eliminate_spiky_outliers
 from .global_fit import fit_full_image
-from .interactive_filter import create_empty_info, select_data
 from .io import chan_re, detect_data_kind, get_channel_feed
 from .opacity import calculate_opacity
-from .read_config import read_config, sample_config_file
+from .read_config import (
+    add_directory_arguments,
+    apply_directory_arguments,
+    output_file_name,
+    read_config,
+    sample_config_file,
+)
 from .scan import Scan, _is_summary_file, list_scans
 from .utils import (
     HAS_MAHO,
     calculate_beam_fom,
     calculate_zernike_moments,
-    compare_anything,
-    ds9_like_log_scale,
     get_circular_statistics,
+    new_figure,
     njit,
     remove_suffixes_and_prefixes,
 )
@@ -53,13 +57,7 @@ except ImportError:
         return a
 
 
-try:
-    import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
-
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
+HAS_MPL = importlib.util.find_spec("matplotlib") is not None
 
 
 IMG_STR = "__img_dump_"
@@ -67,7 +65,7 @@ IMG_HOR_STR = "__img_hor_dump_"
 IMG_VER_STR = "__img_ver_dump_"
 
 
-__all__ = ["ScanSet"]
+__all__ = ["ScanSet", "find_outlier_subscans"]
 
 
 def _load_and_merge_subscans(indices_and_subscans):
@@ -249,6 +247,166 @@ def outlier_score(x):
     return _outlier_score(np.asarray(x))
 
 
+def _binned_mean_sdev(coords, values, bins):
+    """Mean, standard deviation and number of the samples in each bin.
+
+    The standard deviation is normalized by N - 1 and calculated around the
+    mean of each bin (two passes), so that it is never negative and does not
+    lose precision when the values have a large offset. It is NaN in bins with
+    fewer than two samples. The mean is zero in empty bins.
+
+    Parameters
+    ----------
+    coords : tuple of arrays
+        Coordinates of the samples, one array per dimension
+    values : array
+        Values of the samples
+    bins : list of arrays
+        Bin edges, one array per dimension (as in ``numpy.histogramdd``)
+
+    Returns
+    -------
+    mean, sdev, expo : arrays
+        Mean, standard deviation and number of samples, with shape
+        ``(len(bins[0]) - 1, len(bins[1]) - 1, ...)``
+
+    Examples
+    --------
+    >>> mean, sdev, expo = _binned_mean_sdev(([0.5, 0.5, 1.5],), [1.0, 3.0, 2.0], [[0, 1, 2]])
+    >>> mean.tolist(), float(sdev[0]), bool(np.isnan(sdev[1])), expo.tolist()
+    ([2.0, 2.0], 1.4142135623730951, True, [2.0, 1.0])
+    """
+    values = np.asarray(values, dtype=float)
+    res = binned_statistic_dd(coords, values, statistic="mean", bins=bins)
+    expo = binned_statistic_dd(
+        coords, values, statistic="count", binned_statistic_result=res
+    ).statistic
+    # Mean of the bin of each sample. Bin numbers refer to the array padded
+    # with one outlier bin on each side
+    padded_mean = np.pad(res.statistic, 1, constant_values=np.nan)
+    residuals = values - padded_mean.ravel()[res.binnumber]
+    sq = binned_statistic_dd(
+        coords, residuals**2, statistic="sum", binned_statistic_result=res
+    ).statistic
+
+    mean = np.nan_to_num(res.statistic, nan=0.0)
+    sdev = np.full_like(mean, np.nan)
+    good = expo > 1
+    sdev[good] = np.sqrt(sq[good] / (expo[good] - 1))
+    return mean, sdev, expo
+
+
+def _between(mask, axis):
+    """True where ``mask`` is True strictly before and strictly after, along ``axis``."""
+    before = np.logical_or.accumulate(mask, axis=axis)
+    after = np.flip(np.logical_or.accumulate(np.flip(mask, axis=axis), axis=axis), axis=axis)
+    # Shift by one pixel, so that the pixel itself does not count
+    pad = [(1, 0) if ax == axis else (0, 0) for ax in range(mask.ndim)]
+    n = mask.shape[axis]
+    before = np.take(np.pad(before, pad), range(n), axis=axis)
+    pad = [(0, 1) if ax == axis else (0, 0) for ax in range(mask.ndim)]
+    after = np.take(np.pad(after, pad), range(1, n + 1), axis=axis)
+    return before & after
+
+
+def _dilate(mask, axis):
+    """Extend a boolean mask by one pixel on each side along ``axis``."""
+    padded = np.pad(mask, [(1, 1) if ax == axis else (0, 0) for ax in range(mask.ndim)])
+    n = mask.shape[axis]
+    return mask | np.take(padded, range(n), axis=axis) | np.take(padded, range(2, n + 2), axis=axis)
+
+
+def _count_inner_empty_pixels(expo):
+    """Count the pixels with no samples that lie inside a 2D map.
+
+    An empty pixel is "inner" if it has filled pixels on both sides along one
+    axis (e.g. a column missed by subscans farther apart than one pixel) and,
+    along the other axis, it lies within the map once the filled pixels are
+    extended by one pixel across the gap. Gaps in the ragged outer rows of the
+    map (subscans ending at slightly different positions) do not count.
+
+    Examples
+    --------
+    >>> _count_inner_empty_pixels(np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]]))
+    1
+    >>> _count_inner_empty_pixels(np.array([[1, 0, 1], [1, 1, 1], [1, 1, 1]]))
+    0
+    """
+    filled = np.asarray(expo) > 0
+    inner = (_between(filled, 1) & _between(_dilate(filled, 1), 0)) | (
+        _between(filled, 0) & _between(_dilate(filled, 0), 1)
+    )
+    return int(np.count_nonzero(inner & ~filled))
+
+
+def _warn_empty_pixels(expo, channel, max_fraction=0.01):
+    """Warn if more than ``max_fraction`` of the map pixels are inner empty pixels.
+
+    This happens when the pixel is smaller than the spacing between
+    subscans. Empty pixels have value 0 in the image, so they bias sums
+    over the image (e.g. the flux density of an extended source in
+    Jy/pixel).
+    """
+    n_empty = _count_inner_empty_pixels(expo)
+    n_filled = np.count_nonzero(np.asarray(expo) > 0)
+    if n_filled > 0 and n_empty > max_fraction * n_filled:
+        warnings.warn(
+            f"{channel}: {n_empty} pixels inside the map have no samples "
+            f"({n_empty / n_filled:.0%} of the filled ones). They are set to 0. "
+            "Is the pixel smaller than the spacing between subscans? Use a larger pixel_size."
+        )
+
+
+def find_outlier_subscans(counts, coord, scan_id, arm, nsigma=5.0):
+    """Find subscans whose noise is anomalous, e.g. because of residual RFI.
+
+    For each arm, the median profile of all its subscans (in bins of one
+    pixel) is subtracted, which removes the source however bright it is.
+    The rms of what is left is measured in each subscan, and a subscan is an
+    outlier if its rms exceeds the median rms of all subscans by more than
+    ``nsigma`` robust standard deviations (1.4826 times the median absolute
+    deviation).
+
+    Parameters
+    ----------
+    counts : array
+        Data of one channel
+    coord : array
+        Pixel coordinate along the arm, for each sample
+    scan_id : array of int
+        Subscan each sample belongs to
+    arm : array of bool
+        Arm each sample belongs to (e.g. the ``direction`` column)
+
+    Other Parameters
+    ----------------
+    nsigma : float
+        Rejection threshold
+
+    Returns
+    -------
+    bad : list of int
+        The ``scan_id`` values of the outlier subscans
+    """
+    counts = np.asarray(counts, dtype=float)
+    resid = np.zeros_like(counts)
+    for a in np.unique(arm):
+        mask = arm == a
+        x = coord[mask]
+        bins = np.arange(np.floor(x.min()), np.ceil(x.max()) + 1)
+        if bins.size < 2:
+            bins = np.array([x.min() - 0.5, x.max() + 0.5])
+        median, _, idx = binned_statistic(x, counts[mask], statistic="median", bins=bins)
+        resid[mask] = counts[mask] - median[np.clip(idx - 1, 0, median.size - 1)]
+
+    ids = np.unique(scan_id)
+    rms = np.array([np.std(resid[scan_id == i]) for i in ids])
+    med = np.median(rms)
+    spread = 1.4826 * np.median(np.abs(rms - med))
+    spread = max(spread, 1e-6 * med)
+    return [int(i) for i in ids[rms > med + nsigma * spread]]
+
+
 class ScanSet(Table):
     def __init__(
         self,
@@ -261,6 +419,7 @@ class ScanSet(Table):
         nosub=False,
         plot=False,
         debug=False,
+        scan_list=None,
         **kwargs,
     ):
         """Class obtained by a set of scans.
@@ -289,6 +448,10 @@ class ScanSet(Table):
             See :class:`srttools.scan.clean_scan_using_variability`
         nosub : bool
             See :class:`srttools.scan.Scan`
+        scan_list : list of str, optional
+            With a config file as ``data``: load these subscan files instead
+            of those in the directories listed in the config file. The config
+            file still gives the other parameters (e.g. where the products go).
 
         Other Parameters
         ----------------
@@ -320,7 +483,7 @@ class ScanSet(Table):
         elif isinstance(data, str) and data.endswith("hdf5"):
             data = Table.read(data)
         elif isinstance(data, str) and data.endswith("ini"):  # data is a config file
-            data = self._read_data_from_config(data, **kwargs)
+            data = self._read_data_from_config(data, scan_list=scan_list, **kwargs)
         elif not isinstance(data, Table):  # data needs to be a Table object
             raise ValueError(f"Invalid data: \n{data}")
 
@@ -333,7 +496,6 @@ class ScanSet(Table):
 
         if data is not None and "x" not in self.colnames:
             self.convert_coordinates()
-        self.current = None
         self._scan_list = None
         self._chan_columns = None
 
@@ -349,14 +511,17 @@ class ScanSet(Table):
             self._scan_list = self.meta["scan_list"]
         return self._scan_list
 
-    def _read_data_from_config(self, data, **kwargs):
+    def _read_data_from_config(self, data, scan_list=None, **kwargs):
         config_file = data
         config = read_config(config_file)
 
         self.meta.update(config)
         self.meta["config_file"] = config_file
 
-        scan_list = self.list_scans()
+        if scan_list is None:
+            scan_list = self.list_scans()
+        else:
+            scan_list = [os.path.abspath(f) for f in scan_list]
 
         scan_list.sort()
 
@@ -552,22 +717,21 @@ class ScanSet(Table):
             self["delta_az"][:, f] = (self["az"][:, f] - ref_az) * np.cos(ref_el)
             self["delta_el"][:, f] = self["el"][:, f] - ref_el
 
-        if HAS_MPL:
-            fig1 = plt.figure("adsfasdfasd")
-            plt.plot(np.degrees(self["delta_az"]), np.degrees(self["delta_el"]))
-            plt.xlabel("Delta Azimuth (deg)")
-            plt.ylabel("Delta Elevation (deg)")
+        if HAS_MPL and getattr(self, "debug", False):
+            fig1 = new_figure()
+            ax = fig1.add_subplot()
+            ax.plot(np.degrees(self["delta_az"]), np.degrees(self["delta_el"]))
+            ax.set_xlabel("Delta Azimuth (deg)")
+            ax.set_ylabel("Delta Elevation (deg)")
+            fig1.savefig("delta_altaz.png")
 
-            plt.savefig("delta_altaz.png")
-            plt.close(fig1)
-
-            fig2 = plt.figure("adsfasdf")
-            plt.plot(np.degrees(self["az"]), np.degrees(self["el"]))
-            plt.plot(np.degrees(ref_az), np.degrees(ref_el))
-            plt.xlabel("Azimuth (deg)")
-            plt.ylabel("Elevation (deg)")
-            plt.savefig("altaz_with_src.png")
-            plt.close(fig2)
+            fig2 = new_figure()
+            ax = fig2.add_subplot()
+            ax.plot(np.degrees(self["az"]), np.degrees(self["el"]))
+            ax.plot(np.degrees(ref_az), np.degrees(ref_el))
+            ax.set_xlabel("Azimuth (deg)")
+            ax.set_ylabel("Elevation (deg)")
+            fig2.savefig("altaz_with_src.png")
 
     def create_wcs(self, frame="icrs"):
         """Create a wcs object from the pointing information."""
@@ -694,10 +858,10 @@ class ScanSet(Table):
                 and self.images is not None
                 and ch in self.images.keys()
             ):
-                images[ch] = self.images[ch]
-                images[f"{ch}-Sdev"] = self.images[f"{ch}-Sdev"]
-                images[f"{ch}-EXPO"] = self.images[f"{ch}-EXPO"]
-                images[f"{ch}-Outliers"] = self.images[f"{ch}-Outliers"]
+                suffixes = ["Sdev", "ERR", "EXPO", "Outliers"]
+                for key in [ch] + [f"{ch}-{suffix}" for suffix in suffixes]:
+                    if key in self.images:
+                        images[key] = self.images[key]
                 continue
 
             feed = get_channel_feed(ch)
@@ -714,12 +878,6 @@ class ScanSet(Table):
                 good = good & self["direction"]
             elif direction == 1:
                 good = good & np.logical_not(self["direction"])
-
-            expomap, _, _ = np.histogram2d(
-                self["x"][:, feed][good],
-                self["y"][:, feed][good],
-                bins=[xbins, ybins],
-            )
 
             counts = np.array(self[ch][good])
 
@@ -749,14 +907,10 @@ class ScanSet(Table):
             filtered_x = self["x"][:, feed][good]
             filtered_y = self["y"][:, feed][good]
 
-            img, _, _ = np.histogram2d(filtered_x, filtered_y, bins=[xbins, ybins], weights=counts)
-
-            img_sq, _, _ = np.histogram2d(
-                filtered_x,
-                filtered_y,
-                bins=[xbins, ybins],
-                weights=counts**2,
+            mean, img_sdev, expomap = _binned_mean_sdev(
+                (filtered_x, filtered_y), counts, [xbins, ybins]
             )
+            _warn_empty_pixels(expomap, ch)
 
             img_outliers, _, _, _ = binned_statistic_2d(
                 filtered_x,
@@ -766,20 +920,15 @@ class ScanSet(Table):
                 bins=[xbins, ybins],
             )
 
-            good = expomap > 0
-            mean = img.copy()
-            mean[good] /= expomap[good]
             # For Numpy vs FITS image conventions...
             images[ch] = mean.T
-            img_sdev = img_sq
-            img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
-
-            img_sdev[good] = np.sqrt(img_sdev[good])
-            if calibration is not None and calibrate_scans:
-                cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
-                img_sdev *= 1 + cal_rel_err
-
             images[f"{ch}-Sdev"] = img_sdev.T
+            with np.errstate(invalid="ignore", divide="ignore"):
+                img_err = img_sdev / np.sqrt(expomap)
+            if calibration is not None and calibrate_scans:
+                cal_rel_err = np.mean(np.abs(Jy_over_counts_err / Jy_over_counts)).value
+                img_err = np.hypot(img_err, mean * cal_rel_err)
+            images[f"{ch}-ERR"] = img_err.T
             images[f"{ch}-EXPO"] = expomap.T
             images[f"{ch}-Outliers"] = img_outliers.T
 
@@ -800,6 +949,59 @@ class ScanSet(Table):
 
         return images
 
+    def flag_rfi_subscans(self, nsigma=5.0, frame="icrs"):
+        """Flag subscans with anomalous noise, e.g. residual RFI, in cross scans.
+
+        The ``<channel>-filt`` column is set to False in the outlier subscans
+        (see `find_outlier_subscans`), separately for each channel.
+
+        Other Parameters
+        ----------------
+        nsigma : float
+            Rejection threshold
+        frame : str
+            Coordinate frame of the ``x`` and ``y`` columns
+
+        Returns
+        -------
+        flagged : dict
+            Flagged ``Scan_id`` values for each channel
+        """
+        if frame != self["x"].meta["frame"]:
+            self.convert_coordinates(frame)
+        arm = np.asarray(self["direction"], dtype=bool)
+        flagged = {}
+        nsub = len(np.unique(self["Scan_id"]))
+        for ch in self.chan_columns:
+            if ("Q" in ch) or ("U" in ch):
+                continue
+            feed = get_channel_feed(ch)
+            coord = np.where(arm, self["x"][:, feed], self["y"][:, feed])
+            if f"{ch}-filt" not in self.colnames:
+                self[f"{ch}-filt"] = np.ones(len(self), dtype=bool)
+            good = np.asarray(self[f"{ch}-filt"], dtype=bool)
+            values = np.asarray(self[ch])
+            if values.ndim > 1:
+                values = values.sum(axis=1)
+            bad = find_outlier_subscans(
+                values[good], coord[good], self["Scan_id"][good], arm[good], nsigma=nsigma
+            )
+            flagged[ch] = bad
+            if len(bad) == 0:
+                continue
+            self[f"{ch}-filt"][np.isin(self["Scan_id"], bad)] = False
+            message = (
+                f"RFI rejection: {ch}: flagged {len(bad)}/{nsub} subscans with "
+                f"anomalous noise (Scan_id {bad}). Use rfi_nsigma=None to disable."
+            )
+            warnings.warn(message)
+            if len(bad) > 0.2 * nsub:
+                warnings.warn(
+                    f"RFI rejection: {ch}: more than 20% of the subscans flagged. "
+                    "Check the data."
+                )
+        return flagged
+
     def calculate_avg_cross(
         self,
         no_offsets=False,
@@ -810,6 +1012,7 @@ class ScanSet(Table):
         calibrate_scans=False,
         onlychans=None,
         aggressive_detrend=False,
+        rfi_nsigma=5.0,
     ):
         """Obtain image from all scans.
 
@@ -832,9 +1035,15 @@ class ScanSet(Table):
         onlychans: List
             List of channels for which images are calculated. If defaults to
             all channels
+        rfi_nsigma: float
+            Flag whole subscans whose noise is anomalous (residual RFI), see
+            `find_outlier_subscans`. ``None`` disables it
         """
         if frame != self["x"].meta["frame"]:
             self.convert_coordinates(frame)
+
+        if rfi_nsigma is not None:
+            self.flag_rfi_subscans(nsigma=rfi_nsigma, frame=frame)
 
         avg_subscan = {}
 
@@ -863,12 +1072,9 @@ class ScanSet(Table):
                     and self.crosses is not None
                     and ch in self.crosses.keys()
                 ):
-                    avg_subscan[f"{ch}-{direction}"] = self.crosses[ch]
-                    avg_subscan[f"{ch}-{direction}-Sdev"] = self.crosses[f"{ch}-Sdev"]
-                    avg_subscan[f"{ch}-{direction}-EXPO"] = self.crosses[f"{ch}-EXPO"]
-                    avg_subscan[f"{ch}-{direction}-Outliers".format(ch)] = self.crosses[
-                        f"{ch}-Outliers"
-                    ]
+                    for key in self.crosses:
+                        if key.startswith(f"{ch}-{direction}"):
+                            avg_subscan[key] = self.crosses[key]
                     continue
 
                 feed = get_channel_feed(ch)
@@ -886,11 +1092,6 @@ class ScanSet(Table):
                     bins = ybins
                 if not np.any(good):
                     continue
-
-                expomap, _ = np.histogram(
-                    x_values,
-                    bins=bins,
-                )
 
                 counts = np.array(self[ch][good])
 
@@ -912,7 +1113,9 @@ class ScanSet(Table):
                         counts = counts * np.nan
                         continue
                     if ch + "_cal" not in self.colnames:
-                        self[ch + "_cal"] = np.zeros_like(self[ch])
+                        # Flagged samples are not calibrated: NaN, not zero,
+                        # so that readers of the _cal columns cannot use them
+                        self[ch + "_cal"] = np.full_like(self[ch], np.nan, dtype=float)
                     Jy_over_counts = fc * conversion_units
                     Jy_over_counts_err = fce * conversion_units
 
@@ -920,9 +1123,7 @@ class ScanSet(Table):
                     counts = counts.to(final_unit).value
                     self[ch + "_cal"][good] = counts
 
-                subsc, _ = np.histogram(x_values, bins=bins, weights=counts)
-
-                subsc_sq, _ = np.histogram(x_values, bins=bins, weights=counts**2)
+                mean, img_sdev, expomap = _binned_mean_sdev((x_values,), counts, [bins])
 
                 subsc_outliers, _, _ = binned_statistic(
                     x_values,
@@ -931,31 +1132,21 @@ class ScanSet(Table):
                     bins=bins,
                 )
 
-                good = expomap > 0
-                mean = subsc.copy()
-                mean[good] /= expomap[good]
-                # For Numpy vs FITS image conventions...
                 avg_subscan[f"{ch}-{direction}"] = mean
-                img_sdev = subsc_sq
-                img_sdev[good] = img_sdev[good] / expomap[good] - mean[good] ** 2
-
-                img_sdev[good] = np.sqrt(img_sdev[good])
-                if calibration is not None and calibrate_scans:
-                    cal_rel_err = np.mean(Jy_over_counts_err / Jy_over_counts).value
-                    img_sdev *= 1 + cal_rel_err
                 avg_subscan[f"{ch}-{direction}-Sdev"] = img_sdev
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    img_err = img_sdev / np.sqrt(expomap)
+                if calibration is not None and calibrate_scans:
+                    cal_rel_err = np.mean(np.abs(Jy_over_counts_err / Jy_over_counts)).value
+                    img_err = np.hypot(img_err, mean * cal_rel_err)
+                avg_subscan[f"{ch}-{direction}-ERR"] = img_err
                 avg_subscan[f"{ch}-{direction}-EXPO"] = expomap
                 avg_subscan[f"{ch}-{direction}-Outliers"] = subsc_outliers
 
             self.crosses = avg_subscan
 
         if calibration is not None and not calibrate_scans:
-            self.calibrate_crosses(
-                calibration,
-                elevation=elevation,
-                map_unit=map_unit,
-                direction=direction,
-            )
+            self.calibrate_crosses(calibration, elevation=elevation, map_unit=map_unit)
 
         return avg_subscan
 
@@ -980,6 +1171,21 @@ class ScanSet(Table):
         images_hor, images_ver = self.images_hor, self.images_ver
 
         for ch in images_hor:
+            if ch.endswith("-ERR"):
+                # Error of the mean weighted with the exposure, as in
+                # destripe_wrapper. Empty pixels do not contribute
+                expo_name = ch.removesuffix("-ERR") + "-EXPO"
+                nh, nv = images_hor[expo_name], images_ver[expo_name]
+                eh = np.where(nh > 0, nh * images_hor[ch], 0)
+                ev = np.where(nv > 0, nv * images_ver[ch], 0)
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    err = np.hypot(eh, ev) / (nh + nv)
+                # A direction with a single sample has no Sdev: use the error
+                # of the image of all subscans there
+                if ch in images:
+                    err = np.where(np.isnan(err), images[ch], err)
+                destriped[ch] = err
+                continue
             if "Sdev" in ch:
                 destriped[ch] = (images_hor[ch] ** 2 + images_ver[ch] ** 2) ** 0.5
                 continue
@@ -998,6 +1204,7 @@ class ScanSet(Table):
                 expo_hor=images_hor[ch + "-EXPO"],
                 expo_ver=images_ver[ch + "-EXPO"],
                 label=ch,
+                debug=getattr(self, "debug", False),
             )
 
         for ch, val in destriped.items():
@@ -1006,28 +1213,32 @@ class ScanSet(Table):
         return self.images
 
     def scrunch_images(self, bad_chans=[]):
-        """Sum the images from all channels."""
-        total_expo = 0
-        total_img = 0
-        total_sdev = 0
+        """Average the images of all channels.
+
+        Sdev and ERR are those of the mean of independent channels: the square
+        root of the sum of their squares, divided by the number of channels.
+        EXPO is the total number of samples.
+        """
+        total = {"": 0, "-Sdev": 0, "-ERR": 0, "-EXPO": 0}
         count = 0
         lower_bad_chans = all_lower(bad_chans)
         for ch in self.chan_columns:
             if ch.lower() in lower_bad_chans:
                 logging.info(f"Discarding {ch}")
                 continue
-            total_expo += self.images[f"{ch}-EXPO"]
-            total_sdev += self.images[f"{ch}-Sdev"] ** 2
-            total_img += self.images[ch]
+            total[""] = total[""] + self.images[ch]
+            total["-EXPO"] = total["-EXPO"] + self.images[f"{ch}-EXPO"]
+            for suffix in ["-Sdev", "-ERR"]:
+                if total[suffix] is not None and f"{ch}{suffix}" in self.images:
+                    total[suffix] = total[suffix] + self.images[f"{ch}{suffix}"] ** 2
+                else:
+                    total[suffix] = None
             count += 1
-        total_sdev = total_sdev**0.5 / count
-        total_img /= count
 
-        total_images = {
-            "TOTAL": total_img,
-            "TOTAL-Sdev": np.sqrt(total_sdev),
-            "TOTAL-EXPO": total_expo,
-        }
+        total_images = {"TOTAL": total[""] / count, "TOTAL-EXPO": total["-EXPO"]}
+        for suffix in ["-Sdev", "-ERR"]:
+            if total[suffix] is not None:
+                total_images[f"TOTAL{suffix}"] = np.sqrt(total[suffix]) / count
         self.images.update(total_images)
         return total_images
 
@@ -1094,15 +1305,12 @@ class ScanSet(Table):
         direction=None,
     ):
         """Calibrate the images."""
-        if self.images is None:
+        attr = {0: "images_hor", 1: "images_ver"}.get(direction, "images")
+        # The images of this direction, calibrated in place (calculate_images
+        # returns this same dictionary)
+        if getattr(self, attr) is None:
             self.calculate_images(direction=direction)
-
-        if direction == 0:
-            images = self.images_hor
-        elif direction == 1:
-            images = self.images_ver
-        else:
-            images = self.images
+        images = getattr(self, attr)
 
         caltable, conversion_units = _load_calibration(calibration, map_unit)
 
@@ -1115,361 +1323,57 @@ class ScanSet(Table):
             if np.isnan(Jy_over_counts):
                 warnings.warn("The Jy/counts factor is nan")
                 continue
-            A = images[ch].copy() * u.ct
-            eA = images[f"{ch}-Sdev"].copy() * u.ct
-
-            images[f"{ch}-RAW"] = images[f"{ch}"].copy()
-            images[f"{ch}-RAW-Sdev"] = images[f"{ch}-Sdev"].copy()
-            images[f"{ch}-RAW-EXPO"] = images[f"{ch}-EXPO"].copy()
-            bad = eA != eA
-            A[bad] = 1 * u.ct
-            eA[bad] = 0 * u.ct
-
-            bad = np.logical_or(A == 0, A != A)
-            A[bad] = 1 * u.ct
-            eA[bad] = 0 * u.ct
-
-            B = Jy_over_counts
-            eB = Jy_over_counts_err
+            for suffix in ["", "-Sdev", "-ERR", "-EXPO"]:
+                if f"{ch}{suffix}" in images:
+                    images[f"{ch}-RAW{suffix}"] = images[f"{ch}{suffix}"].copy()
 
             area_conversion, final_unit = self._calculate_calibration_factors(map_unit)
+            factor = (1 * u.ct * area_conversion * Jy_over_counts).to(final_unit).value
 
-            C = A * area_conversion * Jy_over_counts
-            C[bad] = 0
-
-            images[ch] = C.to(final_unit).value
-
-            eC = C * (eA / A + eB / B)
-
-            images[f"{ch}-Sdev"] = eC.to(final_unit).value
-
-        if direction == 0:
-            self.images_hor = images
-        elif direction == 1:
-            self.images_ver = images
-        else:
-            self.images = images
-
-    def calibrate_crosses(self, calibration, elevation=np.pi / 4, map_unit="Jy/beam"):
-        """Calibrate the images."""
-        for direction in [0, 1]:
-            if self.crosses is None:
-                self.calculate_avg_cross(direction=direction)
-
-            avg_subscan = self.crosses
-
-            caltable, conversion_units = _load_calibration(calibration, map_unit)
-
-            for ch in self.chan_columns:
-                Jy_over_counts, Jy_over_counts_err = (
-                    caltable.Jy_over_counts(channel=ch, map_unit=map_unit, elevation=elevation)
-                    * conversion_units
+            images[ch] = images[ch] * factor
+            # Sdev and ERR are scatters: they scale with the absolute value
+            images[f"{ch}-Sdev"] = images[f"{ch}-Sdev"] * np.abs(factor)
+            if f"{ch}-ERR" in images:
+                cal_rel_err = np.abs(Jy_over_counts_err / Jy_over_counts).value
+                images[f"{ch}-ERR"] = np.hypot(
+                    images[f"{ch}-ERR"] * np.abs(factor), images[ch] * cal_rel_err
                 )
 
-                if np.isnan(Jy_over_counts):
-                    warnings.warn("The Jy/counts factor is nan")
-                    continue
-                A = avg_subscan[f"{ch}-{direction}"].copy() * u.ct
-                eA = avg_subscan[f"{ch}-{direction}-Sdev"].copy() * u.ct
+    def calibrate_crosses(self, calibration, elevation=np.pi / 4, map_unit="Jy/beam"):
+        """Calibrate the average cross profiles, as `calibrate_images`."""
+        if self.crosses is None:
+            self.calculate_avg_cross()
 
-                avg_subscan[f"{ch}-{direction}-RAW"] = avg_subscan[f"{ch}-{direction}"].copy()
-                avg_subscan[f"{ch}-{direction}-RAW-Sdev"] = avg_subscan[
-                    f"{ch}-{direction}-Sdev"
-                ].copy()
-                avg_subscan[f"{ch}-{direction}-RAW-EXPO"] = avg_subscan[
-                    f"{ch}-{direction}-EXPO"
-                ].copy()
-                bad = eA != eA
-                A[bad] = 1 * u.ct
-                eA[bad] = 0 * u.ct
+        avg_subscan = self.crosses
+        caltable, conversion_units = _load_calibration(calibration, map_unit)
+        area_conversion, final_unit = self._calculate_calibration_factors(map_unit)
 
-                bad = np.logical_or(A == 0, A != A)
-                A[bad] = 1 * u.ct
-                eA[bad] = 0 * u.ct
-
-                B = Jy_over_counts
-                eB = Jy_over_counts_err
-
-                area_conversion, final_unit = self._calculate_calibration_factors(map_unit)
-
-                C = A * area_conversion * Jy_over_counts
-                C[bad] = 0
-
-                avg_subscan[ch] = C.to(final_unit).value
-
-                eC = C * (eA / A + eB / B)
-
-                avg_subscan[f"{ch}-{direction}-Sdev"] = eC.to(final_unit).value
-
-            self.crosses = avg_subscan
-
-    def interactive_display(self, ch=None, recreate=False, test=False):
-        """Modify original scans from the image display."""
-        from .interactive_filter import ImageSelector
-
-        if not HAS_MPL:
-            raise ImportError("interactive_display: " "matplotlib is not installed")
-
-        if self.images is None:
-            recreate = True
-
-        self.display_instructions = """
-        -------------------------------------------------------------
-
-        Imageactive display.
-
-        You see here two images. The left one gives, for each bin, a number
-        measuring the probability of outliers (based on the median absolute
-        deviation if there are >10 scans per bin, and on the standard deviation
-        otherwise), The right one is the output image of the processing.
-        The right image is normalized with a ds9-like log scale.
-
-        -------------------------------------------------------------
-
-        Point the mouse on a pixel in the Outlier image and press a key:
-
-        a    open a window to filter all scans passing through this pixel
-        h    print help
-        q    quit
-
-        -------------------------------------------------------------
-        """
-        print(self.display_instructions)
-
-        if ch is None:
-            chs = self.chan_columns
-        else:
-            chs = [ch]
-        if test:
-            chs = ["Feed0_RCP"]
-
-        for local_ch in chs:
-            if recreate:
-                self.calculate_images(onlychans=local_ch)
-            fig = plt.figure("Imageactive Display - " + local_ch)
-            gs = GridSpec(1, 2)
-            ax = fig.add_subplot(gs[0])
-            ax.set_title("Outlier plot")
-            ax2 = fig.add_subplot(gs[1])
-            ax2.set_title("Draft image")
-            imgch = local_ch
-
-            expo = np.mean(self.images[f"{local_ch}-EXPO"])
-            mean_expo = np.mean(expo[expo > 0])
-
-            stats_for_outliers = "Outliers" if mean_expo > 6 else "Sdev"
-            sdevch = f"{local_ch}-{stats_for_outliers}"
-            if f"{local_ch}-RAW" in self.images.keys():
-                imgch = f"{local_ch}-RAW"
-                if stats_for_outliers == "Sdev":
-                    sdevch = f"{local_ch}-RAW-{stats_for_outliers}"
-            img = ds9_like_log_scale(self.images[imgch])
-            ax2.imshow(
-                img,
-                origin="lower",
-                vmin=np.percentile(img, 20),
-                cmap="gnuplot2",
-                interpolation="nearest",
+        for ch in self.chan_columns:
+            Jy_over_counts, Jy_over_counts_err = (
+                caltable.Jy_over_counts(channel=ch, map_unit=map_unit, elevation=elevation)
+                * conversion_units
             )
 
-            img = self.images[sdevch].copy()
-            self.current = local_ch
-            bad = np.logical_or(img == 0, img != img)
-            img[bad] = np.mean(img[np.logical_not(bad)])
-            fun = functools.partial(self.rerun_scan_analysis, test=test)
-
-            imgsel = ImageSelector(img, ax, fun=fun, test=test)
-        return imgsel
-
-    def rerun_scan_analysis(self, x, y, key, test=False):
-        """Rerun the analysis of single scans."""
-        logging.debug(f"{x} {y} {key}")
-        if key == "a":
-            self.reprocess_scans_through_pixel(x, y, test=test)
-        elif key == "h":
-            print(self.display_instructions)
-        elif key == "v":
-            pass
-
-    def reprocess_scans_through_pixel(self, x, y, test=False):
-        """Given a pixel in the image, find all scans passing through it."""
-        ch = self.current
-
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            vars_to_filter,
-        ) = self.find_scans_through_pixel(x, y, test=test)
-
-        if ra_xs != {}:
-            empty = create_empty_info(ra_xs.keys())
-            info = select_data(
-                ra_xs,
-                ra_ys,
-                masks=ra_masks,
-                xlabel="RA",
-                title="RA",
-                test=test,
-            )
-
-            if not compare_anything(empty, info):
-                for sname in info.keys():
-                    self.update_scan(
-                        sname,
-                        scan_ids[sname],
-                        vars_to_filter[sname],
-                        info[sname]["zap"],
-                        info[sname]["fitpars"],
-                        info[sname]["FLAG"],
-                    )
-
-        if dec_xs != {}:
-            empty = create_empty_info(ra_xs.keys())
-            info = select_data(
-                dec_xs,
-                dec_ys,
-                masks=dec_masks,
-                xlabel="Dec",
-                title="Dec",
-                test=test,
-            )
-
-            if not compare_anything(empty, info):
-                for sname in info.keys():
-                    self.update_scan(
-                        sname,
-                        scan_ids[sname],
-                        vars_to_filter[sname],
-                        info[sname]["zap"],
-                        info[sname]["fitpars"],
-                        info[sname]["FLAG"],
-                    )
-
-        # Only recreate images if there were changes!
-        display = self.interactive_display(ch=ch, recreate=(dec_xs != {} or ra_xs != {}), test=test)
-        return display
-
-    def find_scans_through_pixel(self, x, y, test=False):
-        """Find scans passing through a pixel."""
-        ra_xs = {}
-        ra_ys = {}
-        dec_xs = {}
-        dec_ys = {}
-        scan_ids = {}
-        ra_masks = {}
-        dec_masks = {}
-        vars_to_filter = {}
-
-        if not test:
-            ch = self.current
-        else:
-            ch = "Feed0_RCP"
-
-        feed = get_channel_feed(ch)
-
-        # Select data inside the pixel +- 1
-
-        good_entries = np.logical_and(
-            np.abs(self["x"][:, feed] - x) < 1,
-            np.abs(self["y"][:, feed] - y) < 1,
-        )
-
-        sids = list(set(self["Scan_id"][good_entries]))
-
-        for sid in sids:
-            sname = self.scan_list[sid]
-            try:
-                s = Scan(sname)
-            except Exception:
-                logging.warning(f"Errors while opening scan {sname}")
+            if np.isnan(Jy_over_counts):
+                warnings.warn("The Jy/counts factor is nan")
                 continue
-            try:
-                chan_mask = s[f"{ch}-filt"]
-            except Exception:
-                chan_mask = np.zeros_like(s[ch])
+            factor = (1 * u.ct * area_conversion * Jy_over_counts).to(final_unit).value
+            cal_rel_err = np.abs(Jy_over_counts_err / Jy_over_counts).value
 
-            scan_ids[sname] = sid
-            ras = s["ra"][:, feed]
-            decs = s["dec"][:, feed]
+            for direction in [0, 1]:
+                key = f"{ch}-{direction}"
+                if key not in avg_subscan:
+                    continue
+                for suffix in ["", "-Sdev", "-ERR", "-EXPO"]:
+                    avg_subscan[f"{key}-RAW{suffix}"] = avg_subscan[f"{key}{suffix}"].copy()
 
-            z = s[ch]
+                avg_subscan[key] = avg_subscan[key] * factor
+                avg_subscan[f"{key}-Sdev"] = avg_subscan[f"{key}-Sdev"] * np.abs(factor)
+                avg_subscan[f"{key}-ERR"] = np.hypot(
+                    avg_subscan[f"{key}-ERR"] * np.abs(factor), avg_subscan[key] * cal_rel_err
+                )
 
-            ravar = np.max(ras) - np.min(ras)
-            decvar = np.max(decs) - np.min(decs)
-            if ravar > decvar:
-                vars_to_filter[sname] = "ra"
-                ra_xs[sname] = ras
-                ra_ys[sname] = z
-                ra_masks[sname] = chan_mask
-            else:
-                vars_to_filter[sname] = "dec"
-                dec_xs[sname] = decs
-                dec_ys[sname] = z
-                dec_masks[sname] = chan_mask
-
-        return (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            vars_to_filter,
-        )
-
-    def update_scan(self, sname, sid, dim, zap_info, fit_info, flag_info, test=False):
-        """Update a scan in the scanset after filtering."""
-        ch = self.current
-        if test:
-            ch = "Feed0_RCP"
-        feed = get_channel_feed(ch)
-        mask = self["Scan_id"] == sid
-        try:
-            logging.info(f"Updating scan {sname}")
-            s = Scan(sname)
-        except Exception as e:
-            warnings.warn(f"Impossible to write to scan {sname}")
-            warnings.warn(str(e))
-            return
-
-        resave = False
-        if len(zap_info.xs) > 0:
-            resave = True
-            xs = zap_info.xs
-            good = np.ones(len(s[dim]), dtype=bool)
-            if len(xs) >= 2:
-                intervals = list(zip(xs[:-1:2], xs[1::2]))
-                for i in intervals:
-                    i = sorted(i)
-                    good[np.logical_and(s[dim][:, feed] >= i[0], s[dim][:, feed] <= i[1])] = False
-            s[f"{ch}-filt"] = good
-            self[f"{ch}-filt"][mask] = good
-
-        if len(fit_info) > 1:
-            resave = True
-            sub = linear_fun(s[dim][:, feed], *fit_info)
-            s[ch][:] = np.array(s[ch]) - sub
-            # TODO: make it channel-independent
-            s.meta["backsub"] = True
-            self[ch][mask] = s[ch]
-
-        # TODO: make it channel-independent
-        if flag_info is not None:
-            resave = True
-            s.meta["FLAG"] = flag_info
-            flag_array = np.zeros(len(s[dim]), dtype=bool) + flag_info
-            for c in self.chan_columns:
-                self[f"{c}-filt"][mask] = np.logical_not(flag_array)
-                s[f"{c}-filt"] = np.logical_not(flag_array)
-
-        if resave:
-            s.save()
+        self.crosses = avg_subscan
 
     def barycenter_times(self):
         """Create barytime column with observing times converted to TDB."""
@@ -1499,17 +1403,19 @@ class ScanSet(Table):
                 self.meta[IMG_VER_STR + key] = self.images_ver[key]
 
     def read_images_from_meta(self):
+        """Read the images saved in the metadata by ``update_meta_with_images``."""
+        found = {IMG_STR: {}, IMG_HOR_STR: {}, IMG_VER_STR: {}}
         for key in self.meta.keys():
-            logging.info(f"Caught key press: {key}")
-            if IMG_STR in key:
-                self.images = {}
-                self.images[key.replace(IMG_STR, "")] = self.meta[key]
-            elif IMG_HOR_STR in key:
-                self.images_hor = {}
-                self.images_hor[key.replace(IMG_HOR_STR, "")] = self.meta[key]
-            elif IMG_VER_STR in key:
-                self.images_ver = {}
-                self.images_ver[key.replace(IMG_VER_STR, "")] = self.meta[key]
+            for prefix, images in found.items():
+                if key.startswith(prefix):
+                    images[key[len(prefix) :]] = self.meta[key]
+        # Kinds without saved images keep what they had
+        if found[IMG_STR]:
+            self.images = found[IMG_STR]
+        if found[IMG_HOR_STR]:
+            self.images_hor = found[IMG_HOR_STR]
+        if found[IMG_VER_STR]:
+            self.images_ver = found[IMG_VER_STR]
 
     def calculate_zernike_moments(
         self, im, cm=None, radius=0.3, norder=8, label=None, use_log=False
@@ -1623,8 +1529,12 @@ class ScanSet(Table):
         bad_chans=[],
         save_images=True,
         save_crosses=True,
+        rfi_nsigma=5.0,
     ):
-        """Save a ds9-compatible file with one image per extension."""
+        """Save a ds9-compatible file with one image per extension.
+
+        ``rfi_nsigma`` is passed to `calculate_avg_cross`.
+        """
         if fname is None:
             tail = ".fits"
             if frame != "icrs":
@@ -1635,7 +1545,10 @@ class ScanSet(Table):
                 tail = tail.replace(".fits", "_cal.fits")
             if destripe:
                 tail = tail.replace(".fits", "_destripe.fits")
-            fname = self.meta["config_file"].replace(".ini", tail)
+            config_file = self.meta["config_file"]
+            # Dumps of older versions may have no productdir: next to the config file
+            outdir = self.meta.get("productdir") or os.path.dirname(os.path.abspath(config_file))
+            fname = output_file_name(config_file, tail, outdir=outdir)
 
         if save_images and destripe:
             logging.info("Destriping....")
@@ -1662,6 +1575,7 @@ class ScanSet(Table):
                 calibration=calibration,
                 map_unit=map_unit,
                 calibrate_scans=calibrate_scans,
+                rfi_nsigma=rfi_nsigma,
             )
 
         if save_images and scrunch:
@@ -1745,7 +1659,7 @@ class ScanSet(Table):
 
         header_mod = copy.deepcopy(header)
         for ch in keys:
-            is_sdev = ch.endswith("Sdev")
+            is_sdev = ch.endswith(("Sdev", "-ERR"))
             is_expo = "EXPO" in ch
             is_outl = "Outliers" in ch
             is_stokes = ("Q" in ch) or ("U" in ch)
@@ -1791,6 +1705,7 @@ class ScanSet(Table):
                         {
                             "flux": avg_subscan[f"{ch}-{direction}"],
                             "sdev": avg_subscan[f"{ch}-{direction}-Sdev"],
+                            "err": avg_subscan[f"{ch}-{direction}-ERR"],
                             "expo": avg_subscan[f"{ch}-{direction}-EXPO"],
                             "outliers": avg_subscan[f"{ch}-{direction}-Outliers"],
                         }
@@ -1904,14 +1819,24 @@ def main_imager(args=None):
         "--interactive",
         default=False,
         action="store_true",
-        help="Open the interactive display",
+        help="Open the interactive filter: a web page served locally (needs bokeh; "
+        "without it, the old matplotlib display)",
     )
+
+    parser.add_argument(
+        "--port",
+        default=5006,
+        type=int,
+        help="Port of the interactive filter web page",
+    )
+
+    add_directory_arguments(parser)
 
     parser.add_argument(
         "--crosses-only",
         default=False,
         action="store_true",
-        help="Only save cross scan results (no images)",
+        help="Removed: use SDTcross for cross scans",
     )
 
     parser.add_argument("--calibrate", type=str, default=None, help="Calibration file")
@@ -2069,6 +1994,13 @@ def main_imager(args=None):
     )
     args = parser.parse_args(args)
 
+    if args.crosses_only:
+        raise ValueError(
+            "SDTimage --crosses-only has been removed. Use SDTcross instead, "
+            "e.g. SDTcross -c config.ini --calibrate calibration.hdf5, or "
+            "SDTcross file_dump.hdf5 --calibrate calibration.hdf5"
+        )
+
     if args.sample_config:
         sample_config_file()
         return
@@ -2085,8 +2017,11 @@ def main_imager(args=None):
     if args.altaz:
         args.frame = "altaz"
 
+    # Before loading the scans, which read the directories from the config
+    apply_directory_arguments(args)
     if args.file is not None:
         scanset = ScanSet(args.file, config_file=args.config, plot=not args.noplot)
+        apply_directory_arguments(args, meta=scanset.meta)
         infile = args.file
         if outfile is None:
             outfile = infile
@@ -2108,10 +2043,12 @@ def main_imager(args=None):
         infile = args.config
 
         if outfile is None:
-            outfile = infile.replace(".ini", "_dump.hdf5")
+            outfile = output_file_name(
+                infile, "_dump.hdf5", outdir=scanset.meta.get("intermediatedir")
+            )
 
     if args.interactive:
-        scanset.interactive_display()
+        _web_filter_serve("SDTimage")(scanset, port=args.port)
 
     if args.global_fit:
         scanset.fit_full_images(chans=args.chans, frame=args.frame, excluded=excluded_xy)
@@ -2126,11 +2063,23 @@ def main_imager(args=None):
         destripe=args.destripe,
         npix_tol=args.npix_tol,
         bad_chans=bad_chans,
-        save_images=not args.crosses_only,
-        save_crosses=args.crosses_only,
+        save_images=True,
+        save_crosses=False,
     )
 
     scanset.write(outfile, overwrite=True)
+
+
+def _web_filter_serve(tool):
+    """The function serving the interactive filter page, or a clear error without bokeh."""
+    try:
+        from .web_filter import serve
+    except ImportError as e:
+        raise ImportError(
+            f"{tool} --interactive needs bokeh. Install it with "
+            "`pip install srttools[interactive]` or `pip install bokeh`"
+        ) from e
+    return serve
 
 
 def main_preprocess(args=None):
@@ -2158,13 +2107,6 @@ def main_preprocess(args=None):
         default=False,
         action="store_true",
         help="Subtract the baseline from single scans",
-    )
-
-    parser.add_argument(
-        "--interactive",
-        default=False,
-        action="store_true",
-        help="Open the interactive display for each scan",
     )
 
     parser.add_argument(
@@ -2233,23 +2175,53 @@ def main_preprocess(args=None):
         ". This will change in the future.",
     )
 
+    add_directory_arguments(parser)
+
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        default=False,
+        help="After the automatic cleaning, open the interactive filter: a web page "
+        "served locally, to inspect and clean the scans one by one (needs bokeh "
+        "and the config file; with single files, only those are shown; see the "
+        "documentation for use through ssh)",
+    )
+
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=5006,
+        help="Port of the interactive filter web page",
+    )
+
     args = parser.parse_args(args)
 
     excluded_xy, excluded_radec = _excluded_regions_from_args(args.exclude)
 
-    if args.files is not None and args.files:
-        for f in args.files:
-            if not os.path.exists(f):
-                warnings.warn(f"File {f} does not exist")
-                continue
+    if args.interactive:
+        if args.config is None:
+            raise ValueError(
+                "--interactive needs the config file (-c), also with single files: "
+                "it says where the cleaned scans are saved"
+            )
+        # Fail now, not after the cleaning of all the scans
+        serve = _web_filter_serve("SDTpreprocess")
 
-            kind = detect_data_kind(f)
+    # Remembered by read_config: valid for all the scans loaded below
+    apply_directory_arguments(args)
 
-            if kind is None:
-                continue
-            if _is_summary_file(f):
-                continue
-            logging.info(f"Processing {f} ({kind})")
+    files = []
+    for f in args.files or []:
+        if not os.path.exists(f):
+            warnings.warn(f"File {f} does not exist")
+            continue
+        if detect_data_kind(f) is None or _is_summary_file(f):
+            continue
+        files.append(f)
+
+    if args.files and not args.interactive:
+        for f in files:
+            logging.info(f"Processing {f} ({detect_data_kind(f)})")
             try:
                 Scan(
                     f,
@@ -2258,7 +2230,6 @@ def main_preprocess(args=None):
                     norefilt=False,
                     debug=args.debug,
                     plot=args.plot,
-                    interactive=args.interactive,
                     avoid_regions=excluded_radec,
                     config_file=args.config,
                     nosave=args.nosave,
@@ -2273,17 +2244,21 @@ def main_preprocess(args=None):
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
-        ScanSet(
+        if args.files and not files:
+            raise ValueError("None of the files given can be processed")
+        scanset = ScanSet(
             args.config,
+            scan_list=files or None,
             norefilt=False,
             freqsplat=args.splat,
             nosub=not args.sub,
             nofilt=args.nofilt,
             debug=args.debug,
             plot=args.plot,
-            interactive=args.interactive,
             avoid_regions=excluded_radec,
             nosave=args.nosave,
             bad_intervals=args.bad_intervals,
         )
+        if args.interactive:
+            serve(scanset, port=args.port, view="scans")
     return 0

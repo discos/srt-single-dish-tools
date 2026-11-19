@@ -25,21 +25,13 @@ try:
 except ImportError:
     HAS_MAHO = False
 
-DEFAULT_MPL_BACKEND = None
-on_CI = os.environ.get("CI") or os.environ.get("CONTINUOUS_INTEGRATION")
-if not on_CI and os.environ.get("DISPLAY") and os.environ.get("DISPLAY") != "":
-    DEFAULT_MPL_BACKEND = "TKAgg"
-else:
-    DEFAULT_MPL_BACKEND = "Agg"
-
+# The matplotlib backend is not set here: matplotlib uses the one chosen by
+# the user (MPLBACKEND, matplotlibrc) or the platform default, and falls back
+# to Agg when there is no display.
 try:
-    import matplotlib as mpl
-
-    mpl.use(DEFAULT_MPL_BACKEND)
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
 
-    # This is necessary. Random backends might respond incorrectly.
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
@@ -79,6 +71,7 @@ __all__ = [
     "interpolate_invalid_points_image",
     "jit",
     "mad",
+    "new_figure",
     "standard_byte",
     "standard_string",
     "tqdm",
@@ -145,9 +138,27 @@ else:
         return angle
 
 
-@lru_cache(10)
-def warn_once(logger: Logger, msg: str):
-    logger.warning(msg)
+def new_figure(interactive=False, **kwargs):
+    """Create a matplotlib figure.
+
+    By default, a bare :class:`matplotlib.figure.Figure`, not attached to
+    pyplot: it is meant to be saved to a file, never opens a window (whatever
+    the backend) and does not need to be closed. With ``interactive=True``, a
+    pyplot figure, to be shown with ``plt.show()`` and closed by the caller.
+
+    Other keyword arguments are passed to the figure (e.g. ``figsize``).
+
+    Examples
+    --------
+    >>> fig = new_figure(figsize=(3.5, 2.65))
+    >>> fig.canvas.manager is None
+    True
+    """
+    if interactive:
+        return plt.figure(**kwargs)
+    from matplotlib.figure import Figure
+
+    return Figure(**kwargs)
 
 
 @lru_cache(10)
@@ -534,7 +545,8 @@ def calculate_zernike_moments(
     description_string = f"Zernike moments (cm: {cm}, radius: {radius_pix}):\n"
 
     if HAS_MPL:
-        fig = plt.figure("Zernike moments", figsize=(10, 10))
+        fig = new_figure(interactive=show_plot, figsize=(10, 10))
+        ax = fig.add_subplot()
         x, y = int(cm[0]), int(cm[1])
         shape = im_to_analyze.shape
         vmax = np.max(im_to_analyze)
@@ -542,10 +554,10 @@ def calculate_zernike_moments(
         if (x < shape[0]) & (y < shape[1]):
             vmax = im_to_analyze[x, y]
 
-        plt.imshow(im_to_analyze, vmin=0, vmax=vmax, origin="lower", cmap="magma")
+        im = ax.imshow(im_to_analyze, vmin=0, vmax=vmax, origin="lower", cmap="magma")
         circle = plt.Circle((y, x), radius_pix, color="r", fill=False)
-        plt.gca().add_patch(circle)
-        plt.colorbar()
+        ax.add_patch(circle)
+        fig.colorbar(im, ax=ax)
 
     for i in range(norder + 1):
         description_string += str(i) + ": "
@@ -558,22 +570,22 @@ def calculate_zernike_moments(
         description_string += "\n"
 
     if HAS_MPL:
-        plt.text(
+        ax.text(
             0.05,
             0.95,
             description_string,
             horizontalalignment="left",
             verticalalignment="top",
-            transform=plt.gca().transAxes,
+            transform=ax.transAxes,
             color="white",
         )
 
         if label is None:
             label = str(np.random.randint(0, 100000))
-        plt.savefig("Zernike_debug_" + label + ".png")
+        fig.savefig("Zernike_debug_" + label + ".png")
         if show_plot:
             plt.show()
-        plt.close(fig)
+            plt.close(fig)
 
     logging.debug(description_string)
 
@@ -652,11 +664,11 @@ def calculate_beam_fom(im, cm=None, radius=0.3, label=None, use_log=False, show_
     x_pixels = np.arange(ymax - ymin) + ymin
 
     if HAS_MPL:
-        fig = plt.figure("FOM", figsize=(10, 10))
-        gs = GridSpec(2, 2, height_ratios=(1, 3), width_ratios=(3, 1), hspace=0)
-        img_ax = plt.subplot(gs[1, 0])
-        hor_ax = plt.subplot(gs[0, 0], sharex=img_ax)
-        ver_ax = plt.subplot(gs[1, 1], sharey=img_ax)
+        fig = new_figure(interactive=show_plot, figsize=(10, 10))
+        gs = GridSpec(2, 2, figure=fig, height_ratios=(1, 3), width_ratios=(3, 1), hspace=0)
+        img_ax = fig.add_subplot(gs[1, 0])
+        hor_ax = fig.add_subplot(gs[0, 0], sharex=img_ax)
+        ver_ax = fig.add_subplot(gs[1, 1], sharey=img_ax)
 
         x, y = int(cm[0]), int(cm[1])
         img_ax.imshow(
@@ -675,7 +687,7 @@ def calculate_beam_fom(im, cm=None, radius=0.3, label=None, use_log=False, show_
         hor_ax.plot(x_pixels, x_slice - np.max(x_slice) + 1)
 
         circle = plt.Circle(cm, radius_pix, color="r", fill=False)
-        plt.gca().add_patch(circle)
+        img_ax.add_patch(circle)
         img_ax.set_xlim([0, im_to_analyze.shape[1] - 1])
         img_ax.set_ylim([0, im_to_analyze.shape[0] - 1])
 
@@ -708,10 +720,10 @@ def calculate_beam_fom(im, cm=None, radius=0.3, label=None, use_log=False, show_
 
         if label is None:
             label = str(np.random.randint(0, 100000))
-        plt.savefig("FOM_debug_" + label + ".png")
+        fig.savefig("FOM_debug_" + label + ".png")
         if show_plot:
             plt.show()
-        plt.close(fig)
+            plt.close(fig)
 
     logging.debug(description_string)
 

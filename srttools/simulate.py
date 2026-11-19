@@ -14,14 +14,7 @@ from astropy.table import Table, vstack
 from astropy.time import Time
 
 from .io import locations, mkdir_p
-from .utils import TWOPI, njit, tqdm
-
-try:
-    import matplotlib.pyplot as plt
-
-    HAS_MPL = True
-except ImportError:
-    HAS_MPL = False
+from .utils import HAS_MPL, TWOPI, new_figure, njit, tqdm
 
 __all__ = ["save_scan", "simulate_map", "simulate_scan"]
 
@@ -183,6 +176,126 @@ def calibrator_scan_func(x):
     return DEFAULT_PEAK_COUNTS * _2d_gauss(x, 0, sigma=2.5 / 60)
 
 
+def _get_rng(rng=None):
+    """Return a random generator.
+
+    ``None`` gives the legacy global ``numpy.random`` state, so that code
+    seeding it with ``np.random.seed`` keeps working; anything else is passed
+    to ``numpy.random.default_rng`` (a seed or a ``Generator``).
+
+    Examples
+    --------
+    >>> _get_rng() is np.random
+    True
+    >>> gen = np.random.default_rng(1)
+    >>> _get_rng(gen) is gen
+    True
+    >>> _get_rng(np.random) is np.random
+    True
+    """
+    if rng is None or rng is np.random:
+        return np.random
+    return np.random.default_rng(rng)
+
+
+def _red_noise(
+    nsamples,
+    dt,
+    fknee,
+    noise_amplitude,
+    noise_index=1.0,
+    nchan=1,
+    correlation=1.0,
+    ntrials=None,
+    rng=None,
+):
+    """Simulate 1/f noise, partially correlated between channels.
+
+    The power spectrum is ``noise_amplitude**2 * (fknee / f)**noise_index``,
+    i.e. the red part of a ``sigma**2 * (1 + (fknee / f)**alpha)`` spectrum
+    whose white part has rms ``noise_amplitude``. The noise of each channel
+    is ``correlation * common + sqrt(1 - correlation**2) * own``, so that
+    ``correlation`` is the correlation coefficient between channels.
+
+    Parameters
+    ----------
+    nsamples : int
+        Number of time samples
+    dt : float
+        Sampling time (s)
+    fknee : float
+        Knee frequency (Hz)
+    noise_amplitude : float
+        RMS of the white noise (counts)
+
+    Other Parameters
+    ----------------
+    noise_index : float
+        Spectral index of the red noise
+    nchan : int
+        Number of channels
+    correlation : float
+        Correlation coefficient of the noise between channels, in [0, 1]
+    ntrials : int
+        If not None, simulate this many independent realizations
+    rng : None, int or `numpy.random.Generator`
+        Random generator or seed
+
+    Returns
+    -------
+    noise : array
+        Shape ``(nchan, nsamples)``, or ``(ntrials, nchan, nsamples)``
+    """
+    if not 0 <= correlation <= 1:
+        raise ValueError("correlation must be between 0 and 1")
+    rng = _get_rng(rng)
+    nsamples = int(nsamples)
+    freqs = np.fft.rfftfreq(nsamples, dt)
+    psd = np.zeros_like(freqs)
+    psd[1:] = noise_amplitude**2 * (fknee / freqs[1:]) ** noise_index
+
+    lead = (1,) if ntrials is None else (ntrials,)
+
+    def _realizations(n):
+        shape = lead + (n, freqs.size)
+        # For a white spectrum of variance s**2, <|X_k|^2> = nsamples * s**2
+        spec = rng.standard_normal(shape) + 1j * rng.standard_normal(shape)
+        spec *= np.sqrt(nsamples * psd / 2)
+        # Zero-frequency and Nyquist terms must be real
+        spec[..., 0] = 0
+        if nsamples % 2 == 0:
+            spec[..., -1] = np.sqrt(nsamples * psd[-1]) * rng.standard_normal(shape[:-1])
+        return np.fft.irfft(spec, nsamples, axis=-1)
+
+    common = _realizations(1)
+    own = _realizations(nchan)
+    noise = np.sqrt(correlation) * common + np.sqrt(1 - correlation) * own
+    if ntrials is None:
+        return noise[0]
+    return noise
+
+
+def _offset_arm_shape(scan_func, along, across, beam_sigma=2.5 / 60):
+    """Source profile along one arm of a cross scan, with a pointing offset.
+
+    The source is displaced by ``along`` along the arm and by ``across``
+    perpendicular to it (degrees, on the sky). The profile is shifted along
+    the arm and attenuated by a Gaussian beam of width ``beam_sigma``.
+
+    Examples
+    --------
+    >>> f = _offset_arm_shape(lambda x: 1 - x, 0.5, 0)
+    >>> float(f(0.5))
+    1.0
+    """
+    attenuation = np.exp(-(across**2) / (2 * beam_sigma**2))
+
+    def func(x):
+        return scan_func(x - along) * attenuation
+
+    return func
+
+
 def sim_crossscans(
     ncross,
     caldir,
@@ -191,41 +304,96 @@ def sim_crossscans(
     channel_ratio=0.8,
     baseline="flat",
     nbin=1,
+    noise_amplitude=0.2,
+    rng=None,
+    fknee=None,
+    noise_index=1.0,
+    pol_correlation=0.9,
+    pointing_offset=(0.0, 0.0),
+    beam_sigma=2.5 / 60,
 ):
+    """Simulate cross scans (one RA and one Dec scan per cross).
+
+    Parameters
+    ----------
+    ncross : int
+        Number of crosses
+    caldir : str
+        Output directory
+
+    Other Parameters
+    ----------------
+    scan_func : function
+        Source profile along each arm, as a function of the offset (deg)
+    noise_amplitude : float
+        RMS of the white noise (counts), independent in each channel
+    rng : None, int or `numpy.random.Generator`
+        Random generator or seed. None uses the global numpy random state
+    fknee : float
+        If not None, add 1/f noise with this knee frequency (Hz)
+    noise_index : float
+        Spectral index of the 1/f noise
+    pol_correlation : float
+        Correlation coefficient of the 1/f noise between the two channels.
+        Polarized emission and receiver noise make it lower than 1.
+    pointing_offset : (float, float)
+        Offset (deg, on the sky) of the true source position in RA and Dec
+        from the nominal position at the center of the cross
+    beam_sigma : float
+        Gaussian beam sigma (deg), used to attenuate the source when the
+        offset is perpendicular to an arm
+    """
+    rng = _get_rng(rng)
     src_ra = 185
     src_dec = 75
     speed = 2.0  # arcmin/s
     dt = 0.04
     dtheta = speed * dt
     length = 4 / dtheta
+    nsamples = np.rint(length / speed / dt)
+    dra, ddec = pointing_offset
+
+    def _sim_arm(along, across, center):
+        shape = _offset_arm_shape(scan_func, along, across, beam_sigma=beam_sigma)
+        red = [None, None]
+        if fknee is not None:
+            red = _red_noise(
+                nsamples,
+                dt,
+                fknee,
+                noise_amplitude,
+                noise_index=noise_index,
+                nchan=2,
+                correlation=pol_correlation,
+                rng=rng,
+            )
+        scans = []
+        for red_noise in red:
+            times, pos, scan = simulate_scan(
+                dt=dt,
+                length=length,
+                speed=speed,
+                shape=shape,
+                noise_amplitude=noise_amplitude,
+                center=center,
+                baseline=baseline,
+                nbin=nbin,
+                rng=rng,
+                red_noise=red_noise,
+            )
+            scans.append(scan)
+        return times, pos, scans[0], scans[1]
 
     timedelta = 0
 
     for i in tqdm(range(ncross)):
-        times, ras, scan0 = simulate_scan(
-            dt=dt,
-            length=length,
-            speed=speed,
-            shape=scan_func,
-            noise_amplitude=0.2,
-            center=0,
-            baseline=baseline,
-            nbin=nbin,
-        )
-        _, _, scan1 = simulate_scan(
-            dt=dt,
-            length=length,
-            speed=speed,
-            shape=scan_func,
-            noise_amplitude=0.2,
-            center=0,
-            baseline=baseline,
-            nbin=nbin,
-        )
+        times, ras, scan0, scan1 = _sim_arm(dra, ddec, 0)
 
         ras = ras / np.cos(np.radians(src_dec)) + src_ra
+        # Odd crosses are scanned backwards: reverse positions and data
+        # together, so that the source stays where it is on the sky
         if i % 2 != 0:
-            ras = ras[::-1]
+            ras, scan0, scan1 = ras[::-1], scan0[::-1], scan1[::-1]
 
         decs = np.zeros_like(ras) + src_dec
 
@@ -242,29 +410,10 @@ def sim_crossscans(
         )
         timedelta += times[-1] + 1
 
-        times, decs, scan0 = simulate_scan(
-            dt=dt,
-            length=length,
-            speed=speed,
-            shape=scan_func,
-            noise_amplitude=0.2,
-            center=src_dec,
-            baseline=baseline,
-            nbin=nbin,
-        )
-        _, _, scan1 = simulate_scan(
-            dt=dt,
-            length=length,
-            speed=speed,
-            shape=scan_func,
-            noise_amplitude=0.2,
-            center=src_dec,
-            baseline=baseline,
-            nbin=nbin,
-        )
+        times, decs, scan0, scan1 = _sim_arm(ddec, dra, src_dec)
 
         if i % 2 != 0:
-            decs = decs[::-1]
+            decs, scan0, scan1 = decs[::-1], scan0[::-1], scan1[::-1]
 
         ras = np.zeros_like(decs) + src_ra
 
@@ -442,6 +591,10 @@ def simulate_scan(
     nbin=1,
     calon=False,
     nsamples=None,
+    rng=None,
+    fknee=None,
+    noise_index=1.0,
+    red_noise=None,
 ):
     """Simulate a scan.
 
@@ -467,7 +620,18 @@ def simulate_scan(
         baseline, that is 20 for "messy"), or a tuple (m, q, messy_amp) giving
         the maximum and minimum absolute-value slope and intercept, and the
         random-walk amplitude.
+    rng : None, int or `numpy.random.Generator`
+        Random generator or seed. None uses the global numpy random state
+    fknee : float
+        If not None, add 1/f noise with this knee frequency (Hz), on top of
+        the white noise of rms ``noise_amplitude``. The same 1/f noise
+        affects all spectral bins.
+    noise_index : float
+        Spectral index of the 1/f noise
+    red_noise : array
+        Precomputed 1/f noise, one value per sample (overrides ``fknee``)
     """
+    rng = _get_rng(rng)
     if shape is None:
         shape = _default_flat_shape
 
@@ -480,12 +644,20 @@ def simulate_scan(
     # In degrees!
     position = np.arange(-nsamples / 2, nsamples / 2) / nsamples * length / 60
 
-    scan_baseline = _create_baseline(position, baseline)
+    scan_baseline = _create_baseline(position, baseline, rng=rng)
 
     signal = _standard_source_spectrum(shape(position), nbin)
     bkg = _standard_bkg_spectrum(scan_baseline, nbin)
     scan_shape = signal + bkg
-    scan_shape += ra.normal(0, noise_amplitude, scan_shape.shape)
+    scan_shape += rng.normal(0, noise_amplitude, scan_shape.shape)
+    if red_noise is None and fknee is not None:
+        red_noise = _red_noise(
+            nsamples, dt, fknee, noise_amplitude, noise_index=noise_index, rng=rng
+        )[0]
+    if red_noise is not None:
+        if scan_shape.ndim > 1:
+            red_noise = red_noise[:, np.newaxis]
+        scan_shape += red_noise
 
     if calon:
         scan_shape += DEFAULT_CAL_OFFSET
@@ -631,7 +803,7 @@ def _single_value_as_tuple(value, nvals=2):
     return tuple([value] * nvals)
 
 
-def _create_baseline(x, baseline_kind="flat"):
+def _create_baseline(x, baseline_kind="flat", rng=None):
     """
     Parameters
     ----------
@@ -643,7 +815,10 @@ def _create_baseline(x, baseline_kind="flat"):
         baseline, that is 20 for "messy"), or a tuple (m, q, messy_amp) giving
         the maximum and minimum absolute-value slope and intercept, and the
         random-walk amplitude.
+    rng : None, int or `numpy.random.Generator`
+        Random generator or seed. None uses the global numpy random state
     """
+    rng = _get_rng(rng)
     if baseline_kind == "flat":
         mmin = mmax = 0
         qmin = qmax = 0
@@ -670,9 +845,9 @@ def _create_baseline(x, baseline_kind="flat"):
         raise ValueError("baseline has to be 'flat', 'slope', 'messy' or a " "number")
 
     n = len(x)
-    m = ra.uniform(mmin, mmax)
-    q = ra.uniform(qmin, qmax)
-    signs = np.random.choice([-1, 1], n)
+    m = rng.uniform(mmin, mmax)
+    q = rng.uniform(qmin, qmax)
+    signs = rng.choice([-1, 1], n)
 
     stochastic = np.cumsum(signs) * stochastic_amp / np.sqrt(n)
 
@@ -786,7 +961,8 @@ def simulate_map(
         width_ra = length_ra
     # Dec scans
     if HAS_MPL and debug:
-        fig = plt.figure()
+        fig = new_figure()
+        ax = fig.add_subplot()
 
     ralabel = declabel = ""
     if radec_labels_in_srcname:
@@ -825,14 +1001,14 @@ def simulate_map(
             counts_to_K=(COUNTS_TO_K, COUNTS_TO_K / channel_ratio),
         )
         if HAS_MPL and debug:
-            plt.plot(ra_array, counts0)
-            plt.plot(ra_array, counts1)
+            ax.plot(ra_array, counts0)
+            ax.plot(ra_array, counts1)
 
     if HAS_MPL and debug:
         fig.savefig(os.path.join(outdir_ra, "allscans_ra.png"))
-        plt.close(fig)
 
-        fig = plt.figure()
+        fig = new_figure()
+        ax = fig.add_subplot()
     delta_ras = np.arange(-width_ra / 2, width_ra / 2 + spacing, spacing) / 60
     logging.info("Simulating RA scans...")
     # RA scans
@@ -863,12 +1039,11 @@ def simulate_map(
         )
 
         if HAS_MPL and debug:
-            plt.plot(dec_array, counts0)
-            plt.plot(dec_array, counts1)
+            ax.plot(dec_array, counts0)
+            ax.plot(dec_array, counts1)
 
     if HAS_MPL and debug:
         fig.savefig(os.path.join(outdir_dec, "allscans_dec.png"))
-        plt.close(fig)
 
     logging.info("Creating summary...")
     create_summary(

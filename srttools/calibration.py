@@ -8,6 +8,7 @@ counts into a density flux value in Jy.
 import configparser
 import copy
 import glob
+import json
 import logging
 import os
 import re
@@ -18,13 +19,30 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 import astropy.units as u
+from astropy.stats import mad_std
 from astropy.table import Column, Table
 
+from .crossscan import beam_fwhm_from_frequency
 from .fit import fit_baseline_plus_bell
-from .io import mkdir_p
-from .read_config import get_config_file, read_config, sample_config_file
+from .io import get_channel_feed, mkdir_p
+from .read_config import (
+    add_directory_arguments,
+    apply_directory_arguments,
+    get_config_file,
+    output_file_name,
+    read_config,
+    sample_config_file,
+)
 from .scan import Scan, list_scans
-from .utils import HAS_STATSM, TWOPI, calculate_moments, info_once, scantype, standard_byte
+from .utils import (
+    HAS_STATSM,
+    TWOPI,
+    calculate_moments,
+    info_once,
+    new_figure,
+    scantype,
+    standard_byte,
+)
 
 try:
     import matplotlib.pyplot as plt
@@ -38,6 +56,11 @@ CALIBRATOR_CONFIG = None
 
 
 __all__ = ["CalibratorTable", "read_calibrator_config"]
+
+
+# Version of the calibrator fits (2: amplitudes corrected for the offset across
+# the subscan, RA err on the sky). Cached fits of other versions are recalculated.
+CALIBRATOR_FIT_VERSION = 2
 
 
 def _constant(x, p):
@@ -243,12 +266,45 @@ def _get_calibrator_flux(calibrator, frequency, bandwidth=1, time=0):
         return _calc_flux_from_coeffs(conf, frequency, bandwidth, time)
 
 
-def _treat_scan(scan_path, plot=False, **kwargs):
+def _safe_fit_baseline_plus_bell(x, y, label, **kwargs):
+    """Run ``fit_baseline_plus_bell``, returning ``(None, None)`` if it raises.
+
+    The fit can raise (e.g. ``NonFiniteValueError`` when the Gaussian width
+    collapses on a single spike). One bad subscan should not stop the
+    processing of all the others, so this warns and lets the caller skip it.
+    """
+    try:
+        return fit_baseline_plus_bell(x, y, kind="gauss", **kwargs)
+    except Exception as e:
+        warnings.warn(f"Fit failed in {label}: {type(e).__name__}: {e}")
+        return None, None
+
+
+def _closest_approach(ras, decs, ra0, dec0):
+    """Index and distance (deg) of the point of the track (ras, decs) closest to (ra0, dec0).
+
+    All coordinates in degrees.
+    """
+    dra = (ras - ra0 + 180) % 360 - 180
+    dist = np.hypot(dra * np.cos(np.radians(dec0)), decs - dec0)
+    i_min = np.argmin(dist)
+    return i_min, dist[i_min]
+
+
+def _track_length(ras, decs):
+    """Angular length (deg) of the track (ras, decs), in degrees."""
+    dra = (np.diff(ras) + 180) % 360 - 180
+    return np.sum(np.hypot(dra * np.cos(np.radians(decs[:-1])), np.diff(decs)))
+
+
+def _treat_scan(scan_path, plot=False, max_offset=0.25, **kwargs):
+    """Fit a Gaussian plus baseline to each channel of a calibrator subscan.
+
+    Channels whose feed never passes within ``max_offset`` beam FWHMs of the
+    source are skipped (``None`` fits them all): in a calibrator map most
+    subscans miss the source, and their fits give meaningless Flux/Counts.
+    """
     scandir, sname = os.path.split(scan_path)
-    if plot and HAS_MPL:
-        outdir = os.path.splitext(sname)[0] + "_scanfit"
-        outdir = os.path.join(scandir, outdir)
-        mkdir_p(outdir)
 
     try:
         # For now, use nosave. HDF5 doesn't store meta, essential for
@@ -262,18 +318,21 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         logging.warning(traceback.format_exc())
         return False, None
 
-    feeds = np.arange(scan["ra"].shape[1])
+    if plot and HAS_MPL:
+        # Diagnostic plots go next to the processed scan, in intermediatedir
+        outdir = scan.root_name(scan_path) + "_scanfit"
+        mkdir_p(outdir)
+
     chans = scan.chan_columns()
 
-    chan_nums = np.arange(len(chans))
-    F, N = np.meshgrid(feeds, chan_nums)
-    F = F.flatten()
-    N = N.flatten()
     rows = []
-    for feed, nch in zip(F, N):
-        channel = chans[nch]
+    for nch, channel in enumerate(chans):
         if channel[-1:] in ["Q", "U"]:
             continue
+        # Each channel only sees the sky through its own feed
+        feed = get_channel_feed(channel)
+        if feed is None:
+            feed = 0
 
         ras = np.degrees(scan["ra"][:, feed])
         decs = np.degrees(scan["dec"][:, feed])
@@ -285,6 +344,14 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         source = scan.meta["SOURCE"]
         pnt_ra = np.degrees(scan.meta["RA"])
         pnt_dec = np.degrees(scan.meta["Dec"])
+        i_closest, offset = _closest_approach(
+            ras, decs, pnt_ra.to_value(u.deg), pnt_dec.to_value(u.deg)
+        )
+        beam_fwhm = beam_fwhm_from_frequency(scan, channel)
+        if max_offset is not None:
+            if offset > max_offset * beam_fwhm:
+                logging.debug(f"{sname}, {channel}: misses {source} by {offset * 60:.2f}'")
+                continue
         frequency = scan[channel].meta["frequency"]
         bandwidth = scan[channel].meta["bandwidth"]
         temperature = scan[channel + "-Temp"]
@@ -293,12 +360,25 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
         # Fit for gain curves
         x, _ = scantype(ras, decs, els, azs)
-        temperature_model, _ = fit_baseline_plus_bell(x, temperature, kind="gauss")
-        source_temperature = temperature_model["Bell"].amplitude.value
+        temperature_model, _ = _safe_fit_baseline_plus_bell(
+            x, temperature, f"{sname}, {channel}-Temp"
+        )
+        source_temperature = np.nan
+        if temperature_model is not None:
+            source_temperature = temperature_model["Bell"].amplitude.value
 
         # Fit RA and/or Dec
         x, scan_type = scantype(ras, decs)
-        model, fit_info = fit_baseline_plus_bell(x, y, kind="gauss")
+        # Start from where the feed passes closest to the source, with the beam width
+        # (in the units of x). The default start, the middle of the subscan, misses
+        # sources off centre, as in most subscans of a map.
+        beam_sigma = beam_fwhm / (2 * np.sqrt(2 * np.log(2)))
+        x_per_deg = np.sum(np.abs(np.diff(x))) / _track_length(ras, decs)
+        model, fit_info = _safe_fit_baseline_plus_bell(
+            x, y, f"{sname}, {channel}", mean=x[i_closest], stddev=beam_sigma * x_per_deg
+        )
+        if model is None:
+            continue
 
         std = np.std(np.diff(y)) / np.sqrt(2)
         try:
@@ -314,6 +394,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
         counts = model.amplitude_1.value
 
         backsub = y - baseline(x)
+        resid_std = np.std(y - model(x))
         moments = calculate_moments(backsub)
         skewness = moments["skewness"]
         kurtosis = moments["kurtosis"]
@@ -322,10 +403,13 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             fit_ra = bell.mean.value
             fit_width = bell.stddev.value * np.cos(np.radians(pnt_dec))
             fit_dec = None
-            ra_err = fit_ra * u.degree - pnt_ra
+            # Offset on the sky, like Dec err
+            ra_err = (fit_ra * u.degree - pnt_ra) * np.cos(np.radians(pnt_dec))
             dec_err = None
             fit_mean = fit_ra
             fit_label = "RA"
+            # Where the track passes, across the scan, from the pointed position
+            track_offset = decs[i_closest] - pnt_dec.to_value(u.deg)
             pnt = pnt_ra
         elif scan_type.startswith("Dec"):
             fit_ra = None
@@ -335,6 +419,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ra_err = None
             fit_mean = fit_dec
             fit_label = "Dec"
+            track_offset = (ras[i_closest] - pnt_ra.to_value(u.deg)) * np.cos(np.radians(pnt_dec))
             pnt = pnt_dec
         else:
             raise ValueError("Unknown scan type")
@@ -383,14 +468,18 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             dec_err,
             skewness,
             kurtosis,
+            resid_std,
+            False,
+            track_offset,
+            1.0,
         ]
         rows.append(new_row)
 
         if plot and HAS_MPL:
-            fig = plt.figure("Fit information")
-            gs = GridSpec(2, 1, height_ratios=(3, 1))
-            ax0 = plt.subplot(gs[0])
-            ax1 = plt.subplot(gs[1], sharex=ax0)
+            fig = new_figure()
+            gs = GridSpec(2, 1, figure=fig, height_ratios=(3, 1))
+            ax0 = fig.add_subplot(gs[0])
+            ax1 = fig.add_subplot(gs[1], sharex=ax0)
 
             ax0.plot(x, y, label="Data")
             ax0.plot(
@@ -409,16 +498,16 @@ def _treat_scan(scan_path, plot=False, **kwargs):
 
             ax0.legend()
 
-            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}.png"))
-            plt.close(fig)
-            fig = plt.figure("Fit information - temperature")
-            gs = GridSpec(2, 1, height_ratios=(3, 1))
-            ax0 = plt.subplot(gs[0])
-            ax1 = plt.subplot(gs[1], sharex=ax0)
+            fig.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}.png"))
+            fig = new_figure()
+            gs = GridSpec(2, 1, figure=fig, height_ratios=(3, 1))
+            ax0 = fig.add_subplot(gs[0])
+            ax1 = fig.add_subplot(gs[1], sharex=ax0)
 
             ax0.plot(x, temperature, label="Data")
-            ax0.plot(x, temperature_model(x), label="Fit")
-            ax1.plot(x, temperature - temperature_model(x))
+            if temperature_model is not None:
+                ax0.plot(x, temperature_model(x), label="Fit")
+                ax1.plot(x, temperature - temperature_model(x))
 
             ax0.axvline(pnt.to(u.deg).value, label=fit_label + " Pnt", ls="--")
             ax0.set_xlim([min(x), max(x)])
@@ -427,8 +516,7 @@ def _treat_scan(scan_path, plot=False, **kwargs):
             ax1.set_ylabel("Residual (cts)")
 
             ax0.legend()
-            plt.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}_temp.png"))
-            plt.close(fig)
+            fig.savefig(os.path.join(outdir, f"Feed{feed}_chan{nch:03d}_temp.png"))
 
     return True, rows
 
@@ -478,6 +566,10 @@ class CalibratorTable(Table):
             "Dec err",
             "Skewness",
             "Kurtosis",
+            "Resid Std",
+            "Outlier",
+            "Track Offset",
+            "Offset Corr",
         ]
 
         dtype = [
@@ -514,11 +606,18 @@ class CalibratorTable(Table):
             float,
             float,
             float,
+            float,
+            bool,
+            float,
+            float,
         ]
 
+        defaults = {"S200": "", int: 0, np.double: np.nan, float: np.nan, bool: False}
         for n, d in zip(names, dtype):
             if n not in self.keys():
-                self.add_column(Column(name=n, dtype=d))
+                # Tables written by older versions lack the newest columns
+                default = 1.0 if n == "Offset Corr" else defaults[d]
+                self.add_column(Column(name=n, dtype=d, data=[default] * len(self)))
 
     def from_scans(
         self,
@@ -535,6 +634,9 @@ class CalibratorTable(Table):
         sources here, the fit is a Gaussian plus a slope. The centroid, width
         and amplitude of the fit fill out new rows of the CalibratorTable
         ('Fit RA' or 'Fit Dec', 'Width' and 'Counts' respectively).
+        Channels whose feed passes farther than 1/4 of the beam FWHM from the
+        source are not fitted: in a calibrator map, only the subscans crossing
+        the source are used.
 
         Parameters
         ----------
@@ -583,7 +685,12 @@ class CalibratorTable(Table):
             logging.info(f"{i_s + 1}/{nscan}: Loading {s}")
 
             retval, rows = _treat_scan(
-                s, plot=plot, debug=debug, freqsplat=freqsplat, nofilt=nofilt
+                s,
+                plot=plot,
+                debug=debug,
+                freqsplat=freqsplat,
+                nofilt=nofilt,
+                config_file=config_file,
             )
 
             if retval:
@@ -592,7 +699,66 @@ class CalibratorTable(Table):
                 for r in rows:
                     self.add_row(r)
 
+        self.correct_pointing_offsets()
         return out_retval
+
+    def correct_pointing_offsets(self, max_corr=2.0):
+        """Correct the amplitudes for the offset of the source across each subscan.
+
+        The fit of a subscan measures the source position along it, not
+        across it: if the source is off by ``d`` across the subscan, the
+        track passes beside the peak and the amplitude is lower by
+        ``exp(-d**2 / (2 sigma**2))``, with ``sigma`` the beam width in that
+        direction. The offset across an RA subscan is measured by the Dec
+        subscans of the same observation and channel, and vice versa: we use
+        the mean ``Dec err`` (or ``RA err``) and ``Width`` of the (up to) two
+        perpendicular subscans closest in time, and ``Track Offset``, where
+        the track passes across the scan with respect to the pointed
+        position. ``Counts`` and ``Counts Err`` are multiplied by the
+        correction factor, stored in ``Offset Corr``.
+
+        Subscans without perpendicular subscans (e.g. a map scanned in one
+        direction) are not corrected (``Offset Corr`` = 1); nor, with a
+        warning, those whose correction would be larger than ``max_corr``:
+        the source is too far off the track for a reliable amplitude.
+        Calling it again recomputes the correction from the uncorrected
+        amplitudes.
+        """
+        if len(self) == 0:
+            return
+        old_corr = np.array(self["Offset Corr"], dtype=float)
+        old_corr[~np.isfinite(old_corr)] = 1.0
+        new_corr = np.ones(len(self))
+        is_ra = np.array([str(s).startswith("RA") for s in self["Scan Type"]])
+        times = np.array(self["Time"], dtype=float)
+        width = np.array(self["Width"], dtype=float)
+        track = np.array(self["Track Offset"], dtype=float)
+        # Source offset measured along each subscan, on the sky
+        along = np.where(
+            is_ra, np.array(self["RA err"], dtype=float), np.array(self["Dec err"], dtype=float)
+        )
+        keys = np.array([f"{d}::{c}" for d, c in zip(self["Dir"], self["Chan"])])
+        for key in np.unique(keys):
+            group = np.flatnonzero(keys == key)
+            for i in group:
+                perp = group[(is_ra[group] != is_ra[i]) & np.isfinite(along[group])]
+                perp = perp[np.isfinite(width[perp]) & (width[perp] > 0)]
+                if len(perp) == 0 or not np.isfinite(track[i]):
+                    continue
+                closest = perp[np.argsort(np.abs(times[perp] - times[i]))[:2]]
+                across = track[i] - np.mean(along[closest])
+                corr = np.exp(across**2 / (2 * np.mean(width[closest]) ** 2))
+                if corr > max_corr:
+                    warnings.warn(
+                        f"{self['File'][i]}, {self['Chan'][i]}: the source is "
+                        f"{across * 60:.2f}' across the subscan; amplitude not corrected"
+                    )
+                    continue
+                new_corr[i] = corr
+        factor = new_corr / old_corr
+        self["Counts"] *= factor
+        self["Counts Err"] *= factor
+        self["Offset Corr"] = new_corr
 
     def write(self, fname, *args, **kwargs):
         """Same as Table.write, but adds path information for HDF5."""
@@ -631,18 +797,97 @@ class CalibratorTable(Table):
 
         return True
 
-    def update(self):
+    def update(self, outlier_nsigma=5.0):
         """Update the calibration information.
 
-        Execute ``get_fluxes``, ``calibrate`` and
-        ``compute_conversion_function``
+        Execute ``get_fluxes``, ``calibrate``, ``flag_outliers`` (unless
+        ``outlier_nsigma`` is None) and ``compute_conversion_function``
         """
         if not self.check_not_empty():
             return
 
         self.get_fluxes()
         self.calibrate()
+        if outlier_nsigma is not None:
+            self.flag_outliers(nsigma=outlier_nsigma)
         self.compute_conversion_function()
+
+    def _valid_mask(self, good_mask=None):
+        """Rows usable for calibration: ``good_mask`` (default: calibrators) and not outliers."""
+        if good_mask is None:
+            good_mask = self["Flux"] > 0
+        return np.asarray(good_mask) & ~np.asarray(self["Outlier"], dtype=bool)
+
+    def flag_outliers(self, nsigma=5.0, min_fits=6):
+        """Flag fits that are outliers with respect to similar fits, e.g. because of RFI.
+
+        Fits are compared within groups with the same observation (``Dir``),
+        source, channel and arm (RA or Dec): within a single observation the
+        source is not expected to change. A fit is flagged in the
+        ``Outlier`` column if any of the following is more than ``nsigma``
+        robust standard deviations (1.4826 times the median absolute
+        deviation) away from the group median: the rms of the fit residuals
+        ("Resid Std", only excesses), the amplitude ("Counts") or the width.
+        The last two catch fits that locked on to an RFI burst instead of the
+        source. Groups with fewer than ``min_fits`` fits are not checked.
+
+        Other Parameters
+        ----------------
+        nsigma : float
+            Rejection threshold
+        min_fits : int
+            Minimum number of fits in a group
+
+        Returns
+        -------
+        outliers : array of bool
+            The new ``Outlier`` column
+        """
+        outliers = np.zeros(len(self), dtype=bool)
+        arms = np.array([str(s).strip()[:2].upper() for s in self["Scan Type"]])
+        keys = [np.asarray(self[c]).astype(str) for c in ["Dir", "Source", "Chan"]]
+        groups = {}
+        for i, key in enumerate(zip(*keys, arms)):
+            groups.setdefault(key, []).append(i)
+
+        def robust_z(values):
+            values = np.asarray(values, dtype=float)
+            if not np.any(np.isfinite(values)):
+                # E.g. "Resid Std" in tables written by older versions
+                return np.zeros_like(values)
+            med = np.nanmedian(values)
+            spread = 1.4826 * np.nanmedian(np.abs(values - med))
+            spread = max(spread, 1e-6 * np.abs(med), np.finfo(float).tiny)
+            return (values - med) / spread
+
+        for key, idx in groups.items():
+            if len(idx) < min_fits:
+                continue
+            idx = np.array(idx)
+            z_resid = robust_z(self["Resid Std"][idx])
+            bad = z_resid > nsigma
+            for col in ["Counts", "Width"]:
+                bad |= np.abs(robust_z(self[col][idx])) > nsigma
+            outliers[idx[bad]] = True
+            if np.any(bad):
+                files = (
+                    list(np.asarray(self["File"][idx[bad]]).astype(str))
+                    if "File" in self.colnames
+                    else []
+                )
+                warnings.warn(
+                    f"{np.count_nonzero(bad)}/{len(idx)} fits flagged as outliers "
+                    f"(e.g. RFI) in {key[0]}, {key[1]}, {key[2]}, {key[3]} scans: "
+                    f"{files}. They are excluded from calibration and fluxes. "
+                    "Use outlier_nsigma=None (--outlier-nsigma 0) to disable."
+                )
+                if np.count_nonzero(bad) > 0.2 * len(idx):
+                    warnings.warn(
+                        f"More than 20% of the fits flagged in {key[0]}, {key[1]}, "
+                        f"{key[2]}. Check the data."
+                    )
+        self["Outlier"][:] = outliers
+        return outliers
 
     def get_fluxes(self):
         """Get the tabulated flux of the source, if listed as calibrators.
@@ -744,8 +989,7 @@ class CalibratorTable(Table):
         else:
             import statsmodels.api as sm
 
-        if good_mask is None:
-            good_mask = self["Flux"] > 0
+        good_mask = self._valid_mask(good_mask)
 
         flux_quantity = _get_flux_quantity(map_unit)
 
@@ -760,8 +1004,9 @@ class CalibratorTable(Table):
             f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
             elvs = np.radians(self["Elevation"][good_chans])
 
-            good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
-            good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
+            # isfinite: fits with zero amplitude give an infinite ratio
+            good_fc = np.isfinite(f_c_ratio) & (f_c_ratio > 0)
+            good_fce = np.isfinite(f_c_ratio_err) & (f_c_ratio_err >= 0)
 
             good = good_fc & good_fce
 
@@ -773,6 +1018,16 @@ class CalibratorTable(Table):
             x_to_fit = x_to_fit[order]
             y_to_fit = y_to_fit[order]
             ye_to_fit = ye_to_fit[order]
+
+            if len(x_to_fit) < 3:
+                # Too few points for a line in elevation: constant calibration
+                fc, fce = self.Jy_over_counts_rough(
+                    channel=channel, map_unit=map_unit, good_mask=good_mask
+                )
+                self.calibration_coeffs[channel] = [fc, 0, 0]
+                self.calibration_uncerts[channel] = [fce, 0, 0]
+                self.calibration[channel] = None
+                continue
 
             X = np.column_stack((np.ones(len(x_to_fit)), x_to_fit))
             # X = np.c_[np.ones(len(x_to_fit)), X]
@@ -813,8 +1068,7 @@ class CalibratorTable(Table):
             warnings.warn("No statsmodels found.")
             use_rough = True
 
-        if good_mask is None:
-            good_mask = self["Flux"] > 0
+        good_mask = self._valid_mask(good_mask)
 
         flux_quantity = _get_flux_quantity(map_unit)
         if channel not in self["Chan"]:
@@ -831,6 +1085,9 @@ class CalibratorTable(Table):
             use_rough = True
         elif self.valid_elevation == {}:
             warnings.warn(f"No elevation info found in the calibration for channel {channel}")
+            use_rough = True
+        elif self.calibration.get(channel) is None:
+            # Too few calibrator fits for an elevation dependence
             use_rough = True
         else:
             elevation_range = self.valid_elevation[channel]
@@ -889,14 +1146,15 @@ class CalibratorTable(Table):
         fc : float
             flux density /count ratio
         fce : float
-            uncertainty on ``fc``
+            uncertainty on ``fc``: never smaller than the robust standard
+            deviation of all the fits (including those rejected as outliers)
+            divided by the square root of their number
         """
         self.check_up_to_date()
 
         flux_quantity = _get_flux_quantity(map_unit)
 
-        if good_mask is None:
-            good_mask = self["Flux"] > 0
+        good_mask = self._valid_mask(good_mask)
 
         good_chans = np.ones(len(self["Time"]), dtype=bool)
         if channel is not None:
@@ -908,8 +1166,9 @@ class CalibratorTable(Table):
         f_c_ratio_err = self[flux_quantity + "/Counts Err"][good_chans]
         times = self["Time"][good_chans]
 
-        good_fc = (f_c_ratio == f_c_ratio) & (f_c_ratio > 0)
-        good_fce = (f_c_ratio_err == f_c_ratio_err) & (f_c_ratio_err >= 0)
+        # isfinite: fits with zero amplitude give an infinite ratio
+        good_fc = np.isfinite(f_c_ratio) & (f_c_ratio > 0)
+        good_fce = np.isfinite(f_c_ratio_err) & (f_c_ratio_err >= 0)
 
         good = good_fc & good_fce
 
@@ -920,6 +1179,11 @@ class CalibratorTable(Table):
         p = [np.median(y_to_fit)]
         pcov = np.array([[np.median(ye_to_fit) ** 2]])
         first = True
+        # Error of the mean from the robust scatter of all the fits, before
+        # rejecting outliers: the fits that survive the rejection can agree
+        # among themselves much better than the calibration is known
+        n_all = len(y_to_fit)
+        scatter_err = mad_std(y_to_fit) / np.sqrt(n_all) if n_all > 1 else 0.0
 
         while 1:
             bad = np.abs((y_to_fit - _constant(x_to_fit, p)) / ye_to_fit) > 5
@@ -929,6 +1193,14 @@ class CalibratorTable(Table):
 
             if len(x_to_fit[bad]) > len(x_to_fit) - 5:
                 warnings.warn("Calibration fit is shaky")
+                # Too few points, or points scattered well beyond their
+                # formal errors: median, with the error of the median from
+                # the robust scatter of the points (never smaller than the
+                # formal errors allow)
+                n = len(y_to_fit)
+                scatter = max(mad_std(y_to_fit), np.median(ye_to_fit))
+                p = [np.median(y_to_fit)]
+                pcov = np.array([[(1.2533 * scatter / np.sqrt(n)) ** 2]])
                 break
 
             xbad = x_to_fit[bad]
@@ -944,7 +1216,7 @@ class CalibratorTable(Table):
             p, pcov = curve_fit(_constant, x_to_fit, y_to_fit, sigma=ye_to_fit, p0=p)
             first = False
         fc = p[0]
-        fce = np.sqrt(pcov[0, 0])
+        fce = max(np.sqrt(pcov[0, 0]), scatter_err)
 
         return fc, fce
 
@@ -979,6 +1251,8 @@ class CalibratorTable(Table):
             good_source = self["Source"] == source
 
         non_source = np.logical_not(good_source)
+        # Outliers are excluded from the calibration by Jy_over_counts
+        good_source = good_source & ~np.asarray(self["Outlier"], dtype=bool)
 
         if channel is None:
             channels = list(set(self["Chan"]))
@@ -1102,9 +1376,9 @@ class CalibratorTable(Table):
         """Plot the data corresponding to two given columns."""
         showit = False
         if ax is None:
-            plt.figure(f"{xcol} vs {ycol}")
-            ax = plt.gca()
-            showit = True
+            # Shown in a window, unless testing
+            showit = not test
+            ax = new_figure(interactive=showit).add_subplot()
 
         good = (self[xcol] == self[xcol]) & (self[ycol] == self[ycol])
         mask = np.ones_like(good)
@@ -1141,25 +1415,25 @@ class CalibratorTable(Table):
         else:
             ax.scatter(x_to_plot, y_to_plot, label=ycol + label, color=color)
 
-        if showit and not test:
+        if showit:
             plt.show()
         return x_to_plot, y_to_plot
 
     def show(self, filename=None):
-        """Show a summary of the calibration."""
+        """Save a summary plot of the calibration (default ``calibration_summary.png``)."""
         from matplotlib import cm
 
         # TODO: this is meant to become interactive. I will make different
         # panels linked to each other.
         if filename is None:
             filename = "calibration_summary.png"
-        fig = plt.figure("Summary", figsize=(16, 16))
-        plt.suptitle("Summary")
-        gs = GridSpec(2, 2, hspace=0)
-        ax00 = plt.subplot(gs[0, 0])
-        ax01 = plt.subplot(gs[0, 1], sharey=ax00)
-        ax10 = plt.subplot(gs[1, 0], sharex=ax00)
-        ax11 = plt.subplot(gs[1, 1], sharex=ax01, sharey=ax10)
+        fig = new_figure(figsize=(16, 16))
+        fig.suptitle("Summary")
+        gs = GridSpec(2, 2, figure=fig, hspace=0)
+        ax00 = fig.add_subplot(gs[0, 0])
+        ax01 = fig.add_subplot(gs[0, 1], sharey=ax00)
+        ax10 = fig.add_subplot(gs[1, 0], sharex=ax00)
+        ax11 = fig.add_subplot(gs[1, 1], sharex=ax01, sharey=ax10)
 
         channels = list(set(self["Chan"]))
         colors = cm.rainbow(np.linspace(0, 1, len(channels)))
@@ -1244,8 +1518,7 @@ class CalibratorTable(Table):
         ax11.set_xlabel("Azimuth")
         ax00.set_ylabel("Flux / Counts")
         ax10.set_ylabel("Pointing error (arcmin)")
-        plt.savefig(filename)
-        plt.close(fig)
+        fig.savefig(filename)
 
 
 def flux_function(start_frequency, bandwidth, coeffs, ecoeffs):
@@ -1339,6 +1612,7 @@ def main_cal(args=None):
     )
 
     parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
+    add_directory_arguments(parser)
 
     parser.add_argument(
         "--splat",
@@ -1383,7 +1657,19 @@ def main_cal(args=None):
         help="Check consistency of calibration",
     )
 
+    parser.add_argument(
+        "--outlier-nsigma",
+        type=float,
+        default=5.0,
+        help="Flag fits whose residual rms, amplitude or width differ from those "
+        "of the other subscans of the same observation, source, channel and arm "
+        "by more than this many robust standard deviations (e.g. RFI). 0 "
+        "disables the rejection",
+    )
+
     args = parser.parse_args(args)
+    # Before loading any scan: remembered by read_config for the whole run
+    apply_directory_arguments(args)
 
     if args.sample_config:
         sample_config_file()
@@ -1409,17 +1695,43 @@ def main_cal(args=None):
 
     outfile = args.output
     if outfile is None:
-        outfile = args.config.replace(".ini", "_cal.hdf5")
-    outfile_unfilt = args.config.replace(".ini", "_cal_unfilt.hdf5")
-    if not os.path.exists(outfile_unfilt):
-        caltable = CalibratorTable()
-        caltable.from_scans(scan_list, freqsplat=args.splat, nofilt=args.nofilt, plot=args.show)
-        caltable.write(outfile_unfilt)
-    else:
-        logging.info(
-            f"Loading unfiltered calibration table from {outfile_unfilt} " f"(delete to reprocess)"
-        )
+        outfile = output_file_name(args.config, "_cal.hdf5")
+    # A cache, reused by later runs with the same calibrator scans and options
+    outfile_unfilt = output_file_name(args.config, "_cal_unfilt.hdf5", intermediate=True)
+    settings = json.dumps(
+        {
+            "scans": [os.path.abspath(s) for s in scan_list],
+            "splat": args.splat,
+            "nofilt": bool(args.nofilt),
+            # Increase when the fits change, to recalculate older caches
+            "fit_version": CALIBRATOR_FIT_VERSION,
+        }
+    )
+    caltable = None
+    if os.path.exists(outfile_unfilt):
         caltable = CalibratorTable.read(outfile_unfilt)
+        if caltable.meta.get("sdtcal_settings") == settings:
+            logging.info(
+                f"Loading unfiltered calibration table from {outfile_unfilt} (delete to reprocess)"
+            )
+        else:
+            warnings.warn(
+                "The calibrator scans, the options (--splat, --nofilt) or the version of the "
+                "fits changed since the "
+                f"cached calibration table {outfile_unfilt} was made: recalculating it."
+            )
+            caltable = None
+    if caltable is None:
+        caltable = CalibratorTable()
+        caltable.from_scans(
+            scan_list,
+            freqsplat=args.splat,
+            nofilt=args.nofilt,
+            plot=args.show,
+            config_file=args.config,
+        )
+        caltable.meta["sdtcal_settings"] = settings
+        caltable.write(outfile_unfilt, overwrite=True)
 
     snr = caltable["Counts"] / caltable["Data Std"]
     N = len(caltable)
@@ -1436,7 +1748,8 @@ def main_cal(args=None):
             warnings.warn(
                 f"No good data for channel {chan}. Try using the --snr-min option with some value lower than {args.snr_min}"
             )
-    caltable.update()
+    outlier_nsigma = args.outlier_nsigma if args.outlier_nsigma > 0 else None
+    caltable.update(outlier_nsigma=outlier_nsigma)
 
     if args.check:
         for chan in list(set(caltable["Chan"])):
@@ -1487,6 +1800,7 @@ def main_lcurve(args=None):
     )
 
     parser.add_argument("-c", "--config", type=str, default=None, help="Config file")
+    add_directory_arguments(parser)
 
     parser.add_argument(
         "--splat",
@@ -1510,25 +1824,38 @@ def main_lcurve(args=None):
         help="Output file containing the calibration",
     )
 
+    parser.add_argument(
+        "--outlier-nsigma",
+        type=float,
+        default=5.0,
+        help="Flag fits whose residual rms, amplitude or width differ from those "
+        "of the other subscans of the same observation, source, channel and arm "
+        "by more than this many robust standard deviations (e.g. RFI). 0 "
+        "disables the rejection",
+    )
+
     args = parser.parse_args(args)
+    # Before loading any scan: remembered by read_config for the whole run
+    apply_directory_arguments(args)
 
     if args.sample_config:
         sample_config_file()
         return
 
+    outlier_nsigma = args.outlier_nsigma if args.outlier_nsigma > 0 else None
     if args.file is not None:
         caltable = CalibratorTable.read(args.file)
-        caltable.update()
+        caltable.update(outlier_nsigma=outlier_nsigma)
     else:
         if args.config is None:
             raise ValueError("Please specify the config file!")
         caltable = CalibratorTable()
         caltable.from_scans(config_file=args.config)
-        caltable.update()
+        caltable.update(outlier_nsigma=outlier_nsigma)
 
         outfile = args.output
         if outfile is None:
-            outfile = args.config.replace(".ini", "_cal.hdf5")
+            outfile = output_file_name(args.config, "_cal.hdf5")
 
         caltable.write(outfile, overwrite=True)
 
@@ -1538,7 +1865,7 @@ def main_lcurve(args=None):
 
     for s in sources:
         caltable.calculate_src_flux(source=s)
-        good = caltable["Source"] == s
+        good = (caltable["Source"] == s) & ~np.asarray(caltable["Outlier"], dtype=bool)
         lctable = Table()
         lctable.add_column(Column(name="Time", dtype=float))
         lctable["Time"] = caltable["Time"][good]

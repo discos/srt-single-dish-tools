@@ -2,14 +2,24 @@ import glob
 import os
 import shutil
 import subprocess as sp
+import warnings
 
 import numpy as np
 import pytest
 
 from astropy.logger import logging
-from srttools.calibration import CalibratorTable, _get_flux_quantity, main_cal, main_lcurve
+from astropy.stats import mad_std
+from astropy.table import Table
+from srttools.calibration import (
+    CalibratorTable,
+    _get_flux_quantity,
+    _safe_fit_baseline_plus_bell,
+    _treat_scan,
+    main_cal,
+    main_lcurve,
+)
 from srttools.io import mkdir_p
-from srttools.read_config import read_config
+from srttools.read_config import output_file_name, read_config
 from srttools.scan import list_scans
 from srttools.simulate import _2d_gauss, sim_crossscans
 from srttools.utils import HAS_MPL, compare_strings
@@ -99,6 +109,7 @@ class TestCalibration:
         caltable = CalibratorTable()
         assert caltable.get_fluxes() is None
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_check_class(self):
         caltable = CalibratorTable()
         caltable.from_scans(list_scans(self.caldir, ["./"]), debug=True)
@@ -114,6 +125,83 @@ class TestCalibration:
         Jc, Jce = caltable.Jy_over_counts(channel="Feed0_LCP")
         Cj, Cje = caltable.counts_over_Jy(channel="Feed0_LCP")
         np.testing.assert_allclose(Jc, 1 / Cj)
+
+    def test_zero_amplitude_fits_are_ignored(self):
+        """Fits with zero amplitude (infinite Flux/Counts) neither crash nor change the calibration."""
+        caltable = CalibratorTable.read(self.calfile)
+        caltable.update()
+        calib = np.flatnonzero((caltable["Chan"] == "Feed0_LCP") & (caltable["Flux"] > 0))
+        zeroed = calib[:3]
+        reference = CalibratorTable(caltable.copy())
+        reference.remove_rows(zeroed)
+        reference.update()
+
+        caltable["Counts"][zeroed] = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            caltable.update()
+        assert np.all(np.isinf(caltable["Flux/Counts"][zeroed]))
+        el = np.radians(45)
+        np.testing.assert_allclose(
+            caltable.Jy_over_counts(channel="Feed0_LCP", elevation=el),
+            reference.Jy_over_counts(channel="Feed0_LCP", elevation=el),
+        )
+        np.testing.assert_allclose(
+            caltable.Jy_over_counts_rough(channel="Feed0_LCP"),
+            reference.Jy_over_counts_rough(channel="Feed0_LCP"),
+        )
+
+    def test_two_calibrator_fits_give_a_constant_calibration(self):
+        """A channel with only two calibrator fits (e.g. one cross scan) cannot constrain a
+        line in elevation: the calibration is the constant from Jy_over_counts_rough."""
+        caltable = CalibratorTable.read(self.calfile)
+        caltable.update()
+        calib = np.flatnonzero((caltable["Chan"] == "Feed0_LCP") & (caltable["Flux"] > 0))
+        caltable.remove_rows(calib[2:])
+        caltable.update()
+        el = np.radians(45)
+        np.testing.assert_allclose(
+            caltable.Jy_over_counts(channel="Feed0_LCP", elevation=el),
+            caltable.Jy_over_counts_rough(channel="Feed0_LCP"),
+        )
+
+    @pytest.mark.parametrize("scatter", [0.01, 0.3])
+    def test_Jy_over_counts_rough_error_includes_scatter(self, scatter):
+        """With formal errors of 1%, the error of the constant calibration matches the
+        scatter of the calibrator fits, also when they scatter by 30% (it used to be
+        the formal error, 30x too small)."""
+        caltable = CalibratorTable.read(self.calfile)
+        caltable.update()
+        rows = np.flatnonzero((caltable["Chan"] == "Feed0_LCP") & (caltable["Flux"] > 0))
+        rng = np.random.default_rng(42)
+        true = np.mean(caltable["Flux/Counts"][rows])
+        caltable["Flux/Counts"][rows] = true * (1 + rng.normal(0, scatter, rows.size))
+        caltable["Flux/Counts Err"][rows] = true * 0.01
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            fc, fce = caltable.Jy_over_counts_rough(channel="Feed0_LCP")
+        expected = true * scatter / np.sqrt(rows.size)
+        assert 0.6 * expected < fce < 2 * expected
+        assert abs(fc - true) < 4 * expected
+
+    def test_Jy_over_counts_rough_error_includes_scatter_of_rejected_fits(self):
+        """Five fits agreeing within their 1% formal errors, the others scattering by 30%:
+        the error reflects the scatter of all the fits, not only of the five that survive
+        the rejection of outliers."""
+        caltable = CalibratorTable.read(self.calfile)
+        caltable.update()
+        rows = np.flatnonzero((caltable["Chan"] == "Feed0_LCP") & (caltable["Flux"] > 0))
+        assert rows.size >= 10
+        rng = np.random.default_rng(42)
+        true = np.mean(caltable["Flux/Counts"][rows])
+        values = true * (1 + rng.normal(0, 0.3, rows.size))
+        values[:5] = true * (1 + rng.normal(0, 0.003, 5))
+        caltable["Flux/Counts"][rows] = values
+        caltable["Flux/Counts Err"][rows] = true * 0.01
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            fc, fce = caltable.Jy_over_counts_rough(channel="Feed0_LCP")
+        assert fce > 0.5 * mad_std(values) / np.sqrt(rows.size)
 
     def test_Jy_over_counts_rough_one_bad_value(self, logger, caplog):
         caltable = CalibratorTable.read(self.calfile)
@@ -169,6 +257,7 @@ class TestCalibration:
         assert np.all(beam - np.radians(2.5 / 60) < 3 * beam_err)
 
     @pytest.mark.skipif("not HAS_MPL")
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_calibration_plot_two_cols(self):
         """Simple calibration from scans."""
 
@@ -184,6 +273,7 @@ class TestCalibration:
         )
 
     @pytest.mark.skipif("not HAS_MPL")
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_calibration_show(self):
         """Simple calibration from scans."""
 
@@ -197,6 +287,29 @@ class TestCalibration:
             source="DummySrc", channel="Feed0_LCP"
         )
         assert (dummy_flux[0] - 0.52) < dummy_flux_err[0] * 3
+
+    def test_residual_std_is_stored(self):
+        """Each fit stores the rms of its residuals, used to find RFI-contaminated subscans."""
+        caltable = CalibratorTable.read(self.calfile)
+        assert np.all(caltable["Resid Std"] > 0)
+
+    def test_calculate_src_flux_ignores_outliers(self):
+        """Fits flagged as outliers do not enter the source flux."""
+        caltable = CalibratorTable.read(self.calfile)
+        ref, _ = caltable.calculate_src_flux(source="DummySrc", channel="Feed0_LCP")
+        row = np.flatnonzero(
+            compare_strings(caltable["Source"], "DummySrc")
+            & compare_strings(caltable["Chan"], "Feed0_LCP")
+        )[0]
+        caltable["Counts"][row] *= 100
+        caltable["Outlier"][row] = True
+        flux, _ = caltable.calculate_src_flux(source="DummySrc", channel="Feed0_LCP")
+        good = np.ones(len(caltable), dtype=bool)
+        good[row] = False
+        ref, _ = CalibratorTable(caltable[good]).calculate_src_flux(
+            source="DummySrc", channel="Feed0_LCP"
+        )
+        assert np.isclose(flux[0], ref[0])
 
     def test_check_consistency_fails_with_bad_data(self):
         scan_list = (
@@ -233,18 +346,59 @@ class TestCalibration:
         assert os.path.exists(plotfile)
         os.unlink(plotfile)
 
+    @pytest.mark.slow
     @pytest.mark.skipif("not HAS_MPL")
     def test_sdtcal_show_with_config(self):
         main_cal(("-c " + self.config_file + " --check --show").split(" "))
-        outfile = self.config_file.replace(".ini", "_cal.hdf5")
-        plotfile = outfile.replace("ini", "jpg")
+        outfile = output_file_name(self.config_file, "_cal.hdf5")
+        plotfile = outfile.replace(".hdf5", ".jpg")
         assert os.path.exists(outfile)
         assert os.path.exists(plotfile)
         os.unlink(plotfile)
 
-        # Reload unfiltered cal
+        # Reload unfiltered cal, a cache in intermediatedir
+        unfilt = output_file_name(self.config_file, "_cal_unfilt.hdf5", intermediate=True)
+        assert os.path.exists(unfilt)
+        os.unlink(outfile)
         main_cal(("-c " + self.config_file).split(" "))
-        assert os.path.exists(plotfile)
+        assert os.path.exists(outfile)
+
+    def test_sdtcal_cache_follows_config_changes(self, tmp_path):
+        """The SDTcal cache is rebuilt when the calibrators or the cleaning options change.
+
+        Before, a cache named after the config file was reused even after the config
+        file was rewritten with other calibrators, silently giving the old calibration.
+        """
+        config_file = str(tmp_path / "cache_test.ini")
+        template = (
+            "[local]\nworkdir : {d}\ndatadir : {d}\nproductdir : {p}\n\n"
+            "[analysis]\nlist_of_directories :\n  sim/crossscans/\n"
+            "calibrator_directories :\n{cals}\n"
+        )
+
+        def run(cals, *args):
+            with open(config_file, "w") as fobj:
+                fobj.write(
+                    template.format(
+                        d=self.datadir,
+                        p=tmp_path / "prod",
+                        cals="\n".join(f"  {c}" for c in cals),
+                    )
+                )
+            main_cal(["-c", config_file, *args])
+            unfilt = output_file_name(config_file, "_cal_unfilt.hdf5", intermediate=True)
+            dirs = CalibratorTable.read(unfilt)["Dir"]
+            return {os.path.basename(os.path.normpath(str(d))) for d in dirs}
+
+        assert run(["sim/calibration/", "sim/calibration2/"]) == {"calibration", "calibration2"}
+        with pytest.warns(UserWarning, match="changed since the cached"):
+            assert run(["sim/calibration/"]) == {"calibration"}
+        with pytest.warns(UserWarning, match="changed since the cached"):
+            run(["sim/calibration/"], "--nofilt")
+        # Same settings: the cache is reused without warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error", message=".*changed since the cached")
+            run(["sim/calibration/"], "--nofilt")
 
     def test_sdtcal_with_sample_config(self):
         if os.path.exists("sample_config_file.ini"):
@@ -281,13 +435,185 @@ class TestCalibration:
         if HAS_MPL:
             for f in glob.glob("*.jpg"):
                 os.unlink(f)
-        for d in klass.config["list_of_directories"]:
-            hfiles = glob.glob(os.path.join(klass.config["datadir"], d, "*.hdf5"))
-            for h in hfiles:
-                os.unlink(h)
-
-            dirs = glob.glob(os.path.join(klass.config["datadir"], d, "*_scanfit"))
-            for dirname in dirs:
-                shutil.rmtree(dirname)
+        # Processed scans and fit plots are all below productdir
+        shutil.rmtree(klass.config["productdir"], ignore_errors=True)
         if os.path.exists(klass.calfile):
             os.remove(klass.calfile)
+
+
+def test_safe_fit_baseline_plus_bell_does_not_crash():
+    """When the Gaussian fit raises, the safe wrapper warns and returns None. A strong spike
+    makes it raise only with some astropy/scipy versions: x and y of different lengths always do."""
+    x = np.linspace(-0.24, 0.24, 475)
+    y = np.zeros(474)
+    with pytest.warns(UserWarning, match="Fit failed in test_scan"):
+        model, fit_info = _safe_fit_baseline_plus_bell(x, y, "test_scan")
+    assert model is None
+    assert fit_info is None
+
+
+def _fit_table(nrows=30, seed=0):
+    """A CalibratorTable with only the columns used by flag_outliers, as in an old file."""
+    rng = np.random.default_rng(seed)
+    t = Table()
+    t["Dir"] = ["obs0"] * nrows
+    t["Source"] = ["Src"] * nrows
+    t["Chan"] = ["Feed0_LCP"] * nrows
+    t["Scan Type"] = ["RA>", "Dec>"] * (nrows // 2)
+    t["Counts"] = rng.normal(100, 1, nrows)
+    t["Width"] = rng.normal(0.04, 0.001, nrows)
+    t["Resid Std"] = rng.normal(1, 0.03, nrows)
+    return CalibratorTable(t)
+
+
+def test_flag_outliers():
+    """Fits with anomalous residual rms, amplitude or width are flagged, and only those."""
+    caltable = _fit_table()
+    caltable["Resid Std"][5] = 5
+    caltable["Counts"][12] = 200
+    caltable["Width"][20] = 0.2
+    with pytest.warns(UserWarning, match="outlier"):
+        caltable.flag_outliers(nsigma=5)
+    assert sorted(np.flatnonzero(caltable["Outlier"])) == [5, 12, 20]
+
+
+def test_flag_outliers_old_table_without_residuals():
+    """Tables from older versions (no "Resid Std") are still checked on amplitude."""
+    caltable = _fit_table()
+    caltable.remove_column("Resid Std")
+    caltable = CalibratorTable(caltable)
+    caltable["Counts"][12] = 200
+    with pytest.warns(UserWarning, match="outlier"):
+        caltable.flag_outliers(nsigma=5)
+    assert sorted(np.flatnonzero(caltable["Outlier"])) == [12]
+
+
+def test_flag_outliers_small_groups_untouched():
+    """Groups with too few fits for a robust spread are never flagged."""
+    caltable = _fit_table(nrows=8)
+    caltable["Counts"][2] = 200
+    caltable.flag_outliers(nsigma=5)
+    assert not np.any(caltable["Outlier"])
+
+
+def test_treat_scan_multifeed_fits_each_channel_with_its_own_feed(tmp_path, monkeypatch):
+    """On a 7-feed scan, each channel is fitted once, with its own feed's coordinates."""
+    datadir = os.path.join(os.path.dirname(__file__), "data")
+    fname = str(tmp_path / "srt_data_tp_multif.fits")
+    shutil.copyfile(os.path.join(datadir, "srt_data_tp_multif.fits"), fname)
+    # Without a config, the default ./srttools_products goes to tmp_path
+    monkeypatch.chdir(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        retval, rows = _treat_scan(fname, max_offset=None)
+    assert retval
+    chans = [r[4] for r in rows]
+    feeds = [r[5] for r in rows]
+    assert len(chans) == len(set(chans))
+    assert feeds == [int(ch[4]) for ch in chans]
+
+
+def test_treat_scan_skips_subscans_missing_the_source(tmp_path, monkeypatch):
+    """A calibrator subscan whose feeds all pass >10 beams from the source (here, a
+    map subscan) gives no fits: fitting noise would give a meaningless Flux/Counts."""
+    datadir = os.path.join(os.path.dirname(__file__), "data")
+    fname = str(tmp_path / "srt_data_tp_multif.fits")
+    shutil.copyfile(os.path.join(datadir, "srt_data_tp_multif.fits"), fname)
+    # Without a config, the default ./srttools_products goes to tmp_path
+    monkeypatch.chdir(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        retval, rows = _treat_scan(fname)
+    assert retval
+    assert rows == []
+
+
+def test_calibrator_fits_write_only_below_productdir(tmp_path, monkeypatch):
+    """SDTcal fits honour the config file: plots and temporary files go below
+    its intermediatedir, never next to the raw data or into the current directory."""
+    datadir = tmp_path / "data"
+    datadir.mkdir()
+    fname = str(datadir / "srt_data_tp_multif.fits")
+    shutil.copyfile(
+        os.path.join(os.path.dirname(__file__), "data", "srt_data_tp_multif.fits"), fname
+    )
+    config_file = tmp_path / "cal.ini"
+    config_file.write_text(
+        f"[local]\ndatadir : {datadir}\nproductdir : {tmp_path / 'out'}\n"
+        "[analysis]\nlist_of_directories :\n    ./\n"
+    )
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        CalibratorTable().from_scans([fname], config_file=str(config_file))
+        retval, _ = _treat_scan(fname, plot=True, max_offset=None, config_file=str(config_file))
+    assert retval
+    assert os.listdir(cwd) == []
+    assert os.listdir(datadir) == ["srt_data_tp_multif.fits"]
+    plotdirs = glob.glob(
+        str(tmp_path / "out" / "intermediate" / "**" / "*_scanfit"), recursive=True
+    )
+    assert len(plotdirs) == 1 and os.listdir(plotdirs[0])
+
+
+@pytest.fixture(scope="module")
+def offset_crosses(tmp_path_factory):
+    """Calibrator table of simulated crosses at Dec 75 deg, with the source 0.5'
+    off in RA and 1' off in Dec (on the sky) from the pointed position."""
+    tmp_path = tmp_path_factory.mktemp("offset_crosses")
+    caldir = tmp_path / "data" / "cal"
+    caldir.mkdir(parents=True)
+    sim_crossscans(
+        2, str(caldir), pointing_offset=(0.5 / 60, 1.0 / 60), noise_amplitude=0.05, rng=4
+    )
+    config_file = tmp_path / "cal.ini"
+    config_file.write_text(
+        f"[local]\ndatadir : {tmp_path / 'data'}\nproductdir : {tmp_path / 'out'}\n"
+        "[analysis]\nlist_of_directories :\n    cal\n"
+    )
+    caltable = CalibratorTable()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        caltable.from_scans(
+            list_scans(str(tmp_path / "data"), ["cal"]), config_file=str(config_file)
+        )
+    return caltable
+
+
+def test_pointing_errors_are_offsets_on_the_sky(offset_crosses):
+    """``RA err`` and ``Dec err`` are the fitted source offsets on the sky (arcmin
+    here): the RA one includes cos(Dec), so at Dec 75 deg it is not 3.9 times too large."""
+    is_ra = np.array([str(s).startswith("RA") for s in offset_crosses["Scan Type"]])
+    ra_err = np.asarray(offset_crosses["RA err"][is_ra], dtype=float) * 60
+    dec_err = np.asarray(offset_crosses["Dec err"][~is_ra], dtype=float) * 60
+    assert np.allclose(ra_err, 0.5, atol=0.05)
+    assert np.allclose(dec_err, 1.0, atol=0.05)
+
+
+def test_amplitudes_corrected_for_offset_across_the_scan(offset_crosses):
+    """RA subscans pass 1' beside the source (Dec offset), Dec subscans 0.5': the
+    amplitudes, corrected with the offsets of the perpendicular subscans, agree
+    (uncorrected, the RA ones would be 6% lower)."""
+    is_ra = np.array([str(s).startswith("RA") for s in offset_crosses["Scan Type"]])
+    sigma = 2.5
+    for ch in ["Feed0_LCP", "Feed0_RCP"]:
+        good = np.array([str(c) == ch for c in offset_crosses["Chan"]])
+        ra, dec = good & is_ra, good & ~is_ra
+        corr = np.asarray(offset_crosses["Offset Corr"])
+        assert np.allclose(corr[ra], np.exp(1.0**2 / (2 * sigma**2)), rtol=0.005)
+        assert np.allclose(corr[dec], np.exp(0.5**2 / (2 * sigma**2)), rtol=0.005)
+        counts = np.asarray(offset_crosses["Counts"])
+        assert np.isclose(np.mean(counts[ra]) / np.mean(counts[dec]), 1, atol=0.005)
+
+
+def test_no_offset_correction_without_perpendicular_subscans(offset_crosses):
+    """Subscans in one direction only (e.g. a calibrator map) give no estimate of the
+    offset across them: they are left uncorrected, also when corrected before."""
+    is_ra = np.array([str(s).startswith("RA") for s in offset_crosses["Scan Type"]])
+    caltable = CalibratorTable(offset_crosses[is_ra], copy=True)
+    raw = caltable["Counts"] / caltable["Offset Corr"]
+    caltable.correct_pointing_offsets()
+    assert np.all(caltable["Offset Corr"] == 1)
+    assert np.allclose(caltable["Counts"], raw)

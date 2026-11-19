@@ -35,7 +35,7 @@ except ImportError:
 
 
 def create_dummy_config(filename="monitor_config.ini", extension="png"):
-    config_str = f"[local]\nproductdir : .\nbasename_only : True\n[analysis]\n[debugging]\ndebug_file_format : {extension}"
+    config_str = f"[local]\nproductdir : .\nintermediatedir : .\nbasename_only : True\n[analysis]\n[debugging]\ndebug_file_format : {extension}"
     with open(filename, "w") as fobj:
         print(config_str, file=fobj)
     return filename
@@ -134,8 +134,10 @@ class Monitor:
             if not self._verbosity:
                 warnings.simplefilter("ignore")
             configuration = read_config(self._config_file)
-        self._productdir = configuration["productdir"]
+        # The scans, and their plots, are written to intermediatedir
+        self._productdir = configuration["intermediatedir"]
         self._workdir = configuration["workdir"]
+        self._datadir = configuration["datadir"]
         self._basename_only = configuration["basename_only"]
         self._extension = configuration["debug_file_format"]
 
@@ -269,7 +271,7 @@ class Monitor:
         productdir, fname = product_path_from_file_name(
             infile,
             productdir=self._productdir,
-            workdir=self._workdir,
+            datadir=self._datadir,
             basename_only=self._basename_only,
         )
         root = os.path.join(productdir, fname.rsplit(".fits")[0])

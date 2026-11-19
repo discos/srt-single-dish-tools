@@ -18,7 +18,7 @@ Let us consider the following example: we analyzed a noisy dataset with SDTprepr
     [I] 2025-01-20 10:22:26 root: Expected bin size: 2.91 arcmin at 6750.0 MHz
     [I] 2025-01-20 10:22:26 root: Pixel size set at 1/4 beam: 0.72763 arcmin
 
-The script will have generated a number of HDF5 files (named like the original FITS files, but with ``.hdf5`` extension), one for each polarization and feed, and thanks to the ``--plot`` option, a filtering plot for each feed and polarization, like this:
+The script will have generated a number of HDF5 files (named like the original FITS files, but with ``.hdf5`` extension) in the intermediate product directory (``intermediatedir``, by default the subdirectory ``intermediate`` of ``productdir``), one for each polarization and feed, and thanks to the ``--plot`` option, a filtering plot for each feed and polarization, like this:
 
 .. figure:: ../images/noisy_ccb.jpg
    :width: 80 %
@@ -29,7 +29,7 @@ Now, we can use the ``SDTrfistat`` script to generate a report on the noisy freq
 
 .. code-block:: bash
 
-    $ SDTrfistat <path/to/data>/*.hdf5
+    $ SDTrfistat <path/to/intermediatedir>/*/*.hdf5
     [I] 2025-01-20 10:03:11 root: 20010101/20010101-190718-36-24-3C48/20010101-190718-36-24-3C48_001_002.hdf5 - CCB_SARDARA_Feed0_LCP
     [I] 2025-01-20 10:03:11 root: 20010101/20010101-190718-36-24-3C48/20010101-190718-36-24-3C48_001_002.hdf5 - CCB_SARDARA_Feed0_RCP
     [I] 2025-01-20 10:03:11 root: 20010101/20010101-190718-36-24-3C48/20010101-190736-36-24-3C48_001_003.hdf5 - CCB_SARDARA_Feed0_LCP
@@ -53,7 +53,9 @@ Now, we can use the ``SDTrfistat`` script to generate a report on the noisy freq
     [I] 2025-01-20 10:04:49 root: 7346.191485917644--7498.53525625
     [I] 2025-01-20 10:04:49 root: CCB_SARDARA_Feed0_RCP_rfi.hdf5: 5999.9999:6057.128813874633,6058.593657820136:6074.706941220675,6090.820224621212:6093.7499125122185,6099.609288294232:6101.074132239736,6104.0038201307425:6106.93350802175,6150.878826386852:6172.851485569404,6186.035081078934:6187.499925024438,6250.488214681085:6251.953058626588,6312.011660392229:6313.476504337732,6370.605418212365:6408.691360795455,6499.511685416666:6500.97652936217,6537.597627999756:6547.85153561828,6562.499975073314:6563.964819018817,6625.488264729961:6626.953108675464,6687.011710441105:6688.476554386608,6748.535156152248:6750.000000097752,6811.523445808895:6812.9882897543985,6873.046891520039:6874.511735465542,6934.570337231183:6937.50002512219,6999.023470833334:7000.488314778837,7060.546916544477:7062.011760489981,7120.605518310117:7127.929738037635,7186.523495857771:7187.988339803274,7248.046941568915:7249.511785514418,7253.9063173509285:7255.371161296433,7289.062572043011:7290.527415988514,7300.781323607038:7303.711011498045,7309.570387280059:7312.500075171066,7322.75398278959:7324.218826735093,7333.007890408114:7334.472734353617,7340.3321101356305:7341.796954081134,7347.656329863148:7448.730562102884,7451.660249993891:7457.519625775904,7463.379001557918:7464.843845503421,7486.816504685973:7488.281348631476,7489.746192576979:7498.53525625
 
-The script generates some HDF5 files containing the bad frequency intervals, and some plots (one per receiver) showing the distribution of bad frequency ranges:
+The same can be done giving the config file instead of the files: ``SDTrfistat -c CCB_SARDARA_9_9_6000_1500_MYSRC_Obs0.ini`` uses the processed scans of all the directories of the config file (``SDTpreprocess`` must have been run first).
+
+The script generates some HDF5 files containing the bad frequency intervals, and some plots (one per receiver) showing the distribution of bad frequency ranges. They are written in the current directory or, with ``-c``, in the product directory (``productdir``, or ``--productdir``):
 
 .. figure:: ../images/rfi_stats.jpg
    :width: 80 %
@@ -62,7 +64,7 @@ The script generates some HDF5 files containing the bad frequency intervals, and
 
 Note the vertical red cut line in the right plots, which indicates the cut on the frequency of RFIs (in this case, 10\% of the frequency of the strongest RFI). This parameter can be adjusted: For example, ``--threshold 5`` will tell ``SDTrfistat`` to cut at the 5\% level.
 
-Once you have run ``SDTrfistat``, it is not necessary to feed it again with all files in order to change the threshold or do small adjustments. You can run it without any file, and it will use the cache files it generated during the run (typically files named ``*_rfi.hdf5``)
+Once you have run ``SDTrfistat``, it is not necessary to feed it again with all files in order to change the threshold or do small adjustments. You can run it without any file, and it will use the cache files it generated during the run (typically files named ``*_rfi.hdf5``) in the current directory (with ``-c``, if no processed scans are found, those in the product directory).
 
 With the results of the report, you can re-run ``SDTpreprocess`` or ``SDTimage`` with the ``--bad-intervals`` option to exclude the bad frequency intervals from the analysis. For example:
 

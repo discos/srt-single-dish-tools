@@ -25,6 +25,7 @@ from srttools.scan import (
     Scan,
     clean_scan_using_variability,
     find_summary_file_in_dir,
+    interpret_frequency_range,
     product_path_from_file_name,
 )
 from srttools.utils import compare_anything
@@ -95,10 +96,11 @@ class Test1_Scan:
 
         config = read_config(klass.config_file)
 
-        h5file = os.path.join(config["productdir"], "gauss_dec", "Dec0.hdf5")
+        h5file = os.path.join(config["intermediatedir"], "gauss_dec", "Dec0.hdf5")
         if os.path.exists(h5file):
             os.unlink(h5file)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_clean_large_data(self, caplog):
         """Test that large data sets needing pickling are handled correctly."""
 
@@ -117,6 +119,7 @@ class Test1_Scan:
         # No new pickle files have survived the cleaning!
         assert len(new_pickle_files) == 0
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_clean_bad_thresh(self):
         """Test that an incorrect noise threshold produces no good data."""
 
@@ -257,11 +260,6 @@ class Test1_Scan:
         for m in scan_from_table.meta.keys():
             assert scan_from_table.meta[m] == scan.meta[m]
 
-    @pytest.mark.skipif("not HAS_MPL")
-    def test_interactive(self):
-        scan = Scan(self.fname)
-        scan.interactive_filter("Feed0_RCP", test=True)
-
     @pytest.mark.parametrize("fname", ["med_data.fits", "srt_data_tp_multif.fits"])
     def test_coordinate_conversion_works(self, fname):
         scan = Scan(os.path.join(self.datadir, fname), norefilt=False)
@@ -314,11 +312,12 @@ class Test2_Scan:
         klass.config_file = os.path.abspath(os.path.join(klass.datadir, "spectrum.ini"))
         config = read_config(klass.config_file)
 
-        h5file = os.path.join(config["productdir"], "spectrum", "roach_template.hdf5")
+        h5file = os.path.join(config["intermediatedir"], "spectrum", "roach_template.hdf5")
         if os.path.exists(h5file):
             os.unlink(h5file)
         klass.config = config
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_scan(self):
         """Test that data are read."""
 
@@ -337,17 +336,36 @@ class Test2_Scan:
             "new_sardara.fits3",
         ],
     )
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_scan_loading(self, fname):
         """Test that data are read."""
 
         Scan(os.path.join(self.datadir, "spectrum", fname), plot=True)
         assert os.path.exists(
             os.path.join(
-                self.config["productdir"],
+                self.config["intermediatedir"],
                 "spectrum",
                 fname.replace(".fits", "") + ".hdf5",
             )
         )
+
+    @pytest.mark.parametrize("freqsplat", [None, "100:400"])
+    def test_scan_frequency_after_splat(self, freqsplat):
+        """Cleaning keeps only part of the band: the start frequency must move with it.
+
+        Before the fix, only the bandwidth changed, so the band looked shifted down.
+        """
+        raw = read_data_fitszilla(self.fname)
+        scan = Scan(self.fname, freqsplat=freqsplat, nosave=True, norefilt=False)
+        for ch in scan.chan_columns():
+            bw = raw[ch].meta["bandwidth"].to(u.MHz).value
+            fmin, fmax, _, _ = interpret_frequency_range(freqsplat, bw, raw[ch].shape[1])
+            meta = scan[ch].meta
+            assert np.isclose(
+                u.Quantity(meta["frequency"], u.MHz).value,
+                raw[ch].meta["frequency"].to(u.MHz).value + fmin,
+            )
+            assert np.isclose(u.Quantity(meta["bandwidth"], u.MHz).value, fmax - fmin)
 
     def test_scan_loading_badchans(self):
         """Test that data are read."""
@@ -360,7 +378,7 @@ class Test2_Scan:
         assert np.any(["Bad channels in the data set" in r.message.args[0] for r in record])
         assert os.path.exists(
             os.path.join(
-                self.config["productdir"],
+                self.config["intermediatedir"],
                 "spectrum",
                 fname.replace(".fits", "") + ".hdf5",
             )
@@ -477,36 +495,31 @@ class TestSummary:
 
 
 class TestScanUtils:
-    def test_product_path_from_file_name(self):
-        # f, w and p below are respectively fname, workdir and productdir
-        # The expected path should be composed in the following way
-        # productdir + (fname - the directories in common with workdir)
-        # and we take out the file name at the end
-        # resulting in '/tmp/.tox/cov/d/e'
-        # By using os.path.commonprefix, the resulting path is instead
-        # '/tmp/../.tox/cov/d/e', which normalized is '/.tox/cov/d/e'
-        # which not only is the wrong directory,
-        # but it is also a directory where, in this example,
-        # the process cannot write, and even if it could, it should definitely not!
-        f = "/a/b/c/.tox/cov/d/e/pippo.pippo"
-        w = "/a/b/c/.tmp/cov"
-        p = "/tmp"  # noqa: S108
-        expected = Path("/tmp/.tox/cov/d/e").absolute()  # noqa: S108
-        path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
-        assert Path(path).absolute() == expected
+    def test_product_path_mirrors_datadir(self):
+        """Products of files inside datadir mirror the directory structure below datadir only."""
+        d = os.path.join(os.sep + "a", "b", ".tox", "data")
+        f = os.path.join(d, "obs1", "sub", "pippo.fits")
+        p = os.path.abspath("prod")
+        path, fname = product_path_from_file_name(f, datadir=d, productdir=p)
+        assert fname == "pippo.fits"
+        assert path == os.path.join(p, "obs1", "sub")
+        # Relative datadir
+        path, _ = product_path_from_file_name(f, datadir=os.path.relpath(d), productdir=p)
+        assert path == os.path.join(p, "obs1", "sub")
 
-        # Use a relative path for workdir
-        path, fname = product_path_from_file_name(f, workdir=os.path.relpath(w), productdir=p)
-        assert Path(path).absolute() == expected
-        # Exception not raised
+    def test_product_path_outside_datadir(self):
+        """Products of files outside datadir go to a folder named as their own, not to a
+        copy of their whole absolute path."""
+        f = os.path.join(os.sep + "x", "y", "obs2", "pippo.fits")
+        d = os.path.join(os.sep + "a", "b", "data")
+        p = os.path.abspath("prod")
+        path, _ = product_path_from_file_name(f, datadir=d, productdir=p)
+        assert path == os.path.join(p, "obs2")
 
-        # We mock commonpath by using commonprefix instead
-        from unittest.mock import patch
-
-        with patch(
-            "srttools.scan.os.path.commonpath", side_effect=os.path.commonprefix
-        ) as mock_patch:
-            path, fname = product_path_from_file_name(f, workdir=w, productdir=p)
-            mock_patch.assert_called_once()
-            # Resulting path is not correct
-            assert Path(path).absolute() != expected
+    @pytest.mark.skipif(os.name != "nt", reason="Drive letters exist only on Windows")
+    def test_product_path_other_drive(self):
+        """Data on a different drive than datadir do not raise an error."""
+        path, _ = product_path_from_file_name(
+            "D:\\data\\obs3\\pippo.fits", datadir="C:\\work", productdir="C:\\prod"
+        )
+        assert path == "C:\\prod\\obs3"

@@ -119,6 +119,7 @@ equals signs being changed to semicolons):
     [local]
     workdir = .
     datadir = .
+    productdir = my_products
 
     [analysis]
     projection = ARC
@@ -148,6 +149,64 @@ a larger value is better for sparse observations.
 
 Also, you might know already that some observations were bad. In this case,
 it's sufficient to take them out of the list above.
+
+``productdir`` is the directory where the programs write their *final*
+products: the images of ``SDTimage``, the calibration tables of ``SDTcal``,
+the light curves of ``SDTlcurve``, the results of ``SDTcross``. Their names
+start with the name of the config file (e.g. ``CCB_ROACH_Src1_Obs0.fits``).
+
+The *intermediate* products, i.e. the processed scans (``HDF5`` files, one
+per subscan), the diagnostic plots, and the ``_dump.hdf5`` files of
+``SDTimage``, go to another directory, ``intermediatedir``. By default, it is
+the subdirectory ``intermediate`` of ``productdir``; you can choose another
+one with an ``intermediatedir`` line in the ``[local]`` section. Inside it,
+the processed scans keep the same directory structure they have in
+``datadir``.
+
+Both directories can also be given on the command line, with
+``--productdir`` and ``--intermediatedir``, to all the programs that read
+the config file (``SDTpreprocess``, ``SDTimage``, ``SDTcal``,
+``SDTlcurve``, ``SDTcross``). They replace the ones of the config file for
+that run.
+
+.. note::
+
+    **Where the products go: a change of behaviour.**
+
+    + Older versions of ``srttools`` wrote the processed scans *next to the
+      raw data* when the config file had no ``productdir``. This is no longer
+      the case: the raw data directories are never written to. If the config
+      file has no ``productdir`` (or ``productdir : None``), all programs use
+      a directory called ``srttools_products``, created in the directory
+      *where you launch the program*, and print a warning that says so. To
+      avoid the warning, and to be sure that all programs use the same
+      directory wherever you launch them from, set ``productdir`` in the
+      ``[local]`` section of the config file.
+
+    + Older versions wrote the processed scans directly in ``productdir``,
+      and the images, calibration tables and dump files next to the config
+      file. Now the processed scans go to ``intermediatedir`` (by default
+      ``productdir/intermediate``), and the final products to
+      ``productdir``. With an old config file, the processed scans of the
+      old version are not found, and the scans are processed again. If you
+      want to keep them (e.g. because you cleaned them by hand), run
+
+      .. code-block:: console
+
+          (py3) $ SDTupgradeconfig CCB_ROACH_Src1_Obs0.ini
+
+      which adds ``intermediatedir`` (equal to the old ``productdir``) to the
+      config file, and keeps the original as ``CCB_ROACH_Src1_Obs0.ini.bak``.
+      The programs print a warning pointing to ``SDTupgradeconfig`` when they
+      find old processed scans in ``productdir``.
+
+    + ``HDF5`` files written next to the raw data by an older version are
+      not found any more: the scans are processed again from the ``fits``
+      files, which is slower the first time but gives the same results. Edits
+      made by hand with the old interactive filter were stored only in those
+      files, so they are not applied. To keep using the old files, copy them
+      to a new directory with the same structure and set ``intermediatedir``
+      to it.
 
 .. _all projections in this list are supported: https://docs.astropy.org/en/stable/wcs/supported_projections.html
 
@@ -204,18 +263,77 @@ steps:
    of the scan, and then improves it by selecting the data that
    are closer to the baseline and making a standard least-square fit.
    This procedure is very fast and aligns the vast majority
-   of scans in a fraction of a second. For more complicated scans, an interactive
-   interface is also available, albeit with some portability issues that will be
-   solved in future versions (use the ``--interactive`` option).
+   of scans in a fraction of a second. To fix single subscans by hand while
+   looking at the map, see the interactive filtering of ``SDTimage`` below.
    It is possible to avoid regions with known strong sources. For now, they need
    to be specified by hand, with the ``-e`` option followed by a valid ds9-compatible
    region file containing *circular* regions in the ``fk5`` frame.
 
-3. The results of the first points are saved as ``HDF5`` files in the same directory
-   as the original ``fits`` files. This makes it
+3. The results of the first points are saved as ``HDF5`` files in the
+   intermediate product directory (``intermediatedir``, by default
+   ``productdir/intermediate``; see above), never next to the original
+   ``fits`` files. This makes it
    much faster to reload the scans for further use. **If the user wants to reprocess
    the files from scratch**, they need to delete these files first, or select the
    ``--refilt`` option.
+
+.. _preprocess_interactive:
+
+Check and clean the scans by hand
++++++++++++++++++++++++++++++++++
+The automatic cleaning does not catch everything. To look at the scans one by
+one, and fix them by hand, add ``--interactive``:
+
+.. code-block:: console
+
+    (py3) $ SDTpreprocess -c CCB_TP_Src1_Obs0.ini --splat 80:1100 --sub --interactive
+
+After the automatic cleaning, ``SDTpreprocess`` opens a web page (the same
+kind of page as the interactive filter of ``SDTimage`` described
+:ref:`below <interactive_map>`, where you also find how to install it and how
+to use it on a remote machine through ``ssh``). No map is calculated here:
+the page lists all the subscans instead.
+
+.. figure:: ../images/web_filter_scans.png
+   :width: 100 %
+   :alt: list of scans in the interactive filter page
+   :align: center
+
+   **Figure 3.** The page opened by ``SDTpreprocess --interactive``. On the
+   left, the list of subscans, with the coordinate that changes along each
+   of them, the fraction of masked samples in the current channel, and
+   whether the subscan is flagged. On the right, the subscan chosen in the
+   list. The grey dots on the left of the plot are masked samples; the red
+   strip is a range marked for the next operation.
+
++ **Click a row** of the list, or use **Previous scan** / **Next scan**, to
+  plot a subscan.
+
++ **Drag** horizontally on the plot to mark one or more ranges (red strips),
+  then use **Zap range** (mask the samples in the ranges) or **Fit baseline**
+  (fit a straight line to the samples in the ranges, which should contain no
+  source, and subtract it). **Flag** masks the whole subscan in all channels,
+  **Unflag** removes all its masks, **Undo** cancels the last edit.
+
++ **Save** writes the edited subscans to the directory in the "Save to" box.
+  The box is never empty: it starts with the intermediate product directory
+  (``intermediatedir``) of the config file, where the processed scans are.
+  You can type another directory ("save as"); the page tells you at once if
+  it cannot be used (it cannot be created, or it is the raw data directory,
+  which is never written to), and reminds you to put it in the config file
+  as ``intermediatedir`` so that ``SDTimage`` finds the edited scans.
+
++ **Close and continue** ends ``SDTpreprocess``. If there are edits that were
+  not saved, the first press only warns you; press again to discard them.
+
+``--interactive`` always needs the config file, which says where the cleaned
+scans are saved. To clean again only a few subscans, give their files too:
+
+.. code-block:: console
+
+    (py3) $ SDTpreprocess -c MySource.ini --interactive path/to/subscan1.fits path/to/subscan2.fits
+
+and the page lists only those.
 
 .. _Eilers and Boelens 2005: https://zanran_storage.s3.amazonaws.com/www.science.uva.nl/ContentPages/443199618.pdf
 
@@ -304,10 +422,12 @@ x,y=30,33 with radius 10 pixels, run
    :alt: map
    :align: center
 
-   **Figure 3.** Map produced by ``SDTimage``
+   **Figure 4.** Map produced by ``SDTimage``
 
-Advanced imaging (TBC)
-~~~~~~~~~~~~~~~~~~~~~~
+.. _interactive_map:
+
+Interactive filtering of the map
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The automatic RFI removal procedure is often unable to clean all the data.
 The map might have some residual "stripes" due to bad scans. No worries! Launch
 the above command with the ``--interactive`` option
@@ -316,21 +436,93 @@ the above command with the ``--interactive`` option
 
     (py3) $ SDTimage -c MySource.ini --splat <freqmin>:<freqmax> --interactive
 
-This will open a screen like this:
+The interactive filter is a web page, built with `Bokeh`_. Install it with
+``pip install srttools[interactive]`` (or just ``pip install bokeh``).
+``SDTimage`` starts a small web server on your computer and prints the address
+of the page, by default ``http://localhost:5006/`` (choose another port with
+``--port``). If you are working on your own computer, the page opens in your
+browser.
 
-    <placeholder>
+**Working on a remote machine.** If you are logged in through ``ssh`` (e.g.
+on the observatory computers), ``SDTimage`` prints a command like
 
-where on the right you have the current status of the image, and on the left,
-larger, an image of the *standard deviation* of the pixels. Pixels with higher
-standard deviation might be due to a real source with high variability or high
-flux gradients, or to interferences. On this standard deviation image, you can
-point with the mouse and press 'A' on the keyboard to load all scans passing
-through that pixel. A second window will appear with a bunch of scans.
+.. code-block:: console
 
-    <placeholder>
+    ssh -N -L 5006:localhost:5006 obs@calc1
 
-Click on a bad scan and filter it according to the instructions printed in the
-terminal.
+Run it in a terminal *on your own computer*: it forwards ("tunnels") the port
+of the remote web server to your computer. Then open
+``http://localhost:5006/`` in your browser. The server only accepts
+connections from the machine it runs on: other computers on the network
+cannot reach it, but other users logged in to the same machine can.
+
+.. figure:: ../images/web_filter.png
+   :width: 100 %
+   :alt: interactive filter page
+   :align: center
+
+   **Figure 5.** The interactive filter page. A pixel near the left border of
+   the map (cyan square) has three Dec subscans going through it. The grey
+   dots are samples of a subscan that were masked ("zapped"); the red strip
+   is a range selected for the next operation.
+
+How to use the page:
+
++ On the left, the map. Choose the channel at the top. "Outliers" shows,
+  instead of the image, how much the samples in each pixel disagree with each
+  other: a bright pixel there often points to a bad subscan.
+
++ **Click a pixel**: the subscans passing through it appear on the right,
+  Dec scans (the declination changes along the scan) on top, RA scans below.
+
++ **Click a line** to select that subscan; **drag** horizontally on the plot
+  to select one or more ranges of the coordinate along the scan (red strips).
+  "Clear ranges" removes them.
+
++ Then:
+
+  - **Zap range**: mask the samples of the selected subscan inside the
+    ranges, in the current channel;
+  - **Flag** / **Unflag**: mask the whole subscan, in all channels / remove
+    all its masks;
+  - **Fit baseline**: fit a straight line to the samples inside the ranges
+    (choose ranges with no source!) and subtract it from the subscan;
+  - **Align all**: shift and tilt the other subscans through the pixel to
+    match the selected one.
+
++ **Apply** recomputes the map with the edits, **Undo** cancels the last
+  edit. The list of edits is shown at the bottom.
+
++ **Save** writes the edited subscans to the directory in the "Save to" box,
+  which starts with the intermediate product directory (``intermediatedir``
+  of the config file, or ``srttools_products/intermediate``) and can be
+  changed, as explained
+  :ref:`above <preprocess_interactive>`. The raw data are never touched. Edits
+  that are not saved are still used for the images of the current run.
+
++ **Close and continue**: ``SDTimage`` goes on and writes the final images.
+
+Edits are kept in memory by the program, not by the page: reloading the page
+does not lose them.
+
+The same page also works in a Jupyter notebook, on a scan set you loaded or
+created there:
+
+.. code-block:: python
+
+    from bokeh.io import output_notebook, show
+    from srttools.imager import ScanSet
+    from srttools.web_filter import FilterApp
+
+    output_notebook()
+    scanset = ScanSet("MySource.ini")
+    scanset.calculate_images()
+    app = FilterApp(scanset)
+    show(app)
+    # ... edit, then:
+    images = scanset.calculate_images()
+
+.. _Bokeh: https://bokeh.org
 
 Calibration of images
 ~~~~~~~~~~~~~~~~~~~~~
@@ -370,6 +562,13 @@ Finally, call ``SDTimage`` with the ``--calibrate`` option, e.g.
 ... and that's it! The image values will be expressed in Jy instead of counts, so that
 applying a region with DS9 and calculating the total flux inside the given region will
 return the actual total flux contained in the region.
+
+Each channel also has a ``-Sdev`` map (scatter of the samples in each pixel),
+an ``-EXPO`` map (number of samples) and an ``-ERR`` map (error of the pixel
+value, including the calibration error). ERR does not include the noise
+correlated along the scans, and the calibration error does not average down
+when pixels are summed: see :ref:`image-errors` before using them for flux
+errors.
 
 Calibrated light curves
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -477,4 +676,4 @@ The correctness of the processing can be quickly tested using ``SunPy``:
    :alt: sun obs
    :align: center
 
-   **Figure 4.** Example Sun observation, plotted with ``SunPy``
+   **Figure 6.** Example Sun observation, plotted with ``SunPy``

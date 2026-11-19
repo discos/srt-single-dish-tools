@@ -80,8 +80,8 @@ rst_epilog += """
 
 # This does not *have* to match the package name, but typically does
 project = pyproject["project"]["name"]
-author = ",".join(pyproject["project"]["authors"][0]["name"])
-copyright = "{0}, {1}".format(datetime.datetime.now().year, pyproject["project"]["authors"])
+author = ", ".join(a["name"] for a in pyproject["project"]["authors"])
+copyright = "{0}, {1}".format(datetime.datetime.now().year, author)
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -173,33 +173,35 @@ edit_on_github_branch = "main"
 github_issues_url = "https://github.com/{0}/issues/".format(
     pyproject["project"]["urls"]["repository"]
 )
-if not ON_RTD and not ON_TRAVIS:
-    # scripts = dict(conf.items("options.entry_points"))["console_scripts"]
+
+
+def write_cli_docs(cli_file):
+    """Write the help of every command line script to ``scripts/cli.rst``.
+
+    The page is rebuilt at every docs build (also on Read the Docs), so it is
+    not tracked by git. Each script is run through its entry point function
+    with the Python interpreter of the build, not through the executables on
+    the PATH, which might belong to another (older) installation.
+    """
     scripts = pyproject["project"]["scripts"]
-    pwarn = os.getenv("PYTHONWARNINGS")
-
-    os.environ["PYTHONWARNINGS"] = "ignore"
-    cols = os.getenv("COLUMNS")
-    os.environ["COLUMNS"] = "80"
+    env = dict(os.environ, PYTHONWARNINGS="ignore", COLUMNS="80")
     logging_re = re.compile(r"\[([EWID])\]\s2[0-9]{3}")
-    cli_file = os.path.join(os.getcwd(), "scripts", "cli.rst")
 
+    os.makedirs(os.path.dirname(cli_file), exist_ok=True)
     with open(cli_file, "w") as fobj:
-        print("""Command line interface""", file=fobj)
-        print("""======================\n""", file=fobj)
+        print("Command line interface", file=fobj)
+        print("======================\n", file=fobj)
 
         for cl in sorted(scripts.keys()):
             print(f"Writing help for {cl}")
-            # try:
-            #     cl, fun = [val.strip() for val in script.split("=")]
-            # except ValueError:
-            #     continue
-            print(cl.strip(), file=fobj)
+            module, function = scripts[cl].split(":")
+            code = f"import sys; sys.argv[0] = {cl!r}; from {module} import {function}; {function}()"
+            print(cl, file=fobj)
             print("-" * len(cl), file=fobj)
             print(file=fobj)
             print(".. code-block:: none", file=fobj)
             print(file=fobj)
-            lines = sp.check_output([cl, "--help"]).decode().split("\n")
+            lines = sp.check_output([sys.executable, "-c", code, "--help"], env=env).decode().split("\n")
             for l in lines:
                 if logging_re.search(l):
                     continue
@@ -209,15 +211,8 @@ if not ON_RTD and not ON_TRAVIS:
                     print("    " + l, file=fobj)
             print(file=fobj)
 
-    if cols is not None:
-        os.environ["COLUMNS"] = cols
-    else:
-        del os.environ["COLUMNS"]
 
-    if pwarn is not None:
-        os.environ["PYTHONWARNINGS"] = pwarn
-    else:
-        del os.environ["PYTHONWARNINGS"]
+write_cli_docs(os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "cli.rst"))
 
 # -- Options for linkcheck output -------------------------------------------
 linkcheck_retry = 5

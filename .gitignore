@@ -51,6 +51,7 @@ coverage.xml
 *.xml
 *.png
 srttools/tests/data/sim/
+srttools/tests/data/*_classfits/
 *.zip
 *.ini
 
@@ -63,6 +64,8 @@ srttools/tests/data/sim/
 
 # Sphinx documentation
 docs/_build/
+# Rebuilt at every docs build by docs/conf.py
+docs/scripts/cli.rst
 
 # PyBuilder
 target/
@@ -76,3 +79,6 @@ srttools/_version.py
 
 # pyenv local version
 .python-version
+
+# Experiment scripts and outputs (kept locally, not useful to users)
+experiments/

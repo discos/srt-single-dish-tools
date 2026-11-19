@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 try:
     import matplotlib.pyplot as plt
@@ -9,12 +10,14 @@ except ImportError:
 
 from srttools.destripe import basket_weaving, destripe_wrapper
 
-np.random.seed(450720239)
-
 
 class TestScanSet:
     @classmethod
     def setup_class(klass):
+        # A generator of our own: the global one would give different data
+        # depending on which tests ran before (with ~2% of the draws failing
+        # the 5-sigma check of test_no_expo)
+        rng = np.random.default_rng(450720239)
         x = np.linspace(-1, 1, 101)
         y = np.linspace(-1, 1, 101)
         xx, yy = np.meshgrid(x, y)
@@ -25,17 +28,13 @@ class TestScanSet:
         klass.img_hor = 0
         klass.img_ver = 0
 
-        example_scan = np.cumsum(np.random.normal(0, 0.01, len(zz[0])))
+        example_scan = np.cumsum(rng.normal(0, 0.01, len(zz[0])))
 
         for i in range(6):
-            offset = np.random.choice(example_scan)
-            zz_hor = np.array(
-                [z + offset + np.cumsum(np.random.normal(0, 0.01, len(z))) for z in zz]
-            )
-            offset = np.random.choice(example_scan)
-            zz_ver = np.array(
-                [z + offset + np.cumsum(np.random.normal(0, 0.01, len(z))) for z in zz.T]
-            ).T
+            offset = rng.choice(example_scan)
+            zz_hor = np.array([z + offset + np.cumsum(rng.normal(0, 0.01, len(z))) for z in zz])
+            offset = rng.choice(example_scan)
+            zz_ver = np.array([z + offset + np.cumsum(rng.normal(0, 0.01, len(z))) for z in zz.T]).T
 
             if i != 0:  # One less integration over x
                 klass.img_hor += zz_hor
@@ -57,11 +56,22 @@ class TestScanSet:
 
         assert np.all(np.abs(diff_img - mean) < std * 5)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_wrapper(self):
         img_clean = basket_weaving(self.img_hor, self.img_ver)
         img_clean_w = destripe_wrapper(self.img_hor, self.img_ver)
 
         assert np.all(img_clean == img_clean_w)
+
+    @pytest.mark.parametrize("debug", [False, True])
+    def test_wrapper_plots_only_in_debug_mode(self, debug, tmp_path, monkeypatch):
+        """The diagnostic images are written to the current directory only in debug
+        mode (they were always written, 7 files per channel)."""
+        if debug and not HAS_MPL:
+            pytest.skip("matplotlib not installed")
+        monkeypatch.chdir(tmp_path)
+        destripe_wrapper(self.img_hor, self.img_ver, label="ch", debug=debug)
+        assert len(list(tmp_path.glob("ch_*.png"))) == (7 if debug else 0)
 
     def test_expo(self):
         img_clean = basket_weaving(

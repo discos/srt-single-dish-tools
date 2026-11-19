@@ -25,11 +25,10 @@ try:
 except ImportError:
     HAS_MPL = False
 
-from .fit import baseline_als, baseline_rough, contiguous_regions, linear_fun, ref_mad
-from .interactive_filter import select_data
+from .fit import baseline_als, baseline_rough, contiguous_regions, ref_mad
 from .io import get_chan_columns, get_channel_feed, mkdir_p, read_data, root_name
 from .read_config import get_config_file, read_config
-from .utils import TWOPI, get_circular_statistics, normalize_angle_mpPI
+from .utils import TWOPI, get_circular_statistics, new_figure, normalize_angle_mpPI
 
 __all__ = [
     "Scan",
@@ -39,20 +38,30 @@ __all__ = [
 ]
 
 
-def product_path_from_file_name(fname, workdir=".", productdir=None, basename_only=False):
-    """
+def product_path_from_file_name(fname, datadir=".", productdir=None, basename_only=False):
+    """Directory where the products of the raw file ``fname`` are written.
+
+    Without ``productdir``, it is the directory of the raw file. With
+    ``basename_only``, it is ``productdir``. Otherwise, the products of a file
+    inside ``datadir`` go to ``productdir`` in the same directory structure as
+    below ``datadir``; those of a file outside it go to a directory of
+    ``productdir`` with the name of the file's own directory.
+
     Examples
     --------
     >>> curpath = os.path.abspath('.')
-    >>> path, fname = product_path_from_file_name('ciao.ciao', workdir='.', productdir=None)
+    >>> path, fname = product_path_from_file_name('ciao.ciao', datadir='.', productdir=None)
     >>> os.path.abspath(path) == curpath
     True
     >>> dumdir = os.path.join('bu', 'bla')
     >>> dumfile = os.path.join(dumdir, 'ciao.ciao')
-    >>> path, fname = product_path_from_file_name(dumfile, workdir=dumdir, productdir=None)
+    >>> path, fname = product_path_from_file_name(dumfile, datadir=dumdir, productdir=None)
     >>> os.path.abspath(path) == os.path.abspath(dumdir)
     True
-    >>> path, fname = product_path_from_file_name(dumfile, workdir='bu', productdir='be')
+    >>> path, fname = product_path_from_file_name(dumfile, datadir='bu', productdir='be')
+    >>> os.path.abspath(path) == os.path.abspath(os.path.join('be', 'bla'))
+    True
+    >>> path, fname = product_path_from_file_name(dumfile, datadir='bo', productdir='be')
     >>> os.path.abspath(path) == os.path.abspath(os.path.join('be', 'bla'))
     True
     """
@@ -61,16 +70,22 @@ def product_path_from_file_name(fname, workdir=".", productdir=None, basename_on
         filedir = os.curdir
     filedir = os.path.abspath(filedir)
     if productdir is None:
-        rootdir = filedir
+        return os.path.normpath(filedir), fn
+
+    productdir = os.path.abspath(productdir)
+    if basename_only:
+        return os.path.normpath(productdir), fn
+
+    datadir = os.path.abspath(datadir)
+    try:
+        inside = os.path.commonpath([filedir, datadir]) == datadir
+    except ValueError:  # On Windows, paths on different drives
+        inside = False
+    if inside:
+        relpath = os.path.relpath(filedir, datadir)
     else:
-        productdir = os.path.abspath(productdir)
-        if basename_only:
-            rootdir = productdir
-        else:
-            workdir = os.path.abspath(workdir)
-            base = os.path.commonpath([filedir, workdir])
-            relpath = os.path.relpath(filedir, base)
-            rootdir = os.path.join(productdir, relpath)
+        relpath = os.path.basename(filedir)
+    rootdir = os.path.join(productdir, relpath)
 
     return os.path.normpath(rootdir), fn
 
@@ -378,21 +393,21 @@ def plot_light_curve(
     info_string="Empty info string",
 ):
     times = length * np.arange(lc.size) / lc.size
-    fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
-    plt.plot(times, lc)
-    plt.xlabel("Time")
-    plt.ylabel("Counts")
-    plt.gca().text(
+    fig = new_figure(figsize=(15, 15))
+    ax = fig.add_subplot()
+    ax.plot(times, lc)
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Counts")
+    ax.text(
         0.05,
         0.95,
         info_string,
         horizontalalignment="left",
         verticalalignment="top",
-        transform=plt.gca().transAxes,
+        transform=ax.transAxes,
         fontsize=16.5,
     )
-    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
-    plt.close(fig)
+    fig.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
 
 
 def plot_all_spectra(
@@ -406,17 +421,17 @@ def plot_all_spectra(
     fig=None,
 ):
     if fig is None:
-        fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
+        fig = new_figure(figsize=(15, 15))
+    ax = fig.add_subplot()
 
     for i in dynamical_spectrum:
-        plt.plot(allbins[1:], i[1:])
+        ax.plot(allbins[1:], i[1:])
 
     meanspec = np.sum(dynamical_spectrum, axis=0) / dynamical_spectrum.shape[0]
 
-    plt.plot(allbins[1:], meanspec[1:])
-    plt.xlabel("Time")
-    plt.ylabel("Counts")
-    ax = plt.gca()
+    ax.plot(allbins[1:], meanspec[1:])
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Counts")
     ax.text(
         0.05,
         0.95,
@@ -426,8 +441,7 @@ def plot_all_spectra(
         transform=ax.transAxes,
         fontsize=16.5,
     )
-    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
-    plt.close(fig)
+    fig.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
 
 
 def _clean_spectrum(dynamical_spectrum, stat_file, length, filename, nofilt=False):
@@ -539,7 +553,7 @@ def plot_spectrum_cleaning_results(
 
     bandwidth_unit = cleaning_results.freqmin.unit
 
-    fig = plt.figure(f"{outfile}_{label}", figsize=(15, 15))
+    fig = new_figure(figsize=(15, 15))
 
     if len(lc_corr) < 10:
         plot_all_spectra(
@@ -557,23 +571,24 @@ def plot_spectrum_cleaning_results(
     gs = GridSpec(
         4,
         3,
+        figure=fig,
         hspace=0,
         wspace=0,
         height_ratios=(1.5, 1.5, 1.5, 1.5),
         width_ratios=(3, 0.0, 1.2),
     )
-    ax_meanspec = plt.subplot(gs[0, 0])
-    ax_dynspec = plt.subplot(gs[1, 0], sharex=ax_meanspec)
-    ax_cleanspec = plt.subplot(gs[2, 0], sharex=ax_meanspec, sharey=ax_dynspec)
-    ax_lc = plt.subplot(gs[1, 2], sharey=ax_dynspec)
-    ax_cleanlc = plt.subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
-    ax_var = plt.subplot(gs[3, 0], sharex=ax_meanspec)
-    ax_pds_raw = plt.subplot(gs[3, 2])
+    ax_meanspec = fig.add_subplot(gs[0, 0])
+    ax_dynspec = fig.add_subplot(gs[1, 0], sharex=ax_meanspec)
+    ax_cleanspec = fig.add_subplot(gs[2, 0], sharex=ax_meanspec, sharey=ax_dynspec)
+    ax_lc = fig.add_subplot(gs[1, 2], sharey=ax_dynspec)
+    ax_cleanlc = fig.add_subplot(gs[2, 2], sharey=ax_dynspec, sharex=ax_lc)
+    ax_var = fig.add_subplot(gs[3, 0], sharex=ax_meanspec)
+    ax_pds_raw = fig.add_subplot(gs[3, 2])
     ax_pds_raw.axis("off")
 
     ax_pds = inset_axes(ax_pds_raw, width="80%", height="70%", loc="lower right")
 
-    ax_text = plt.subplot(gs[0, 2])
+    ax_text = fig.add_subplot(gs[0, 2])
     for ax in [ax_meanspec, ax_dynspec, ax_cleanspec, ax_var, ax_text]:
         ax.autoscale(False)
 
@@ -715,8 +730,7 @@ def plot_spectrum_cleaning_results(
         warnings.simplefilter("ignore")
         fig.tight_layout()
 
-    plt.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
-    plt.close(fig)
+    fig.savefig(f"{outfile}_{label}.{debug_file_format}", dpi=dpi)
 
 
 def clean_scan_using_variability(
@@ -946,6 +960,30 @@ def find_summary_file_in_dir(directory, warn_if_absent=True):
     return summary_files
 
 
+def _data_directory(meta):
+    """The ``datadir`` of a config or scan ``meta``; ``workdir`` for files written without it."""
+    return meta.get("datadir") or meta.get("workdir") or os.curdir
+
+
+def processed_file_name(fname, meta, outdir=None):
+    """Name of the processed (HDF5) file of the raw file ``fname``.
+
+    ``meta`` is a config dictionary (or the ``meta`` of a scan set) with
+    ``datadir`` and, optionally, ``basename_only`` and ``intermediatedir``.
+    The file is in ``outdir`` (default: ``meta["intermediatedir"]``), in the
+    same directory structure as the raw data.
+    """
+    if outdir is None:
+        outdir = meta["intermediatedir"]
+    rootdir, fn = product_path_from_file_name(
+        fname,
+        datadir=_data_directory(meta),
+        productdir=outdir,
+        basename_only=bool(meta.get("basename_only", False)),
+    )
+    return root_name(os.path.join(rootdir, fn)) + ".hdf5"
+
+
 def list_scans(datadir, dirlist):
     """List all scans contained in the directory listed in config."""
     scan_list = []
@@ -969,7 +1007,6 @@ class Scan(Table):
         data=None,
         config_file=None,
         norefilt=True,
-        interactive=False,
         nosave=False,
         debug=False,
         plot=False,
@@ -1053,9 +1090,6 @@ class Scan(Table):
                     save_spectrum=save_spectrum,
                     plot=plot,
                 )
-
-            if interactive:
-                self.interactive_filter()
 
             if ("backsub" not in self.meta.keys() or not self.meta["backsub"]) and not nosub:
                 logging.debug(f"Subtracting the baseline from " f'{self.meta["filename"]}')
@@ -1206,6 +1240,10 @@ class Scan(Table):
             else:
                 self.remove_column(ch)
             self[ch + "TEMP"].name = ch
+            # freqmin and freqmax are in MHz from the start of the band: only
+            # this part of the band is left in the cleaned data.
+            freqmin, freqmax = u.Quantity(freqmin, u.MHz), u.Quantity(freqmax, u.MHz)
+            self[ch].meta["frequency"] = u.Quantity(self[ch].meta["frequency"], u.MHz) + freqmin
             self[ch].meta["bandwidth"] = freqmax - freqmin
             self[ch].meta["bad_chans"] = bad_chan_dict
 
@@ -1246,8 +1284,9 @@ class Scan(Table):
         """
         for ch in self.chan_columns():
             if plot and HAS_MPL:
-                fig = plt.figure("Sub" + ch)
-                plt.plot(self["time"], self[ch] - np.min(self[ch]), alpha=0.5)
+                fig = new_figure()
+                ax = fig.add_subplot()
+                ax.plot(self["time"], self[ch] - np.min(self[ch]), alpha=0.5)
             force_rough = False
             if "Q" in ch or "U" in ch:
                 force_rough = True
@@ -1272,10 +1311,9 @@ class Scan(Table):
                 raise ValueError("Unknown baseline technique")
 
             if plot and HAS_MPL:
-                plt.plot(self["time"], self[ch])
+                ax.plot(self["time"], self[ch])
                 out = root_name(self.meta["filename"]) + f"_{ch}.png"
-                plt.savefig(out)
-                plt.close(fig)
+                fig.savefig(out)
         self.meta["backsub"] = True
 
     def __repr__(self):
@@ -1300,68 +1338,18 @@ class Scan(Table):
         if not np.all(self["time"] == np.sort(self["time"])):
             raise ValueError("The order of times in the table is wrong")
 
-    def interactive_filter(self, save=True, test=False):
-        """Run the interactive filter."""
-        for ch in self.chan_columns():
-            # Temporary, waiting for AstroPy's metadata handling improvements
-            feed = get_channel_feed(ch)
-
-            selection = self["ra"][:, feed]
-
-            ravar = np.abs(selection[-1] - selection[0])
-
-            selection = self["dec"][:, feed]
-            decvar = np.abs(selection[-1] - selection[0])
-
-            # Choose if plotting by R.A. or Dec.
-            if ravar > decvar:
-                dim = "ra"
-            else:
-                dim = "dec"
-
-            # ------- CALL INTERACTIVE FITTER ---------
-            info = select_data(self[dim][:, feed], self[ch], xlabel=dim, test=test)
-
-            # -----------------------------------------
-
-            if test:
-                info["Ch"]["zap"].xs = [-1e32, 1e32]
-                info["Ch"]["FLAG"] = True
-
-            # Treat zapped intervals
-            xs = info["Ch"]["zap"].xs
-            good = np.ones(len(self[dim]), dtype=bool)
-            if len(xs) >= 2:
-                intervals = list(zip(xs[:-1:2], xs[1::2]))
-                for i in intervals:
-                    good[
-                        np.logical_and(
-                            self[dim][:, feed] >= i[0],
-                            self[dim][:, feed] <= i[1],
-                        )
-                    ] = False
-            self[f"{ch}-filt"] = good
-
-            if len(info["Ch"]["fitpars"]) > 1:
-                self[ch] -= linear_fun(self[dim][:, feed], *info["Ch"]["fitpars"])
-                self.meta["backsub"] = True
-
-            if info["Ch"]["FLAG"]:
-                self.meta["FLAG"] = True
-        if save:
-            self.save()
-        self.meta["ifilt"] = True
-
     def root_name(self, fname):
         rootdir, fn = os.path.split(fname)
         if rootdir == "":
             rootdir = "."
 
-        if self.meta["productdir"] is not None:
+        # Files written by versions without intermediatedir only have productdir
+        outdir = self.meta.get("intermediatedir") or self.meta.get("productdir")
+        if outdir is not None:
             rootdir, _ = product_path_from_file_name(
                 fname,
-                workdir=self.meta["workdir"],
-                productdir=self.meta["productdir"],
+                datadir=_data_directory(self.meta),
+                productdir=outdir,
                 basename_only=self.meta["basename_only"],
             )
 

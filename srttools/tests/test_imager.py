@@ -35,29 +35,32 @@ import glob
 import os
 import shutil
 import subprocess as sp
+import warnings
 
 import pytest
 
 import astropy
 import astropy.units as u
+from astropy.io import fits
 from astropy.logger import logging
 from srttools.calibration import HAS_STATSM, CalibratorTable
 from srttools.global_fit import display_intermediate
 from srttools.imager import (
     ScanSet,
+    _binned_mean_sdev,
+    _count_inner_empty_pixels,
     _excluded_regions_from_args,
+    _warn_empty_pixels,
     main_imager,
     main_preprocess,
     merge_tables,
 )
 from srttools.inspect_observations import main_inspector
-from srttools.interactive_filter import intervals
 from srttools.io import mkdir_p
 from srttools.read_config import read_config
 from srttools.rfistat import main_rfistat
-from srttools.scan import Scan
+from srttools.scan import Scan, processed_file_name
 from srttools.simulate import simulate_sun
-from srttools.utils import on_CI
 
 try:
     from tqdm import tqdm
@@ -75,6 +78,7 @@ def logger():
     return logger
 
 
+on_CI = os.environ.get("CI") or os.environ.get("CONTINUOUS_INTEGRATION")
 DEBUG = not on_CI
 
 
@@ -136,8 +140,6 @@ class TestScanSet:
 
         klass.obsdir_ra = os.path.join(klass.datadir, "sim", "gauss_ra")
         klass.obsdir_dec = os.path.join(klass.datadir, "sim", "gauss_dec")
-        klass.prodir_ra = os.path.join(klass.datadir, "sim", "test_image", "gauss_ra")
-        klass.prodir_dec = os.path.join(klass.datadir, "sim", "test_image", "gauss_dec")
         klass.config_file = os.path.abspath(
             os.path.join(klass.sim_dir, "test_config_sim_small.ini")
         )
@@ -154,7 +156,9 @@ class TestScanSet:
             shutil.copytree(skydip_dir, new_skydip_dir)
 
         caltable = CalibratorTable()
-        caltable.from_scans(glob.glob(os.path.join(klass.caldir, "*.fits")), debug=True)
+        # No debug plots here: they double the setup time, and test_calibration
+        # and TestScanSet::test_preprocess_single_files already exercise them
+        caltable.from_scans(glob.glob(os.path.join(klass.caldir, "*.fits")), debug=False)
         caltable.update()
 
         klass.calfile = os.path.join(klass.datadir, "calibrators.hdf5")
@@ -176,16 +180,10 @@ class TestScanSet:
             nosub=False,
             norefilt=False,
             plot=False,
-            debug=True,
+            debug=False,
             avoid_regions=excluded_radec,
         )
         klass.scanset.write("test.hdf5", overwrite=True)
-
-        klass.stdinfo = {}
-        klass.stdinfo["FLAG"] = None
-        klass.stdinfo["zap"] = intervals()
-        klass.stdinfo["base"] = intervals()
-        klass.stdinfo["fitpars"] = np.array([0, 0])
 
         def scan_no(scan_str):
             basename = os.path.splitext(os.path.basename(scan_str))[0]
@@ -235,16 +233,20 @@ class TestScanSet:
             assert np.all(sc0.meta[k] == sc1.meta[k])
         os.unlink("bububu.hdf5")
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_preprocess_single_files(self):
         files = glob.glob(os.path.join(self.obsdir_ra, "*.fits"))
 
         main_preprocess(files[:2] + ["--debug", "-c", self.config_file, "--plot"])
+        config = read_config(self.config_file)
         for file in files[:2]:
             # I used debug_file_format : png in the config
             if HAS_MPL:
+                # Debug plots go next to the processed scans, in intermediatedir
+                outdir = os.path.dirname(processed_file_name(file, config))
                 f = os.path.basename(file).replace(".fits", "_000.png")
 
-                assert os.path.exists(os.path.join(self.prodir_ra, f))
+                assert os.path.exists(os.path.join(outdir, f))
 
     def test_script_is_installed_prep(self):
         sp.check_call("SDTpreprocess -h".split(" "))
@@ -311,8 +313,63 @@ class TestScanSet:
     def test_use_command_line_config(self):
         main_imager(["-c", self.config_file, "--noplot"])
 
+    def test_avg_cross_flagged_samples_are_nan_in_cal(self):
+        """Flagged samples are NaN, not zero, in the calibrated _cal columns written for crosses."""
+        scanset = ScanSet("test.hdf5")
+        ch = scanset.chan_columns[0]
+        flagged = scanset["Scan_id"] == scanset["Scan_id"][0]
+        scanset[f"{ch}-filt"] = ~flagged
+        scanset.calculate_avg_cross(calibration=self.calfile, calibrate_scans=True, rfi_nsigma=None)
+        cal = np.asarray(scanset[ch + "_cal"])
+        assert np.all(np.isnan(cal[flagged]))
+        assert np.all(np.isfinite(cal[~flagged]))
+
+    def test_avg_cross_quick_and_full_calibration_agree(self, monkeypatch):
+        """Average cross profiles: ERR is Sdev / sqrt(N) before calibration; quick
+        calibration works and agrees with per-sample calibration in values, Sdev
+        and ERR (calibration error inflated to 10% so that it matters)."""
+        original = CalibratorTable.Jy_over_counts
+
+        def ten_percent_error(self, *args, **kwargs):
+            fc, _ = original(self, *args, **kwargs)
+            return fc, 0.1 * np.abs(fc)
+
+        monkeypatch.setattr(CalibratorTable, "Jy_over_counts", ten_percent_error)
+        ch, key = "Feed0_RCP", "Feed0_RCP-0"
+        raw = ScanSet("test.hdf5").calculate_avg_cross(rfi_nsigma=None, onlychans=[ch])
+        good = raw[f"{key}-EXPO"] > 1
+        expected = raw[f"{key}-Sdev"][good] / np.sqrt(raw[f"{key}-EXPO"][good])
+        assert np.allclose(raw[f"{key}-ERR"][good], expected)
+
+        results = [
+            ScanSet("test.hdf5").calculate_avg_cross(
+                calibration=self.calfile, calibrate_scans=full, rfi_nsigma=None
+            )
+            for full in [False, True]
+        ]
+        quick, full = results
+        assert np.allclose(quick[f"{key}-RAW"], raw[key])
+        peak = np.max(np.abs(quick[key]))
+        assert np.allclose(full[key][good], quick[key][good], atol=0.01 * peak)
+        for k in [f"{key}-Sdev", f"{key}-ERR"]:
+            assert np.allclose(full[k][good], quick[k][good], rtol=0.05)
+
     def test_use_command_line_cross(self):
-        main_imager(["-c", self.config_file, "--crosses-only"])
+        """SDTimage --crosses-only was removed in favor of SDTcross."""
+        with pytest.raises(ValueError, match="SDTcross"):
+            main_imager(["-c", self.config_file, "--crosses-only"])
+
+    def test_sdtcross_calibrated(self, tmp_path):
+        """SDTcross calibrates the data with an SDTcal file and gives the flux in Jy."""
+        from astropy.io import fits
+        from srttools.crossscan import main_cross
+
+        root = str(tmp_path / "sdtcross_test")
+        main_cross(["test.hdf5", "--calibrate", self.calfile, "-o", root, "--noplot"])
+        header = fits.getheader(root + "_cross.fits")
+        assert header["BUNIT"] == "Jy"
+        assert np.isfinite(header["FLUX"])
+        assert header["CALERR"] > 0
 
     def test_get_opacity(self):
         scanset = ScanSet("test.hdf5")
@@ -425,6 +482,98 @@ class TestScanSet:
             plt.savefig("img_altaz.png")
             plt.close(fig)
 
+    @pytest.mark.parametrize("debug", [False, True])
+    def test_altaz_plots_only_in_debug(self, debug, tmp_path, monkeypatch):
+        """The alt-az diagnostic plots are written only in debug mode."""
+        fname = os.path.abspath("test.hdf5")
+        monkeypatch.chdir(tmp_path)
+        ScanSet(fname, debug=debug).calculate_delta_altaz()
+        assert os.path.exists("delta_altaz.png") == (debug and HAS_MPL)
+        assert os.path.exists("altaz_with_src.png") == (debug and HAS_MPL)
+
+    def test_image_sdev_and_err(self):
+        """Image Sdev is the N - 1 standard deviation of the samples in each pixel,
+        and ERR is Sdev / sqrt(N)."""
+        scanset = ScanSet("test.hdf5")
+        ch = "Feed0_RCP"
+        images = scanset.calculate_images(onlychans=[ch])
+        sdev, expo = images[f"{ch}-Sdev"].T, images[f"{ch}-EXPO"].T
+        good = np.array(scanset[f"{ch}-filt"])
+        ix = np.floor(scanset["x"][:, 0][good]).astype(int)
+        iy = np.floor(scanset["y"][:, 0][good]).astype(int)
+        vals = np.array(scanset[ch][good])
+        i, j = np.unravel_index(np.argmax(expo), expo.shape)
+        assert np.isclose(sdev[i, j], np.std(vals[(ix == i) & (iy == j)], ddof=1))
+        filled = expo > 1
+        assert np.allclose(images[f"{ch}-ERR"].T[filled], sdev[filled] / np.sqrt(expo[filled]))
+
+    def test_quick_calibration_is_one_factor(self):
+        """Quick calibration multiplies every pixel by the same factor, also where
+        Sdev is NaN (it used to replace those with 1 count), and scales Sdev by
+        its absolute value. ERR also gets the calibration error, in quadrature."""
+        scanset = ScanSet("test.hdf5")
+        ch = "Feed0_RCP"
+        scanset.calculate_images(onlychans=[ch])
+        img = scanset.images
+        img[f"{ch}-Sdev"][img[ch] < 0] = np.nan
+        raw = {k: img[k].copy() for k in [ch, f"{ch}-Sdev", f"{ch}-ERR"]}
+        scanset.calibrate_images(calibration=self.calfile, map_unit="Jy/beam")
+
+        i = np.unravel_index(np.argmax(raw[ch]), raw[ch].shape)
+        factor = img[ch][i] / raw[ch][i]
+        assert np.allclose(img[ch], raw[ch] * factor)
+        assert np.allclose(img[f"{ch}-Sdev"], raw[f"{ch}-Sdev"] * abs(factor), equal_nan=True)
+        for k in [f"{ch}-Sdev", f"{ch}-ERR"]:
+            assert np.allclose(img[k.replace("-", "-RAW-")], raw[k], equal_nan=True)
+
+        # ERR^2 = (|factor| ERR_raw)^2 + (flux x relative calibration error)^2
+        finite = np.isfinite(img[f"{ch}-ERR"]) & (img[ch] != 0)
+        assert np.all(img[f"{ch}-ERR"][finite] > 0)
+        cal_rel_err_sq = (img[f"{ch}-ERR"] ** 2 - (raw[f"{ch}-ERR"] * factor) ** 2)[finite] / img[
+            ch
+        ][finite] ** 2
+        assert np.all(cal_rel_err_sq > 0)
+        assert np.allclose(cal_rel_err_sq, np.median(cal_rel_err_sq))
+
+    @pytest.mark.parametrize("map_unit", ["Jy/beam", "Jy/pixel"])
+    def test_quick_and_full_calibration_agree(self, map_unit, monkeypatch):
+        """Calibrating the map (quick) or each sample (full) gives the same values,
+        Sdev and ERR, apart from the small change of the factor with elevation.
+        The calibration error is inflated to 10%, so that it matters."""
+        original = CalibratorTable.Jy_over_counts
+
+        def ten_percent_error(self, *args, **kwargs):
+            fc, _ = original(self, *args, **kwargs)
+            return fc, 0.1 * np.abs(fc)
+
+        monkeypatch.setattr(CalibratorTable, "Jy_over_counts", ten_percent_error)
+        ch = "Feed0_RCP"
+        quick = ScanSet("test.hdf5").calculate_images(
+            calibration=self.calfile, map_unit=map_unit, onlychans=[ch]
+        )
+        full = ScanSet("test.hdf5").calculate_images(
+            calibration=self.calfile, map_unit=map_unit, onlychans=[ch], calibrate_scans=True
+        )
+        good = quick[f"{ch}-EXPO"] > 1
+        peak = np.max(np.abs(quick[ch]))
+        assert np.allclose(full[ch][good], quick[ch][good], atol=0.01 * peak)
+        for k in [f"{ch}-Sdev", f"{ch}-ERR"]:
+            assert np.allclose(full[k][good], quick[k][good], rtol=0.05)
+
+    @pytest.mark.parametrize("direction", [0, 1])
+    def test_quick_calibration_of_direction_images(self, direction):
+        """Images of one scan direction with quick calibration are returned calibrated
+        (they were returned uncalibrated; only the stored copy was calibrated)."""
+        ch = "Feed0_RCP"
+        scanset = ScanSet("test.hdf5")
+        raw = scanset.calculate_images(direction=direction)[ch].copy()
+        cal = scanset.calculate_images(
+            calibration=self.calfile, map_unit="Jy/beam", direction=direction
+        )
+        assert cal is (scanset.images_hor if direction == 0 else scanset.images_ver)
+        assert np.allclose(cal[f"{ch}-RAW"], raw, equal_nan=True)
+        assert not np.allclose(cal[ch], raw, equal_nan=True)
+
     def test_image_scrunch(self):
         """Test image production."""
 
@@ -451,6 +600,36 @@ class TestScanSet:
             plt.savefig("img_scrunch_sdev.png")
             plt.close(fig)
 
+    @pytest.mark.parametrize("save_sdev", [False, True])
+    def test_err_maps_saved_with_sdev(self, save_sdev, tmp_path):
+        """ERR maps, also the TOTAL one, are saved to FITS together with Sdev."""
+        fname = str(tmp_path / "img.fits")
+        ScanSet("test.hdf5").save_ds9_images(
+            fname=fname, save_sdev=save_sdev, scrunch=True, save_crosses=False
+        )
+        names = [h.name for h in fits.open(fname)]
+        for ext in ["IMGFEED0_RCP-ERR", "IMGTOTAL-ERR", "IMGTOTAL-SDEV"]:
+            assert (ext in names) == save_sdev
+        assert "IMGTOTAL" in names
+
+    def test_image_scrunch_errors(self):
+        """TOTAL is the mean of the channels; its Sdev and ERR are those of a mean
+        of independent channels, sqrt(sum of squares) / number of channels."""
+        scanset = ScanSet("test.hdf5")
+        chans = scanset.chan_columns
+        n = len(chans)
+        scanset.images = {}
+        for i, ch in enumerate(chans):
+            scanset.images[ch] = np.full((2, 2), float(i))
+            scanset.images[f"{ch}-Sdev"] = np.full((2, 2), 2.0)
+            scanset.images[f"{ch}-ERR"] = np.full((2, 2), 3.0)
+            scanset.images[f"{ch}-EXPO"] = np.full((2, 2), 5.0)
+        images = scanset.scrunch_images()
+        assert np.allclose(images["TOTAL"], (n - 1) / 2)
+        assert np.allclose(images["TOTAL-Sdev"], 2 / np.sqrt(n))
+        assert np.allclose(images["TOTAL-ERR"], 3 / np.sqrt(n))
+        assert np.allclose(images["TOTAL-EXPO"], 5 * n)
+
     @classmethod
     def teardown_class(klass):
         """Clean up the mess."""
@@ -474,14 +653,16 @@ class TestScanSet:
             out_iter_files = glob.glob("out_iter_*")
             for o in out_iter_files:
                 os.unlink(o)
-            out_fits_files = glob.glob(os.path.join(klass.config["datadir"], "test_config*.fits"))
+            out_fits_files = glob.glob(
+                os.path.join(klass.config["productdir"], "test_config*.fits")
+            )
             out_hdf5_files = glob.glob(
-                os.path.join(klass.config["productdir"], "sim", "*/", "*.hdf5")
+                os.path.join(klass.config["intermediatedir"], "sim", "*/", "*.hdf5")
             )
 
             for o in out_fits_files + out_hdf5_files:
                 os.unlink(o)
-            shutil.rmtree(os.path.join(klass.config["productdir"], "sim"))
+            shutil.rmtree(os.path.join(klass.config["intermediatedir"], "sim"))
 
 
 class TestLargeMap:
@@ -492,8 +673,6 @@ class TestLargeMap:
         klass.curdir = os.path.dirname(__file__)
         klass.datadir = os.path.join(klass.curdir, "data")
         klass.sim_dir = os.path.join(klass.datadir, "sim")
-        klass.prodir_ra = os.path.join(klass.datadir, "sim", "test_image", "gauss_ra")
-        klass.prodir_dec = os.path.join(klass.datadir, "sim", "test_image", "gauss_dec")
 
         klass.obsdir_ra = os.path.join(klass.datadir, "sim", "gauss_ra")
         klass.obsdir_dec = os.path.join(klass.datadir, "sim", "gauss_dec")
@@ -534,16 +713,10 @@ class TestLargeMap:
             nosub=False,
             norefilt=False,
             plot=False,
-            debug=True,
+            debug=False,
             avoid_regions=excluded_radec,
         )
         klass.scanset.write("test.hdf5", overwrite=True)
-
-        klass.stdinfo = {}
-        klass.stdinfo["FLAG"] = None
-        klass.stdinfo["zap"] = intervals()
-        klass.stdinfo["base"] = intervals()
-        klass.stdinfo["fitpars"] = np.array([0, 0])
 
         def scan_no(scan_str):
             basename = os.path.splitext(os.path.basename(scan_str))[0]
@@ -560,47 +733,6 @@ class TestLargeMap:
     def test_prepare(self):
         pass
 
-    @pytest.mark.skipif("not HAS_MPL")
-    def test_interactive_quit(self):
-        scanset = ScanSet("test.hdf5")
-        imgsel = scanset.interactive_display("Feed0_RCP", test=True)
-        fake_event = type("event", (), {})()
-        fake_event.key = "q"
-        fake_event.xdata, fake_event.ydata = (130, 30)
-
-        retval = imgsel.on_key(fake_event)
-        assert retval == (130, 30, "q")
-
-    @pytest.mark.skipif("HAS_MPL")
-    def test_interactive_quit_raises(self):
-        scanset = ScanSet("test.hdf5")
-        with pytest.raises(ImportError) as excinfo:
-            imgsel = scanset.interactive_display("Feed0_RCP", test=True)
-            assert "matplotlib is not installed" in str(excinfo.value)
-
-    @pytest.mark.skipif("not HAS_MPL")
-    def test_interactive_scans_all_calibrated_channels(self, capsys):
-        scanset = ScanSet("test.hdf5")
-        scanset.calibrate_images(calibration=self.calfile)
-        images = scanset.images
-        ysize, xsize = images["Feed0_RCP"].shape
-
-        imgsel = scanset.interactive_display(test=True)
-        fake_event = type("event", (), {})()
-        fake_event.key = "a"
-        fake_event.xdata, fake_event.ydata = (xsize // 2, ysize - 1)
-
-        imgsel.on_key(fake_event)
-        fake_event.key = "h"
-        fake_event.xdata, fake_event.ydata = (xsize // 2, ysize - 1)
-        out, err = capsys.readouterr()
-        assert "a    open a window to filter all" in out
-
-        imgsel.on_key(fake_event)
-        fake_event.key = "v"
-        fake_event.xdata, fake_event.ydata = (xsize // 2, ysize - 1)
-        imgsel.on_key(fake_event)
-
     def test_calc_and_calibrate_image_pixel(self):
         scanset = ScanSet("test.hdf5")
 
@@ -615,6 +747,7 @@ class TestLargeMap:
 
         assert np.isclose(np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=rtol)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
     def test_destripe(self):
         """Test image production."""
 
@@ -628,6 +761,25 @@ class TestLargeMap:
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         good = (X - center[1]) ** 2 + (Y - center[0]) ** 2 <= (shortest_side // 4) ** 2
         assert np.isclose(np.sum(images["Feed0_RCP"][good]), self.simulated_flux, rtol=0.1)
+
+    @pytest.mark.usefixtures("no_pyplot_figures")
+    def test_destripe_err_where_one_direction_has_one_sample(self):
+        """Where one scan direction has a single sample (no Sdev), the destriped ERR
+        is the ERR of the image of all subscans, instead of NaN."""
+        ch = "Feed0_RCP"
+        scanset = ScanSet("test.hdf5")
+        plain_err = scanset.calculate_images()[f"{ch}-ERR"].copy()
+        scanset.calculate_images(direction=0)
+        scanset.calculate_images(direction=1)
+        hor = scanset.images_hor
+        i = np.unravel_index(np.argmax(hor[f"{ch}-EXPO"]), hor[f"{ch}-EXPO"].shape)
+        hor[f"{ch}-EXPO"][i] = 1
+        hor[f"{ch}-ERR"][i] = np.nan
+        images = scanset.destripe_images()
+        assert np.isclose(images[f"{ch}-ERR"][i], plain_err[i])
+        assert np.count_nonzero(np.isnan(images[f"{ch}-ERR"])) <= np.count_nonzero(
+            np.isnan(plain_err)
+        )
 
     def test_destripe_scrunch(self):
         """Test image production."""
@@ -743,6 +895,8 @@ class TestLargeMap:
 
         scanset.save_ds9_images(destripe=True)
 
+    @pytest.mark.usefixtures("no_pyplot_figures")
+    @pytest.mark.slow
     def test_global_fit_image(self):
         """Test image production."""
         scanset = ScanSet("test.hdf5")
@@ -779,213 +933,8 @@ class TestLargeMap:
 
         # It works after calculating images
 
-    def test_find_scan_through_pixel0(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(
-            xsize // 2, ysize - 1, test=True
-        )
-
-        dec_scan = os.path.join(self.obsdir_dec, self.dec_scans[self.n_dec_scans // 2])
-        assert dec_scan in coord
-        assert coord[dec_scan] == "dec"
-        ra_scan = os.path.join(self.obsdir_ra, self.ra_scans[self.n_ra_scans - 1])
-        assert ra_scan in coord
-        assert coord[ra_scan] == "ra"
-
-    def test_find_scan_through_pixel1(self):
-        scanset = ScanSet("test.hdf5")
-        for i in scanset.chan_columns:
-            scanset.remove_column(i + "-filt")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
-
-        dec_scan = os.path.join(self.obsdir_dec, self.dec_scans[self.n_dec_scans // 2])
-        assert dec_scan in coord
-        assert coord[dec_scan] == "dec"
-        ra_scan = os.path.join(self.obsdir_ra, "Ra0.fits")
-        assert ra_scan in coord
-        assert coord[ra_scan] == "ra"
-
-    def test_find_scan_through_invalid_pixel(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(xsize // 2, -2, test=True)
-        assert coord == {}
-        _, _, _, _, _, _, _, coord = scanset.find_scans_through_pixel(
-            xsize // 2, ysize + 2, test=True
-        )
-        assert coord == {}
-
-    def test_find_scan_through_pixel_bad_scan(self, logger, caplog):
-        scanset = ScanSet("test.hdf5")
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        x, y = xsize // 2, 0
-        good_entries = np.logical_and(
-            np.abs(scanset["x"][:, 0] - x) < 1,
-            np.abs(scanset["y"][:, 0] - y) < 1,
-        )
-
-        sids = list(set(scanset["Scan_id"][good_entries]))
-        scanset.scan_list[sids[0]] = "skd"
-        scanset.find_scans_through_pixel(x, y, test=True)
-        assert "Errors while opening scan skd" in caplog.text
-
-    def test_update_scan_invalid(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            coord,
-        ) = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
-
-        sname = "xkd"
-        coord["xkd"] = None
-        scan_ids["xkd"] = None
-
-        info = {sname: copy.copy(self.stdinfo)}
-        info[sname]["FLAG"] = True
-        with pytest.warns(UserWarning):
-            scanset.update_scan(
-                sname,
-                scan_ids[sname],
-                coord[sname],
-                info[sname]["zap"],
-                info[sname]["fitpars"],
-                info[sname]["FLAG"],
-                test=True,
-            )
-
-    def test_update_scan_flag(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            coord,
-        ) = scanset.find_scans_through_pixel(xsize // 3, 0, test=True)
-
-        sname = list(scan_ids.keys())[0]
-
-        info = {sname: copy.copy(self.stdinfo)}
-        info[sname]["FLAG"] = True
-        sid = scan_ids[sname]
-        mask = scanset["Scan_id"] == sid
-        before = scanset["Feed0_RCP-filt"][mask]
-        scanset.update_scan(
-            sname,
-            scan_ids[sname],
-            coord[sname],
-            info[sname]["zap"],
-            info[sname]["fitpars"],
-            info[sname]["FLAG"],
-            test=True,
-        )
-        after = scanset["Feed0_RCP-filt"][mask]
-        assert np.all(before != after)
-        s = Scan(sname)
-        assert np.all(after == s["Feed0_RCP-filt"])
-        assert s.meta["FLAG"] is True
-
-    def test_update_scan_fit(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            coord,
-        ) = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
-
-        sname = list(scan_ids.keys())[0]
-
-        info = {sname: copy.copy(self.stdinfo)}
-        info[sname]["fitpars"] = np.array([0.1, 0.3])
-        sid = scan_ids[sname]
-        mask = scanset["Scan_id"] == sid
-        before = scanset["Feed0_RCP"][mask]
-        scanset.update_scan(
-            sname,
-            scan_ids[sname],
-            coord[sname],
-            info[sname]["zap"],
-            info[sname]["fitpars"],
-            info[sname]["FLAG"],
-            test=True,
-        )
-        after = scanset["Feed0_RCP"][mask]
-        assert np.all(before != after)
-        s = Scan(sname)
-        assert np.all(after == s["Feed0_RCP"])
         # os.unlink(sname.replace('fits', 'hdf5'))
 
-    def test_update_scan_zap(self):
-        scanset = ScanSet("test.hdf5")
-
-        images = scanset.calculate_images()
-        ysize, xsize = images["Feed0_RCP"].shape
-        (
-            ra_xs,
-            ra_ys,
-            dec_xs,
-            dec_ys,
-            scan_ids,
-            ra_masks,
-            dec_masks,
-            coord,
-        ) = scanset.find_scans_through_pixel(xsize // 2, 0, test=True)
-
-        sname = sorted(dec_xs.keys())[0]
-        s = Scan(sname)
-
-        info = {sname: copy.copy(self.stdinfo)}
-        info[sname]["zap"].xs = [float(s["dec"][0][0]), float(s["dec"][10][0])]
-        sid = scan_ids[sname]
-        mask = scanset["Scan_id"] == sid
-        before = scanset["Feed0_RCP-filt"][mask]
-        scanset.update_scan(
-            sname,
-            scan_ids[sname],
-            coord[sname],
-            info[sname]["zap"],
-            info[sname]["fitpars"],
-            info[sname]["FLAG"],
-            test=True,
-        )
-        after = scanset["Feed0_RCP-filt"][mask]
-
-        assert np.all(before[:10] != after[:10])
-        s = Scan(sname)
-
-        assert np.all(np.array(after, dtype=bool) == np.array(s["Feed0_RCP-filt"], dtype=bool))
         # os.unlink(sname.replace('fits', 'hdf5'))
 
     def test_imager_global_fit_invalid(self):
@@ -994,6 +943,7 @@ class TestLargeMap:
             main_imager("test.hdf5 -g -e 10 10 2 1 --noplot".split(" "))
             assert "Exclusion region has to be specified as " in str(excinfo.value)
 
+    @pytest.mark.slow
     def test_imager_global_fit_valid(self):
         """Test image production."""
         # Get information on images
@@ -1094,14 +1044,85 @@ class TestLargeMap:
             out_iter_files = glob.glob("out_iter_*")
             for o in out_iter_files:
                 os.unlink(o)
-            out_fits_files = glob.glob(os.path.join(klass.config["datadir"], "test_config*.fits"))
+            out_fits_files = glob.glob(
+                os.path.join(klass.config["productdir"], "test_config*.fits")
+            )
             out_hdf5_files = glob.glob(
-                os.path.join(klass.config["productdir"], "sim", "*/", "*.hdf5")
+                os.path.join(klass.config["intermediatedir"], "sim", "*/", "*.hdf5")
             )
 
             for o in out_fits_files + out_hdf5_files:
                 os.unlink(o)
-            shutil.rmtree(os.path.join(klass.config["productdir"], "sim"))
+            shutil.rmtree(os.path.join(klass.config["intermediatedir"], "sim"))
+
+
+def test_binned_mean_sdev_matches_numpy():
+    """Pixel mean and standard deviation (N - 1) equal numpy's, also with a large
+    offset; one-sample and empty pixels have NaN standard deviation."""
+    rng = np.random.default_rng(0)
+    n_per_pix = np.array([[1, 0, 7], [30, 2, 12]])
+    x, y = [], []
+    for (i, j), n in np.ndenumerate(n_per_pix):
+        x.append(i + rng.uniform(0, 1, n))
+        y.append(j + rng.uniform(0, 1, n))
+    x, y = np.concatenate(x), np.concatenate(y)
+    values = 1e7 + rng.normal(0, 1, x.size)
+    bins = [np.arange(3), np.arange(4)]
+
+    mean, sdev, expo = _binned_mean_sdev((x, y), values, bins)
+
+    assert np.array_equal(expo, n_per_pix)
+    for (i, j), n in np.ndenumerate(n_per_pix):
+        vals = values[(np.floor(x) == i) & (np.floor(y) == j)]
+        if n == 0:
+            assert mean[i, j] == 0
+        else:
+            assert np.isclose(mean[i, j], np.mean(vals), rtol=1e-14)
+        if n < 2:
+            assert np.isnan(sdev[i, j])
+        else:
+            assert np.isclose(sdev[i, j], np.std(vals, ddof=1), rtol=1e-6)
+
+
+def test_count_empty_pixels_inside_map():
+    """Empty pixels between filled ones (pixel smaller than the subscan spacing)
+    are counted; empty pixels around the edge of the map, including gaps in its
+    ragged outer row (subscans ending at slightly different positions), are not."""
+    expo = np.zeros((7, 9))
+    expo[1:6, 1:8] = 3
+    expo[1, 2:7:2] = 0  # ragged edge
+    assert _count_inner_empty_pixels(expo) == 0
+    expo[1, 2:7:2] = 3
+    expo[:, 4] = 0  # an empty column across the map: 3 holes, plus 2 in the outer rows
+    expo[3, 2] = 0  # an isolated hole
+    assert _count_inner_empty_pixels(expo) == 4
+
+
+@pytest.mark.parametrize("spacing", [0.8, 1.25])
+def test_warn_empty_pixels_from_coarse_scans(spacing):
+    """Subscans farther apart than one pixel leave empty pixels inside the map,
+    which are set to 0 and bias sums over the image: warn. Closer subscans: no warning."""
+    x = np.repeat(np.arange(0.3, 20, spacing), 200)
+    y = np.tile(np.linspace(0, 20, 200, endpoint=False), x.size // 200)
+    expo = np.histogram2d(x, y, bins=[np.arange(21), np.arange(21)])[0]
+    if spacing > 1:
+        with pytest.warns(UserWarning, match="pixels inside the map have no samples"):
+            _warn_empty_pixels(expo, "Feed0_RCP")
+    else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _warn_empty_pixels(expo, "Feed0_RCP")
+
+
+def test_error_map_matches_scatter_of_pixel_means():
+    """With white noise, the standard deviation over N divided by sqrt(N) matches
+    the scatter of the pixel means (dividing by N would be ~11% low for N=5)."""
+    rng = np.random.default_rng(1)
+    npix, n = 10000, 5
+    x = np.repeat(np.arange(npix), n) + 0.5
+    mean, sdev, expo = _binned_mean_sdev((x,), rng.normal(0, 1, x.size), [np.arange(npix + 1)])
+    err = sdev / np.sqrt(expo)
+    assert np.isclose(np.std(mean), np.sqrt(np.mean(err**2)), rtol=0.04)
 
 
 def test_table_merge():
@@ -1113,3 +1134,20 @@ def test_table_merge():
     t1.meta["filename"] = "asd"
     with pytest.raises(ValueError, match=".*ERROR while merging tables.*"):
         s = merge_tables([t0, t1])
+
+
+def test_read_images_from_meta_keeps_all_images():
+    """Images saved in the metadata of a scan set (as ``write`` does) are all read back,
+    not only the last one of each kind."""
+    from srttools.imager import IMG_HOR_STR, IMG_STR, IMG_VER_STR
+
+    scanset = ScanSet()
+    images = {"Feed0_LCP": np.zeros((2, 2)), "Feed0_RCP": np.ones((2, 2))}
+    for prefix in [IMG_STR, IMG_HOR_STR, IMG_VER_STR]:
+        for key, img in images.items():
+            scanset.meta[prefix + key] = img
+    scanset.read_images_from_meta()
+    for imgs in [scanset.images, scanset.images_hor, scanset.images_ver]:
+        assert sorted(imgs) == sorted(images)
+        for key, img in images.items():
+            assert np.all(imgs[key] == img)

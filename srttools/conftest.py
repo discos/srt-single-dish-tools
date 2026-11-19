@@ -9,6 +9,8 @@ packagename.test
 
 import os
 
+import pytest
+
 try:
     from pytest_astropy_header.display import (
         PYTEST_HEADER_MODULES,
@@ -18,6 +20,12 @@ try:
     ASTROPY_HEADER = True
 except ImportError:
     ASTROPY_HEADER = False
+
+try:
+    import bokeh  # noqa: F401
+except ImportError:
+    # The interactive filter needs the optional bokeh: do not import it to look for doctests
+    collect_ignore = ["web_filter.py"]
 
 
 def pytest_configure(config):
@@ -40,3 +48,18 @@ def pytest_configure(config):
 
         packagename = os.path.basename(os.path.dirname(__file__))
         TESTED_VERSIONS[packagename] = __version__
+
+
+@pytest.fixture
+def no_pyplot_figures(monkeypatch):
+    """Make the test fail if the code creates a pyplot figure.
+
+    Plots that are only saved to a file must not use pyplot: with an
+    interactive backend, pyplot figures can open windows.
+    """
+    plt = pytest.importorskip("matplotlib.pyplot")
+
+    def fail(*args, **kwargs):
+        raise AssertionError("A pyplot figure was created for a plot that is only saved")
+
+    monkeypatch.setattr(plt, "new_figure_manager", fail)
