@@ -54,7 +54,7 @@ def load_data(fnames, outroot=None, outdir="."):
             }
             for coord in "ra", "dec", "az", "el":
                 new_tab[coord] = [np.rad2deg(full_table[coord][0])] * len(bad_freqs)
-            tables[label].extend(Table(new_tab))
+            tables[label].append(Table(new_tab))
 
     outfiles = []
     for label, local_tables in tables.items():
