@@ -346,6 +346,7 @@ class TestCalibration:
         assert os.path.exists(plotfile)
         os.unlink(plotfile)
 
+    @pytest.mark.slow
     @pytest.mark.skipif("not HAS_MPL")
     def test_sdtcal_show_with_config(self):
         main_cal(("-c " + self.config_file + " --check --show").split(" "))

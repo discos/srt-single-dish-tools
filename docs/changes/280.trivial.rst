@@ -4,3 +4,5 @@ vulnerable ``jinja2==3.1.3``.
 The old experiment scripts (``experiments/``) are no longer in the repository.
 
 Publish the package to PyPI automatically when a GitHub release is published.
+
+Tests that take several seconds and duplicate a faster test are marked ``slow`` and run only with ``--run-slow``: in CI, in the Linux coverage job and in the weekly jobs. All CI jobs print the 20 slowest tests. ``SDTrfistat`` collects the flagged channels 4 times faster (the tables were stacked row by row).

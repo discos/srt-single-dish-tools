@@ -116,6 +116,7 @@ class Test1_Scan:
         for fname in newfiles:
             os.unlink(fname)
 
+    @pytest.mark.slow
     def test_main_mbfitsw_local(self):
         files = main_convert([self.skydip, "-f", "mbfitsw", "--test", "--save-locally"])
         newfiles = glob.glob(os.path.basename(self.skydip) + "*KKG*.fits")
@@ -153,6 +154,7 @@ class Test1_Scan:
             assert header["SCANTYPE"] == "SKYDIP"
         shutil.rmtree(newdir)
 
+    @pytest.mark.slow
     def test_main_mbfits_local(self):
         newdir = main_convert([self.skydip, "-f", "mbfits", "--test", "--save-locally"])[0]
         assert os.path.exists(newdir)
@@ -251,6 +253,7 @@ class Test1_Scan:
             assert np.isclose(header["OBSGEO-X"], locations["srt"].x.value)
         shutil.rmtree(self.skydip + "_sdfits")
 
+    @pytest.mark.slow
     def test_main_sdfits_skydip_local(self):
         newdir = main_convert([self.skydip, "-f", "sdfits", "--test", "--save-locally"])[0]
         assert os.path.exists(newdir)

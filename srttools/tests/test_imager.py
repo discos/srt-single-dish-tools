@@ -894,6 +894,7 @@ class TestLargeMap:
         scanset.save_ds9_images(destripe=True)
 
     @pytest.mark.usefixtures("no_pyplot_figures")
+    @pytest.mark.slow
     def test_global_fit_image(self):
         """Test image production."""
         scanset = ScanSet("test.hdf5")
@@ -940,6 +941,7 @@ class TestLargeMap:
             main_imager("test.hdf5 -g -e 10 10 2 1 --noplot".split(" "))
             assert "Exclusion region has to be specified as " in str(excinfo.value)
 
+    @pytest.mark.slow
     def test_imager_global_fit_valid(self):
         """Test image production."""
         # Get information on images

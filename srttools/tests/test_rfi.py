@@ -45,6 +45,7 @@ def preprocessed(tmp_path_factory):
     return tmp, config
 
 
+@pytest.mark.slow
 @pytest.mark.skipif("not HAS_MPL")
 def test_rfi_config_finds_processed_scans(preprocessed, tmp_path, monkeypatch):
     """With -c, SDTrfistat reads the processed scans in intermediatedir and writes to productdir;

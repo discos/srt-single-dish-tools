@@ -47,6 +47,25 @@ The code style checks deliberately do not include ``codespell``: with
 ``HESE`` into ``THESE``, and this code is full of FITS keywords and
 abbreviations that a spell checker cannot tell from typos.
 
+Slow tests
+~~~~~~~~~~
+
+A few tests that take several seconds each, and whose code is also covered by
+a faster test, are marked ``@pytest.mark.slow``. They are skipped unless
+pytest is given ``--run-slow`` (an option of pytest-astropy, which provides
+the ``slow`` marker; do not define it again in ``conftest.py``):
+
+.. code-block:: console
+
+    $ pytest --pyargs srttools --run-slow
+    $ tox -e py313-test-alldeps -- --run-slow
+
+In CI, the Linux job with coverage (``py313-test-alldeps-cov``) and the
+weekly scheduled jobs run them; the other jobs do not. All jobs print the 20
+slowest tests at the end of the log (``--durations=20``): a new test that
+takes more than a few seconds should be made faster, or marked as slow if a
+faster test already covers the same code.
+
 Time limits on hung tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
