@@ -187,7 +187,8 @@ Limitations:
   is the loss itself; for bright sources and calibrators, where a loss of a
   few percent dominates the error, the check becomes sensitive. The profiles
   plotted by ``SDTcross`` show whether the source is centred and as wide as
-  the beam.
+  the beam. For bright sources, ``--fit-position`` corrects for pointing
+  offsets (see "Pointing offsets in calibrators and cross scans" below).
 - Nearby sources: a source on an arm, outside the knot-free region, bends
   the baseline: from -50% to +18% of its flux, depending on its distance (1.5
   to 4.5 FWHM), leaks into the measurement.
@@ -302,6 +303,60 @@ On a K-band, 7-feed session (2018-07-24) with five 3C147 maps as
 calibrators, these changes bring the flux density of 3C84 from ~235 Jy to
 23.7 Jy, consistent with an independent 2D fit of the same maps (~25 Jy,
 with the same 10% map-to-map scatter).
+
+Pointing offsets in calibrators and cross scans
+-----------------------------------------------
+
+Radio telescopes often point a few percent of a beam away from the
+requested position. A subscan that passes at a distance ``d`` from the peak
+of a point source sees it attenuated by ``exp(-d**2 / (2 * sigma**2))``,
+where ``sigma`` is the standard deviation of the Gaussian beam (FWHM / 2.355).
+The fit along the subscan finds the shifted peak, but cannot know the offset
+*across* the subscan: that is measured by the perpendicular subscans.
+
+``SDTcal`` fits the position of the peak in each subscan (the mean of the
+Gaussian is free). For each subscan it takes the up to two perpendicular
+subscans of the same channel closest in time, and their mean fitted position
+gives the offset of the source from the track of the subscan. The amplitude
+(``Counts``) is multiplied by ``exp(d**2 / (2 * sigma**2))``, with ``sigma``
+the mean width fitted on the perpendicular subscans. The factor is stored in
+the ``Offset Corr`` column, the position of the track (in degrees on the sky,
+relative to the catalogue position) in ``Track Offset``. Corrections above a
+factor of 2 (an offset of more than 0.5 FWHM) are not applied, with a
+warning: the subscan probably missed the source. Subscans without
+perpendicular ones (maps scanned in one direction, off-axis feeds) are not
+corrected. The pointing errors (``RA err``, ``Dec err``) are on the sky: the
+RA error is multiplied by cos(Dec).
+
+``SDTcross`` uses a forced fit at the nominal position by default, which is
+the only unbiased choice for faint sources. With ``--fit-position`` (for
+sources detected at high signal-to-noise ratio, such as calibrators) it
+fits the position of the source along each arm first (``fit_arm_positions``):
+it repeats the joint fit of all subscans with the Gaussian moved along a
+grid from -0.5 to +0.5 FWHM in steps of FWHM/50, takes the position with
+the smallest sum of squared residuals, and refines it with a parabola
+through the three best points. During this search the spline knots stay
+fixed around the nominal position, and the knot-free region is widened by
+0.5 FWHM, so that the baseline does not move with the Gaussian. (Taking the
+position of the largest amplitude instead of the best fit is biased by ~2%
+of the offset, because the baseline absorbs part of the shifted Gaussian.)
+The amplitudes are then measured at the fitted position, and each arm is
+corrected for the offset measured by the *other* arm, as in ``SDTcal``. If
+the source is not detected on an arm at ``--nsigma``, the nominal position
+is used, with a warning. The offsets (arcmin) and correction factors are
+written in the header of the output (``OFF_RA``, ``OFF_DEC``, ``COR_RA``,
+``COR_DEC``), and the plotted beam model is drawn at the fitted position.
+
+Calibrators and targets should be treated the same way: correcting only the
+calibrators would make the target fluxes too low. On simulated cross scans
+with an offset of (0.2, -0.3) FWHM, the forced fit loses ~20% of the flux,
+while ``--fit-position`` recovers it within the errors and finds the
+offsets within 0.02 FWHM. On the real calibrators of the cross-scan
+tutorial the offsets are at most 0.15' at C band (5% of the beam, corrections
+below 1%) and up to 0.1' at K band (10% of the beam), where the arm
+perpendicular to the offset is corrected by 2-3%. With both corrections, the
+fluxes agree with those without any correction within 1.2%, and the scatter
+around the catalogue fluxes at C band goes from 1.9% to 1.6%.
 
 Excluded regions in the baseline subtraction
 --------------------------------------------

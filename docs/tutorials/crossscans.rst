@@ -108,6 +108,16 @@ Checks
   position. A pointing offset, or a source wider than the beam, make the
   flux lower. If the profiles are visibly wider than the fitted beam, or
   their peak is off-centre, the flux is a lower limit to the true one.
+- For bright sources (calibrators, or targets detected at high
+  signal-to-noise ratio), ``--fit-position`` fits the position of the source
+  along each arm, and corrects the flux for the pointing offset: a source
+  off the track of the RA arm by ``d`` (measured by the Dec arm) is
+  attenuated by ``exp(-d**2 / (2 sigma**2))`` there, where ``sigma`` is the
+  standard deviation of the beam. The offsets (arcmin) and the correction
+  factors are in the header (``OFF_RA``, ``OFF_DEC``, ``COR_RA``,
+  ``COR_DEC``). ``SDTcal`` makes the same correction on the calibrators,
+  so the two are consistent. Do not use it on faint sources: the fitted
+  position would follow the noise.
 - Other sources along the scans, outside the region around the target, can
   bend the baseline and bias the flux (by up to half of their own flux).
   See :doc:`../technical_details` for the method and its validation.
@@ -123,6 +133,9 @@ one K-band night in 2016 (21 GHz, one cross per observation). Each
 observation was calibrated by ``SDTcal`` on the *other* calibrators of the
 same session (leave-one-out), measured with ``SDTcross --calibrate``, and
 compared with the flux catalog of srttools (Perley & Butler 2013).
+(The figure was made without ``--fit-position``; with it, the fluxes change by
+less than 2%: the pointing offsets are at most 5% of the beam at C band, and
+10% at K band.)
 
 .. image:: ../images/crossscan_calibrators.png
    :width: 100%
