@@ -10,12 +10,14 @@ except ImportError:
 
 from srttools.destripe import basket_weaving, destripe_wrapper
 
-np.random.seed(450720239)
-
 
 class TestScanSet:
     @classmethod
     def setup_class(klass):
+        # A generator of our own: the global one would give different data
+        # depending on which tests ran before (with ~2% of the draws failing
+        # the 5-sigma check of test_no_expo)
+        rng = np.random.default_rng(450720239)
         x = np.linspace(-1, 1, 101)
         y = np.linspace(-1, 1, 101)
         xx, yy = np.meshgrid(x, y)
@@ -26,17 +28,13 @@ class TestScanSet:
         klass.img_hor = 0
         klass.img_ver = 0
 
-        example_scan = np.cumsum(np.random.normal(0, 0.01, len(zz[0])))
+        example_scan = np.cumsum(rng.normal(0, 0.01, len(zz[0])))
 
         for i in range(6):
-            offset = np.random.choice(example_scan)
-            zz_hor = np.array(
-                [z + offset + np.cumsum(np.random.normal(0, 0.01, len(z))) for z in zz]
-            )
-            offset = np.random.choice(example_scan)
-            zz_ver = np.array(
-                [z + offset + np.cumsum(np.random.normal(0, 0.01, len(z))) for z in zz.T]
-            ).T
+            offset = rng.choice(example_scan)
+            zz_hor = np.array([z + offset + np.cumsum(rng.normal(0, 0.01, len(z))) for z in zz])
+            offset = rng.choice(example_scan)
+            zz_ver = np.array([z + offset + np.cumsum(rng.normal(0, 0.01, len(z))) for z in zz.T]).T
 
             if i != 0:  # One less integration over x
                 klass.img_hor += zz_hor
