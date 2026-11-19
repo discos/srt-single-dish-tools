@@ -156,7 +156,9 @@ class TestScanSet:
             shutil.copytree(skydip_dir, new_skydip_dir)
 
         caltable = CalibratorTable()
-        caltable.from_scans(glob.glob(os.path.join(klass.caldir, "*.fits")), debug=True)
+        # No debug plots here: they double the setup time, and test_calibration
+        # and TestScanSet::test_preprocess_single_files already exercise them
+        caltable.from_scans(glob.glob(os.path.join(klass.caldir, "*.fits")), debug=False)
         caltable.update()
 
         klass.calfile = os.path.join(klass.datadir, "calibrators.hdf5")
@@ -178,7 +180,7 @@ class TestScanSet:
             nosub=False,
             norefilt=False,
             plot=False,
-            debug=True,
+            debug=False,
             avoid_regions=excluded_radec,
         )
         klass.scanset.write("test.hdf5", overwrite=True)
@@ -711,7 +713,7 @@ class TestLargeMap:
             nosub=False,
             norefilt=False,
             plot=False,
-            debug=True,
+            debug=False,
             avoid_regions=excluded_radec,
         )
         klass.scanset.write("test.hdf5", overwrite=True)
