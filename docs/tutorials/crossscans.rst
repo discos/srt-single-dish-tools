@@ -169,8 +169,13 @@ The consistency checks behave differently on bright sources:
   deviation of the Gaussian, in degrees: multiply by 2.355 and by 60 to get
   the FWHM in arcmin).
 - ``CONS_ARM`` was -9.5 in one observation of 3C286: the RA scans gave 3%
-  less than the Dec scans, the signature of a pointing offset along Dec.
-  The flux of that observation is 2.4% below the catalog.
+  less than the Dec scans. This is not a pointing offset: the offsets fitted
+  by ``SDTcal`` (at most 0.15', 5% of the beam) cost only a few tenths of a
+  percent, and about the same on both arms. The RA profiles are narrower
+  than the Dec ones (2.74' against 2.79') and 1.6% lower even in the fits of
+  ``SDTcal``, where position and width are free: the beam is slightly
+  elongated, and a circular beam model cannot fit both arms at this
+  precision. The flux of that observation is 2.4% below the catalog.
 - ``CONS_POL`` scattered more than expected (standard deviation 2.2 instead
   of 1). On bright sources, it measures how well each polarization channel
   is calibrated: a 1% difference is 5 standard deviations at a precision
